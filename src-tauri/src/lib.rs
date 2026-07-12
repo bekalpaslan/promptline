@@ -288,10 +288,24 @@ fn get_snippets(app: AppHandle) -> Vec<Snippet> {
     load_snippets_from_disk(&app)
 }
 
+// The manager caches snippets in memory; when another window writes, tell it
+fn notify_manager_snippets_changed(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("main") {
+        let _ = w.emit("snippets-changed", ());
+    }
+}
+
 #[tauri::command]
-fn save_snippets(app: AppHandle, snippets: Vec<Snippet>) -> Result<(), String> {
+fn save_snippets(
+    app: AppHandle,
+    window: tauri::WebviewWindow,
+    snippets: Vec<Snippet>,
+) -> Result<(), String> {
     write_snippets(&app, &snippets)?;
     sync_pack_files(&app);
+    if window.label() != "main" {
+        notify_manager_snippets_changed(&app);
+    }
     Ok(())
 }
 
@@ -465,6 +479,7 @@ fn paste_snippet(
         if let Some(s) = snippets.iter_mut().find(|s| s.id == id) {
             s.uses += 1;
             let _ = write_snippets(&app, &snippets);
+            notify_manager_snippets_changed(&app);
         }
     }
 

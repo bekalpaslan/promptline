@@ -183,9 +183,17 @@ export function App() {
         return "done"
       })
     })
+    // The popup writes too (create-from-clipboard, pins, use counts) — refresh
+    const unChanged = listen("snippets-changed", () => {
+      void invoke<Snippet[]>("get_snippets").then((snips) => {
+        snippetsRef.current = snips
+        setSnippets(snips)
+      })
+    })
     return () => {
       void unEdit.then((f) => f())
       void unFirst.then((f) => f())
+      void unChanged.then((f) => f())
     }
   }, [])
 
