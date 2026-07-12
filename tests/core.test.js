@@ -47,6 +47,15 @@ test('empty-string config value counts as unset', () => {
   assert.equal(out, '{{a}}');
 });
 
+test('requiredInputs counts runtime fields plus unset config params', () => {
+  const s = {
+    text: 'Do {goal} with {{standing}} and {{unset}} plus {clipboard}',
+    configValues: { standing: 'set value' },
+  };
+  assert.deepEqual(core.requiredInputs(s), ['goal', 'unset']);
+  assert.deepEqual(core.requiredInputs({ text: 'plain {clipboard} only', configValues: {} }), []);
+});
+
 test('expandBuiltins replaces date and time deterministically', () => {
   const now = new Date(2026, 6, 12, 9, 5);
   const out = core.expandBuiltins('on {date} at {time}', now);

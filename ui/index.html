@@ -250,6 +250,16 @@
   }
   .snip .name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .snip .uses { font-size: var(--fs-pill); color: var(--text-3); flex-shrink: 0; font-variant-numeric: tabular-nums; }
+  .snip .ask {
+    font-size: var(--fs-pill);
+    font-weight: 600;
+    color: var(--param-field);
+    background: var(--param-field-soft);
+    border-radius: 4px;
+    padding: 0 5px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
   .pill {
     font-size: var(--fs-pill);
     font-weight: 500;
@@ -898,6 +908,14 @@ function snipRow(s, withTags) {
     u.className = 'uses';
     u.textContent = s.uses + '×';
     d.appendChild(u);
+  }
+  const inputs = C.requiredInputs(s);
+  if (inputs.length) {
+    const ask = document.createElement('span');
+    ask.className = 'ask';
+    ask.textContent = `{${inputs.length}}`;
+    ask.title = `Asks for ${inputs.length} value${inputs.length === 1 ? '' : 's'} before pasting: ${inputs.join(', ')}`;
+    d.appendChild(ask);
   }
   if (withTags) {
     for (const t of (s.tags || []).slice(0, 2)) {

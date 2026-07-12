@@ -65,6 +65,13 @@
     return text.replace(/\{\{([a-z_]+)\}\}/g, '{$1}');
   }
 
+  // Fields the popup will actually ask for when this snippet is picked:
+  // runtime fields plus any config params without a saved value.
+  function requiredInputs(snippet) {
+    const base = downgradeUnsetConfig(expandConfig(snippet.text, snippet.configValues));
+    return customFields(base);
+  }
+
   function expandBuiltins(text, now) {
     const d = now || new Date();
     return text
@@ -223,6 +230,7 @@
     configNames,
     expandConfig,
     downgradeUnsetConfig,
+    requiredInputs,
     expandBuiltins,
     fuzzyScore,
     parseQuery,

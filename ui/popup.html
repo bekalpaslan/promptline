@@ -157,6 +157,16 @@
     flex-shrink: 0;
     font-variant-numeric: tabular-nums;
   }
+  .ask {
+    font-size: var(--fs-pill);
+    font-weight: 600;
+    color: var(--param-field);
+    background: var(--param-field-soft);
+    border-radius: 4px;
+    padding: 0 5px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
   .item .preview {
     font-size: var(--fs-ui);
     color: var(--text-3);
@@ -497,6 +507,14 @@ function render() {
         searchEl.focus();
       });
       row.appendChild(pill);
+    }
+    const inputs = C.requiredInputs(s);
+    if (inputs.length) {
+      const ask = document.createElement('span');
+      ask.className = 'ask';
+      ask.textContent = `{${inputs.length}}`;
+      ask.title = `Asks for ${inputs.length} value${inputs.length === 1 ? '' : 's'} before pasting: ${inputs.join(', ')}`;
+      row.appendChild(ask);
     }
     if (i < 5) {
       const ord = document.createElement('span');
