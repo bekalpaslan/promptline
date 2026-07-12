@@ -141,6 +141,12 @@ fn sync_pack_files(app: &AppHandle) {
             .filter(|s| s.pack == pm.name)
             .map(|s| serde_json::json!({ "title": s.title, "tags": s.tags, "text": s.text }))
             .collect();
+        // Never write an empty pack over its file: an agent may have just
+        // written prompts there that haven't been imported yet, and clobbering
+        // that with the library's (still empty) view would destroy them.
+        if prompts.is_empty() {
+            continue;
+        }
         let doc = serde_json::json!({ "name": pm.name, "prompts": prompts });
         if let Ok(json) = serde_json::to_string_pretty(&doc) {
             let _ = fs::write(&pm.path, json);
