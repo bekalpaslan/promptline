@@ -679,8 +679,13 @@
         <span class="stepArrow">paste it to Claude, copy its reply, then</span>
         <button class="small" id="importReplyBtn">2 · Import Claude's reply</button>
       </div>
+      <div class="settingRow" style="margin:0">
+        <button class="small" id="agentFileBtn">Terminal agent: create pack file + copy instructions</button>
+        <span class="stepArrow">the agent writes the file, then</span>
+        <button class="small" id="agentFileImportBtn" disabled>Import from the pack file</button>
+      </div>
       <div class="importPreview" id="genImportPreview"></div>
-      <div class="hint" style="font-size: var(--fs-caption); color: var(--text-3);">The copied instruction carries your topic, your existing tags, and the pack format. You review every prompt before it's added.</div>
+      <div class="hint" style="font-size: var(--fs-caption); color: var(--text-3);">Row 1 is the copy/paste loop for chat Claude. Row 2 is for agents with file access (Claude Code): the instruction contains the pack file's path and the agent writes it directly — no clipboard, no terminal-copy corruption. Either way you review every prompt before it's added.</div>
       <div class="settingRow" style="margin:0; justify-content: flex-end">
         <button class="small" id="genCloseBtn">Close</button>
       </div>
@@ -1072,6 +1077,52 @@ function packToJson(name) {
   };
 }
 
+// File actions for file-backed packs; non-backed packs get an upgrade action
+function packFileItems(name) {
+  const meta = packMeta.find(p => p.name === name);
+  if (!meta || !meta.path) {
+    return [{
+      label: 'Back with a file…',
+      run: async () => {
+        let m = meta;
+        if (!m) { m = { name, locked: false, path: '' }; packMeta.push(m); }
+        try {
+          m.path = await invoke('create_pack_file', { name });
+          await persistPackMeta();
+          await persist(); // triggers the sync that fills the fresh file
+          setStatusAction(`"${name}" is now file-backed`, 'Show file', () =>
+            invoke('show_in_folder', { path: m.path }));
+        } catch (e) {
+          setStatus(String(e), true);
+        }
+      },
+    }];
+  }
+  return [
+    {
+      label: 'Sync from file',
+      run: async () => {
+        try {
+          const raw = await invoke('read_pack_file', { path: meta.path });
+          showSettings(true);
+          document.querySelector('.navItem[data-pane="data"]').click();
+          startImport(document.getElementById('dataImportPreview'), raw);
+        } catch (e) {
+          setStatus(`Couldn't read the pack file: ${e}`, true);
+        }
+      },
+    },
+    {
+      label: 'Copy file path',
+      run: async () => {
+        await invoke('set_clipboard_text', { text: meta.path });
+        setStatus('Path copied');
+      },
+    },
+    { label: 'Show in folder', run: () => invoke('show_in_folder', { path: meta.path }) },
+  ];
+}
+
 function openPackCtx(x, y, name, count, renameFn) {
   const locked = isLocked(name);
   openCtx(x, y, [
@@ -1095,6 +1146,7 @@ function openPackCtx(x, y, name, count, renameFn) {
         setStatus(`Pack "${name}" copied to clipboard`);
       },
     },
+    ...packFileItems(name),
     { sep: true },
     {
       label: locked ? 'Delete (locked)' : `Delete pack…`,
@@ -1149,10 +1201,23 @@ async function addPack(name) {
     setStatus(`Pack "${name}" already exists`, true);
     return;
   }
-  packMeta.push({ name, locked: false });
+  // New packs are file-backed: they own a .json under the profile that the
+  // app keeps current — grab the file to back up or share the pack.
+  let path = '';
+  try {
+    path = await invoke('create_pack_file', { name });
+  } catch (e) {
+    setStatus(String(e), true);
+  }
+  packMeta.push({ name, locked: false, path });
   await persistPackMeta();
   renderList();
-  setStatus(`Pack "${name}" created`);
+  if (path) {
+    setStatusAction(`Pack "${name}" created`, 'Show file', () =>
+      invoke('show_in_folder', { path }));
+  } else {
+    setStatus(`Pack "${name}" created`);
+  }
 }
 
 // ---- Multi-select context menu ----
@@ -1709,15 +1774,10 @@ document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && genOverlayEl.classList.contains('visible')) closeGenDialog();
 });
 
-document.getElementById('templateBtn').addEventListener('click', async () => {
-  const topic = packTopicEl.value.trim();
-  if (!topic) {
-    setStatus('Describe a topic first', true);
-    packTopicEl.focus();
-    return;
-  }
+// Shared schema/rules for both generation modes (clipboard reply, agent-written file)
+function packInstructionRules() {
   const tags = allTags().slice(0, 12).join(', ') || 'debug, review, plan';
-  const template = `You are generating a prompt pack for Promptline (a prompt-paste tool). Output ONLY a JSON object — no prose, no code fences — following exactly this schema:
+  return `The pack is a JSON object following exactly this schema:
 
 {
   "name": "Short pack name",
@@ -1740,11 +1800,74 @@ Pack rules:
 - 5 to 15 prompts, each genuinely reusable (no one-off prompts)
 - Every prompt should encode a working practice, not just a phrasing
 - Titles must be unique
-- Reuse these existing tags where they fit, adding new ones only when needed: ${tags}
+- Reuse these existing tags where they fit, adding new ones only when needed: ${tags}`;
+}
+
+function requireTopic() {
+  const topic = packTopicEl.value.trim();
+  if (!topic) {
+    setStatus('Describe a topic first', true);
+    packTopicEl.focus();
+  }
+  return topic;
+}
+
+document.getElementById('templateBtn').addEventListener('click', async () => {
+  const topic = requireTopic();
+  if (!topic) return;
+  const template = `You are generating a prompt pack for Promptline (a prompt-paste tool). Output ONLY the JSON object — no prose, no code fences.
+
+${packInstructionRules()}
 
 Generate a pack for: ${topic}`;
   await invoke('set_clipboard_text', { text: template });
   setStatus('Copied — paste it to Claude, then use step 2 on its reply');
+});
+
+// Agent file mode: the agent writes the pack straight into a file-backed
+// pack's .json — no clipboard transport, immune to terminal copy corruption.
+let agentFilePath = '';
+const agentFileImportBtn = document.getElementById('agentFileImportBtn');
+document.getElementById('agentFileBtn').addEventListener('click', async () => {
+  const topic = requireTopic();
+  if (!topic) return;
+  try {
+    let meta = packMeta.find(p => p.name === topic);
+    if (!meta) {
+      const path = await invoke('create_pack_file', { name: topic });
+      meta = { name: topic, locked: false, path };
+      packMeta.push(meta);
+      await persistPackMeta();
+      renderList();
+    } else if (!meta.path) {
+      meta.path = await invoke('create_pack_file', { name: topic });
+      await persistPackMeta();
+    }
+    agentFilePath = meta.path;
+    const instruction = `You are creating a prompt pack for Promptline (a prompt-paste tool). Write the pack as JSON directly into this file, replacing its placeholder contents:
+
+${agentFilePath}
+
+${packInstructionRules()}
+
+Generate the pack for: ${topic}
+
+Write the file; do not print the JSON anywhere else.`;
+    await invoke('set_clipboard_text', { text: instruction });
+    agentFileImportBtn.disabled = false;
+    setStatus('File created & instructions copied — paste them to your agent, then import');
+  } catch (e) {
+    setStatus(String(e), true);
+  }
+});
+agentFileImportBtn.addEventListener('click', async () => {
+  if (!agentFilePath) return;
+  try {
+    const raw = await invoke('read_pack_file', { path: agentFilePath });
+    startImport(document.getElementById('genImportPreview'), raw);
+  } catch (e) {
+    setStatus(`Couldn't read the pack file: ${e}`, true);
+  }
 });
 
 // ---- Import with curation (shared by Data pane and generate dialog) ----

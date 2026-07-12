@@ -46,6 +46,10 @@ struct PackMeta {
     name: String,
     #[serde(default)]
     locked: bool,
+    // File-backed packs: absolute path of the pack's own .json file. The app
+    // auto-writes shareable content there on every save; empty = not file-backed.
+    #[serde(default)]
+    path: String,
 }
 
 fn default_theme() -> String {
@@ -101,6 +105,47 @@ fn snippets_path(app: &AppHandle) -> PathBuf {
 
 fn config_path(app: &AppHandle) -> PathBuf {
     data_dir(app).join("config.json")
+}
+
+fn packs_dir(app: &AppHandle) -> PathBuf {
+    let dir = data_dir(app).join("packs");
+    let _ = fs::create_dir_all(&dir);
+    dir
+}
+
+fn sanitize_pack_filename(name: &str) -> String {
+    let mut s = String::new();
+    for c in name.chars() {
+        if c.is_alphanumeric() {
+            s.extend(c.to_lowercase());
+        } else {
+            s.push('-');
+        }
+    }
+    let s = s.trim_matches('-').to_string();
+    let s = s.split('-').filter(|p| !p.is_empty()).collect::<Vec<_>>().join("-");
+    if s.is_empty() { "pack".into() } else { s }
+}
+
+// Write each file-backed pack's shareable content (title/tags/text only —
+// never personal state like uses, pins, or config values) to its file.
+fn sync_pack_files(app: &AppHandle) {
+    let config = load_config_from_disk(app);
+    if config.packs.iter().all(|p| p.path.is_empty()) {
+        return;
+    }
+    let snippets = load_snippets_from_disk(app);
+    for pm in config.packs.iter().filter(|p| !p.path.is_empty()) {
+        let prompts: Vec<serde_json::Value> = snippets
+            .iter()
+            .filter(|s| s.pack == pm.name)
+            .map(|s| serde_json::json!({ "title": s.title, "tags": s.tags, "text": s.text }))
+            .collect();
+        let doc = serde_json::json!({ "name": pm.name, "prompts": prompts });
+        if let Ok(json) = serde_json::to_string_pretty(&doc) {
+            let _ = fs::write(&pm.path, json);
+        }
+    }
 }
 
 /// One-time migration from the v1 EasyPaste data directory: keep user-created
@@ -231,7 +276,9 @@ fn get_snippets(app: AppHandle) -> Vec<Snippet> {
 
 #[tauri::command]
 fn save_snippets(app: AppHandle, snippets: Vec<Snippet>) -> Result<(), String> {
-    write_snippets(&app, &snippets)
+    write_snippets(&app, &snippets)?;
+    sync_pack_files(&app);
+    Ok(())
 }
 
 #[tauri::command]
@@ -261,7 +308,43 @@ fn set_hotkey(app: AppHandle, hotkey: String) -> Result<(), String> {
 fn save_packs(app: AppHandle, packs: Vec<PackMeta>) -> Result<(), String> {
     let mut config = load_config_from_disk(&app);
     config.packs = packs;
-    save_config(&app, &config)
+    save_config(&app, &config)?;
+    sync_pack_files(&app);
+    Ok(())
+}
+
+/// Create a fresh file-backed pack file and return its absolute path.
+#[tauri::command]
+fn create_pack_file(app: AppHandle, name: String) -> Result<String, String> {
+    let dir = packs_dir(&app);
+    let base = sanitize_pack_filename(&name);
+    let mut path = dir.join(format!("{base}.json"));
+    let mut i = 2;
+    while path.exists() {
+        path = dir.join(format!("{base}-{i}.json"));
+        i += 1;
+    }
+    let doc = serde_json::json!({ "name": name, "prompts": [] });
+    let json = serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())?;
+    fs::write(&path, json).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+#[tauri::command]
+fn read_pack_file(path: String) -> Result<String, String> {
+    fs::read_to_string(&path).map_err(|e| format!("{path}: {e}"))
+}
+
+#[tauri::command]
+fn show_in_folder(path: String) {
+    #[cfg(windows)]
+    {
+        let _ = std::process::Command::new("explorer")
+            .args(["/select,", &path])
+            .spawn();
+    }
+    #[cfg(not(windows))]
+    let _ = path;
 }
 
 #[tauri::command]
@@ -562,6 +645,24 @@ mod tests {
     }
 
     #[test]
+    fn pack_filenames_are_sanitized_and_stable() {
+        assert_eq!(sanitize_pack_filename("Beekon Routine Injections"), "beekon-routine-injections");
+        assert_eq!(sanitize_pack_filename("Rust + Tauri!!"), "rust-tauri");
+        assert_eq!(sanitize_pack_filename("---"), "pack");
+        assert_eq!(sanitize_pack_filename("Ünïcode Pack"), "ünïcode-pack");
+    }
+
+    #[test]
+    fn pack_meta_path_defaults_for_older_configs() {
+        let c: Config = serde_json::from_str(
+            r#"{"hotkey": "x", "packs": [{"name": "Old", "locked": true}]}"#,
+        )
+        .unwrap();
+        assert_eq!(c.packs[0].path, "");
+        assert!(c.packs[0].locked);
+    }
+
+    #[test]
     fn starter_pack_ids_are_unique_and_tagged() {
         let snippets = default_snippets();
         let mut ids: Vec<_> = snippets.iter().map(|s| s.id.clone()).collect();
@@ -597,6 +698,9 @@ pub fn run() {
             save_packs,
             save_prefs,
             import_pack_file,
+            create_pack_file,
+            read_pack_file,
+            show_in_folder,
             edit_in_manager,
             get_autostart,
             set_autostart,
