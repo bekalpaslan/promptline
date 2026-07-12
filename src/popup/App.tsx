@@ -2,6 +2,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import {
+  RiAddLine,
+  RiArrowDownSLine,
+  RiArrowRightSLine,
   RiClipboardLine,
   RiCloseLine,
   RiEdit2Line,
@@ -9,7 +12,7 @@ import {
   RiPushpinFill,
   RiSearchLine,
 } from "@remixicon/react"
-import { C, type Snippet } from "@/lib/core"
+import { C, type PackMeta, type Snippet } from "@/lib/core"
 import { applyPrefs, isCompact } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 
@@ -20,6 +23,9 @@ const FOCUS_BORDER = "#00a6f4"
 type Entry = { s: Snippet; indices: number[] | null }
 type FormState = { snippet: Snippet; base: string; fields: string[]; paste: boolean }
 type PanelAction = { label: string; danger?: boolean; run: () => void }
+type CreateState = { title: string; pack: string }
+
+const DEFAULT_PACK = "My prompts"
 
 // 20px bordered square, the kit's shortcut-label idiom
 function Kbd({ children }: { children: React.ReactNode }) {
@@ -104,6 +110,8 @@ export function App() {
   const [deleteArmed, setDeleteArmed] = useState(false)
   const [previewIdx, setPreviewIdx] = useState<number | null>(null)
   const [compact, setCompact] = useState(isCompact())
+  const [packMeta, setPackMeta] = useState<PackMeta[]>([])
+  const [create, setCreate] = useState<CreateState | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -137,11 +145,72 @@ export function App() {
   }, [snippets, query])
 
   const hasQuery = !!C.parseQuery(query).text
-  // Pins sort first, so the section boundary is the count of leading pins
-  const pinnedCount = hasQuery ? 0 : filtered.filter((e) => e.s.pinned).length
 
-  const selected = filtered[sel]
+  // Browsing groups by pack (collapsible); searching stays a flat ranked list.
+  // `visible` is what the keyboard navigates — collapsed packs drop out of it.
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("popupCollapsedPacks") || "[]"))
+    } catch {
+      return new Set()
+    }
+  })
+  const toggleCollapsed = (name: string) => {
+    const next = new Set(collapsed)
+    if (next.has(name)) next.delete(name)
+    else next.add(name)
+    setCollapsed(next)
+    localStorage.setItem("popupCollapsedPacks", JSON.stringify([...next]))
+    setSel(0)
+  }
+
+  type Section = { name: string; entries: Entry[]; collapsible: boolean; isCollapsed: boolean }
+  const { sections, visible } = useMemo(() => {
+    if (hasQuery) {
+      const sections: Section[] =
+        filtered.length > 0 ? [{ name: "Results", entries: filtered, collapsible: false, isCollapsed: false }] : []
+      return { sections, visible: filtered }
+    }
+    const pinned = filtered.filter((e) => e.s.pinned)
+    const rest = filtered.filter((e) => !e.s.pinned)
+    const map = new Map<string, Entry[]>()
+    for (const e of rest) {
+      const key = e.s.pack || DEFAULT_PACK
+      if (!map.has(key)) map.set(key, [])
+      map.get(key)!.push(e)
+    }
+    const packs = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    const sections: Section[] = []
+    if (pinned.length) sections.push({ name: "Pinned", entries: pinned, collapsible: false, isCollapsed: false })
+    for (const [name, entries] of packs)
+      sections.push({ name, entries, collapsible: true, isCollapsed: collapsed.has(name) })
+    const visible = [...pinned, ...packs.flatMap(([n, es]) => (collapsed.has(n) ? [] : es))]
+    return { sections, visible }
+  }, [filtered, hasQuery, collapsed])
+
+  // Row index within `visible`, for selection/ordinals
+  const rowIndex = useMemo(() => new Map(visible.map((e, i) => [e.s.id, i])), [visible])
+
+  // Collapsing can strand the selection past the end
+  useEffect(() => {
+    if (sel >= visible.length && visible.length > 0) setSel(visible.length - 1)
+  }, [sel, visible.length])
+
+  const selected = visible[sel]
   const showsClip = !!selected && selected.s.text.includes("{clipboard}")
+
+  const packNames = useMemo(() => {
+    const names = new Set([
+      ...packMeta.map((p) => p.name),
+      ...snippets.map((s) => s.pack || DEFAULT_PACK),
+      DEFAULT_PACK,
+    ])
+    return [...names].sort((a, b) => a.localeCompare(b))
+  }, [packMeta, snippets])
+  const isLocked = useCallback(
+    (name: string) => !!packMeta.find((p) => p.name === name)?.locked,
+    [packMeta]
+  )
 
   const hidePreview = useCallback(() => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
@@ -159,6 +228,39 @@ export function App() {
   const send = useCallback(async (snippet: Snippet, text: string, paste: boolean) => {
     await invoke("paste_snippet", { text, paste, id: snippet.id })
   }, [])
+
+  // --- Create prompt from clipboard -------------------------------------------
+  const openCreate = useCallback(() => {
+    hidePreview()
+    closePanel()
+    const firstLine = clip.trim().split(/\r?\n/)[0] ?? ""
+    const fallback = packNames.find((p) => !isLocked(p)) ?? DEFAULT_PACK
+    setCreate({
+      title: firstLine.slice(0, 40) || "New prompt",
+      pack: isLocked(DEFAULT_PACK) ? fallback : DEFAULT_PACK,
+    })
+  }, [clip, packNames, isLocked, hidePreview, closePanel])
+
+  const saveCreate = useCallback(async () => {
+    if (!create) return
+    const snip: Snippet = {
+      id: crypto.randomUUID(),
+      title: create.title.trim() || "(untitled)",
+      text: clip,
+      tags: [],
+      pack: create.pack,
+      uses: 0,
+      pinned: false,
+      fieldValues: {},
+      configValues: {},
+    }
+    const next = [...snippets, snip]
+    setSnippets(next)
+    await invoke("save_snippets", { snippets: next })
+    setCreate(null)
+    setQuery("")
+    inputRef.current?.focus()
+  }, [create, clip, snippets])
 
   const pick = useCallback((snippet: Snippet, paste: boolean) => {
     hidePreview()
@@ -232,15 +334,18 @@ export function App() {
     setCompact(isCompact())
     closePanel()
     setForm(null)
+    setCreate(null)
     hidePreview()
     setPickedId(null)
-    const [snips, clipboard] = await Promise.all([
+    const [snips, clipboard, config] = await Promise.all([
       invoke<Snippet[]>("get_snippets"),
       invoke<string>("get_clipboard_text"),
+      invoke<{ packs?: PackMeta[] }>("get_config"),
     ])
     setQuery("")
     setSnippets(snips)
     setClip(clipboard)
+    setPackMeta(Array.isArray(config.packs) ? config.packs : [])
     setSel(0)
     inputRef.current?.focus()
   }, [closePanel, hidePreview])
@@ -257,7 +362,7 @@ export function App() {
   // Keep the selected row in view
   useEffect(() => {
     listRef.current?.querySelector('[data-selected="true"]')?.scrollIntoView({ block: "nearest" })
-  }, [sel, filtered])
+  }, [sel, visible])
 
   // --- Keyboard ---------------------------------------------------------------
   useEffect(() => {
@@ -273,14 +378,20 @@ export function App() {
       }
       if (e.key === "Escape") {
         if (form) setForm(null)
+        else if (create) setCreate(null)
         else void invoke("hide_popup")
         return
       }
-      if (form) return // form handles its own keys
+      if (form || create) return // form/create views handle their own keys
       if (e.ctrlKey && /^[1-5]$/.test(e.key)) {
         e.preventDefault()
-        const entry = filtered[Number(e.key) - 1]
+        const entry = visible[Number(e.key) - 1]
         if (entry) pick(entry.s, true)
+        return
+      }
+      if (e.ctrlKey && e.key.toLowerCase() === "n") {
+        e.preventDefault()
+        openCreate()
         return
       }
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -289,30 +400,30 @@ export function App() {
       }
       if (e.key === "ArrowDown") {
         e.preventDefault()
-        if (filtered.length) setSel((s) => (s + 1) % filtered.length)
+        if (visible.length) setSel((s) => (s + 1) % visible.length)
       } else if (e.key === "ArrowUp") {
         e.preventDefault()
-        if (filtered.length) setSel((s) => (s - 1 + filtered.length) % filtered.length)
+        if (visible.length) setSel((s) => (s - 1 + visible.length) % visible.length)
       } else if (
         e.key === "ArrowRight" &&
         inputRef.current?.selectionStart === inputRef.current?.value.length
       ) {
         // At the end of the query, Right shows the full-prompt preview card
-        if (filtered.length) { e.preventDefault(); setPreviewIdx(sel) }
+        if (visible[sel]) { e.preventDefault(); setPreviewIdx(sel) }
       } else if (e.key === "ArrowLeft" && previewIdx !== null) {
         e.preventDefault()
         hidePreview()
       } else if (e.key === "Tab") {
         e.preventDefault()
-        if (filtered[sel]) { hidePreview(); setPanelFor(filtered[sel].s); setPanelSel(0) }
+        if (visible[sel]) { hidePreview(); setPanelFor(visible[sel].s); setPanelSel(0) }
       } else if (e.key === "Enter") {
         e.preventDefault()
-        if (filtered[sel]) pick(filtered[sel].s, !e.ctrlKey)
+        if (visible[sel]) pick(visible[sel].s, !e.ctrlKey)
       }
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, filtered, sel, previewIdx, pick, closePanel, hidePreview])
+  }, [panelFor, panelActions, panelSel, form, create, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview])
 
   const onItemMouseMove = (i: number, e: React.MouseEvent) => {
     const moved = e.clientX !== lastMouse.current.x || e.clientY !== lastMouse.current.y
@@ -335,9 +446,64 @@ export function App() {
     <><Kbd>↵</Kbd> run <Kbd>1-9</Kbd> pick <Kbd>Esc</Kbd> back</>
   ) : form ? (
     <><Kbd>↵</Kbd> paste <Kbd>Ctrl ↵</Kbd> copy <Kbd>⇧ ↵</Kbd> newline <Kbd>Esc</Kbd> back</>
+  ) : create ? (
+    <><Kbd>↵</Kbd> save <Kbd>Esc</Kbd> back</>
   ) : (
     <><Kbd>↵</Kbd> paste <Kbd>Ctrl ↵</Kbd> copy <Kbd>Tab</Kbd> actions <Kbd>→</Kbd> preview</>
   )
+
+  // --- Create-from-clipboard confirmation --------------------------------------
+  if (create) {
+    return (
+      <Shell hint={hint} clip={null}>
+        <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-1">
+          <SectionHeader>New prompt from clipboard</SectionHeader>
+          <div className="px-1">
+            <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Name</label>
+            <input
+              autoFocus
+              value={create.title}
+              spellCheck={false}
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setCreate((c) => c && { ...c, title: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  void saveCreate()
+                }
+              }}
+              className="w-full rounded-lg border-2 border-input bg-background p-2 text-sm text-foreground outline-none focus:border-(--palette-focus)"
+              style={{ "--palette-focus": FOCUS_BORDER } as React.CSSProperties}
+            />
+          </div>
+          <div className="px-1">
+            <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Pack</label>
+            <select
+              value={create.pack}
+              onChange={(e) => setCreate((c) => c && { ...c, pack: e.target.value })}
+              className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-2 text-sm text-foreground outline-none"
+            >
+              {packNames.map((p) => (
+                <option key={p} value={p} disabled={isLocked(p)}>
+                  {isLocked(p) ? `🔒 ${p}` : p}
+                </option>
+              ))}
+            </select>
+          </div>
+          <SectionHeader>Prompt body — current clipboard</SectionHeader>
+          <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-xs leading-relaxed text-muted-foreground">
+            {clip || "(clipboard is empty)"}
+          </div>
+          <button
+            onClick={() => void saveCreate()}
+            className="h-9 cursor-pointer rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Save prompt
+          </button>
+        </div>
+      </Shell>
+    )
+  }
 
   // --- Form mode ----------------------------------------------------------------
   if (form) {
@@ -503,28 +669,52 @@ export function App() {
             {snippets.length ? "No matches" : "No prompts yet — left-click the Promptline tray icon to add some"}
           </div>
         )}
-        {hasQuery ? (
-          <>
-            {filtered.length > 0 && <SectionHeader>Results</SectionHeader>}
-            {filtered.map((entry, i) => row(entry, i))}
-          </>
-        ) : (
-          <>
-            {pinnedCount > 0 && <SectionHeader>Pinned</SectionHeader>}
-            {filtered.slice(0, pinnedCount).map((entry, i) => row(entry, i))}
-            {filtered.length > pinnedCount && <SectionHeader>Prompts</SectionHeader>}
-            {filtered.slice(pinnedCount).map((entry, i) => row(entry, i + pinnedCount))}
-          </>
-        )}
+        {sections.map((sec) => {
+          if (!sec.collapsible) {
+            return (
+              <div key={sec.name}>
+                <SectionHeader>{sec.name}</SectionHeader>
+                {sec.entries.map((entry) => row(entry, rowIndex.get(entry.s.id)!))}
+              </div>
+            )
+          }
+          const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+          return (
+            <div key={sec.name}>
+              <button
+                className="flex w-full cursor-pointer items-center gap-1 px-2 pb-1 pt-2 text-xs font-medium tracking-[0.04em] text-muted-foreground hover:text-foreground"
+                onClick={() => toggleCollapsed(sec.name)}
+              >
+                <Chev className="size-3.5 shrink-0" />
+                <span className="min-w-0 truncate">{sec.name}</span>
+                <span className="opacity-70">({sec.entries.length})</span>
+              </button>
+              {!sec.isCollapsed && sec.entries.map((entry) => row(entry, rowIndex.get(entry.s.id)!))}
+            </div>
+          )
+        })}
       </div>
 
-      {previewIdx !== null && filtered[previewIdx] && (
+      {/* Fixed create action — pinned below the list, above the meta bars */}
+      <button
+        onClick={openCreate}
+        className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-t border-border p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+      >
+        <RiAddLine className="size-5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-left text-sm">New prompt from clipboard…</span>
+        <span className="flex shrink-0 gap-1">
+          <Kbd>Ctrl</Kbd>
+          <Kbd>N</Kbd>
+        </span>
+      </button>
+
+      {previewIdx !== null && visible[previewIdx] && (
         <div
           className="fixed inset-x-4 top-14 z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-popover p-2 text-xs leading-relaxed text-muted-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.24)]"
           onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
           onMouseLeave={onItemMouseLeave}
         >
-          <Tokens text={filtered[previewIdx].s.text} />
+          <Tokens text={visible[previewIdx].s.text} />
         </div>
       )}
 
