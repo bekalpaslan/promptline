@@ -5,7 +5,7 @@
 <title>Promptline</title>
 <style>
   :root {
-    /* Theme: Sand (warm, Gray sand scale) — default */
+    /* Theme: Sand (warm, Gray sand scale) — default. TOKENS v4, keep in sync with index.html */
     --bg-0: #131211;
     --bg-1: #201f1d;
     --bg-2: #2b2927;
@@ -14,8 +14,30 @@
     --line: #2b2927;
     --text-1: #e4e3e2;
     --text-2: #9e9b94;
-    --text-3: #6e6a63;
+    --text-3: #7d7a72;
     --accent: #645bc5;
+    --accent-hover: #7466d4;
+    --accent-ring: rgba(100, 91, 197, .15);
+    --accent-soft: rgba(100, 91, 197, .08);
+    --accent-text: #b3aee0;
+    --danger: #e5726f;
+    --warn: #e8b45f;
+    --param-builtin: #7fc6c9;
+    --param-builtin-soft: rgba(127, 198, 201, .15);
+    --param-field: #e8b45f;
+    --param-field-soft: rgba(232, 180, 95, .15);
+    --param-config: #d67ad0;
+    --param-config-soft: rgba(214, 122, 208, .15);
+    /* type scale */
+    --fs-pill: 10px;
+    --fs-caption: 11.5px;
+    --fs-ui: 12.5px;
+    --fs-body: 14px;
+    --fs-title: 16px;
+    /* radii */
+    --r-sm: 6px;
+    --r-md: 8px;
+    --r-lg: 12px;
   }
   :root[data-theme="sundown"] {
     /* Theme: Sundown (cool, semantic colour system) */
@@ -27,7 +49,7 @@
     --line: #2d3136;
     --text-1: #e9ebee;
     --text-2: #aab1bd;
-    --text-3: #767d8a;
+    --text-3: #828a97;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; overflow: hidden; }
@@ -38,15 +60,23 @@
     display: flex;
     flex-direction: column;
     border: 1px solid var(--line);
-    border-radius: 10px;
+    border-radius: var(--r-lg);
+    font-size: var(--fs-body);
   }
+  button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .4; cursor: default; pointer-events: none; }
+
   #search {
     margin: 12px 12px 8px;
-    padding: 10px 13px;
-    font-size: 14px;
+    padding: 8px 12px;
+    font-size: var(--fs-body);
     background: var(--bg-2);
     border: 1px solid var(--line);
-    border-radius: 8px;
+    border-radius: var(--r-md);
     color: var(--text-1);
     outline: none;
     transition: border-color .12s, box-shadow .12s;
@@ -54,7 +84,7 @@
   #search::placeholder { color: var(--text-3); }
   #search:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(100, 91, 197, .15);
+    box-shadow: 0 0 0 3px var(--accent-ring);
   }
   #list {
     flex: 1;
@@ -63,18 +93,20 @@
   }
   .item {
     position: relative;
-    padding: 8px 10px 8px 14px;
-    border-radius: 7px;
+    padding: 8px 12px;
+    border-radius: var(--r-sm);
     cursor: pointer;
     user-select: none;
     transition: background .08s;
   }
+  body.compact .item { padding: 6px 12px; }
+  body.compact .item .preview { display: none; }
   .item::before {
     content: "";
     position: absolute;
-    left: 4px;
-    top: 9px;
-    bottom: 9px;
+    left: 3px;
+    top: 8px;
+    bottom: 8px;
     width: 3px;
     border-radius: 2px;
     background: var(--cat, transparent);
@@ -89,29 +121,49 @@
     min-width: 0;
   }
   .item .title {
-    font-size: 13.5px;
+    font-size: var(--fs-body);
     font-weight: 600;
-    letter-spacing: .1px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
   }
+  .item .title .t {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .hl { color: var(--accent-text); }
+  .pinicon { flex-shrink: 0; width: 12px; height: 12px; color: var(--warn); }
   .cat {
-    font-size: 10.5px;
-    font-weight: 600;
-    padding: 1.5px 8px;
-    border-radius: 9px;
+    font-size: var(--fs-pill);
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 999px;
     white-space: nowrap;
     flex-shrink: 0;
+    cursor: pointer;
+  }
+  .ord {
+    font-size: var(--fs-pill);
+    color: var(--text-3);
+    border: 1px solid var(--bg-3);
+    border-radius: 4px;
+    padding: 0 4px;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
   }
   .item .preview {
-    font-size: 12px;
+    font-size: var(--fs-ui);
     color: var(--text-3);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    margin-top: 2.5px;
+    margin-top: 2px;
   }
   .item.selected { background: var(--bg-3); }
   .item.selected .preview { color: var(--text-2); }
@@ -120,23 +172,23 @@
     padding: 24px 20px;
     text-align: center;
     color: var(--text-3);
-    font-size: 13px;
+    font-size: var(--fs-ui);
   }
   #hint {
-    padding: 7px 14px;
-    font-size: 11px;
+    padding: 8px 16px;
+    font-size: var(--fs-caption);
     color: var(--text-3);
     border-top: 1px solid var(--line);
     background: var(--bg-1);
-    border-radius: 0 0 10px 10px;
+    border-radius: 0 0 var(--r-lg) var(--r-lg);
   }
   #hint b { color: var(--text-2); font-weight: 600; }
   #clipPreview {
     display: none;
-    padding: 6px 14px;
-    font-size: 11.5px;
-    color: #b3aee0;
-    background: rgba(100, 91, 197, .08);
+    padding: 6px 16px;
+    font-size: var(--fs-caption);
+    color: var(--accent-text);
+    background: var(--accent-soft);
     border-top: 1px solid var(--line);
     white-space: nowrap;
     overflow: hidden;
@@ -150,35 +202,46 @@
     flex: 1;
     display: none;
     flex-direction: column;
-    gap: 10px;
-    padding: 14px;
+    gap: 8px;
+    padding: 16px;
     overflow-y: auto;
   }
   #form.visible { display: flex; }
   body.form-mode #search, body.form-mode #list { display: none; }
   #formTitle {
-    font-size: 13.5px;
+    font-size: var(--fs-body);
     font-weight: 600;
     color: var(--text-1);
     padding-bottom: 4px;
     border-bottom: 1px solid var(--line);
   }
   #form label {
-    font-size: 11.5px;
+    font-size: var(--fs-caption);
     font-weight: 600;
     text-transform: capitalize;
     color: var(--text-2);
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 6px;
     margin-bottom: 4px;
+  }
+  .luChip {
+    font-size: var(--fs-pill);
+    font-weight: 500;
+    text-transform: none;
+    color: var(--text-3);
+    border: 1px solid var(--bg-3);
+    border-radius: 999px;
+    padding: 0 6px;
   }
   #form textarea {
     width: 100%;
     background: var(--bg-2);
     border: 1px solid var(--line);
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     color: var(--text-1);
-    padding: 8px 10px;
-    font-size: 13.5px;
+    padding: 8px 12px;
+    font-size: var(--fs-body);
     font-family: inherit;
     outline: none;
     resize: none;
@@ -187,20 +250,21 @@
   }
   #form textarea:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(100, 91, 197, .15);
+    box-shadow: 0 0 0 3px var(--accent-ring);
   }
   #formPaste {
-    padding: 9px;
+    padding: 8px;
     background: var(--accent);
     color: #fff;
     font-weight: 600;
     border: none;
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     cursor: pointer;
-    font-size: 13.5px;
+    font-size: var(--fs-body);
   }
-  #formPaste:hover { background: #7466d4; }
-  /* Hover card: full prompt text, fixed max size, scrollable */
+  #formPaste:hover { background: var(--accent-hover); }
+
+  /* Hover/keyboard preview card: full prompt text, fixed max size, scrollable */
   #hoverCard {
     display: none;
     position: fixed;
@@ -211,32 +275,78 @@
     overflow-y: auto;
     background: var(--bg-2);
     border: 1px solid var(--bg-4);
-    border-radius: 8px;
+    border-radius: var(--r-md);
     box-shadow: 0 8px 28px rgba(0, 0, 0, .55);
-    padding: 10px 12px;
-    font-size: 12.5px;
+    padding: 8px 12px;
+    font-size: var(--fs-ui);
     line-height: 1.5;
     color: var(--text-2);
     white-space: pre-wrap;
     word-break: break-word;
   }
   #hoverCard.visible { display: block; }
-  #hoverCard .tok {
+  .tok {
     padding: 0 5px;
-    border-radius: 5px;
-    font-size: 11.5px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-caption);
     font-weight: 600;
   }
-  #hoverCard .tok.builtin { background: rgba(127,198,201,.15); color: #7fc6c9; }
-  #hoverCard .tok.field { background: rgba(232,180,95,.15); color: #e8b45f; }
-  #hoverCard .tok.config { background: rgba(176,124,232,.15); color: #b07ce8; }
+  .tok.builtin { background: var(--param-builtin-soft); color: var(--param-builtin); }
+  .tok.field { background: var(--param-field-soft); color: var(--param-field); }
+  .tok.config { background: var(--param-config-soft); color: var(--param-config); }
+  .tok.bad { background: rgba(229, 114, 111, .15); color: var(--danger); }
+
+  /* Action panel (Tab on a selected prompt) */
+  #actions {
+    display: none;
+    position: fixed;
+    z-index: 20;
+    left: 16px;
+    right: 16px;
+    bottom: 44px;
+    background: var(--bg-2);
+    border: 1px solid var(--bg-4);
+    border-radius: var(--r-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .55);
+    padding: 6px;
+  }
+  #actions.visible { display: block; }
+  #actionsTitle {
+    font-size: var(--fs-caption);
+    color: var(--text-3);
+    padding: 4px 10px 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .act {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-ui);
+    cursor: pointer;
+    user-select: none;
+    color: var(--text-1);
+  }
+  .act.selected { background: var(--bg-3); }
+  .act.danger { color: var(--danger); }
+  .act kbd {
+    font-family: inherit;
+    font-size: var(--fs-pill);
+    color: var(--text-3);
+    border: 1px solid var(--bg-3);
+    border-radius: 4px;
+    padding: 0 5px;
+  }
   ::-webkit-scrollbar { width: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
   ::-webkit-scrollbar-thumb:hover { background: var(--bg-4); }
 </style>
 </head>
 <body>
-  <input id="search" type="text" placeholder="Search prompts…" spellcheck="false" autocomplete="off" />
+  <input id="search" type="text" placeholder="Search…  (#tag, @pack)" spellcheck="false" autocomplete="off" />
   <div id="list"></div>
   <div id="form">
     <div id="formTitle"></div>
@@ -244,12 +354,18 @@
     <button id="formPaste">Paste</button>
   </div>
   <div id="hoverCard"></div>
+  <div id="actions">
+    <div id="actionsTitle"></div>
+    <div id="actionsList"></div>
+  </div>
   <div id="clipPreview"><span class="label">clipboard → </span><span id="clipText"></span></div>
   <div id="hint"></div>
 
+<script src="core.js"></script>
 <script>
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
+const C = window.PromptlineCore;
 
 const searchEl = document.getElementById('search');
 const listEl = document.getElementById('list');
@@ -261,114 +377,87 @@ const clipPreviewEl = document.getElementById('clipPreview');
 const clipTextEl = document.getElementById('clipText');
 const hoverCardEl = document.getElementById('hoverCard');
 const hintEl = document.getElementById('hint');
+const actionsEl = document.getElementById('actions');
+const actionsTitleEl = document.getElementById('actionsTitle');
+const actionsListEl = document.getElementById('actionsList');
 
-// The hint bar reflects the current mode's actual key bindings
-function setHint(mode) {
-  hintEl.innerHTML = mode === 'form'
-    ? '<b>Enter</b> paste · <b>Ctrl+Enter</b> copy only · <b>Shift+Enter</b> newline · <b>Esc</b> back'
-    : '<b>Enter</b> paste · <b>Ctrl+Enter</b> / <b>Ctrl+click</b> copy only · <b>Esc</b> close';
-}
-setHint('list');
+const PIN_SVG = '<svg class="pinicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.8V6a3 3 0 1 1 6 0v4.8l2.6 2.6a1 1 0 0 1-.7 1.7H7.1a1 1 0 0 1-.7-1.7z"/></svg>';
+const MAX_PINS = 5;
 
-// Theme: set in the manager, shared via localStorage; re-applied on every show
-function applyTheme() {
+// Preferences set by the manager (persisted in config, mirrored to localStorage)
+function applyPrefs() {
   document.documentElement.dataset.theme = localStorage.getItem('theme') || 'sand';
+  document.body.classList.toggle('compact', (localStorage.getItem('density') || 'comfortable') === 'compact');
 }
-applyTheme();
+applyPrefs();
 
 let clipboardNow = '';
 let snippets = [];
-let filtered = [];
+let filtered = [];      // [{s, indices}] — indices highlight the title match
 let selected = 0;
-let formSnippet = null;   // snippet awaiting field fill-in
-let formPasteMode = true; // paste vs copy-only, captured when form opens
+let formSnippet = null;
+let formTextBase = '';
+let formPasteMode = true;
 
 // Keyboard/mouse arbitration: ignore hover-selection during keyboard nav and
-// when the list scrolls under a stationary cursor (both fire mousemove-like events)
+// when the list scrolls under a stationary cursor
 let suppressHoverUntil = 0;
 let lastMouseX = -1, lastMouseY = -1;
 
-// Per-category accent colors; unknown categories get a stable hashed pick
-const CAT_COLORS = {
-  debug: '#e5726f', review: '#b07ce8', plan: '#5fb2e8', refactor: '#62c391',
-  test: '#e8b45f', guardrails: '#e8a25f', meta: '#7fc6c9', general: '#9aa2b5',
-};
-function catColor(name) {
-  const key = (name || '').toLowerCase();
-  if (CAT_COLORS[key]) return CAT_COLORS[key];
-  const palette = Object.values(CAT_COLORS);
-  let h = 0;
-  for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return palette[h % palette.length];
+// The hint bar reflects the current mode's actual key bindings
+function setHint(mode) {
+  hintEl.innerHTML = {
+    list: '<b>Enter</b> paste · <b>Ctrl+Enter</b> copy · <b>Tab</b> actions · <b>→</b> preview · <b>Ctrl+1-5</b> quick',
+    form: '<b>Enter</b> paste · <b>Ctrl+Enter</b> copy only · <b>Shift+Enter</b> newline · <b>Esc</b> back',
+    panel: '<b>Enter</b> run · <b>1-9</b> pick · <b>Esc</b> back',
+  }[mode];
 }
-
-// {clipboard} expands in Rust; {date}/{time} expand here; {{name}} is a config
-// parameter (saved value, no prompt); any other {name} is a runtime fill-in field
-const RESERVED = new Set(['clipboard', 'date', 'time']);
-
-function customFields(text) {
-  const fields = [];
-  for (const m of text.matchAll(/\{\{([a-z_]+)\}\}|\{([a-z_]+)\}/g)) {
-    const runtime = m[2];
-    if (runtime && !RESERVED.has(runtime) && !fields.includes(runtime)) fields.push(runtime);
-  }
-  return fields;
-}
-
-function expandConfig(text, snippet) {
-  return text.replace(/\{\{([a-z_]+)\}\}/g, (match, name) => {
-    const v = (snippet.configValues || {})[name];
-    return v ? v : match; // unset params survive, to be downgraded to fill-in fields
-  });
-}
-
-function expandBuiltins(text) {
-  const now = new Date();
-  return text
-    .replaceAll('{date}', now.toLocaleDateString())
-    .replaceAll('{time}', now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-}
-
-// Subsequence fuzzy match; lower score = better. Returns null on no match.
-function fuzzyScore(query, text) {
-  const q = query.toLowerCase(), t = text.toLowerCase();
-  if (!q) return 0;
-  const idx = t.indexOf(q);
-  if (idx >= 0) return idx; // contiguous match, rank by position
-  let ti = 0, gaps = 0;
-  for (const ch of q) {
-    const found = t.indexOf(ch, ti);
-    if (found < 0) return null;
-    gaps += found - ti;
-    ti = found + 1;
-  }
-  return 1000 + gaps; // subsequence match ranks below contiguous
-}
+setHint('list');
 
 function filter() {
-  const q = searchEl.value.trim();
-  if (!q) {
-    // No query: pinned first, then most-used, then alphabetical
-    filtered = [...snippets].sort((a, b) =>
-      (b.pinned - a.pinned) || (b.uses - a.uses) || a.title.localeCompare(b.title));
+  const q = C.parseQuery(searchEl.value);
+  const pool = snippets.filter(s => C.matchesFilters(s, q));
+  if (!q.text) {
+    filtered = pool
+      .sort((a, b) => (b.pinned - a.pinned) || (b.uses - a.uses) || a.title.localeCompare(b.title))
+      .map(s => ({ s, indices: null }));
   } else {
-    filtered = snippets
+    filtered = pool
       .map(s => {
-        const st = fuzzyScore(q, s.title);
-        const sc = fuzzyScore(q, (s.tags || []).join(' '));
-        const sb = fuzzyScore(q, s.text);
-        let score = null;
-        if (st !== null) score = st;
-        else if (sc !== null) score = 3000 + sc;
-        else if (sb !== null) score = 5000 + sb;
-        return score === null ? null : { s, score };
+        const title = C.fuzzyScore(q.text, s.title);
+        if (title) return { s, score: title.score, indices: title.indices };
+        const tag = C.fuzzyScore(q.text, (s.tags || []).join(' '));
+        if (tag) return { s, score: 3000 + tag.score, indices: null };
+        const body = C.fuzzyScore(q.text, s.text);
+        if (body) return { s, score: 5000 + body.score, indices: null };
+        return null;
       })
       .filter(Boolean)
-      .sort((a, b) => (a.score - b.score) || (b.s.uses - a.s.uses))
-      .map(e => e.s);
+      .sort((a, b) => (a.score - b.score) || (b.s.uses - a.s.uses));
   }
   selected = 0;
   render();
+}
+
+function titleNode(s, indices) {
+  const wrap = document.createElement('div');
+  wrap.className = 'title';
+  if (s.pinned) wrap.insertAdjacentHTML('beforeend', PIN_SVG);
+  const t = document.createElement('span');
+  t.className = 't';
+  if (indices && indices.length) {
+    const set = new Set(indices);
+    for (let i = 0; i < s.title.length; i++) {
+      const span = document.createElement('span');
+      if (set.has(i)) span.className = 'hl';
+      span.textContent = s.title[i];
+      t.appendChild(span);
+    }
+  } else {
+    t.textContent = s.title;
+  }
+  wrap.appendChild(t);
+  return wrap;
 }
 
 function render() {
@@ -376,31 +465,44 @@ function render() {
   if (!filtered.length) {
     const d = document.createElement('div');
     d.id = 'empty';
-    d.textContent = snippets.length ? 'No matches' : 'No prompts yet — left-click the Promptline tray icon to add some';
+    d.textContent = snippets.length
+      ? 'No matches'
+      : 'No prompts yet — left-click the Promptline tray icon to add some';
     listEl.appendChild(d);
     updateClipPreview();
     return;
   }
-  filtered.forEach((s, i) => {
+  filtered.forEach((entry, i) => {
+    const { s, indices } = entry;
     const item = document.createElement('div');
     item.className = 'item' + (i === selected ? ' selected' : '');
     const tags = s.tags || [];
-    const color = catColor(tags[0] || '');
-    item.style.setProperty('--cat', color);
+    item.style.setProperty('--cat', C.tagColor(tags[0] || ''));
     const row = document.createElement('div');
     row.className = 'row';
-    const title = document.createElement('div');
-    title.className = 'title';
-    title.textContent = (s.pinned ? '📌 ' : '') + s.title;
-    row.appendChild(title);
-    for (const t of tags.slice(0, 2)) {
+    row.appendChild(titleNode(s, indices));
+    for (const tag of tags.slice(0, 2)) {
       const pill = document.createElement('span');
       pill.className = 'cat';
-      pill.textContent = t;
-      const c = catColor(t);
+      pill.textContent = tag;
+      const c = C.tagColor(tag);
       pill.style.color = c;
-      pill.style.background = c + '22';
+      pill.style.background = c + '2e';
+      pill.style.border = `1px solid ${c}44`;
+      pill.title = `Filter by #${tag}`;
+      pill.addEventListener('click', e => {
+        e.stopPropagation();
+        searchEl.value = `#${tag} `;
+        filter();
+        searchEl.focus();
+      });
       row.appendChild(pill);
+    }
+    if (i < 5) {
+      const ord = document.createElement('span');
+      ord.className = 'ord';
+      ord.textContent = `^${i + 1}`;
+      row.appendChild(ord);
     }
     const preview = document.createElement('div');
     preview.className = 'preview';
@@ -423,7 +525,7 @@ function render() {
   updateClipPreview();
 }
 
-// Selection moves swap classes on two rows instead of rebuilding the list
+// Selection moves swap classes instead of rebuilding the list
 function updateSelection() {
   [...listEl.children].forEach((el, i) => el.classList.toggle('selected', i === selected));
   const sel = listEl.children[selected];
@@ -433,8 +535,8 @@ function updateSelection() {
 
 // Show what {clipboard} would insert whenever the selected prompt uses it
 function updateClipPreview() {
-  const s = filtered[selected];
-  if (s && s.text.includes('{clipboard}')) {
+  const entry = filtered[selected];
+  if (entry && entry.s.text.includes('{clipboard}')) {
     clipTextEl.textContent = clipboardNow.trim()
       ? clipboardNow.replace(/\s+/g, ' ').slice(0, 300)
       : '(clipboard is empty)';
@@ -444,53 +546,49 @@ function updateClipPreview() {
   }
 }
 
-// --- Hover card: full prompt preview on hover, scrollable, fixed max size ---
+// --- Preview card (hover or Right-arrow) -----------------------------------
 let hoverShowTimer = null;
 let hoverHideTimer = null;
 let hoverCardFor = null;
 
 function renderTokens(target, text) {
   target.innerHTML = '';
-  const re = /\{\{([a-z_]+)\}\}|\{([a-z_]+)\}/g;
-  let last = 0, m;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) target.appendChild(document.createTextNode(text.slice(last, m.index)));
-    const tok = document.createElement('span');
-    const name = m[1] || m[2];
-    if (m[1]) {
-      tok.className = 'tok config';
-      tok.textContent = `${name} — config`;
-    } else if (RESERVED.has(name)) {
-      tok.className = 'tok builtin';
-      tok.textContent = name;
-    } else {
-      tok.className = 'tok field';
-      tok.textContent = `${name} — fill-in`;
+  for (const part of C.tokenize(text)) {
+    if (part.type === 'text') {
+      target.appendChild(document.createTextNode(part.value));
+      continue;
     }
+    const tok = document.createElement('span');
+    tok.className = 'tok ' + (part.type === 'bad' ? 'bad' : part.type);
+    tok.textContent =
+      part.type === 'builtin' ? part.name :
+      part.type === 'field' ? `${part.name} — fill-in` :
+      part.type === 'config' ? `${part.name} — config` :
+      `${part.name} — invalid`;
     target.appendChild(tok);
-    last = re.lastIndex;
   }
-  if (last < text.length) target.appendChild(document.createTextNode(text.slice(last)));
 }
 
-function scheduleHoverCard(snippet, itemEl) {
-  clearTimeout(hoverHideTimer);
-  if (hoverCardFor === snippet.id) return; // already shown/pending for this item
-  clearTimeout(hoverShowTimer);
-  hoverShowTimer = setTimeout(() => showHoverCard(snippet, itemEl), 350);
-}
-
-function showHoverCard(snippet, itemEl) {
-  hoverCardFor = snippet.id;
-  renderTokens(hoverCardEl, snippet.text);
+function showCardFor(index) {
+  const entry = filtered[index];
+  const itemEl = listEl.children[index];
+  if (!entry || !itemEl) return;
+  hoverCardFor = entry.s.id;
+  renderTokens(hoverCardEl, entry.s.text);
   hoverCardEl.classList.add('visible');
   hoverCardEl.scrollTop = 0;
-  // Prefer below the item; flip above if it would overflow the window
   const rect = itemEl.getBoundingClientRect();
   const cardH = Math.min(hoverCardEl.scrollHeight, 220);
   const below = rect.bottom + 6;
   const top = below + cardH <= window.innerHeight - 8 ? below : Math.max(8, rect.top - cardH - 6);
   hoverCardEl.style.top = `${top}px`;
+}
+
+function scheduleHoverCard(snippet, itemEl) {
+  clearTimeout(hoverHideTimer);
+  if (hoverCardFor === snippet.id) return;
+  clearTimeout(hoverShowTimer);
+  hoverShowTimer = setTimeout(() => showCardFor([...listEl.children].indexOf(itemEl)), 350);
 }
 
 function hideHoverCard() {
@@ -504,35 +602,31 @@ function scheduleHoverHide() {
   clearTimeout(hoverHideTimer);
   hoverHideTimer = setTimeout(hideHoverCard, 150);
 }
-
-// Keep the card open while the mouse is on it (so it can be scrolled)
 hoverCardEl.addEventListener('mouseenter', () => clearTimeout(hoverHideTimer));
 hoverCardEl.addEventListener('mouseleave', scheduleHoverHide);
 listEl.addEventListener('scroll', hideHoverCard);
 
+// --- Paste flow --------------------------------------------------------------
 function pick(snippet, paste) {
   hideHoverCard();
-  let base = expandConfig(snippet.text, snippet); // config params never prompt
-  // Unset config params must not paste invisible holes — downgrade them to
-  // fill-in fields for this paste so the user sees and fills them
-  base = base.replace(/\{\{([a-z_]+)\}\}/g, '{$1}');
-  const fields = customFields(base);
+  closePanel();
+  let base = C.expandConfig(snippet.text, snippet.configValues);
+  // Unset config params become fill-in fields instead of pasting holes
+  base = C.downgradeUnsetConfig(base);
+  const fields = C.customFields(base);
   if (fields.length) {
     openForm(snippet, base, fields, paste);
     return;
   }
-  // Brief flash on the chosen item so the action feels acknowledged
-  const idx = filtered.indexOf(snippet);
+  const idx = filtered.findIndex(e => e.s === snippet);
   const el = listEl.children[idx];
   if (el) el.classList.add('picked');
-  setTimeout(() => send(snippet, expandBuiltins(base), paste), 90);
+  setTimeout(() => send(snippet, C.expandBuiltins(base), paste), 90);
 }
 
 async function send(snippet, text, paste) {
   await invoke('paste_snippet', { text, paste, id: snippet.id });
 }
-
-let formTextBase = ''; // snippet text with config params already expanded
 
 function openForm(snippet, baseText, fields, paste) {
   formSnippet = snippet;
@@ -546,17 +640,20 @@ function openForm(snippet, baseText, fields, paste) {
     const ta = document.createElement('textarea');
     ta.dataset.field = f;
     ta.rows = 1;
-    // Pre-fill with the last value used for this field (configurable defaults)
     const remembered = (snippet.fieldValues || {})[f];
     if (remembered) {
       ta.value = remembered;
       ta.rows = Math.min(4, remembered.split('\n').length);
       ta.addEventListener('focus', () => ta.select(), { once: true });
+      const chip = document.createElement('span');
+      chip.className = 'luChip';
+      chip.textContent = 'last used';
+      label.appendChild(chip);
     }
     ta.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        submitForm(e.ctrlKey); // Ctrl+Enter forces copy-only even mid-form
+        submitForm(e.ctrlKey);
       }
     });
     formFieldsEl.append(label, ta);
@@ -589,19 +686,119 @@ function submitForm(forceCopy = false) {
   // Remember entered values so next time the form is pre-filled.
   // Sequenced: paste_snippet re-reads the file to bump the use count.
   s.fieldValues = values;
-  invoke('save_snippets', { snippets }).then(() => send(s, expandBuiltins(text), paste));
+  invoke('save_snippets', { snippets }).then(() => send(s, C.expandBuiltins(text), paste));
+}
+formPasteEl.addEventListener('click', e => submitForm(e.ctrlKey));
+
+// --- Action panel (Tab) -------------------------------------------------------
+let panelActions = [];
+let panelSel = 0;
+let panelOpen = false;
+
+function panelItems(s) {
+  return [
+    { label: 'Paste', run: () => pick(s, true) },
+    { label: 'Copy only', run: () => pick(s, false) },
+    {
+      label: s.pinned ? 'Unpin' : 'Pin',
+      run: async () => {
+        if (!s.pinned && snippets.filter(x => x.pinned).length >= MAX_PINS) {
+          actionsTitleEl.textContent = `Max ${MAX_PINS} pins — unpin something first`;
+          return;
+        }
+        s.pinned = !s.pinned;
+        await invoke('save_snippets', { snippets });
+        closePanel();
+        filter();
+      },
+    },
+    {
+      label: 'Edit in manager',
+      run: () => invoke('edit_in_manager', { id: s.id }),
+    },
+    {
+      label: 'Delete', danger: true, arm: true,
+      run: async function () {
+        if (!this.armed) {
+          this.armed = true;
+          renderPanel();
+          return;
+        }
+        snippets = snippets.filter(x => x.id !== s.id);
+        await invoke('save_snippets', { snippets });
+        closePanel();
+        filter();
+      },
+    },
+  ];
 }
 
-formPasteEl.addEventListener('click', e => submitForm(e.ctrlKey));
+function renderPanel() {
+  actionsListEl.innerHTML = '';
+  panelActions.forEach((a, i) => {
+    const row = document.createElement('div');
+    row.className = 'act' + (i === panelSel ? ' selected' : '') + (a.danger ? ' danger' : '');
+    const label = document.createElement('span');
+    label.textContent = a.arm && a.armed ? 'Confirm delete?' : a.label;
+    const kbd = document.createElement('kbd');
+    kbd.textContent = String(i + 1);
+    row.append(label, kbd);
+    row.addEventListener('click', () => a.run());
+    row.addEventListener('mousemove', () => {
+      if (panelSel !== i) { panelSel = i; renderPanel(); }
+    });
+    actionsListEl.appendChild(row);
+  });
+}
+
+function openPanel() {
+  const entry = filtered[selected];
+  if (!entry) return;
+  hideHoverCard();
+  panelActions = panelItems(entry.s);
+  panelSel = 0;
+  panelOpen = true;
+  actionsTitleEl.textContent = entry.s.title;
+  renderPanel();
+  actionsEl.classList.add('visible');
+  setHint('panel');
+}
+
+function closePanel() {
+  if (!panelOpen) return;
+  panelOpen = false;
+  actionsEl.classList.remove('visible');
+  setHint('list');
+}
+
+// --- Keyboard ------------------------------------------------------------------
 searchEl.addEventListener('input', filter);
 
 document.addEventListener('keydown', e => {
+  if (panelOpen) {
+    if (e.key === 'Escape') { e.preventDefault(); closePanel(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); panelSel = (panelSel + 1) % panelActions.length; renderPanel(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); panelSel = (panelSel - 1 + panelActions.length) % panelActions.length; renderPanel(); }
+    else if (e.key === 'Enter') { e.preventDefault(); panelActions[panelSel].run(); }
+    else if (/^[1-9]$/.test(e.key)) {
+      e.preventDefault();
+      const a = panelActions[Number(e.key) - 1];
+      if (a) a.run();
+    } else if (e.key === 'Tab') { e.preventDefault(); closePanel(); }
+    return;
+  }
   if (e.key === 'Escape') {
     if (formSnippet) closeForm();
     else invoke('hide_popup');
     return;
   }
   if (formSnippet) return; // form handles its own keys
+  if (e.ctrlKey && /^[1-5]$/.test(e.key)) {
+    e.preventDefault();
+    const entry = filtered[Number(e.key) - 1];
+    if (entry) pick(entry.s, true);
+    return;
+  }
   if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
     hideHoverCard();
     suppressHoverUntil = Date.now() + 250;
@@ -612,14 +809,24 @@ document.addEventListener('keydown', e => {
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
     if (filtered.length) { selected = (selected - 1 + filtered.length) % filtered.length; updateSelection(); }
+  } else if (e.key === 'ArrowRight' && searchEl.selectionStart === searchEl.value.length) {
+    // At the end of the query, Right shows the full-prompt preview card
+    if (filtered.length) { e.preventDefault(); showCardFor(selected); }
+  } else if (e.key === 'ArrowLeft' && hoverCardFor) {
+    e.preventDefault();
+    hideHoverCard();
+  } else if (e.key === 'Tab') {
+    e.preventDefault();
+    openPanel();
   } else if (e.key === 'Enter') {
     e.preventDefault();
-    if (filtered[selected]) pick(filtered[selected], !e.ctrlKey);
+    if (filtered[selected]) pick(filtered[selected].s, !e.ctrlKey);
   }
 });
 
 async function reload() {
-  applyTheme();
+  applyPrefs();
+  closePanel();
   closeForm();
   hideHoverCard();
   [snippets, clipboardNow] = await Promise.all([

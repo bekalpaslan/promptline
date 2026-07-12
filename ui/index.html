@@ -5,7 +5,7 @@
 <title>Promptline</title>
 <style>
   :root {
-    /* Theme: Sand (warm, Gray sand scale) — default */
+    /* Theme: Sand (warm, Gray sand scale) — default. TOKENS v4, keep in sync with popup.html */
     --bg-0: #131211;
     --bg-1: #201f1d;
     --bg-2: #2b2927;
@@ -14,9 +14,35 @@
     --line: #2b2927;
     --text-1: #e4e3e2;
     --text-2: #9e9b94;
-    --text-3: #6e6a63;
+    --text-3: #7d7a72;
     --accent: #645bc5;
+    --accent-hover: #7466d4;
+    --accent-ring: rgba(100, 91, 197, .15);
+    --accent-soft: rgba(100, 91, 197, .08);
+    --accent-text: #b3aee0;
     --danger: #e5726f;
+    --danger-soft: rgba(229, 114, 111, .15);
+    --success: #6fd0a0;
+    --warn: #e8b45f;
+    --warn-soft: rgba(232, 180, 95, .15);
+    --warn-border: rgba(232, 180, 95, .4);
+    --param-builtin: #7fc6c9;
+    --param-builtin-soft: rgba(127, 198, 201, .15);
+    --param-field: #e8b45f;
+    --param-field-soft: rgba(232, 180, 95, .15);
+    --param-config: #d67ad0;
+    --param-config-soft: rgba(214, 122, 208, .15);
+    --param-config-border: rgba(214, 122, 208, .4);
+    /* type scale */
+    --fs-pill: 10px;
+    --fs-caption: 11.5px;
+    --fs-ui: 12.5px;
+    --fs-body: 14px;
+    --fs-title: 16px;
+    /* radii */
+    --r-sm: 6px;
+    --r-md: 8px;
+    --r-lg: 12px;
   }
   :root[data-theme="sundown"] {
     /* Theme: Sundown (cool, semantic colour system) */
@@ -28,7 +54,7 @@
     --line: #2d3136;
     --text-1: #e9ebee;
     --text-2: #aab1bd;
-    --text-3: #767d8a;
+    --text-3: #828a97;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; }
@@ -38,179 +64,226 @@
     color: var(--text-1);
     display: flex;
     flex-direction: column;
-    font-size: 14px;
+    font-size: var(--fs-body);
   }
+  button {
+    font-family: inherit;
+  }
+  button:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  button:active { transform: translateY(1px); }
+  button:disabled { opacity: .4; cursor: default; pointer-events: none; }
+  svg.icon { width: 13px; height: 13px; flex-shrink: 0; }
+  .pinicon { width: 12px; height: 12px; color: var(--warn); flex-shrink: 0; }
 
   header {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
+    gap: 8px;
+    padding: 8px 16px;
     border-bottom: 1px solid var(--line);
     background: var(--bg-1);
   }
-  header h1 { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
-  header .tagline { font-size: 12px; color: var(--text-3); }
-  #status { margin-left: auto; color: #62c391; font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
+  header h1 { font-size: var(--fs-title); font-weight: 700; letter-spacing: .2px; }
+  header .tagline { font-size: var(--fs-ui); color: var(--text-3); }
+  #hotkeyBadge {
+    font-size: var(--fs-ui);
+    color: var(--text-2);
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 2px 8px;
+    white-space: nowrap;
+  }
+  #status { margin-left: auto; color: var(--success); font-size: var(--fs-ui); display: flex; align-items: center; gap: 8px; }
   #status.err { color: var(--danger); }
   #status.pop { animation: statusIn .25s ease; }
   @keyframes statusIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
-  #hotkeyBadge {
-    font-size: 12px;
-    color: var(--text-2);
-    background: var(--bg-2);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 2px 9px;
-    white-space: nowrap;
-  }
   #settingsBtn {
-    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px;
     background: var(--bg-2);
     color: var(--text-2);
     border: 1px solid var(--line);
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--fs-ui);
     white-space: nowrap;
   }
   #settingsBtn:hover { border-color: var(--accent); color: var(--text-1); }
   #settingsBtn.active { border-color: var(--accent); color: var(--accent); }
 
+  /* First-run banner */
+  #firstRun {
+    display: none;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: var(--accent-soft);
+    border-bottom: 1px solid var(--line);
+    font-size: var(--fs-ui);
+    color: var(--accent-text);
+  }
+  #firstRun.visible { display: flex; }
+  #firstRun kbd {
+    font-family: inherit;
+    font-weight: 600;
+    color: var(--text-1);
+    background: var(--bg-2);
+    border: 1px solid var(--bg-4);
+    border-radius: 4px;
+    padding: 1px 7px;
+  }
+  #firstRun .dismiss {
+    margin-left: auto;
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    font-size: var(--fs-ui);
+  }
+  #firstRun.done { color: var(--success); }
+
   main { flex: 1; display: flex; min-height: 0; }
 
+  /* ---- Sidebar ---- */
   #sidebar {
-    width: 270px;
+    width: 280px;
     border-right: 1px solid var(--line);
     display: flex;
     flex-direction: column;
     background: var(--bg-1);
   }
-  #sideTop { display: flex; gap: 8px; padding: 10px 10px 6px; }
+  body.settings-mode #sidebar { display: none; }
+  #sideTop { display: flex; gap: 8px; padding: 12px 12px 8px; position: relative; }
   #sideSearch {
     flex: 1;
-    padding: 7px 10px;
-    font-size: 13px;
+    padding: 6px 12px;
+    font-size: var(--fs-ui);
     background: var(--bg-2);
     border: 1px solid var(--line);
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     color: var(--text-1);
     outline: none;
     transition: border-color .12s, box-shadow .12s;
   }
   #sideSearch::placeholder { color: var(--text-3); }
-  #sideSearch:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(100, 91, 197,.15); }
+  #sideSearch:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
   #newBtn {
-    padding: 7px 12px;
+    padding: 6px 12px;
     background: var(--accent);
     color: #fff;
     font-weight: 600;
     border: none;
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     cursor: pointer;
-    font-size: 13px;
+    font-size: var(--fs-ui);
     white-space: nowrap;
   }
-  #newBtn:hover { background: #7466d4; }
+  #newBtn:hover { background: var(--accent-hover); }
   #sideControls {
     display: flex;
     align-items: center;
-    gap: 10px;
-    padding: 0 10px 8px;
-    font-size: 12px;
+    gap: 8px;
+    padding: 0 12px 8px;
+    font-size: var(--fs-ui);
     color: var(--text-3);
   }
-  #orderBy {
+  select {
     background: var(--bg-2);
     border: 1px solid var(--line);
-    border-radius: 6px;
+    border-radius: var(--r-sm);
     color: var(--text-2);
-    font-size: 12px;
+    font-size: var(--fs-ui);
     font-family: inherit;
-    padding: 3px 6px;
+    padding: 3px 8px;
     outline: none;
     cursor: pointer;
   }
-  #orderBy:focus { border-color: var(--accent); }
+  select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-ring); }
   label.mini { display: flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text-3); white-space: nowrap; }
-  label.mini input { accent-color: var(--accent); }
-  #snippetList { flex: 1; overflow-y: auto; padding: 0 6px 8px; }
+  label.mini input, label.check input { accent-color: var(--accent); }
+  #snippetList { flex: 1; overflow-y: auto; padding: 0 8px 8px; }
   .group {
     display: flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 8px 4px;
-    font-size: 11px;
+    padding: 8px 8px 4px;
+    font-size: var(--fs-caption);
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: .6px;
     color: var(--text-3);
     cursor: pointer;
     user-select: none;
+    border-radius: var(--r-sm);
   }
   .group:hover { color: var(--text-2); }
-  .group .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .group .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
   .group .chev { font-size: 9px; width: 10px; flex-shrink: 0; }
-  .group .gcount { margin-left: auto; font-weight: 400; letter-spacing: 0; }
+  .group .lockicon { width: 10px; height: 10px; color: var(--warn); }
+  .group .gcount { margin-left: auto; font-weight: 400; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+  .group input { font-size: var(--fs-ui); padding: 2px 8px; text-transform: none; letter-spacing: 0; }
   .snip {
-    padding: 7px 10px;
-    border-radius: 6px;
+    padding: 6px 12px;
+    border-radius: var(--r-sm);
     cursor: pointer;
     user-select: none;
     display: flex;
     align-items: center;
     gap: 6px;
-    font-size: 13.5px;
+    font-size: var(--fs-ui);
   }
   .snip .name {
     flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    min-width: 0;
   }
-  .snip .uses { font-size: 10.5px; color: var(--text-3); flex-shrink: 0; }
+  .snip .name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .snip .uses { font-size: var(--fs-pill); color: var(--text-3); flex-shrink: 0; font-variant-numeric: tabular-nums; }
   .pill {
-    font-size: 10px;
-    font-weight: 600;
-    padding: 1px 7px;
-    border-radius: 8px;
+    font-size: var(--fs-pill);
+    font-weight: 500;
+    padding: 1px 8px;
+    border-radius: 999px;
     white-space: nowrap;
     flex-shrink: 0;
   }
   .snip:hover { background: var(--bg-2); }
   .snip.active { background: var(--bg-3); }
+  .snip.multi { outline: 1px solid var(--accent); outline-offset: -1px; }
 
+  /* ---- Editor ---- */
   #editor {
     flex: 1;
     display: flex;
     flex-direction: column;
     padding: 16px;
-    gap: 10px;
+    gap: 8px;
     min-width: 0;
   }
-  #editorMeta { display: flex; gap: 10px; flex-wrap: wrap; }
-  #snipTitle { flex: 2; min-width: 180px; }
-  #snipTags { flex: 2; min-width: 160px; }
-  #snipPack, #snipPackNew { flex: 1; min-width: 130px; }
-  select {
-    background: var(--bg-2);
-    border: 1px solid var(--line);
-    border-radius: 7px;
-    color: var(--text-1);
-    padding: 8px 11px;
-    font-size: 14px;
-    font-family: inherit;
-    outline: none;
-    cursor: pointer;
-  }
-  select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(100, 91, 197,.15); }
+  body.settings-mode #editor { display: none; }
+  #editorMeta { display: flex; gap: 8px; flex-wrap: wrap; }
+  #snipTitle { flex: 2; min-width: 200px; font-size: 15px; font-weight: 600; }
+  #snipTags { flex: 2; min-width: 160px; font-size: var(--fs-ui); }
+  #snipPack, #snipPackNew { flex: 1; min-width: 130px; font-size: var(--fs-ui); }
+  #snipPack { padding: 8px 8px; color: var(--text-1); }
   input[type="text"], textarea {
     background: var(--bg-2);
     border: 1px solid var(--line);
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     color: var(--text-1);
-    padding: 8px 11px;
-    font-size: 14px;
+    padding: 8px 12px;
+    font-size: var(--fs-body);
     font-family: inherit;
     outline: none;
     transition: border-color .12s, box-shadow .12s;
@@ -218,58 +291,29 @@
   input[type="text"]::placeholder, textarea::placeholder { color: var(--text-3); }
   input[type="text"]:focus, textarea:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(100, 91, 197,.15);
+    box-shadow: 0 0 0 3px var(--accent-ring);
   }
   #snipText { flex: 1; resize: none; line-height: 1.5; min-height: 90px; }
 
-  #previewWrap { max-height: 30%; display: flex; flex-direction: column; gap: 4px; }
-  .sectionLabel { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-3); }
-  #preview {
-    overflow-y: auto;
-    background: var(--bg-1);
-    border: 1px solid var(--line);
-    border-radius: 7px;
-    padding: 9px 11px;
-    font-size: 13px;
-    line-height: 1.5;
-    color: var(--text-2);
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
-  .tok {
-    padding: 0 5px;
-    border-radius: 5px;
-    font-size: 12px;
-    font-weight: 600;
-  }
-  .tok.builtin { background: rgba(127,198,201,.15); color: #7fc6c9; }
-  .tok.field { background: rgba(232,180,95,.15); color: #e8b45f; }
-  .tok.bad { background: rgba(229,114,111,.15); color: var(--danger); }
-
+  .sectionLabel { font-size: var(--fs-caption); font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: var(--text-3); }
   #advToggle {
     align-self: flex-start;
     background: none;
     border: none;
     color: var(--text-3);
-    font-size: 12px;
-    font-family: inherit;
+    font-size: var(--fs-ui);
     cursor: pointer;
     padding: 2px 0;
   }
   #advToggle:hover { color: var(--accent); }
-  #advanced { display: flex; flex-direction: column; gap: 10px; }
-  .tok.config { background: rgba(176,124,232,.15); color: #b07ce8; }
-  .pchip.config.present { background: rgba(176,124,232,.15); color: #b07ce8; border-color: rgba(176,124,232,.4); }
-  #configFields { display: flex; flex-direction: column; gap: 6px; }
-  .configRow { display: flex; align-items: center; gap: 8px; }
-  .configRow .cname { font-size: 12px; font-weight: 600; color: #b07ce8; min-width: 130px; }
-  .configRow input[type="text"] { flex: 1; padding: 6px 9px; font-size: 13px; }
+  #advanced { display: flex; flex-direction: column; gap: 8px; }
+
   #paramBar { display: flex; flex-direction: column; gap: 6px; }
   #paramChips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .pchip {
     padding: 3px 10px;
-    border-radius: 12px;
-    font-size: 12px;
+    border-radius: 999px;
+    font-size: var(--fs-ui);
     font-weight: 600;
     cursor: pointer;
     user-select: none;
@@ -279,93 +323,217 @@
     transition: border-color .1s, color .1s;
   }
   .pchip:hover { border-color: var(--accent); }
-  .pchip.builtin.present { background: rgba(127,198,201,.15); color: #7fc6c9; border-color: rgba(127,198,201,.4); }
-  .pchip.field.present { background: rgba(232,180,95,.15); color: #e8b45f; border-color: rgba(232,180,95,.4); }
+  .pchip.builtin.present { background: var(--param-builtin-soft); color: var(--param-builtin); border-color: rgba(127,198,201,.4); }
+  .pchip.field.present { background: var(--param-field-soft); color: var(--param-field); border-color: var(--warn-border); }
+  .pchip.config.present { background: var(--param-config-soft); color: var(--param-config); border-color: var(--param-config-border); }
   .pchip.present:hover { border-color: var(--danger); text-decoration: line-through; }
-  #newParamWrap { display: flex; gap: 4px; align-items: center; }
-  #newParam { width: 110px; padding: 3px 9px; font-size: 12px; border-radius: 12px; }
+  #newParam { width: 110px; padding: 3px 10px; font-size: var(--fs-ui); border-radius: 999px; }
+
+  #configWrap { display: flex; flex-direction: column; gap: 6px; }
+  #configFields { display: flex; flex-direction: column; gap: 6px; }
+  .configRow { display: flex; align-items: center; gap: 8px; }
+  .configRow .cname { font-size: var(--fs-ui); font-weight: 600; color: var(--param-config); min-width: 130px; }
+  .configRow input[type="text"] { flex: 1; padding: 6px 12px; font-size: var(--fs-ui); }
+
+  #previewWrap { max-height: 30%; display: flex; flex-direction: column; gap: 4px; }
+  #preview {
+    overflow-y: auto;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 8px 12px;
+    font-size: var(--fs-ui);
+    line-height: 1.5;
+    color: var(--text-2);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .tok { padding: 0 5px; border-radius: var(--r-sm); font-size: var(--fs-caption); font-weight: 600; }
+  .tok.builtin { background: var(--param-builtin-soft); color: var(--param-builtin); }
+  .tok.field { background: var(--param-field-soft); color: var(--param-field); }
+  .tok.config { background: var(--param-config-soft); color: var(--param-config); }
+  .tok.bad { background: var(--danger-soft); color: var(--danger); }
 
   #editorButtons { display: flex; gap: 8px; align-items: center; }
-  #usesLabel { font-size: 12px; color: var(--text-3); }
+  #usesLabel { font-size: var(--fs-ui); color: var(--text-3); font-variant-numeric: tabular-nums; }
   button.action {
-    padding: 8px 18px;
+    padding: 8px 16px;
     border: none;
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     cursor: pointer;
-    font-size: 13.5px;
+    font-size: var(--fs-ui);
     font-weight: 600;
   }
   #deleteBtn { background: var(--bg-2); color: var(--danger); border: 1px solid var(--line); margin-left: auto; }
   #deleteBtn:hover, #deleteBtn.arm { border-color: var(--danger); }
   #pinBtn { background: var(--bg-2); color: var(--text-2); border: 1px solid var(--line); min-width: 76px; }
   #pinBtn:hover { border-color: var(--accent); }
-  #pinBtn.pinned { color: #e8b45f; border-color: rgba(232,180,95,.4); }
-  #editorEmpty { color: var(--text-3); margin: auto; }
+  #pinBtn.pinned { color: var(--warn); border-color: var(--warn-border); }
+  #editorEmpty { color: var(--text-3); margin: auto; text-align: center; line-height: 1.7; }
 
-  /* Settings page (replaces editor panel) */
+  /* ---- Settings (nav rail + panes) ---- */
+  #settingsNav {
+    display: none;
+    width: 180px;
+    border-right: 1px solid var(--line);
+    background: var(--bg-1);
+    flex-direction: column;
+    padding: 12px 8px;
+    gap: 2px;
+  }
+  body.settings-mode #settingsNav { display: flex; }
+  .navItem {
+    padding: 7px 12px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-ui);
+    color: var(--text-2);
+    cursor: pointer;
+    user-select: none;
+    background: none;
+    border: none;
+    text-align: left;
+  }
+  .navItem:hover { background: var(--bg-2); color: var(--text-1); }
+  .navItem.active { background: var(--bg-3); color: var(--text-1); }
   #settings {
     flex: 1;
     display: none;
     flex-direction: column;
-    gap: 14px;
+    gap: 12px;
     padding: 16px;
     overflow-y: auto;
     min-width: 0;
   }
-  #settings.visible { display: flex; }
-  body.settings-mode #editor { display: none; }
+  body.settings-mode #settings { display: flex; }
   .card {
     background: var(--bg-1);
     border: 1px solid var(--line);
-    border-radius: 10px;
-    padding: 14px 16px;
+    border-radius: var(--r-lg);
+    padding: 12px 16px;
   }
-  .card h2 { font-size: 13px; font-weight: 700; margin-bottom: 10px; }
-  .card .hint { font-size: 11.5px; color: var(--text-3); margin-top: 8px; line-height: 1.5; }
-  .settingRow { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+  .card h2 {
+    font-size: var(--fs-caption);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--text-2);
+    margin-bottom: 12px;
+  }
+  .card .hint { font-size: var(--fs-caption); color: var(--text-3); margin-top: 8px; line-height: 1.5; }
+  .settingRow { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
   .settingRow:last-child { margin-bottom: 0; }
-  .settingRow .k { font-size: 12px; color: var(--text-2); min-width: 110px; }
-  #hotkey { width: 150px; padding: 6px 9px; font-size: 13px; }
+  .settingRow .k { font-size: var(--fs-ui); color: var(--text-2); min-width: 110px; }
+  .settingRow input[type="text"] { padding: 6px 12px; font-size: var(--fs-ui); }
+  #hotkey { width: 200px; cursor: pointer; }
+  #hotkey.recording { border-color: var(--warn); box-shadow: 0 0 0 3px var(--warn-soft); }
   button.small {
-    padding: 6px 13px;
+    padding: 6px 12px;
     background: var(--bg-2);
     color: var(--text-1);
     border: 1px solid var(--line);
-    border-radius: 7px;
+    border-radius: var(--r-sm);
     cursor: pointer;
-    font-size: 12.5px;
+    font-size: var(--fs-ui);
   }
   button.small:hover { border-color: var(--accent); }
-  button.small.danger:hover { border-color: var(--danger); color: var(--danger); }
-  button.small.confirmDelete { border-color: var(--danger); color: var(--danger); }
-  label.check { display: flex; align-items: center; gap: 7px; cursor: pointer; color: var(--text-2); font-size: 13px; }
-  label.check input { accent-color: var(--accent); }
+  button.small.confirm { background: var(--accent); color: #fff; border: none; }
+  button.small.confirm:hover { background: var(--accent-hover); }
+  label.check { display: flex; align-items: center; gap: 7px; cursor: pointer; color: var(--text-2); font-size: var(--fs-ui); }
+  .btnCaption { font-size: var(--fs-caption); color: var(--text-3); line-height: 1.4; flex: 1; min-width: 200px; }
+  .spane { display: none; flex-direction: column; gap: 12px; }
+  .spane.active { display: flex; }
 
-  #packsList { display: flex; flex-direction: column; gap: 4px; }
-  .packRow { display: flex; align-items: center; gap: 8px; }
-  .packRow input[type="text"] { flex: 1; padding: 6px 9px; font-size: 13px; }
-  .packRow .count { font-size: 11.5px; color: var(--text-3); min-width: 74px; text-align: right; }
-  .packRow button:disabled { opacity: .35; cursor: default; }
-  .packRow .lockedBtn { border-color: rgba(232,180,95,.4); }
-
-  .btnCaption { font-size: 11.5px; color: var(--text-3); line-height: 1.4; flex: 1; min-width: 200px; }
-  .stepArrow { font-size: 11.5px; color: var(--text-3); white-space: nowrap; }
-  #importPreview {
-    margin-top: 10px;
-    padding: 10px 12px;
+  /* Import curation */
+  .importPreview {
+    margin-top: 12px;
     background: var(--bg-2);
     border: 1px solid var(--line);
-    border-radius: 7px;
-    font-size: 13px;
+    border-radius: var(--r-md);
+    font-size: var(--fs-ui);
     color: var(--text-2);
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+    display: none;
+    flex-direction: column;
+    max-height: 300px;
   }
-  #importPreview .confirm { background: var(--accent); color: #fff; border: none; }
-  #importPreview .confirm:hover { background: #7466d4; }
-  #importPreview input[type="text"] { padding: 5px 8px; font-size: 12.5px; width: 170px; }
+  .importPreview.visible { display: flex; }
+  .ipHead, .ipFoot { display: flex; align-items: center; gap: 8px; padding: 8px 12px; flex-wrap: wrap; }
+  .ipHead { border-bottom: 1px solid var(--line); }
+  .ipFoot { border-top: 1px solid var(--line); }
+  .ipRows { overflow-y: auto; padding: 4px 8px; }
+  .ipRow { display: flex; align-items: center; gap: 8px; padding: 4px; border-radius: var(--r-sm); }
+  .ipRow:hover { background: var(--bg-3); }
+  .ipRow input { accent-color: var(--accent); flex-shrink: 0; }
+  .ipRow .t { font-weight: 600; color: var(--text-1); white-space: nowrap; }
+  .ipRow .x { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-3); flex: 1; min-width: 0; }
+  .ipRow .dupe { font-size: var(--fs-pill); color: var(--text-3); border: 1px solid var(--bg-3); border-radius: 999px; padding: 0 6px; flex-shrink: 0; }
+  .ipPackName { width: 170px; }
+
+  /* Context menu / dropdown */
+  #ctx {
+    display: none;
+    position: fixed;
+    z-index: 40;
+    min-width: 190px;
+    background: var(--bg-2);
+    border: 1px solid var(--bg-4);
+    border-radius: var(--r-md);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, .55);
+    padding: 5px;
+  }
+  #ctx.visible { display: block; }
+  .ctxItem {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: var(--r-sm);
+    font-size: var(--fs-ui);
+    color: var(--text-1);
+    background: none;
+    border: none;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .ctxItem:hover { background: var(--bg-3); }
+  .ctxItem.danger { color: var(--danger); }
+  .ctxItem:disabled { opacity: .4; }
+  .ctxHeader {
+    padding: 6px 10px 4px;
+    font-size: var(--fs-pill);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--text-3);
+  }
+  .ctxSep { height: 1px; background: var(--line); margin: 4px 6px; }
+  #ctx input { width: 100%; padding: 5px 10px; font-size: var(--fs-ui); }
+
+  /* Generate dialog */
+  #genOverlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, .55);
+    z-index: 30;
+    align-items: center;
+    justify-content: center;
+  }
+  #genOverlay.visible { display: flex; }
+  #genDialog {
+    width: 560px;
+    max-width: 92vw;
+    max-height: 84vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-1);
+    border: 1px solid var(--bg-4);
+    border-radius: var(--r-lg);
+    box-shadow: 0 16px 48px rgba(0, 0, 0, .6);
+    padding: 16px;
+    gap: 8px;
+  }
+  #genDialog h2 { font-size: var(--fs-body); font-weight: 700; }
+  .stepArrow { font-size: var(--fs-caption); color: var(--text-3); white-space: nowrap; }
 
   ::-webkit-scrollbar { width: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
@@ -378,13 +546,19 @@
     <span class="tagline">your prompt vocabulary, one hotkey away</span>
     <span id="hotkeyBadge" title="Global hotkey — works in any app. Change it in Settings."></span>
     <span id="status"></span>
-    <button id="settingsBtn">⚙ Settings</button>
+    <button id="settingsBtn"></button>
   </header>
+
+  <div id="firstRun">
+    <span id="firstRunText">Press <kbd id="firstRunKey"></kbd> in any app to open your prompts — try it now</span>
+    <button class="dismiss" id="firstRunDismiss" title="Dismiss">✕</button>
+  </div>
+
   <main>
     <div id="sidebar">
       <div id="sideTop">
         <input id="sideSearch" type="text" placeholder="Filter…" spellcheck="false" />
-        <button id="newBtn">+ New</button>
+        <button id="newBtn">+ New ▾</button>
       </div>
       <div id="sideControls">
         <span>Order by</span>
@@ -397,6 +571,12 @@
       <div id="snippetList"></div>
     </div>
 
+    <div id="settingsNav">
+      <button class="navItem active" data-pane="general">General</button>
+      <button class="navItem" data-pane="appearance">Appearance</button>
+      <button class="navItem" data-pane="data">Data</button>
+    </div>
+
     <div id="editor">
       <div id="editorEmpty">Select or create a prompt</div>
       <div id="editorMeta" style="display:none">
@@ -405,7 +585,7 @@
         <select id="snipPack"></select>
         <input id="snipPackNew" type="text" placeholder="New pack name — Enter to confirm" spellcheck="false" style="display:none" />
       </div>
-      <textarea id="snipText" placeholder="Prompt text…  Use {clipboard}, {date}, {time}, or any {lowercase_word} as a fill-in field." style="display:none" spellcheck="false"></textarea>
+      <textarea id="snipText" placeholder="Prompt text…  Use {clipboard}, {date}, {time}, any {lowercase_word} as a fill-in field, or {{lowercase_word}} as a saved config parameter." style="display:none" spellcheck="false"></textarea>
       <button id="advToggle" style="display:none">Advanced options ▸</button>
       <div id="advanced" style="display:none">
         <div id="paramBar">
@@ -416,8 +596,8 @@
           <span class="sectionLabel">Config values — saved with the prompt, pasted without asking</span>
           <div id="configFields"></div>
         </div>
-        <div id="previewWrap">
-          <div class="sectionLabel">Preview</div>
+        <div id="previewWrap" style="display:none">
+          <span class="sectionLabel">Preview</span>
           <div id="preview"></div>
         </div>
       </div>
@@ -429,136 +609,132 @@
     </div>
 
     <div id="settings">
-      <div class="card">
-        <h2>General</h2>
-        <div class="settingRow">
-          <span class="k">Global hotkey</span>
-          <input id="hotkey" type="text" spellcheck="false" />
-          <button class="small" id="applyHotkey">Apply</button>
+      <div class="spane active" data-pane="general">
+        <div class="card">
+          <h2>General</h2>
+          <div class="settingRow">
+            <span class="k">Global hotkey</span>
+            <input id="hotkey" type="text" readonly placeholder="click, then press a combination…" spellcheck="false" />
+          </div>
+          <div class="settingRow">
+            <span class="k">Startup</span>
+            <label class="check"><input id="autostart" type="checkbox" /> Start with Windows</label>
+          </div>
+          <div class="hint">Click the hotkey field and press a combination to record it (Esc cancels). The default Ctrl+Shift+V shadows "paste without formatting" in browsers — pick Ctrl+Alt+V if you use that.</div>
         </div>
-        <div class="settingRow">
-          <span class="k">Startup</span>
-          <label class="check"><input id="autostart" type="checkbox" /> Start with Windows</label>
-        </div>
-        <div class="settingRow">
-          <span class="k">Theme</span>
-          <select id="themeSel" style="font-size:13px; padding:5px 8px;">
-            <option value="sand">Sand (warm)</option>
-            <option value="sundown">Sundown (cool)</option>
-          </select>
-        </div>
-        <div class="hint">Hotkey examples: ctrl+shift+v, ctrl+alt+v, alt+space. The default ctrl+shift+v shadows "paste without formatting" in browsers.</div>
       </div>
 
-      <div class="card">
-        <h2>Packs</h2>
-        <div id="packsList"></div>
-        <div class="settingRow" style="margin-top:8px">
-          <input id="newPackName" type="text" placeholder="New pack name" spellcheck="false" style="flex:1; min-width:160px; padding:6px 9px; font-size:13px;" />
-          <button class="small" id="addPackBtn">Add pack</button>
+      <div class="spane" data-pane="appearance">
+        <div class="card">
+          <h2>Appearance</h2>
+          <div class="settingRow">
+            <span class="k">Theme</span>
+            <select id="themeSel">
+              <option value="sand">Sand (warm)</option>
+              <option value="sundown">Sundown (cool)</option>
+            </select>
+          </div>
+          <div class="settingRow">
+            <span class="k">Popup density</span>
+            <select id="densitySel">
+              <option value="comfortable">Comfortable — title + preview line</option>
+              <option value="compact">Compact — titles only, twice the rows</option>
+            </select>
+          </div>
+          <div class="hint">Both apply to the popup the next time it opens; theme applies here immediately.</div>
         </div>
-        <div class="hint">A pack is a set of prompts that travel together — rename it here (updates all its prompts), export it to share, or delete it with everything in it. 🔒 locks a pack: prompts can't be moved or imported into it, and it can't be deleted, until unlocked.</div>
       </div>
 
-      <div class="card">
-        <h2>Generate a pack with Claude</h2>
-        <div class="settingRow">
-          <input id="packTopic" type="text" placeholder="What should the pack be about? e.g. Rust + Tauri development" style="flex:1; min-width:260px; padding:7px 10px; font-size:13px;" spellcheck="false" />
+      <div class="spane" data-pane="data">
+        <div class="card">
+          <h2>Your library</h2>
+          <div class="settingRow">
+            <button class="small" id="exportBtn">Export library</button>
+            <span class="btnCaption">copies all packs to the clipboard as JSON — for backup or sharing with teammates</span>
+          </div>
+          <div class="settingRow">
+            <button class="small" id="importBtn">Import pack</button>
+            <span class="btnCaption">adds prompts from a JSON pack on the clipboard — you'll review them before anything is added</span>
+          </div>
+          <div class="importPreview" id="dataImportPreview"></div>
+          <div class="hint">Pack format documentation lives in packs/TEMPLATE.md in the repo. Packs are managed in the sidebar: group by pack, then right-click a pack header.</div>
         </div>
-        <div class="settingRow">
-          <button class="small" id="templateBtn">1 · Copy prompt for Claude</button>
-          <span class="stepArrow">paste it to Claude, copy its reply, then</span>
-          <button class="small" id="importReplyBtn">2 · Import Claude's reply</button>
-        </div>
-        <div class="hint">Step 1 copies a ready-made instruction containing your topic, your existing tags, and the pack format. Claude replies with a set of prompts; step 2 adds them as a new pack.</div>
-      </div>
-
-      <div class="card">
-        <h2>Your library</h2>
-        <div class="settingRow">
-          <button class="small" id="exportBtn">Export library</button>
-          <span class="btnCaption">copies all packs to the clipboard as JSON — for backup or sharing with teammates</span>
-        </div>
-        <div class="settingRow">
-          <button class="small" id="importBtn">Import pack</button>
-          <span class="btnCaption">adds prompts from a JSON pack on the clipboard (a teammate's export, a shared file)</span>
-        </div>
-        <div id="importPreview" style="display:none"></div>
       </div>
     </div>
   </main>
 
+  <div id="ctx"></div>
+
+  <div id="genOverlay">
+    <div id="genDialog">
+      <h2>Generate a pack with Claude</h2>
+      <input id="packTopic" type="text" placeholder="What should the pack be about? e.g. Rust + Tauri development" spellcheck="false" />
+      <div class="settingRow" style="margin:0">
+        <button class="small" id="templateBtn">1 · Copy prompt for Claude</button>
+        <span class="stepArrow">paste it to Claude, copy its reply, then</span>
+        <button class="small" id="importReplyBtn">2 · Import Claude's reply</button>
+      </div>
+      <div class="importPreview" id="genImportPreview"></div>
+      <div class="hint" style="font-size: var(--fs-caption); color: var(--text-3);">The copied instruction carries your topic, your existing tags, and the pack format. You review every prompt before it's added.</div>
+      <div class="settingRow" style="margin:0; justify-content: flex-end">
+        <button class="small" id="genCloseBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+<script src="core.js"></script>
 <script>
 const { invoke } = window.__TAURI__.core;
+const { listen } = window.__TAURI__.event;
+const C = window.PromptlineCore;
 
+// ---- Elements ----
 const listEl = document.getElementById('snippetList');
 const sideSearchEl = document.getElementById('sideSearch');
 const metaEl = document.getElementById('editorMeta');
 const titleEl = document.getElementById('snipTitle');
 const tagsEl = document.getElementById('snipTags');
 const packEl = document.getElementById('snipPack');
+const packNewEl = document.getElementById('snipPackNew');
 const textEl = document.getElementById('snipText');
-const previewWrapEl = document.getElementById('previewWrap');
-const previewEl = document.getElementById('preview');
 const buttonsEl = document.getElementById('editorButtons');
 const usesEl = document.getElementById('usesLabel');
 const emptyEl = document.getElementById('editorEmpty');
 const statusEl = document.getElementById('status');
 const hotkeyEl = document.getElementById('hotkey');
 const autostartEl = document.getElementById('autostart');
-const settingsEl = document.getElementById('settings');
 const settingsBtnEl = document.getElementById('settingsBtn');
-const packsListEl = document.getElementById('packsList');
+const ctxEl = document.getElementById('ctx');
 
-// Theme: shared with the popup via localStorage (same webview profile)
-function applyTheme() {
-  const t = localStorage.getItem('theme') || 'sand';
-  document.documentElement.dataset.theme = t;
-  return t;
-}
-const themeSelEl = document.getElementById('themeSel');
-themeSelEl.value = applyTheme();
-themeSelEl.addEventListener('change', () => {
-  localStorage.setItem('theme', themeSelEl.value);
-  applyTheme();
-  setStatus(`Theme: ${themeSelEl.options[themeSelEl.selectedIndex].text}`);
-});
+const ICONS = {
+  gear: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h0a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h0a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v0a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>',
+  close: '<svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+  pin: '<svg class="pinicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.8V6a3 3 0 1 1 6 0v4.8l2.6 2.6a1 1 0 0 1-.7 1.7H7.1a1 1 0 0 1-.7-1.7z"/></svg>',
+  lock: '<svg class="lockicon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
+};
 
 const DEFAULT_PACK = 'My prompts';
+const MAX_PINS = 5;
 let snippets = [];
 let activeId = null;
-let packMeta = []; // [{name, locked}] — explicit registry; allows empty + locked packs
+let packMeta = []; // [{name, locked}]
+let selection = new Set(); // multi-select in the sidebar
+let lastAnchorId = null;   // shift-click range anchor
+let visibleIds = [];       // current sidebar order, for range selection
 
 function isLocked(name) {
   return !!packMeta.find(p => p.name === name)?.locked;
 }
-
 async function persistPackMeta() {
-  // Drop metadata for packs that no longer exist anywhere (unless locked or non-empty)
   await invoke('save_packs', { packs: packMeta });
+  syncPackDatalist();
 }
-
-// Stable tag colors: known names get fixed hues, the rest a hashed pick
-const TAG_COLORS = {
-  debug: '#e5726f', review: '#b07ce8', plan: '#5fb2e8', refactor: '#62c391',
-  test: '#e8b45f', guardrails: '#e8a25f', meta: '#7fc6c9', general: '#9aa2b5',
-};
-function tagColor(name) {
-  const key = (name || '').toLowerCase();
-  if (TAG_COLORS[key]) return TAG_COLORS[key];
-  const palette = Object.values(TAG_COLORS);
-  let h = 0;
-  for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
-  return palette[h % palette.length];
-}
-
 function packNames() {
   return [...new Set([
     ...packMeta.map(p => p.name),
     ...snippets.map(s => s.pack || DEFAULT_PACK),
   ])].sort((a, b) => a.localeCompare(b));
 }
-
 function allTags() {
   const counts = new Map();
   for (const s of snippets)
@@ -566,45 +742,20 @@ function allTags() {
   return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
 }
 
-// Populate the editor's pack dropdown: all packs, locked ones disabled
-// (unless it's the prompt's current pack), plus a "new pack" affordance.
-function syncPackDatalist(current, extra) {
-  const sel = document.getElementById('snipPack');
-  if (!sel) return;
-  const keep = current ?? sel.value;
-  sel.innerHTML = '';
-  const names = packNames();
-  if (extra && !names.includes(extra)) names.push(extra);
-  names.sort((a, b) => a.localeCompare(b));
-  for (const p of names) {
-    const o = document.createElement('option');
-    o.value = p;
-    o.textContent = isLocked(p) ? `🔒 ${p}` : p;
-    if (isLocked(p) && p !== keep) o.disabled = true;
-    sel.appendChild(o);
-  }
-  const n = document.createElement('option');
-  n.value = '__new__';
-  n.textContent = '＋ New pack…';
-  sel.appendChild(n);
-  sel.value = names.includes(keep) ? keep : DEFAULT_PACK;
-}
-
-// Successes fade after 3.5s; errors persist until the next status event
+// ---- Status (successes fade, errors persist) ----
 let statusTimer = null;
-function showStatus(node, isError) {
+function showStatus(nodes, isError) {
   clearTimeout(statusTimer);
   statusEl.innerHTML = '';
   statusEl.className = isError ? 'err pop' : 'pop';
-  if (node) statusEl.append(...(Array.isArray(node) ? node : [node]));
-  if (node && !isError) {
+  if (nodes) statusEl.append(...(Array.isArray(nodes) ? nodes : [nodes]));
+  if (nodes && !isError) {
     statusTimer = setTimeout(() => { statusEl.innerHTML = ''; statusEl.className = ''; }, 3500);
   }
 }
 function setStatus(msg, isError = false) {
   showStatus(msg ? document.createTextNode(msg) : null, isError);
 }
-// Status with an action button (e.g. "Deleted — Undo"); sticks around longer
 function setStatusAction(msg, label, fn) {
   const text = document.createTextNode(msg);
   const btn = document.createElement('button');
@@ -617,23 +768,101 @@ function setStatusAction(msg, label, fn) {
   statusTimer = setTimeout(() => { statusEl.innerHTML = ''; statusEl.className = ''; }, 8000);
 }
 
-// --- Settings page toggle ---
+// ---- Preferences (config-backed, mirrored to localStorage for the popup) ----
+const themeSelEl = document.getElementById('themeSel');
+const densitySelEl = document.getElementById('densitySel');
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+}
+async function savePrefs() {
+  const theme = themeSelEl.value, density = densitySelEl.value;
+  localStorage.setItem('theme', theme);
+  localStorage.setItem('density', density);
+  applyTheme(theme);
+  try { await invoke('save_prefs', { theme, density }); } catch (e) { setStatus(String(e), true); }
+}
+themeSelEl.addEventListener('change', () => { savePrefs(); setStatus('Theme updated'); });
+densitySelEl.addEventListener('change', () => { savePrefs(); setStatus('Density updated — applies next popup'); });
+
+// ---- Settings shell ----
+function setSettingsBtn(open) {
+  settingsBtnEl.innerHTML = (open ? ICONS.close : ICONS.gear) + '<span>' + (open ? 'Close' : 'Settings') + '</span>';
+  settingsBtnEl.classList.toggle('active', open);
+}
 function showSettings(show) {
   document.body.classList.toggle('settings-mode', show);
-  settingsEl.classList.toggle('visible', show);
-  settingsBtnEl.classList.toggle('active', show);
-  settingsBtnEl.textContent = show ? '✕ Close' : '⚙ Settings';
-  if (show) renderPacks();
+  setSettingsBtn(show);
 }
 settingsBtnEl.addEventListener('click', () =>
-  showSettings(!settingsEl.classList.contains('visible')));
+  showSettings(!document.body.classList.contains('settings-mode')));
+setSettingsBtn(false);
 
-// --- Sidebar list ---
+for (const item of document.querySelectorAll('.navItem')) {
+  item.addEventListener('click', () => {
+    document.querySelectorAll('.navItem').forEach(n => n.classList.toggle('active', n === item));
+    document.querySelectorAll('.spane').forEach(p =>
+      p.classList.toggle('active', p.dataset.pane === item.dataset.pane));
+  });
+}
+
+// ---- Context menu infrastructure ----
+function closeCtx() {
+  ctxEl.classList.remove('visible');
+  ctxEl.innerHTML = '';
+}
+// items: {header} | {sep} | {label, run, danger, disabled, input:{placeholder, onSubmit}}
+function openCtx(x, y, items) {
+  closeCtx();
+  for (const it of items) {
+    if (it.header) {
+      const h = document.createElement('div');
+      h.className = 'ctxHeader';
+      h.textContent = it.header;
+      ctxEl.appendChild(h);
+    } else if (it.sep) {
+      const s = document.createElement('div');
+      s.className = 'ctxSep';
+      ctxEl.appendChild(s);
+    } else if (it.input) {
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = it.input.placeholder;
+      input.spellcheck = false;
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { it.input.onSubmit(input.value.trim()); closeCtx(); }
+        if (e.key === 'Escape') closeCtx();
+      });
+      input.addEventListener('click', e => e.stopPropagation());
+      ctxEl.appendChild(input);
+      setTimeout(() => input.focus(), 0);
+    } else {
+      const b = document.createElement('button');
+      b.className = 'ctxItem' + (it.danger ? ' danger' : '');
+      b.textContent = it.label;
+      b.disabled = !!it.disabled;
+      b.addEventListener('click', e => {
+        e.stopPropagation();
+        const keepOpen = it.run(b);
+        if (!keepOpen) closeCtx();
+      });
+      ctxEl.appendChild(b);
+    }
+  }
+  ctxEl.classList.add('visible');
+  const rect = ctxEl.getBoundingClientRect();
+  ctxEl.style.left = Math.min(x, window.innerWidth - rect.width - 8) + 'px';
+  ctxEl.style.top = Math.min(y, window.innerHeight - rect.height - 8) + 'px';
+}
+document.addEventListener('click', e => { if (!ctxEl.contains(e.target)) closeCtx(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeCtx(); });
+
+// ---- Sidebar list ----
 const orderByEl = document.getElementById('orderBy');
 const groupToggleEl = document.getElementById('groupToggle');
 orderByEl.value = ['uses', 'title'].includes(localStorage.getItem('orderBy'))
   ? localStorage.getItem('orderBy') : 'uses';
-groupToggleEl.checked = localStorage.getItem('groupByPack') === '1';
+// Group-by-pack is the default view
+groupToggleEl.checked = localStorage.getItem('groupByPack') !== '0';
 let collapsedPacks;
 try { collapsedPacks = new Set(JSON.parse(localStorage.getItem('collapsedPacks') || '[]')); }
 catch { collapsedPacks = new Set(); }
@@ -642,16 +871,21 @@ const SORTS = {
   uses: (a, b) => (b.uses - a.uses) || a.title.localeCompare(b.title),
   title: (a, b) => a.title.localeCompare(b.title),
 };
-// Pinned always float to the top of the chosen order (max 5 pins)
 const withPins = cmp => (a, b) => (b.pinned - a.pinned) || cmp(a, b);
-const MAX_PINS = 5;
 
 function snipRow(s, withTags) {
   const d = document.createElement('div');
-  d.className = 'snip' + (s.id === activeId ? ' active' : '');
+  d.className = 'snip'
+    + (s.id === activeId && selection.size <= 1 ? ' active' : '')
+    + (selection.size > 1 && selection.has(s.id) ? ' multi' : '');
+  d.tabIndex = 0;
+  d.setAttribute('role', 'button');
   const nameEl = document.createElement('span');
   nameEl.className = 'name';
-  nameEl.textContent = (s.pinned ? '📌 ' : '') + (s.title || '(untitled)');
+  if (s.pinned) nameEl.insertAdjacentHTML('beforeend', ICONS.pin);
+  const nameText = document.createElement('span');
+  nameText.textContent = s.title || '(untitled)';
+  nameEl.appendChild(nameText);
   d.appendChild(nameEl);
   if (s.uses) {
     const u = document.createElement('span');
@@ -664,19 +898,55 @@ function snipRow(s, withTags) {
       const pill = document.createElement('span');
       pill.className = 'pill';
       pill.textContent = t;
-      const color = tagColor(t);
+      const color = C.tagColor(t);
       pill.style.color = color;
-      pill.style.background = color + '22';
+      pill.style.background = color + '2e';
+      pill.style.border = `1px solid ${color}44`;
       d.appendChild(pill);
     }
   }
-  d.addEventListener('click', () => { showSettings(false); select(s.id); });
+  d.addEventListener('click', e => handleRowClick(e, s.id));
+  d.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleRowClick(e, s.id); }
+  });
+  d.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    if (!selection.has(s.id)) { selection = new Set([s.id]); renderList(); }
+    openRowCtx(e.clientX, e.clientY);
+  });
   return d;
+}
+
+function handleRowClick(e, id) {
+  showSettings(false);
+  if (e.ctrlKey || e.metaKey) {
+    if (selection.has(id)) selection.delete(id);
+    else selection.add(id);
+    lastAnchorId = id;
+  } else if (e.shiftKey && lastAnchorId) {
+    const a = visibleIds.indexOf(lastAnchorId);
+    const b = visibleIds.indexOf(id);
+    if (a !== -1 && b !== -1) {
+      selection = new Set(visibleIds.slice(Math.min(a, b), Math.max(a, b) + 1));
+    }
+  } else {
+    selection = new Set([id]);
+    lastAnchorId = id;
+  }
+  if (selection.size === 1) {
+    select([...selection][0]);
+  } else {
+    activeId = null;
+    showEditor(false);
+    emptyEl.innerHTML = `<b>${selection.size} prompts selected</b><br>right-click for actions · click a row to edit one`;
+    renderList();
+  }
 }
 
 function renderList() {
   const q = sideSearchEl.value.trim().toLowerCase();
   listEl.innerHTML = '';
+  visibleIds = [];
   const visible = (q
     ? snippets.filter(s =>
         s.title.toLowerCase().includes(q) ||
@@ -687,12 +957,13 @@ function renderList() {
   ).sort(withPins(SORTS[orderByEl.value] || SORTS.uses));
 
   if (!groupToggleEl.checked) {
-    // Flat list with tag pills (default)
-    for (const s of visible) listEl.appendChild(snipRow(s, true));
+    for (const s of visible) {
+      visibleIds.push(s.id);
+      listEl.appendChild(snipRow(s, true));
+    }
     return;
   }
 
-  // Grouped by pack; items keep the chosen order within packs
   const grouped = new Map();
   for (const s of visible) {
     const key = s.pack || DEFAULT_PACK;
@@ -702,30 +973,275 @@ function renderList() {
   const keys = [...grouped.keys()].sort((a, b) => a.localeCompare(b));
 
   for (const key of keys) {
-    // While filtering, always show matches even inside collapsed packs
     const collapsed = !q && collapsedPacks.has(key);
     const items = grouped.get(key);
-    const head = document.createElement('div');
-    head.className = 'group';
-    const chev = document.createElement('span');
-    chev.className = 'chev';
-    chev.textContent = collapsed ? '▶' : '▼';
-    const dot = document.createElement('span');
-    dot.className = 'dot';
-    dot.style.background = tagColor(key);
-    const count = document.createElement('span');
-    count.className = 'gcount';
-    count.textContent = String(items.length);
-    head.append(chev, dot, document.createTextNode(key), count);
-    head.addEventListener('click', () => {
-      if (collapsedPacks.has(key)) collapsedPacks.delete(key);
-      else collapsedPacks.add(key);
-      localStorage.setItem('collapsedPacks', JSON.stringify([...collapsedPacks]));
-      renderList();
-    });
-    listEl.appendChild(head);
-    if (!collapsed) for (const s of items) listEl.appendChild(snipRow(s, true));
+    listEl.appendChild(groupHeader(key, items.length, collapsed));
+    if (!collapsed) {
+      for (const s of items) {
+        visibleIds.push(s.id);
+        listEl.appendChild(snipRow(s, true));
+      }
+    }
   }
+}
+
+function groupHeader(name, count, collapsed) {
+  const head = document.createElement('div');
+  head.className = 'group';
+  head.tabIndex = 0;
+  const chev = document.createElement('span');
+  chev.className = 'chev';
+  chev.textContent = collapsed ? '▶' : '▼';
+  const dot = document.createElement('span');
+  dot.className = 'dot';
+  dot.style.background = C.tagColor(name);
+  const label = document.createElement('span');
+  label.textContent = name;
+  head.append(chev, dot, label);
+  if (isLocked(name)) head.insertAdjacentHTML('beforeend', ICONS.lock);
+  const countEl = document.createElement('span');
+  countEl.className = 'gcount';
+  countEl.textContent = String(count);
+  head.appendChild(countEl);
+
+  const toggle = () => {
+    if (collapsedPacks.has(name)) collapsedPacks.delete(name);
+    else collapsedPacks.add(name);
+    localStorage.setItem('collapsedPacks', JSON.stringify([...collapsedPacks]));
+    renderList();
+  };
+  head.addEventListener('click', toggle);
+  head.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+  });
+  head.addEventListener('dblclick', e => { e.stopPropagation(); startPackRename(head, label, name); });
+  head.addEventListener('contextmenu', e => {
+    e.preventDefault();
+    e.stopPropagation();
+    openPackCtx(e.clientX, e.clientY, name, count, () => startPackRename(head, label, name));
+  });
+  return head;
+}
+
+// ---- Pack operations (sidebar-first) ----
+function startPackRename(head, label, name) {
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = name;
+  input.spellcheck = false;
+  input.addEventListener('click', e => e.stopPropagation());
+  input.addEventListener('keydown', async e => {
+    if (e.key === 'Escape') { renderList(); return; }
+    if (e.key !== 'Enter') return;
+    await renamePack(name, input.value.trim());
+  });
+  input.addEventListener('blur', () => renamePack(name, input.value.trim()));
+  label.replaceWith(input);
+  input.focus();
+  input.select();
+}
+
+async function renamePack(name, next) {
+  if (!next || next === name) { renderList(); return; }
+  if (packNames().includes(next)) {
+    setStatus(`Pack "${next}" already exists`, true);
+    renderList();
+    return;
+  }
+  const meta = packMeta.find(p => p.name === name);
+  if (meta) meta.name = next;
+  for (const s of snippets) if ((s.pack || DEFAULT_PACK) === name) s.pack = next;
+  await persist();
+  await persistPackMeta();
+  renderList();
+  if (activeId) refreshEditorFields();
+  setStatus(`Renamed to "${next}"`);
+}
+
+function packToJson(name) {
+  return {
+    name,
+    prompts: snippets
+      .filter(s => (s.pack || DEFAULT_PACK) === name)
+      .map(({ title, text, tags }) => ({ title, text, tags })),
+  };
+}
+
+function openPackCtx(x, y, name, count, renameFn) {
+  const locked = isLocked(name);
+  openCtx(x, y, [
+    { header: name },
+    { label: 'Rename', run: () => renameFn() },
+    {
+      label: locked ? 'Unlock' : 'Lock',
+      run: async () => {
+        let meta = packMeta.find(p => p.name === name);
+        if (!meta) { meta = { name, locked: false }; packMeta.push(meta); }
+        meta.locked = !meta.locked;
+        await persistPackMeta();
+        renderList();
+        setStatus(meta.locked ? `Pack "${name}" locked` : `Pack "${name}" unlocked`);
+      },
+    },
+    {
+      label: 'Export pack',
+      run: async () => {
+        await invoke('set_clipboard_text', { text: JSON.stringify(packToJson(name), null, 2) });
+        setStatus(`Pack "${name}" copied to clipboard`);
+      },
+    },
+    { sep: true },
+    {
+      label: locked ? 'Delete (locked)' : `Delete pack…`,
+      danger: true,
+      disabled: locked,
+      run: btn => {
+        if (!btn.dataset.armed) {
+          btn.dataset.armed = '1';
+          btn.textContent = count ? `Really delete ${count} prompts?` : 'Really delete pack?';
+          return true; // keep menu open for the confirm click
+        }
+        deletePack(name);
+      },
+    },
+    { sep: true },
+    {
+      label: 'New pack…',
+      run: () => {
+        openCtx(x, y, [
+          { header: 'New pack' },
+          { input: { placeholder: 'Pack name', onSubmit: n => addPack(n) } },
+        ]);
+        return true;
+      },
+    },
+  ]);
+}
+
+async function deletePack(name) {
+  const removed = snippets.filter(s => (s.pack || DEFAULT_PACK) === name);
+  snippets = snippets.filter(s => (s.pack || DEFAULT_PACK) !== name);
+  packMeta = packMeta.filter(p => p.name !== name);
+  if (activeId && !snippets.some(s => s.id === activeId)) {
+    activeId = null;
+    showEditor(false);
+  }
+  selection.clear();
+  await persist();
+  await persistPackMeta();
+  renderList();
+  setStatusAction(`Deleted pack "${name}" (${removed.length} prompts)`, 'Undo', async () => {
+    snippets.push(...removed);
+    await persist();
+    renderList();
+    setStatus('Restored');
+  });
+}
+
+async function addPack(name) {
+  if (!name) return;
+  if (packNames().includes(name)) {
+    setStatus(`Pack "${name}" already exists`, true);
+    return;
+  }
+  packMeta.push({ name, locked: false });
+  await persistPackMeta();
+  renderList();
+  setStatus(`Pack "${name}" created`);
+}
+
+// ---- Multi-select context menu ----
+function openRowCtx(x, y) {
+  const ids = [...selection];
+  const n = ids.length;
+  const items = [
+    { header: n === 1 ? snippets.find(s => s.id === ids[0])?.title || '1 prompt' : `${n} prompts` },
+    { header: 'Move to pack' },
+  ];
+  for (const p of packNames()) {
+    items.push({
+      label: (isLocked(p) ? '🔒 ' : '') + p,
+      disabled: isLocked(p),
+      run: async () => {
+        for (const id of ids) {
+          const s = snippets.find(x => x.id === id);
+          if (s) s.pack = p;
+        }
+        await persist();
+        renderList();
+        if (activeId) refreshEditorFields();
+        setStatus(`Moved ${n} to "${p}"`);
+      },
+    });
+  }
+  items.push(
+    { sep: true },
+    {
+      label: 'Add tag…',
+      run: () => {
+        openCtx(x, y, [
+          { header: `Add tag to ${n} prompt${n === 1 ? '' : 's'}` },
+          { input: { placeholder: 'tag name', onSubmit: async raw => {
+            const tag = raw.toLowerCase().replace(/[^a-z0-9_-]+/g, '');
+            if (!tag) return;
+            for (const id of ids) {
+              const s = snippets.find(x => x.id === id);
+              if (s && !(s.tags || []).includes(tag)) s.tags = [...(s.tags || []), tag];
+            }
+            await persist();
+            renderList();
+            if (activeId) refreshEditorFields();
+            setStatus(`Tagged ${n} with #${tag}`);
+          } } },
+        ]);
+        return true;
+      },
+    },
+    {
+      label: 'Export selection',
+      run: async () => {
+        const pack = {
+          name: 'Selection',
+          prompts: ids.map(id => snippets.find(s => s.id === id)).filter(Boolean)
+            .map(({ title, text, tags }) => ({ title, text, tags })),
+        };
+        await invoke('set_clipboard_text', { text: JSON.stringify(pack, null, 2) });
+        setStatus(`Copied ${n} prompts to clipboard`);
+      },
+    },
+    { sep: true },
+    {
+      label: `Delete ${n}…`,
+      danger: true,
+      run: btn => {
+        if (!btn.dataset.armed) {
+          btn.dataset.armed = '1';
+          btn.textContent = `Really delete ${n}?`;
+          return true;
+        }
+        deleteMany(ids);
+      },
+    },
+  );
+  openCtx(x, y, items);
+}
+
+async function deleteMany(ids) {
+  const removed = snippets.filter(s => ids.includes(s.id));
+  snippets = snippets.filter(s => !ids.includes(s.id));
+  selection.clear();
+  if (ids.includes(activeId)) {
+    activeId = null;
+    showEditor(false);
+  }
+  await persist();
+  renderList();
+  setStatusAction(`Deleted ${removed.length} prompts`, 'Undo', async () => {
+    snippets.push(...removed);
+    await persist();
+    renderList();
+    setStatus('Restored');
+  });
 }
 
 orderByEl.addEventListener('change', () => {
@@ -738,53 +1254,73 @@ groupToggleEl.addEventListener('change', () => {
 });
 sideSearchEl.addEventListener('input', renderList);
 
-// --- Editor ---
-const BUILTINS = ['clipboard', 'date', 'time'];
-let editorConfigValues = {}; // edit buffer for the selected prompt's {{config}} values
+// ---- + New menu ----
+document.getElementById('newBtn').addEventListener('click', e => {
+  e.stopPropagation();
+  const r = e.currentTarget.getBoundingClientRect();
+  openCtx(r.left, r.bottom + 4, [
+    { label: 'New prompt', run: () => newPrompt() },
+    { label: 'New pack…', run: () => {
+        openCtx(r.left, r.bottom + 4, [
+          { header: 'New pack' },
+          { input: { placeholder: 'Pack name', onSubmit: n => addPack(n) } },
+        ]);
+        return true;
+      } },
+    { sep: true },
+    { label: 'Generate pack with Claude…', run: () => openGenDialog() },
+  ]);
+});
 
-function configNames(text) {
-  return [...new Set([...text.matchAll(/\{\{([a-z_]+)\}\}/g)].map(m => m[1]))];
+async function newPrompt() {
+  showSettings(false);
+  const pack = isLocked(DEFAULT_PACK) ? 'Unsorted' : DEFAULT_PACK;
+  const s = { id: crypto.randomUUID(), title: 'New prompt', text: '', tags: [], pack, uses: 0, pinned: false, fieldValues: {}, configValues: {} };
+  snippets.push(s);
+  await persist();
+  selection = new Set([s.id]);
+  select(s.id);
+  titleEl.focus();
+  titleEl.select();
 }
 
+// ---- Editor ----
+const BUILTIN_PARAMS = ['clipboard', 'date', 'time'];
+const SUGGESTED_PARAMS = ['goal', 'feature', 'task', 'error', 'file'];
+let editorConfigValues = {};
+
 function renderPreview() {
+  const previewEl = document.getElementById('preview');
   previewEl.innerHTML = '';
-  const text = textEl.value;
-  // Also match near-miss tokens ({File}, {step1}) so typos get flagged, not silently pasted
-  const re = /\{\{([a-zA-Z0-9_]+)\}\}|\{([a-zA-Z0-9_]+)\}/g;
-  let last = 0, m;
-  while ((m = re.exec(text)) !== null) {
-    if (m.index > last) previewEl.appendChild(document.createTextNode(text.slice(last, m.index)));
-    const tok = document.createElement('span');
-    const name = m[1] || m[2];
-    if (!/^[a-z_]+$/.test(name)) {
-      tok.className = 'tok bad';
-      tok.textContent = `${name} — not a param (lowercase letters/_ only)`;
-      previewEl.appendChild(tok);
-      last = re.lastIndex;
+  for (const part of C.tokenize(textEl.value)) {
+    if (part.type === 'text') {
+      previewEl.appendChild(document.createTextNode(part.value));
       continue;
     }
-    if (m[1]) {
+    const tok = document.createElement('span');
+    if (part.type === 'bad') {
+      tok.className = 'tok bad';
+      tok.textContent = `${part.name} — not a param (lowercase letters/_ only)`;
+    } else if (part.type === 'config') {
       tok.className = 'tok config';
-      const v = (editorConfigValues[name] || '').replace(/\s+/g, ' ');
-      tok.textContent = v ? (v.length > 40 ? v.slice(0, 40) + '…' : v) : name + ' — config (unset)';
-      tok.title = `{{${name}}} — pastes the saved config value without asking`;
-    } else if (BUILTINS.includes(name)) {
+      const v = (editorConfigValues[part.name] || '').replace(/\s+/g, ' ');
+      tok.textContent = v ? (v.length > 40 ? v.slice(0, 40) + '…' : v) : part.name + ' — config (unset)';
+      tok.title = `{{${part.name}}} — pastes the saved config value without asking`;
+    } else if (part.type === 'builtin') {
       tok.className = 'tok builtin';
-      tok.textContent = name;
+      tok.textContent = part.name;
     } else {
       tok.className = 'tok field';
-      tok.textContent = name + ' — fill-in';
+      tok.textContent = part.name + ' — fill-in';
     }
     previewEl.appendChild(tok);
-    last = re.lastIndex;
   }
-  if (last < text.length) previewEl.appendChild(document.createTextNode(text.slice(last)));
 }
 
 function renderConfigFields() {
   const wrap = document.getElementById('configWrap');
   const fieldsEl = document.getElementById('configFields');
-  const names = configNames(textEl.value);
+  const names = C.configNames(textEl.value);
   wrap.style.display = names.length ? '' : 'none';
   fieldsEl.innerHTML = '';
   for (const name of names) {
@@ -796,7 +1332,7 @@ function renderConfigFields() {
     const input = document.createElement('input');
     input.type = 'text';
     input.spellcheck = false;
-    input.placeholder = '(unset — expands to nothing)';
+    input.placeholder = '(unset — will ask as a fill-in field)';
     input.value = editorConfigValues[name] || '';
     input.addEventListener('input', () => {
       editorConfigValues[name] = input.value;
@@ -808,49 +1344,23 @@ function renderConfigFields() {
   }
 }
 
-// Advanced options: parameter tooling hidden by default to keep the editor minimal
-const advToggleEl = document.getElementById('advToggle');
-const advancedEl = document.getElementById('advanced');
-let advOpen = localStorage.getItem('advancedOpen') === '1';
-function syncAdvanced(editorVisible) {
-  advToggleEl.style.display = editorVisible ? '' : 'none';
-  advancedEl.style.display = editorVisible && advOpen ? 'flex' : 'none';
-  advToggleEl.textContent = advOpen ? 'Advanced options ▾' : 'Advanced options ▸';
-}
-advToggleEl.addEventListener('click', () => {
-  advOpen = !advOpen;
-  localStorage.setItem('advancedOpen', advOpen ? '1' : '0');
-  syncAdvanced(true);
-});
-
-textEl.addEventListener('input', () => { renderPreview(); renderParams(); renderConfigFields(); scheduleSave(); });
-
-// --- Parameter chips: insert/remove placeholders without typing them ---
-const paramBarEl = document.getElementById('paramBar');
+// Parameter chips: insert/remove placeholders without typing them
 const paramChipsEl = document.getElementById('paramChips');
-const BUILTIN_PARAMS = ['clipboard', 'date', 'time'];
-const SUGGESTED_PARAMS = ['goal', 'feature', 'task', 'error', 'file'];
-
 function libraryParams() {
   const found = new Set();
   for (const s of snippets)
-    for (const m of s.text.matchAll(/\{\{([a-z_]+)\}\}|\{([a-z_]+)\}/g)) {
-      const name = m[1] || m[2];
-      if (!BUILTIN_PARAMS.includes(name)) found.add(name);
-    }
+    for (const part of C.tokenize(s.text))
+      if (part.type === 'field' || part.type === 'config') found.add(part.name);
   return found;
 }
-
-// Which parameters the current text uses, and as which type
 function paramsInText() {
   const config = new Set(), runtime = new Set();
-  for (const m of textEl.value.matchAll(/\{\{([a-z_]+)\}\}|\{([a-z_]+)\}/g)) {
-    if (m[1]) config.add(m[1]);
-    else runtime.add(m[2]);
+  for (const part of C.tokenize(textEl.value)) {
+    if (part.type === 'config') config.add(part.name);
+    else if (part.type === 'field' || part.type === 'builtin') runtime.add(part.name);
   }
   return { config, runtime };
 }
-
 function insertParam(name, asConfig) {
   const token = asConfig ? `{{${name}}}` : `{${name}}`;
   const pos = textEl.selectionStart ?? textEl.value.length;
@@ -858,46 +1368,40 @@ function insertParam(name, asConfig) {
   const cursor = pos + token.length;
   textEl.focus();
   textEl.setSelectionRange(cursor, cursor);
-  renderPreview();
-  renderParams();
-  renderConfigFields();
+  onTextChanged();
 }
-
 function removeParam(name) {
-  // Drop both token forms and tidy the most common leftovers
   textEl.value = textEl.value
     .replaceAll(`{{${name}}}`, '')
     .replaceAll(`{${name}}`, '')
     .replace(/[^\S\n]{2,}/g, ' ')
     .replace(/\n{3,}/g, '\n\n');
-  renderPreview();
-  renderParams();
-  renderConfigFields();
+  onTextChanged();
 }
-
 function paramChip(name, isBuiltin, presence) {
-  // presence: null | 'field' | 'config'
   const chip = document.createElement('span');
   const kind = presence === 'config' ? 'config' : isBuiltin ? 'builtin' : 'field';
   chip.className = 'pchip ' + kind + (presence ? ' present' : '');
+  chip.tabIndex = 0;
   chip.textContent = presence === 'config' ? `{{${name}}}` : `{${name}}`;
   chip.title = presence
     ? `Remove ${name} from this prompt`
     : isBuiltin
       ? `Insert {${name}} — expands automatically`
       : `Insert {${name}} — asks before pasting. Ctrl+click: insert {{${name}}} as a config parameter (saved value, no prompt).`;
-  chip.addEventListener('click', e =>
-    presence ? removeParam(name) : insertParam(name, !isBuiltin && (e.ctrlKey || e.metaKey)));
+  const act = e => (presence ? removeParam(name) : insertParam(name, !isBuiltin && (e.ctrlKey || e.metaKey)));
+  chip.addEventListener('click', act);
+  chip.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); act(e); }
+  });
   return chip;
 }
-
 function renderParams() {
   paramChipsEl.innerHTML = '';
   const { config, runtime } = paramsInText();
   const presence = n => (config.has(n) ? 'config' : runtime.has(n) ? 'field' : null);
   for (const p of BUILTIN_PARAMS)
-    paramChipsEl.appendChild(paramChip(p, true, presence(p)));
-  // Custom params: ones in this prompt, ones used elsewhere in the library, then stock suggestions
+    paramChipsEl.appendChild(paramChip(p, true, runtime.has(p) ? 'field' : null));
   const custom = new Set([
     ...[...config, ...runtime].filter(t => !BUILTIN_PARAMS.includes(t)),
     ...libraryParams(),
@@ -905,10 +1409,6 @@ function renderParams() {
   ]);
   for (const p of custom)
     paramChipsEl.appendChild(paramChip(p, false, presence(p)));
-
-  // Inline "add your own" input
-  const wrap = document.createElement('span');
-  wrap.id = 'newParamWrap';
   const input = document.createElement('input');
   input.id = 'newParam';
   input.type = 'text';
@@ -918,15 +1418,39 @@ function renderParams() {
     if (e.key !== 'Enter') return;
     const name = input.value.trim().toLowerCase().replace(/[^a-z_]+/g, '_').replace(/^_+|_+$/g, '');
     if (!name) return;
-    insertParam(name);
+    insertParam(name, e.ctrlKey);
     input.value = '';
   });
-  wrap.appendChild(input);
-  paramChipsEl.appendChild(wrap);
+  paramChipsEl.appendChild(input);
 }
+
+// Advanced options: parameter tooling hidden by default
+const advToggleEl = document.getElementById('advToggle');
+const advancedEl = document.getElementById('advanced');
+let advOpen = localStorage.getItem('advancedOpen') === '1';
+function syncAdvanced(editorVisible) {
+  advToggleEl.style.display = editorVisible ? '' : 'none';
+  advancedEl.style.display = editorVisible && advOpen ? 'flex' : 'none';
+  advToggleEl.textContent = advOpen ? 'Advanced options ▾' : 'Advanced options ▸';
+  document.getElementById('previewWrap').style.display = editorVisible && advOpen ? '' : 'none';
+}
+advToggleEl.addEventListener('click', () => {
+  advOpen = !advOpen;
+  localStorage.setItem('advancedOpen', advOpen ? '1' : '0');
+  syncAdvanced(true);
+});
+
+function onTextChanged() {
+  renderPreview();
+  renderParams();
+  renderConfigFields();
+  scheduleSave();
+}
+textEl.addEventListener('input', onTextChanged);
 
 function showEditor(show) {
   emptyEl.style.display = show ? 'none' : '';
+  if (!show && !selection.size) emptyEl.textContent = 'Select or create a prompt';
   metaEl.style.display = show ? 'flex' : 'none';
   textEl.style.display = show ? '' : 'none';
   buttonsEl.style.display = show ? 'flex' : 'none';
@@ -937,6 +1461,13 @@ function updatePinBtn(s) {
   const btn = document.getElementById('pinBtn');
   btn.textContent = s.pinned ? 'Unpin' : 'Pin';
   btn.className = 'action' + (s.pinned ? ' pinned' : '');
+}
+
+function refreshEditorFields() {
+  const s = snippets.find(x => x.id === activeId);
+  if (!s) return;
+  tagsEl.value = (s.tags || []).join(', ');
+  syncPackDatalist(s.pack || DEFAULT_PACK);
 }
 
 function select(id) {
@@ -965,11 +1496,30 @@ async function persist() {
   await invoke('save_snippets', { snippets });
 }
 
-// Inline "new pack" flow on the editor's pack dropdown
-const packNewEl = document.getElementById('snipPackNew');
+// Pack dropdown: all packs, locked disabled (unless current), + new pack affordance
+function syncPackDatalist(current, extra) {
+  const keep = current ?? packEl.value;
+  packEl.innerHTML = '';
+  const names = packNames();
+  if (extra && !names.includes(extra)) names.push(extra);
+  names.sort((a, b) => a.localeCompare(b));
+  for (const p of names) {
+    const o = document.createElement('option');
+    o.value = p;
+    o.textContent = isLocked(p) ? `🔒 ${p}` : p;
+    if (isLocked(p) && p !== keep) o.disabled = true;
+    packEl.appendChild(o);
+  }
+  const n = document.createElement('option');
+  n.value = '__new__';
+  n.textContent = '＋ New pack…';
+  packEl.appendChild(n);
+  packEl.value = names.includes(keep) ? keep : DEFAULT_PACK;
+}
+
 packEl.addEventListener('change', () => {
   if (packEl.value !== '__new__') {
-    saveActive(); // pack changes apply immediately (with the locked-pack guard)
+    saveActive();
     return;
   }
   packEl.style.display = 'none';
@@ -985,7 +1535,8 @@ function finishNewPack(commit) {
   const s = snippets.find(x => x.id === activeId);
   const fallback = s ? (s.pack || DEFAULT_PACK) : DEFAULT_PACK;
   if (commit && name && !isLocked(name)) {
-    syncPackDatalist(name, name); // selected; becomes real on Save
+    syncPackDatalist(name, name);
+    saveActive();
   } else {
     if (commit && name && isLocked(name)) setStatus(`Pack "${name}" is locked`, true);
     syncPackDatalist(fallback);
@@ -996,18 +1547,6 @@ packNewEl.addEventListener('keydown', e => {
   if (e.key === 'Escape') finishNewPack(false);
 });
 packNewEl.addEventListener('blur', () => finishNewPack(true));
-
-document.getElementById('newBtn').addEventListener('click', async () => {
-  showSettings(false);
-  // If the default pack is locked, new prompts land in "Unsorted" instead
-  const pack = isLocked(DEFAULT_PACK) ? 'Unsorted' : DEFAULT_PACK;
-  const s = { id: crypto.randomUUID(), title: 'New prompt', text: '', tags: [], pack, uses: 0, pinned: false, fieldValues: {}, configValues: {} };
-  snippets.push(s);
-  await persist();
-  select(s.id);
-  titleEl.focus();
-  titleEl.select();
-});
 
 // Autosave: edits persist on a short debounce — no Save button, no lost drafts
 let saveTimer = null;
@@ -1021,18 +1560,16 @@ async function saveActive() {
   const s = snippets.find(x => x.id === activeId);
   if (!s) return;
   const targetPack = (packEl.value === '__new__' ? '' : packEl.value.trim()) || s.pack || DEFAULT_PACK;
-  // Locked packs only accept prompts that are already in them
   if (targetPack !== (s.pack || DEFAULT_PACK) && isLocked(targetPack)) {
-    setStatus(`Pack "${targetPack}" is locked — unlock it in Settings to add prompts`, true);
-    packEl.value = s.pack || DEFAULT_PACK;
+    setStatus(`Pack "${targetPack}" is locked — unlock it to add prompts`, true);
+    syncPackDatalist(s.pack || DEFAULT_PACK);
   } else {
     s.pack = targetPack;
   }
   s.title = titleEl.value.trim() || '(untitled)';
   s.tags = tagsEl.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
   s.text = textEl.value;
-  // Keep only config values whose parameter still exists in the text
-  const names = configNames(s.text);
+  const names = C.configNames(s.text);
   s.configValues = Object.fromEntries(
     Object.entries(editorConfigValues).filter(([k, v]) => names.includes(k) && v !== ''));
   await persist();
@@ -1059,7 +1596,6 @@ const deleteBtnEl = document.getElementById('deleteBtn');
 deleteBtnEl.addEventListener('click', async () => {
   const s = snippets.find(x => x.id === activeId);
   if (!s) return;
-  // Two-click confirm (same pattern as pack delete)
   if (!deleteBtnEl.classList.contains('arm')) {
     deleteBtnEl.classList.add('arm');
     deleteBtnEl.textContent = `Delete "${(s.title || 'untitled').slice(0, 24)}"?`;
@@ -1076,6 +1612,7 @@ deleteBtnEl.addEventListener('click', async () => {
   const removed = s;
   const at = snippets.indexOf(s);
   snippets = snippets.filter(x => x.id !== activeId);
+  selection.clear();
   await persist();
   activeId = null;
   showEditor(false);
@@ -1088,23 +1625,56 @@ deleteBtnEl.addEventListener('click', async () => {
   });
 });
 
-// --- Settings: general ---
-function fmtHotkey(h) {
-  return h.split('+').map(p => p ? p[0].toUpperCase() + p.slice(1) : p).join('+');
-}
-function updateHotkeyBadge(h) {
-  document.getElementById('hotkeyBadge').textContent = `popup: ${fmtHotkey(h)}`;
-}
-
-document.getElementById('applyHotkey').addEventListener('click', async () => {
+// ---- Settings: general ----
+// Hotkey recorder: click, press a combination, it applies immediately
+let recording = false;
+hotkeyEl.addEventListener('focus', () => {
+  recording = true;
+  hotkeyEl.classList.add('recording');
+  hotkeyEl.value = '';
+  hotkeyEl.placeholder = 'press a key combination… (Esc cancels)';
+});
+hotkeyEl.addEventListener('blur', () => {
+  recording = false;
+  hotkeyEl.classList.remove('recording');
+  hotkeyEl.value = C.fmtHotkey(currentHotkey);
+});
+hotkeyEl.addEventListener('keydown', async e => {
+  if (!recording) return;
+  e.preventDefault();
+  if (e.key === 'Escape') { hotkeyEl.blur(); return; }
+  if (['Control', 'Shift', 'Alt', 'Meta'].includes(e.key)) {
+    const held = [e.ctrlKey && 'Ctrl', e.altKey && 'Alt', e.shiftKey && 'Shift', e.metaKey && 'Win']
+      .filter(Boolean).join('+');
+    hotkeyEl.value = held ? held + '+…' : '';
+    return;
+  }
+  const parts = [e.ctrlKey && 'ctrl', e.altKey && 'alt', e.shiftKey && 'shift', e.metaKey && 'super']
+    .filter(Boolean);
+  const key = e.key === ' ' ? 'space' : e.key.toLowerCase();
+  parts.push(key);
+  const combo = parts.join('+');
+  if (parts.length < 2) {
+    hotkeyEl.value = C.fmtHotkey(combo);
+    setStatus('Add a modifier (Ctrl/Alt/Shift) — bare keys would fire while typing', true);
+    return;
+  }
   try {
-    await invoke('set_hotkey', { hotkey: hotkeyEl.value.trim() });
-    updateHotkeyBadge(hotkeyEl.value.trim());
-    setStatus('Hotkey updated');
-  } catch (e) {
-    setStatus(String(e), true);
+    await invoke('set_hotkey', { hotkey: combo });
+    currentHotkey = combo;
+    updateHotkeyBadge(combo);
+    hotkeyEl.blur();
+    setStatus(`Hotkey set to ${C.fmtHotkey(combo)}`);
+  } catch (err) {
+    setStatus(`Couldn't register ${C.fmtHotkey(combo)} — try another combination`, true);
   }
 });
+
+let currentHotkey = 'ctrl+shift+v';
+function updateHotkeyBadge(h) {
+  document.getElementById('hotkeyBadge').textContent = `popup: ${C.fmtHotkey(h)}`;
+  document.getElementById('firstRunKey').textContent = C.fmtHotkey(h);
+}
 
 autostartEl.addEventListener('change', async () => {
   try {
@@ -1116,129 +1686,22 @@ autostartEl.addEventListener('change', async () => {
   }
 });
 
-// --- Settings: packs ---
-function packToJson(name) {
-  return {
-    name,
-    prompts: snippets
-      .filter(s => (s.pack || DEFAULT_PACK) === name)
-      .map(({ title, text, tags }) => ({ title, text, tags })),
-  };
-}
-
-function packRow(name) {
-  const locked = isLocked(name);
-  const row = document.createElement('div');
-  row.className = 'packRow';
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.value = name;
-  input.spellcheck = false;
-  input.addEventListener('change', async () => {
-    const next = input.value.trim();
-    if (!next || next === name) { input.value = name; return; }
-    if (packNames().includes(next)) {
-      setStatus(`Pack "${next}" already exists`, true);
-      input.value = name;
-      return;
-    }
-    const meta = packMeta.find(p => p.name === name);
-    if (meta) meta.name = next;
-    for (const s of snippets) if ((s.pack || DEFAULT_PACK) === name) s.pack = next;
-    await persist();
-    await persistPackMeta();
-    renderPacks();
-    renderList();
-    if (activeId) select(activeId);
-    setStatus(`Renamed to "${next}"`);
-  });
-  const count = snippets.filter(s => (s.pack || DEFAULT_PACK) === name).length;
-  const countEl = document.createElement('span');
-  countEl.className = 'count';
-  countEl.textContent = `${count} prompt${count === 1 ? '' : 's'}`;
-
-  const lockBtn = document.createElement('button');
-  lockBtn.className = 'small' + (locked ? ' lockedBtn' : '');
-  lockBtn.textContent = locked ? '🔒' : '🔓';
-  lockBtn.title = locked
-    ? 'Locked — prompts can’t be added to this pack and it can’t be deleted. Click to unlock.'
-    : 'Unlocked — click to lock this pack against new prompts and deletion.';
-  lockBtn.addEventListener('click', async () => {
-    let meta = packMeta.find(p => p.name === name);
-    if (!meta) { meta = { name, locked: false }; packMeta.push(meta); }
-    meta.locked = !meta.locked;
-    await persistPackMeta();
-    renderPacks();
-    setStatus(meta.locked ? `Pack "${name}" locked` : `Pack "${name}" unlocked`);
-  });
-
-  const exportBtn = document.createElement('button');
-  exportBtn.className = 'small';
-  exportBtn.textContent = 'Export';
-  exportBtn.addEventListener('click', async () => {
-    await invoke('set_clipboard_text', { text: JSON.stringify(packToJson(name), null, 2) });
-    setStatus(`Pack "${name}" copied to clipboard`);
-  });
-
-  const del = document.createElement('button');
-  del.className = 'small danger';
-  del.textContent = 'Delete';
-  del.disabled = locked;
-  if (locked) del.title = 'Unlock the pack to delete it';
-  del.addEventListener('click', async () => {
-    if (locked) return;
-    // Two-click confirm: first click arms the button
-    if (!del.classList.contains('confirmDelete')) {
-      del.classList.add('confirmDelete');
-      del.textContent = count ? `Delete ${count} prompts?` : 'Delete pack?';
-      setTimeout(() => {
-        del.classList.remove('confirmDelete');
-        del.textContent = 'Delete';
-      }, 3000);
-      return;
-    }
-    snippets = snippets.filter(s => (s.pack || DEFAULT_PACK) !== name);
-    packMeta = packMeta.filter(p => p.name !== name);
-    if (activeId && !snippets.some(s => s.id === activeId)) {
-      activeId = null;
-      showEditor(false);
-    }
-    await persist();
-    await persistPackMeta();
-    renderPacks();
-    renderList();
-    setStatus(`Pack "${name}" deleted`);
-  });
-  row.append(input, countEl, lockBtn, exportBtn, del);
-  return row;
-}
-
-function renderPacks() {
-  packsListEl.innerHTML = '';
-  for (const name of packNames()) packsListEl.appendChild(packRow(name));
-}
-
-const newPackEl = document.getElementById('newPackName');
-async function addPack() {
-  const name = newPackEl.value.trim();
-  if (!name) return;
-  if (packNames().includes(name)) {
-    setStatus(`Pack "${name}" already exists`, true);
-    return;
-  }
-  packMeta.push({ name, locked: false });
-  newPackEl.value = '';
-  await persistPackMeta();
-  syncPackDatalist();
-  renderPacks();
-  newPackEl.focus();
-  setStatus(`Pack "${name}" created`);
-}
-document.getElementById('addPackBtn').addEventListener('click', addPack);
-newPackEl.addEventListener('keydown', e => { if (e.key === 'Enter') addPack(); });
-
-// --- Settings: generate with Claude ---
+// ---- Generate with Claude (dialog) ----
+const genOverlayEl = document.getElementById('genOverlay');
 const packTopicEl = document.getElementById('packTopic');
+function openGenDialog() {
+  genOverlayEl.classList.add('visible');
+  packTopicEl.focus();
+}
+function closeGenDialog() {
+  genOverlayEl.classList.remove('visible');
+  hideImportPreview(document.getElementById('genImportPreview'));
+}
+document.getElementById('genCloseBtn').addEventListener('click', closeGenDialog);
+genOverlayEl.addEventListener('click', e => { if (e.target === genOverlayEl) closeGenDialog(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && genOverlayEl.classList.contains('visible')) closeGenDialog();
+});
 
 document.getElementById('templateBtn').addEventListener('click', async () => {
   const topic = packTopicEl.value.trim();
@@ -1278,143 +1741,177 @@ Generate a pack for: ${topic}`;
   setStatus('Copied — paste it to Claude, then use step 2 on its reply');
 });
 
-// --- Settings: library export / import ---
-document.getElementById('exportBtn').addEventListener('click', async () => {
-  const packs = packNames().map(packToJson);
-  await invoke('set_clipboard_text', { text: JSON.stringify(packs, null, 2) });
-  setStatus(`Exported ${packs.length} packs (${snippets.length} prompts) to clipboard`);
-});
-
-// Accepts: {name, prompts:[...]} | [{name, prompts}, ...] | legacy [{title, text, category?|tags?}, ...]
-function parsePacks(raw) {
-  const data = JSON.parse(raw);
-  const normPrompt = p => {
-    if (typeof p.title !== 'string' || typeof p.text !== 'string') return null;
-    let tags = Array.isArray(p.tags) ? p.tags.filter(t => typeof t === 'string') : [];
-    if (!tags.length && typeof p.category === 'string' && p.category) tags = [p.category];
-    return { title: p.title, text: p.text, tags: tags.map(t => t.trim().toLowerCase()).filter(Boolean) };
-  };
-  const normPack = obj => ({
-    name: typeof obj.name === 'string' && obj.name.trim() ? obj.name.trim() : 'Imported',
-    prompts: (Array.isArray(obj.prompts) ? obj.prompts : []).map(normPrompt).filter(Boolean),
-  });
-  if (Array.isArray(data)) {
-    if (data.every(x => x && Array.isArray(x.prompts))) return data.map(normPack);
-    return [{ name: 'Imported', prompts: data.map(normPrompt).filter(Boolean) }];
-  }
-  if (data && Array.isArray(data.prompts)) return [normPack(data)];
-  throw new Error('unrecognized format');
+// ---- Import with curation (shared by Data pane and generate dialog) ----
+function hideImportPreview(container) {
+  container.classList.remove('visible');
+  container.innerHTML = '';
 }
 
-// Two-phase import: parse the clipboard, show what would be added, confirm.
-const importPreviewEl = document.getElementById('importPreview');
-
-function hideImportPreview() {
-  importPreviewEl.style.display = 'none';
-  importPreviewEl.innerHTML = '';
-}
-
-async function startImport() {
-  hideImportPreview();
+async function startImport(container) {
+  hideImportPreview(container);
   let packs;
   try {
-    let raw = (await invoke('get_clipboard_text')).trim();
-    // Tolerate ```json fences around generated packs
-    raw = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-    packs = parsePacks(raw);
+    packs = C.parsePacks(await invoke('get_clipboard_text'));
   } catch {
     setStatus('Clipboard does not contain a valid prompt pack (JSON)', true);
     return;
   }
-
   const isDupe = p => snippets.some(s => s.title === p.title && s.text === p.text);
-  const total = packs.reduce((n, pk) => n + pk.prompts.length, 0);
-  const freshCount = packs.reduce((n, pk) => n + pk.prompts.filter(p => !isDupe(p)).length, 0);
-
-  importPreviewEl.style.display = 'flex';
-  if (!freshCount) {
-    importPreviewEl.textContent = total
-      ? `All ${total} prompts in this pack are in your library already.`
-      : 'No usable prompts found in the pack.';
+  const rows = [];
+  for (const pk of packs) {
+    for (const p of pk.prompts) rows.push({ pk, p, dupe: isDupe(p), include: !isDupe(p) });
+  }
+  container.classList.add('visible');
+  if (!rows.length) {
+    container.innerHTML = '<div class="ipHead">No usable prompts found in the pack.</div>';
     return;
   }
 
   const single = packs.length === 1;
-  const label = document.createElement('span');
-  label.textContent = single
-    ? `${freshCount} new prompt${freshCount === 1 ? '' : 's'}` +
-      (total !== freshCount ? ` (${total - freshCount} already in library)` : '') + ' as pack:'
-    : `${packs.length} packs, ${freshCount} new prompts` +
-      (total !== freshCount ? ` (${total - freshCount} already in library)` : '');
-
+  const head = document.createElement('div');
+  head.className = 'ipHead';
+  const headText = document.createElement('span');
+  head.appendChild(headText);
   let nameInput = null;
   if (single) {
+    const asPack = document.createElement('span');
+    asPack.textContent = 'as pack:';
     nameInput = document.createElement('input');
     nameInput.type = 'text';
+    nameInput.className = 'ipPackName';
     nameInput.spellcheck = false;
     nameInput.value = packs[0].name === 'Imported' && packTopicEl.value.trim()
-      ? packTopicEl.value.trim()
-      : packs[0].name;
+      ? packTopicEl.value.trim() : packs[0].name;
+    head.append(asPack, nameInput);
   }
+  container.appendChild(head);
 
+  const rowsEl = document.createElement('div');
+  rowsEl.className = 'ipRows';
   const confirm = document.createElement('button');
   confirm.className = 'small confirm';
-  confirm.textContent = `Add ${freshCount} prompts`;
-  confirm.addEventListener('click', async () => {
-    let skippedLocked = 0;
-    for (const pk of packs) {
-      const packName = single ? (nameInput.value.trim() || pk.name) : pk.name;
-      if (isLocked(packName)) {
-        if (single) {
-          setStatus(`Pack "${packName}" is locked — pick another name`, true);
-          return;
-        }
-        skippedLocked += pk.prompts.filter(p => !isDupe(p)).length;
-        continue;
-      }
-      for (const p of pk.prompts) {
-        if (isDupe(p)) continue;
-        snippets.push({
-          id: crypto.randomUUID(),
-          title: p.title,
-          text: p.text,
-          tags: p.tags,
-          pack: packName,
-          uses: 0,
-          pinned: false,
-        });
-      }
+
+  const refresh = () => {
+    const n = rows.filter(r => r.include).length;
+    const dupes = rows.filter(r => r.dupe).length;
+    headText.textContent = `${rows.length} prompts` + (dupes ? ` (${dupes} already in library)` : '');
+    confirm.textContent = `Add ${n} prompt${n === 1 ? '' : 's'}`;
+    confirm.disabled = n === 0;
+  };
+
+  for (const r of rows) {
+    const row = document.createElement('div');
+    row.className = 'ipRow';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = r.include;
+    cb.addEventListener('change', () => { r.include = cb.checked; refresh(); });
+    const t = document.createElement('span');
+    t.className = 't';
+    t.textContent = r.p.title;
+    const x = document.createElement('span');
+    x.className = 'x';
+    x.textContent = r.p.text.replace(/\s+/g, ' ').slice(0, 80);
+    row.append(cb, t, x);
+    if (r.dupe) {
+      const badge = document.createElement('span');
+      badge.className = 'dupe';
+      badge.textContent = 'dupe';
+      row.appendChild(badge);
     }
-    await persist();
-    renderList();
-    renderPacks();
-    hideImportPreview();
-    setStatus(skippedLocked
-      ? `Imported ${freshCount - skippedLocked} prompts (${skippedLocked} skipped — locked packs)`
-      : `Imported ${freshCount} prompts`);
-  });
+    rowsEl.appendChild(row);
+  }
+  container.appendChild(rowsEl);
+
+  const foot = document.createElement('div');
+  foot.className = 'ipFoot';
   const cancel = document.createElement('button');
   cancel.className = 'small';
   cancel.textContent = 'Cancel';
-  cancel.addEventListener('click', hideImportPreview);
-  if (nameInput) importPreviewEl.append(label, nameInput, confirm, cancel);
-  else importPreviewEl.append(label, confirm, cancel);
+  cancel.addEventListener('click', () => hideImportPreview(container));
+  confirm.addEventListener('click', async () => {
+    let added = 0, skippedLocked = 0;
+    for (const r of rows) {
+      if (!r.include) continue;
+      const packName = single ? (nameInput.value.trim() || r.pk.name) : r.pk.name;
+      if (isLocked(packName)) { skippedLocked++; continue; }
+      snippets.push({
+        id: crypto.randomUUID(),
+        title: r.p.title,
+        text: r.p.text,
+        tags: r.p.tags,
+        pack: packName,
+        uses: 0,
+        pinned: false,
+        fieldValues: {},
+        configValues: {},
+      });
+      added++;
+    }
+    if (single && isLocked(nameInput.value.trim())) {
+      setStatus(`Pack "${nameInput.value.trim()}" is locked — pick another name`, true);
+      return;
+    }
+    await persist();
+    renderList();
+    hideImportPreview(container);
+    setStatus(skippedLocked
+      ? `Imported ${added} prompts (${skippedLocked} skipped — locked pack)`
+      : `Imported ${added} prompts`);
+  });
+  foot.append(confirm, cancel);
+  container.appendChild(foot);
+  refresh();
 }
 
-document.getElementById('importBtn').addEventListener('click', startImport);
-document.getElementById('importReplyBtn').addEventListener('click', startImport);
+document.getElementById('importBtn').addEventListener('click', () =>
+  startImport(document.getElementById('dataImportPreview')));
+document.getElementById('importReplyBtn').addEventListener('click', () =>
+  startImport(document.getElementById('genImportPreview')));
 
+document.getElementById('exportBtn').addEventListener('click', async () => {
+  const packs = packNames().map(packToJson).filter(p => p.prompts.length);
+  await invoke('set_clipboard_text', { text: JSON.stringify(packs, null, 2) });
+  setStatus(`Exported ${packs.length} packs (${snippets.length} prompts) to clipboard`);
+});
+
+// ---- First-run banner ----
+const firstRunEl = document.getElementById('firstRun');
+document.getElementById('firstRunDismiss').addEventListener('click', () =>
+  firstRunEl.classList.remove('visible'));
+listen('first-popup', () => {
+  if (!firstRunEl.classList.contains('visible')) return;
+  firstRunEl.classList.add('done');
+  document.getElementById('firstRunText').textContent = '✓ That\'s it — pick a prompt and it pastes right where you were.';
+  setTimeout(() => firstRunEl.classList.remove('visible'), 6000);
+});
+
+// ---- Popup → manager deep link ----
+listen('edit-prompt', ({ payload }) => {
+  showSettings(false);
+  selection = new Set([payload]);
+  select(payload);
+});
+
+// ---- Init ----
 async function init() {
   snippets = await invoke('get_snippets');
   // GC abandoned "+ New" drafts (default title, no text, never used)
   const before = snippets.length;
   snippets = snippets.filter(s => !(s.title === 'New prompt' && !s.text.trim() && !s.uses));
   if (snippets.length !== before) await persist();
+
   const config = await invoke('get_config');
-  hotkeyEl.value = config.hotkey;
+  currentHotkey = config.hotkey;
+  hotkeyEl.value = C.fmtHotkey(config.hotkey);
   updateHotkeyBadge(config.hotkey);
   packMeta = Array.isArray(config.packs) ? config.packs : [];
-  syncPackDatalist();
+  themeSelEl.value = config.theme || 'sand';
+  densitySelEl.value = config.density || 'comfortable';
+  localStorage.setItem('theme', themeSelEl.value);
+  localStorage.setItem('density', densitySelEl.value);
+  applyTheme(themeSelEl.value);
+  if (!config.popupSeen) firstRunEl.classList.add('visible');
   renderList();
   autostartEl.checked = await invoke('get_autostart');
 }

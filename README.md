@@ -20,26 +20,46 @@ Copy an error / stack trace / diff, hit the hotkey, pick **"Root cause first"**
 |---|---|
 | `{clipboard}` | whatever was on the clipboard when you hit the hotkey |
 | `{date}` / `{time}` | current date / time |
-| any other `{lowercase_word}` | a fill-in field — the popup shows a mini-form before pasting |
+| any other `{lowercase_word}` | a runtime fill-in field — the popup asks before pasting, pre-filled with your last value |
+| `{{lowercase_word}}` | a config parameter — set its value once (editor → Advanced options), it pastes silently every time |
 
-## Usage
+Unset config parameters downgrade to fill-in fields instead of pasting holes.
+Parameter tooling (insert/remove chips, config values, live preview) lives
+behind **Advanced options** in the editor — invisible until you want it.
 
-- **Enter / click** pastes; **Ctrl+Enter / Ctrl+click** copies to the clipboard
-  only; **Esc** closes the popup (or backs out of a fill-in form).
-- With no search query, prompts are sorted by how often you use them.
-- Search matches title, category, and body (fuzzy).
-- Left-click the tray icon to manage prompts, categories, the hotkey, and
-  autostart. Closing that window hides it to the tray.
-- **Export → clipboard / Import ← clipboard**: prompt packs are plain JSON
-  arrays (`[{title, text, category}]`) — share them in chat, gists, or a repo.
-- Ships with a starter pack of Claude-focused prompts (Debug, Review, Plan,
-  Guardrails, Meta, …). Delete freely; they're just defaults.
-- Your previous clipboard contents are restored after each paste.
-- Data lives in `%APPDATA%\com.promptline.app\snippets.json` (v1 EasyPaste data
-  is migrated automatically).
+## The popup
 
-> Note: the default hotkey `Ctrl+Shift+V` shadows "paste without formatting"
-> in browsers. Change it in the settings bar (e.g. `ctrl+alt+v`) if you use that.
+- **Enter** pastes · **Ctrl+Enter / Ctrl+click** copies only · **Esc** closes
+- **Ctrl+1..5** pastes the top results instantly — pins (max 5) always sit on
+  top, so they become stable muscle-memory slots
+- **Tab** opens an action panel: paste / copy / pin / edit in manager / delete
+- **→** shows the full-prompt preview card (also on mouse hover)
+- Search is fuzzy over titles, tags, and bodies with match highlighting;
+  `#tag` and `@pack` terms filter (`#debug root cause`); click a tag pill to filter by it
+- A clipboard preview bar shows exactly what `{clipboard}` will insert
+- With no query, prompts sort by how often you use them
+
+## The manager (left-click the tray icon)
+
+- **Autosaves** — no Save button, no lost drafts; deletes are two-click with Undo
+- Sidebar groups by **pack** (collapsible); right-click a pack header to
+  rename / lock / export / delete it; right-click prompts for multi-select
+  actions (move to pack, add tag, export, delete) — Ctrl/Shift+click to select several
+- **Locked packs** (🔒) refuse new prompts and can't be deleted until unlocked
+- **+ New ▾** → new prompt, new pack, or **Generate pack with Claude**: type a
+  topic, copy the generated instruction to Claude, import its reply — every
+  prompt is reviewed in a checklist before anything is added
+- **Settings** (⚙): record a hotkey by pressing it, autostart, theme
+  (Sand warm / Sundown cool), popup density, library export/import
+
+## Data
+
+Everything lives in `%APPDATA%\com.promptline.app\` as plain JSON — snippets,
+packs, and preferences. Pack format docs: [`packs/TEMPLATE.md`](packs/TEMPLATE.md);
+curated packs ship in [`packs/`](packs/). Older data formats migrate automatically.
+
+> The default hotkey `Ctrl+Shift+V` shadows "paste without formatting" in
+> browsers — record `Ctrl+Alt+V` in Settings if you use that.
 
 ## Development
 
@@ -47,13 +67,18 @@ Requires Rust and Node.
 
 ```sh
 npm install
-npm run dev      # run in dev mode
-npm run build    # produce installer (src-tauri/target/release/bundle)
+npm run dev        # run in dev mode
+npm run build      # produce installer (src-tauri/target/release/bundle)
+npm test           # JS core tests (node --test)
+npm run test:rust  # Rust unit tests (cargo test)
 ```
+
+UI changes need an app restart — the two windows load `ui/*.html` at startup.
+Shared pure logic lives in `ui/core.js` (loaded by both windows, covered by tests).
 
 ## Stack
 
-Tauri 2 (Rust) + plain HTML/JS UI. Windows-specific parts (focus restore via
-`SetForegroundWindow`, paste via `SendInput`) are isolated in the `platform`
-module in `src-tauri/src/lib.rs`; a macOS port only needs that module
-reimplemented (CGEventPost + Accessibility permission).
+Tauri 2 (Rust) + plain HTML/JS UI (no bundler). Windows-specific parts (focus
+restore via `SetForegroundWindow`, paste via `SendInput`) are isolated in the
+`platform` module in `src-tauri/src/lib.rs`; a macOS port only needs that
+module reimplemented (CGEventPost + Accessibility permission).
