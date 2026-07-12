@@ -48,6 +48,14 @@ struct PackMeta {
     locked: bool,
 }
 
+fn default_theme() -> String {
+    "sand".into()
+}
+
+fn default_density() -> String {
+    "comfortable".into()
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct Config {
     hotkey: String,
@@ -55,6 +63,15 @@ struct Config {
     // Packs referenced by snippets but absent here are implicit and unlocked.
     #[serde(default)]
     packs: Vec<PackMeta>,
+    // UI preferences live here (not localStorage) so they export and survive
+    // webview profile changes; the manager mirrors them for the popup.
+    #[serde(default = "default_theme")]
+    theme: String,
+    #[serde(default = "default_density")]
+    density: String,
+    // First-run flag: has the popup ever been summoned?
+    #[serde(default, rename = "popupSeen")]
+    popup_seen: bool,
 }
 
 impl Default for Config {
@@ -62,6 +79,9 @@ impl Default for Config {
         Self {
             hotkey: "ctrl+shift+v".into(),
             packs: Vec::new(),
+            theme: default_theme(),
+            density: default_density(),
+            popup_seen: false,
         }
     }
 }
@@ -166,13 +186,10 @@ fn default_snippets() -> Vec<Snippet> {
     ]
 }
 
-fn load_snippets_from_disk(app: &AppHandle) -> Vec<Snippet> {
-    let mut snippets: Vec<Snippet> = fs::read_to_string(snippets_path(app))
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_else(default_snippets);
-    // Migrate v2 data: category becomes the first tag, packs get defaults
-    for s in &mut snippets {
+// Migrate older on-disk formats: v2 category becomes the first tag,
+// packless prompts get default packs. Pure, so it's unit-testable.
+fn apply_snippet_migrations(snippets: &mut [Snippet]) {
+    for s in snippets {
         if s.tags.is_empty() && !s.category.is_empty() {
             s.tags.push(s.category.to_lowercase());
         }
@@ -184,6 +201,14 @@ fn load_snippets_from_disk(app: &AppHandle) -> Vec<Snippet> {
             };
         }
     }
+}
+
+fn load_snippets_from_disk(app: &AppHandle) -> Vec<Snippet> {
+    let mut snippets: Vec<Snippet> = fs::read_to_string(snippets_path(app))
+        .ok()
+        .and_then(|s| serde_json::from_str(&s).ok())
+        .unwrap_or_else(default_snippets);
+    apply_snippet_migrations(&mut snippets);
     snippets
 }
 
@@ -237,6 +262,24 @@ fn save_packs(app: AppHandle, packs: Vec<PackMeta>) -> Result<(), String> {
     let mut config = load_config_from_disk(&app);
     config.packs = packs;
     save_config(&app, &config)
+}
+
+#[tauri::command]
+fn save_prefs(app: AppHandle, theme: String, density: String) -> Result<(), String> {
+    let mut config = load_config_from_disk(&app);
+    config.theme = theme;
+    config.density = density;
+    save_config(&app, &config)
+}
+
+/// Open the manager focused on a specific prompt (from the popup's action panel).
+#[tauri::command]
+fn edit_in_manager(app: AppHandle, id: String) {
+    if let Some(w) = app.get_webview_window("popup") {
+        let _ = w.hide();
+    }
+    show_main(&app);
+    let _ = app.emit("edit-prompt", id);
 }
 
 #[tauri::command]
@@ -342,6 +385,14 @@ fn show_popup(app: &AppHandle) {
     let state = app.state::<AppState>();
     *state.prev_window.lock().unwrap() = platform::foreground_window();
 
+    // First-run: record that the user found the hotkey, tell the manager
+    let mut config = load_config_from_disk(app);
+    if !config.popup_seen {
+        config.popup_seen = true;
+        let _ = save_config(app, &config);
+        let _ = app.emit("first-popup", ());
+    }
+
     if let Some(w) = app.get_webview_window("popup") {
         if let Ok(cursor) = app.cursor_position() {
             let mut x = cursor.x;
@@ -431,6 +482,81 @@ mod platform {
     pub fn send_ctrl_v() {}
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn v2_category_migrates_to_tag_and_packs_get_defaults() {
+        let mut snippets: Vec<Snippet> = serde_json::from_str(
+            r#"[
+                {"id": "starter-root-cause-first", "title": "Root cause", "text": "x", "category": "Debug"},
+                {"id": "abc-123", "title": "Mine", "text": "y", "category": "Review"},
+                {"id": "def-456", "title": "Tagged", "text": "z", "tags": ["kept"], "pack": "Custom"}
+            ]"#,
+        )
+        .unwrap();
+        apply_snippet_migrations(&mut snippets);
+
+        assert_eq!(snippets[0].tags, vec!["debug"]);
+        assert_eq!(snippets[0].pack, "Starter");
+        assert_eq!(snippets[1].tags, vec!["review"]);
+        assert_eq!(snippets[1].pack, "My prompts");
+        // Already-migrated data is untouched
+        assert_eq!(snippets[2].tags, vec!["kept"]);
+        assert_eq!(snippets[2].pack, "Custom");
+    }
+
+    #[test]
+    fn snippet_deserializes_with_all_new_fields_defaulted() {
+        let s: Snippet =
+            serde_json::from_str(r#"{"id": "a", "title": "t", "text": "b"}"#).unwrap();
+        assert!(s.tags.is_empty());
+        assert!(s.pack.is_empty());
+        assert!(s.field_values.is_empty());
+        assert!(s.config_values.is_empty());
+        assert_eq!(s.uses, 0);
+        assert!(!s.pinned);
+    }
+
+    #[test]
+    fn legacy_category_field_is_not_reserialized() {
+        let s: Snippet = serde_json::from_str(
+            r#"{"id": "a", "title": "t", "text": "b", "category": "Debug"}"#,
+        )
+        .unwrap();
+        let json = serde_json::to_string(&s).unwrap();
+        assert!(!json.contains("category"));
+    }
+
+    #[test]
+    fn config_deserializes_older_versions_with_defaults() {
+        let c: Config = serde_json::from_str(r#"{"hotkey": "ctrl+alt+v"}"#).unwrap();
+        assert_eq!(c.hotkey, "ctrl+alt+v");
+        assert!(c.packs.is_empty());
+        assert_eq!(c.theme, "sand");
+        assert_eq!(c.density, "comfortable");
+        assert!(!c.popup_seen);
+
+        let with_packs: Config = serde_json::from_str(
+            r#"{"hotkey": "x", "packs": [{"name": "Starter", "locked": true}, {"name": "Open"}]}"#,
+        )
+        .unwrap();
+        assert!(with_packs.packs[0].locked);
+        assert!(!with_packs.packs[1].locked);
+    }
+
+    #[test]
+    fn starter_pack_ids_are_unique_and_tagged() {
+        let snippets = default_snippets();
+        let mut ids: Vec<_> = snippets.iter().map(|s| s.id.clone()).collect();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), snippets.len());
+        assert!(snippets.iter().all(|s| !s.tags.is_empty() && s.pack == "Starter"));
+    }
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -454,6 +580,8 @@ pub fn run() {
             get_config,
             set_hotkey,
             save_packs,
+            save_prefs,
+            edit_in_manager,
             get_autostart,
             set_autostart,
             get_clipboard_text,
