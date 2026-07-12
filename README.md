@@ -50,7 +50,7 @@ behind **Advanced options** in the editor — invisible until you want it.
   topic, copy the generated instruction to Claude, import its reply — every
   prompt is reviewed in a checklist before anything is added
 - **Settings** (⚙): record a hotkey by pressing it, autostart, theme
-  (Sand warm / Sundown cool), popup density, library export/import
+  (dark / light), popup density, UI scale (90–125%), library export/import
 
 ## Data
 
@@ -67,18 +67,21 @@ Requires Rust and Node.
 
 ```sh
 npm install
-npm run dev        # run in dev mode
+npm run dev        # run in dev mode (starts Vite + Tauri; UI hot-reloads)
 npm run build      # produce installer (src-tauri/target/release/bundle)
+npm run ui:build   # typecheck + build the frontend only
 npm test           # JS core tests (node --test)
 npm run test:rust  # Rust unit tests (cargo test)
 ```
 
-UI changes need an app restart — the two windows load `ui/*.html` at startup.
-Shared pure logic lives in `ui/core.js` (loaded by both windows, covered by tests).
+The frontend is a two-entry Vite app (`index.html` → manager window,
+`popup.html` → popup window) under `src/`. Shared pure logic lives in
+`ui/core.js` (UMD; bridged into React via `src/lib/core.ts`, covered by tests).
 
 ## Stack
 
-Tauri 2 (Rust) + plain HTML/JS UI (no bundler). Windows-specific parts (focus
+Tauri 2 (Rust) + React 19 + Vite + Tailwind v4 + [shadcn/ui](https://ui.shadcn.com)
+(Base UI primitives, Outfit font, Remixicon). Windows-specific parts (focus
 restore via `SetForegroundWindow`, paste via `SendInput`) are isolated in the
 `platform` module in `src-tauri/src/lib.rs`; a macOS port only needs that
 module reimplemented (CGEventPost + Accessibility permission).
