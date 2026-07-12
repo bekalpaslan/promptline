@@ -262,6 +262,30 @@
     border-color: var(--accent);
     box-shadow: 0 0 0 3px var(--accent-ring);
   }
+  #formPreviewLabel {
+    font-size: var(--fs-pill);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--text-3);
+    margin-top: 2px;
+  }
+  #formPreview {
+    flex: 1;
+    min-height: 60px;
+    overflow-y: auto;
+    background: var(--bg-1);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    padding: 8px 12px;
+    font-size: var(--fs-ui);
+    line-height: 1.5;
+    color: var(--text-2);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .fpVal { background: var(--param-field-soft); color: var(--text-1); border-radius: 3px; padding: 0 2px; }
+  .fpClip { background: var(--param-builtin-soft); color: var(--text-1); border-radius: 3px; padding: 0 2px; }
   #formPaste {
     padding: 8px;
     background: var(--accent);
@@ -361,6 +385,8 @@
   <div id="form">
     <div id="formTitle"></div>
     <div id="formFields"></div>
+    <div id="formPreviewLabel">Will paste</div>
+    <div id="formPreview"></div>
     <button id="formPaste">Paste</button>
   </div>
   <div id="hoverCard"></div>
@@ -689,12 +715,48 @@ function openForm(snippet, baseText, fields, paste) {
         submitForm(e.ctrlKey);
       }
     });
+    ta.addEventListener('input', renderFormPreview);
     formFieldsEl.append(label, ta);
   });
   document.body.classList.add('form-mode');
   formEl.classList.add('visible');
   setHint('form');
+  renderFormPreview();
   formFieldsEl.querySelector('textarea').focus();
+}
+
+// Live "will paste" preview: the exact final text, re-rendered as the user
+// types — field values and the real clipboard contents substituted in place
+function renderFormPreview() {
+  if (!formSnippet) return;
+  const target = document.getElementById('formPreview');
+  target.innerHTML = '';
+  const values = {};
+  formFieldsEl.querySelectorAll('textarea').forEach(ta => {
+    values[ta.dataset.field] = ta.value;
+  });
+  for (const part of C.tokenize(C.expandBuiltins(formTextBase))) {
+    if (part.type === 'text') {
+      target.appendChild(document.createTextNode(part.value));
+    } else if (part.type === 'field' && values[part.name]) {
+      const span = document.createElement('span');
+      span.className = 'fpVal';
+      span.textContent = values[part.name];
+      target.appendChild(span);
+    } else if (part.type === 'builtin' && part.name === 'clipboard') {
+      const span = document.createElement('span');
+      span.className = 'fpClip';
+      span.textContent = clipboardNow || '(clipboard is empty)';
+      target.appendChild(span);
+    } else if (part.type === 'field') {
+      const tok = document.createElement('span');
+      tok.className = 'tok field';
+      tok.textContent = part.name;
+      target.appendChild(tok);
+    } else {
+      target.appendChild(document.createTextNode(part.raw));
+    }
+  }
 }
 
 function closeForm() {
