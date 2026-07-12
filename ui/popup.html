@@ -517,7 +517,11 @@ function render() {
       if (selected !== i) { selected = i; updateSelection(); }
       scheduleHoverCard(s, item);
     });
-    item.addEventListener('mouseleave', scheduleHoverHide);
+    item.addEventListener('mouseleave', e => {
+      // Leaving "into" the preview card must not hide it
+      if (e.relatedTarget === hoverCardEl || hoverCardEl.contains(e.relatedTarget)) return;
+      scheduleHoverHide();
+    });
     listEl.appendChild(item);
   });
   const sel = listEl.children[selected];
@@ -580,8 +584,19 @@ function showCardFor(index) {
   const rect = itemEl.getBoundingClientRect();
   const cardH = Math.min(hoverCardEl.scrollHeight, 220);
   const below = rect.bottom + 6;
-  const top = below + cardH <= window.innerHeight - 8 ? below : Math.max(8, rect.top - cardH - 6);
+  const above = Math.max(8, rect.top - cardH - 6);
+  let top = below + cardH <= window.innerHeight - 8 ? below : above;
+  // Never park the card under the (possibly stationary) cursor: the row fires
+  // mouseleave into the card, but a stationary cursor gets no mouseenter on
+  // the card, so the pending hide would kill it right after it appears.
+  const cursorIn = t => lastMouseY >= t - 2 && lastMouseY <= t + cardH + 2;
+  if (cursorIn(top)) {
+    const alt = top === below ? above : below;
+    if (!cursorIn(alt) && alt >= 8 && alt + cardH <= window.innerHeight - 8) top = alt;
+  }
   hoverCardEl.style.top = `${top}px`;
+  // If it still overlaps the cursor (tiny windows), don't let a stale hide fire
+  if (cursorIn(top)) clearTimeout(hoverHideTimer);
 }
 
 function scheduleHoverCard(snippet, itemEl) {
