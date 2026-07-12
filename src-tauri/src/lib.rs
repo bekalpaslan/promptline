@@ -60,6 +60,10 @@ fn default_density() -> String {
     "comfortable".into()
 }
 
+fn default_scale() -> String {
+    "100".into()
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct Config {
     hotkey: String,
@@ -73,6 +77,9 @@ struct Config {
     theme: String,
     #[serde(default = "default_density")]
     density: String,
+    // UI scale percentage ("90" | "100" | "110" | "125"); rem tokens follow it
+    #[serde(default = "default_scale")]
+    scale: String,
     // First-run flag: has the popup ever been summoned?
     #[serde(default, rename = "popupSeen")]
     popup_seen: bool,
@@ -85,6 +92,7 @@ impl Default for Config {
             packs: Vec::new(),
             theme: default_theme(),
             density: default_density(),
+            scale: default_scale(),
             popup_seen: false,
         }
     }
@@ -354,10 +362,11 @@ fn show_in_folder(path: String) {
 }
 
 #[tauri::command]
-fn save_prefs(app: AppHandle, theme: String, density: String) -> Result<(), String> {
+fn save_prefs(app: AppHandle, theme: String, density: String, scale: String) -> Result<(), String> {
     let mut config = load_config_from_disk(&app);
     config.theme = theme;
     config.density = density;
+    config.scale = scale;
     save_config(&app, &config)
 }
 
@@ -640,6 +649,7 @@ mod tests {
         assert!(c.packs.is_empty());
         assert_eq!(c.theme, "sand");
         assert_eq!(c.density, "comfortable");
+        assert_eq!(c.scale, "100");
         assert!(!c.popup_seen);
 
         let with_packs: Config = serde_json::from_str(
