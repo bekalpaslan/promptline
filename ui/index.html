@@ -656,6 +656,10 @@
             <button class="small" id="importBtn">Import pack</button>
             <span class="btnCaption">adds prompts from a JSON pack on the clipboard — you'll review them before anything is added</span>
           </div>
+          <div class="settingRow">
+            <button class="small" id="genFromDataBtn">Generate pack with Claude…</button>
+            <span class="btnCaption">also available under + New ▾ in the sidebar</span>
+          </div>
           <div class="importPreview" id="dataImportPreview"></div>
           <div class="hint">Pack format documentation lives in packs/TEMPLATE.md in the repo. Packs are managed in the sidebar: group by pack, then right-click a pack header.</div>
         </div>
@@ -1698,6 +1702,7 @@ function closeGenDialog() {
   hideImportPreview(document.getElementById('genImportPreview'));
 }
 document.getElementById('genCloseBtn').addEventListener('click', closeGenDialog);
+document.getElementById('genFromDataBtn').addEventListener('click', openGenDialog);
 genOverlayEl.addEventListener('click', e => { if (e.target === genOverlayEl) closeGenDialog(); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && genOverlayEl.classList.contains('visible')) closeGenDialog();
