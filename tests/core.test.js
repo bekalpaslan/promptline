@@ -149,6 +149,38 @@ test('parsePacks: invalid prompts are dropped, garbage throws', () => {
   assert.throws(() => core.parsePacks('"just a string"'));
 });
 
+// ---- pack diagnosis ----------------------------------------------------------------
+
+test('diagnosePack: valid pack parses ok', () => {
+  const d = core.diagnosePack(JSON.stringify({ name: 'P', prompts: [{ title: 't', text: 'x' }] }));
+  assert.ok(d.ok);
+  assert.equal(d.packs[0].name, 'P');
+});
+
+test('diagnosePack: empty source', () => {
+  const d = core.diagnosePack('   ');
+  assert.equal(d.ok, false);
+  assert.equal(d.code, 'empty');
+});
+
+test('diagnosePack: non-JSON text names its prefix', () => {
+  const d = core.diagnosePack('Sure! Here is your pack: ...');
+  assert.equal(d.code, 'not-json');
+  assert.ok(d.message.includes('Sure! Here is your pack'));
+});
+
+test('diagnosePack: truncated JSON flags terminal corruption', () => {
+  const valid = JSON.stringify({ name: 'P', prompts: [{ title: 't', text: 'x' }] });
+  const d = core.diagnosePack(valid.slice(0, valid.length - 10));
+  assert.equal(d.code, 'malformed');
+  assert.ok(d.message.includes('terminal'));
+});
+
+test('diagnosePack: valid JSON, wrong shape', () => {
+  const d = core.diagnosePack('{"hello": "world"}');
+  assert.equal(d.code, 'wrong-shape');
+});
+
 // ---- misc ------------------------------------------------------------------------
 
 test('fmtHotkey capitalizes parts', () => {

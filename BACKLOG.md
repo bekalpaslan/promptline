@@ -4,12 +4,11 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 
 ## Import / export
 
-- **Import pack from file** — file picker (`tauri-plugin-dialog`) next to
-  "Import pack", reading `*.json` directly into the curation checklist.
-  Motivation: clipboard round-trips through terminals corrupt JSON (observed
-  2026-07-12: a pack copied from a Claude Code terminal session arrived with
-  mid-word splices and fused fields — the byte-exact file path avoids terminal
-  rendering entirely). Export-to-file is the natural sibling.
+- ~~**Import pack from file**~~ — **shipped 2026-07-12** (`rfd` picker +
+  diagnostic parse errors distinguishing empty / not-JSON / malformed-likely-
+  terminal-corruption / wrong-shape). Export-to-file remains open as the
+  natural sibling.
+- **Export pack/library to file** — save dialog counterpart to the file import.
 
 ## Deferred from the UI rework (see UI-REWORK-ROADMAP.md)
 

@@ -272,6 +272,21 @@ fn save_prefs(app: AppHandle, theme: String, density: String) -> Result<(), Stri
     save_config(&app, &config)
 }
 
+/// Pick a JSON pack file and return its contents (None if the user cancels).
+/// A byte-exact import path — clipboard transport corrupts when text is
+/// copied out of terminals.
+#[tauri::command]
+async fn import_pack_file() -> Result<Option<String>, String> {
+    match rfd::AsyncFileDialog::new()
+        .add_filter("JSON pack", &["json"])
+        .pick_file()
+        .await
+    {
+        Some(f) => fs::read_to_string(f.path()).map(Some).map_err(|e| e.to_string()),
+        None => Ok(None),
+    }
+}
+
 /// Open the manager focused on a specific prompt (from the popup's action panel).
 #[tauri::command]
 fn edit_in_manager(app: AppHandle, id: String) {
@@ -581,6 +596,7 @@ pub fn run() {
             set_hotkey,
             save_packs,
             save_prefs,
+            import_pack_file,
             edit_in_manager,
             get_autostart,
             set_autostart,

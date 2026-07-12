@@ -146,7 +146,10 @@
   // Accepts: {name, prompts:[...]} | [{name, prompts}, ...] |
   // legacy flat [{title, text, category?|tags?}, ...]. Throws on garbage.
   function parsePacks(raw) {
-    const data = JSON.parse(stripFences(raw));
+    return packsFromData(JSON.parse(stripFences(raw)));
+  }
+
+  function packsFromData(data) {
     const normPrompt = p => {
       if (!p || typeof p.title !== 'string' || typeof p.text !== 'string') return null;
       let tags = Array.isArray(p.tags) ? p.tags.filter(t => typeof t === 'string') : [];
@@ -167,6 +170,41 @@
     }
     if (data && Array.isArray(data.prompts)) return [normPack(data)];
     throw new Error('unrecognized pack format');
+  }
+
+  // Parse with a human-usable diagnosis instead of a generic failure.
+  // Returns {ok:true, packs} or {ok:false, code, message} where code is one of
+  // 'empty' | 'not-json' | 'malformed' | 'wrong-shape'.
+  function diagnosePack(raw) {
+    const text = stripFences(raw || '');
+    if (!text.trim()) {
+      return { ok: false, code: 'empty', message: 'nothing to import — the source is empty' };
+    }
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      if (!/^[\[{]/.test(text.trim())) {
+        return {
+          ok: false, code: 'not-json',
+          message: `not JSON — the source starts with "${text.trim().slice(0, 24)}…"`,
+        };
+      }
+      const posMatch = /position (\d+)/.exec(e.message);
+      return {
+        ok: false, code: 'malformed',
+        message: 'the JSON is malformed' + (posMatch ? ` near character ${posMatch[1]}` : '') +
+          ' — if this text was copied out of a terminal, the copy itself is likely corrupted; use Import from file instead',
+      };
+    }
+    try {
+      return { ok: true, packs: packsFromData(data) };
+    } catch {
+      return {
+        ok: false, code: 'wrong-shape',
+        message: 'valid JSON but not a prompt pack — expected {name, prompts: [...]} or an array of prompts',
+      };
+    }
   }
 
   // ---- Misc -----------------------------------------------------------------
@@ -193,6 +231,7 @@
     tagColor,
     stripFences,
     parsePacks,
+    diagnosePack,
     fmtHotkey,
   };
 
