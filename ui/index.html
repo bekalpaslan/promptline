@@ -51,8 +51,19 @@
   }
   header h1 { font-size: 15px; font-weight: 700; letter-spacing: .2px; }
   header .tagline { font-size: 12px; color: var(--text-3); }
-  #status { margin-left: auto; color: #62c391; font-size: 12.5px; }
+  #status { margin-left: auto; color: #62c391; font-size: 12.5px; display: flex; align-items: center; gap: 6px; }
   #status.err { color: var(--danger); }
+  #status.pop { animation: statusIn .25s ease; }
+  @keyframes statusIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  #hotkeyBadge {
+    font-size: 12px;
+    color: var(--text-2);
+    background: var(--bg-2);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 2px 9px;
+    white-space: nowrap;
+  }
   #settingsBtn {
     padding: 6px 14px;
     background: var(--bg-2);
@@ -233,6 +244,7 @@
   }
   .tok.builtin { background: rgba(127,198,201,.15); color: #7fc6c9; }
   .tok.field { background: rgba(232,180,95,.15); color: #e8b45f; }
+  .tok.bad { background: rgba(229,114,111,.15); color: var(--danger); }
 
   #advToggle {
     align-self: flex-start;
@@ -274,7 +286,7 @@
   #newParam { width: 110px; padding: 3px 9px; font-size: 12px; border-radius: 12px; }
 
   #editorButtons { display: flex; gap: 8px; align-items: center; }
-  #usesLabel { margin-left: auto; font-size: 12px; color: var(--text-3); }
+  #usesLabel { font-size: 12px; color: var(--text-3); }
   button.action {
     padding: 8px 18px;
     border: none;
@@ -283,10 +295,8 @@
     font-size: 13.5px;
     font-weight: 600;
   }
-  #saveBtn { background: var(--accent); color: #fff; }
-  #saveBtn:hover { background: #7466d4; }
-  #deleteBtn { background: var(--bg-2); color: var(--danger); border: 1px solid var(--line); }
-  #deleteBtn:hover { border-color: var(--danger); }
+  #deleteBtn { background: var(--bg-2); color: var(--danger); border: 1px solid var(--line); margin-left: auto; }
+  #deleteBtn:hover, #deleteBtn.arm { border-color: var(--danger); }
   #pinBtn { background: var(--bg-2); color: var(--text-2); border: 1px solid var(--line); min-width: 76px; }
   #pinBtn:hover { border-color: var(--accent); }
   #pinBtn.pinned { color: #e8b45f; border-color: rgba(232,180,95,.4); }
@@ -366,6 +376,7 @@
   <header>
     <h1>Promptline</h1>
     <span class="tagline">your prompt vocabulary, one hotkey away</span>
+    <span id="hotkeyBadge" title="Global hotkey — works in any app. Change it in Settings."></span>
     <span id="status"></span>
     <button id="settingsBtn">⚙ Settings</button>
   </header>
@@ -411,10 +422,9 @@
         </div>
       </div>
       <div id="editorButtons" style="display:none">
-        <button class="action" id="saveBtn">Save</button>
         <button class="action" id="pinBtn">Pin</button>
-        <button class="action" id="deleteBtn">Delete</button>
         <span id="usesLabel"></span>
+        <button class="action" id="deleteBtn">Delete</button>
       </div>
     </div>
 
@@ -580,10 +590,31 @@ function syncPackDatalist(current, extra) {
   sel.value = names.includes(keep) ? keep : DEFAULT_PACK;
 }
 
+// Successes fade after 3.5s; errors persist until the next status event
+let statusTimer = null;
+function showStatus(node, isError) {
+  clearTimeout(statusTimer);
+  statusEl.innerHTML = '';
+  statusEl.className = isError ? 'err pop' : 'pop';
+  if (node) statusEl.append(...(Array.isArray(node) ? node : [node]));
+  if (node && !isError) {
+    statusTimer = setTimeout(() => { statusEl.innerHTML = ''; statusEl.className = ''; }, 3500);
+  }
+}
 function setStatus(msg, isError = false) {
-  statusEl.textContent = msg;
-  statusEl.className = isError ? 'err' : '';
-  if (msg) setTimeout(() => { if (statusEl.textContent === msg) statusEl.textContent = ''; }, 3500);
+  showStatus(msg ? document.createTextNode(msg) : null, isError);
+}
+// Status with an action button (e.g. "Deleted — Undo"); sticks around longer
+function setStatusAction(msg, label, fn) {
+  const text = document.createTextNode(msg);
+  const btn = document.createElement('button');
+  btn.className = 'small';
+  btn.textContent = label;
+  btn.style.padding = '2px 10px';
+  btn.addEventListener('click', fn);
+  showStatus([text, btn], false);
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => { statusEl.innerHTML = ''; statusEl.className = ''; }, 8000);
 }
 
 // --- Settings page toggle ---
@@ -718,12 +749,20 @@ function configNames(text) {
 function renderPreview() {
   previewEl.innerHTML = '';
   const text = textEl.value;
-  const re = /\{\{([a-z_]+)\}\}|\{([a-z_]+)\}/g;
+  // Also match near-miss tokens ({File}, {step1}) so typos get flagged, not silently pasted
+  const re = /\{\{([a-zA-Z0-9_]+)\}\}|\{([a-zA-Z0-9_]+)\}/g;
   let last = 0, m;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) previewEl.appendChild(document.createTextNode(text.slice(last, m.index)));
     const tok = document.createElement('span');
     const name = m[1] || m[2];
+    if (!/^[a-z_]+$/.test(name)) {
+      tok.className = 'tok bad';
+      tok.textContent = `${name} — not a param (lowercase letters/_ only)`;
+      previewEl.appendChild(tok);
+      last = re.lastIndex;
+      continue;
+    }
     if (m[1]) {
       tok.className = 'tok config';
       const v = (editorConfigValues[name] || '').replace(/\s+/g, ' ');
@@ -762,6 +801,7 @@ function renderConfigFields() {
     input.addEventListener('input', () => {
       editorConfigValues[name] = input.value;
       renderPreview();
+      scheduleSave();
     });
     row.append(label, input);
     fieldsEl.appendChild(row);
@@ -783,7 +823,7 @@ advToggleEl.addEventListener('click', () => {
   syncAdvanced(true);
 });
 
-textEl.addEventListener('input', () => { renderPreview(); renderParams(); renderConfigFields(); });
+textEl.addEventListener('input', () => { renderPreview(); renderParams(); renderConfigFields(); scheduleSave(); });
 
 // --- Parameter chips: insert/remove placeholders without typing them ---
 const paramBarEl = document.getElementById('paramBar');
@@ -900,6 +940,7 @@ function updatePinBtn(s) {
 }
 
 function select(id) {
+  if (saveTimer) saveActive(); // flush pending edits of the previous prompt
   activeId = id;
   const s = snippets.find(x => x.id === id);
   if (s) {
@@ -927,7 +968,10 @@ async function persist() {
 // Inline "new pack" flow on the editor's pack dropdown
 const packNewEl = document.getElementById('snipPackNew');
 packEl.addEventListener('change', () => {
-  if (packEl.value !== '__new__') return;
+  if (packEl.value !== '__new__') {
+    saveActive(); // pack changes apply immediately (with the locked-pack guard)
+    return;
+  }
   packEl.style.display = 'none';
   packNewEl.style.display = '';
   packNewEl.value = '';
@@ -965,7 +1009,15 @@ document.getElementById('newBtn').addEventListener('click', async () => {
   titleEl.select();
 });
 
-document.getElementById('saveBtn').addEventListener('click', async () => {
+// Autosave: edits persist on a short debounce — no Save button, no lost drafts
+let saveTimer = null;
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveActive, 600);
+}
+async function saveActive() {
+  clearTimeout(saveTimer);
+  saveTimer = null;
   const s = snippets.find(x => x.id === activeId);
   if (!s) return;
   const targetPack = (packEl.value === '__new__' ? '' : packEl.value.trim()) || s.pack || DEFAULT_PACK;
@@ -973,11 +1025,11 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
   if (targetPack !== (s.pack || DEFAULT_PACK) && isLocked(targetPack)) {
     setStatus(`Pack "${targetPack}" is locked — unlock it in Settings to add prompts`, true);
     packEl.value = s.pack || DEFAULT_PACK;
-    return;
+  } else {
+    s.pack = targetPack;
   }
   s.title = titleEl.value.trim() || '(untitled)';
   s.tags = tagsEl.value.split(',').map(t => t.trim().toLowerCase()).filter(Boolean);
-  s.pack = targetPack;
   s.text = textEl.value;
   // Keep only config values whose parameter still exists in the text
   const names = configNames(s.text);
@@ -985,8 +1037,9 @@ document.getElementById('saveBtn').addEventListener('click', async () => {
     Object.entries(editorConfigValues).filter(([k, v]) => names.includes(k) && v !== ''));
   await persist();
   renderList();
-  setStatus('Saved');
-});
+}
+titleEl.addEventListener('input', scheduleSave);
+tagsEl.addEventListener('input', scheduleSave);
 
 document.getElementById('pinBtn').addEventListener('click', async () => {
   const s = snippets.find(x => x.id === activeId);
@@ -1002,19 +1055,51 @@ document.getElementById('pinBtn').addEventListener('click', async () => {
   setStatus(s.pinned ? 'Pinned' : 'Unpinned');
 });
 
-document.getElementById('deleteBtn').addEventListener('click', async () => {
+const deleteBtnEl = document.getElementById('deleteBtn');
+deleteBtnEl.addEventListener('click', async () => {
+  const s = snippets.find(x => x.id === activeId);
+  if (!s) return;
+  // Two-click confirm (same pattern as pack delete)
+  if (!deleteBtnEl.classList.contains('arm')) {
+    deleteBtnEl.classList.add('arm');
+    deleteBtnEl.textContent = `Delete "${(s.title || 'untitled').slice(0, 24)}"?`;
+    setTimeout(() => {
+      deleteBtnEl.classList.remove('arm');
+      deleteBtnEl.textContent = 'Delete';
+    }, 3000);
+    return;
+  }
+  deleteBtnEl.classList.remove('arm');
+  deleteBtnEl.textContent = 'Delete';
+  clearTimeout(saveTimer);
+  saveTimer = null;
+  const removed = s;
+  const at = snippets.indexOf(s);
   snippets = snippets.filter(x => x.id !== activeId);
   await persist();
   activeId = null;
   showEditor(false);
   renderList();
-  setStatus('Deleted');
+  setStatusAction(`Deleted "${removed.title}"`, 'Undo', async () => {
+    snippets.splice(Math.min(at, snippets.length), 0, removed);
+    await persist();
+    renderList();
+    setStatus('Restored');
+  });
 });
 
 // --- Settings: general ---
+function fmtHotkey(h) {
+  return h.split('+').map(p => p ? p[0].toUpperCase() + p.slice(1) : p).join('+');
+}
+function updateHotkeyBadge(h) {
+  document.getElementById('hotkeyBadge').textContent = `popup: ${fmtHotkey(h)}`;
+}
+
 document.getElementById('applyHotkey').addEventListener('click', async () => {
   try {
     await invoke('set_hotkey', { hotkey: hotkeyEl.value.trim() });
+    updateHotkeyBadge(hotkeyEl.value.trim());
     setStatus('Hotkey updated');
   } catch (e) {
     setStatus(String(e), true);
@@ -1321,8 +1406,13 @@ document.getElementById('importReplyBtn').addEventListener('click', startImport)
 
 async function init() {
   snippets = await invoke('get_snippets');
+  // GC abandoned "+ New" drafts (default title, no text, never used)
+  const before = snippets.length;
+  snippets = snippets.filter(s => !(s.title === 'New prompt' && !s.text.trim() && !s.uses));
+  if (snippets.length !== before) await persist();
   const config = await invoke('get_config');
   hotkeyEl.value = config.hotkey;
+  updateHotkeyBadge(config.hotkey);
   packMeta = Array.isArray(config.packs) ? config.packs : [];
   syncPackDatalist();
   renderList();

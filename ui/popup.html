@@ -245,7 +245,7 @@
   </div>
   <div id="hoverCard"></div>
   <div id="clipPreview"><span class="label">clipboard → </span><span id="clipText"></span></div>
-  <div id="hint"><b>Enter</b> paste · <b>Ctrl</b> copy only · <b>Esc</b> close</div>
+  <div id="hint"></div>
 
 <script>
 const { invoke } = window.__TAURI__.core;
@@ -260,6 +260,15 @@ const formPasteEl = document.getElementById('formPaste');
 const clipPreviewEl = document.getElementById('clipPreview');
 const clipTextEl = document.getElementById('clipText');
 const hoverCardEl = document.getElementById('hoverCard');
+const hintEl = document.getElementById('hint');
+
+// The hint bar reflects the current mode's actual key bindings
+function setHint(mode) {
+  hintEl.innerHTML = mode === 'form'
+    ? '<b>Enter</b> paste · <b>Ctrl+Enter</b> copy only · <b>Shift+Enter</b> newline · <b>Esc</b> back'
+    : '<b>Enter</b> paste · <b>Ctrl+Enter</b> / <b>Ctrl+click</b> copy only · <b>Esc</b> close';
+}
+setHint('list');
 
 // Theme: set in the manager, shared via localStorage; re-applied on every show
 function applyTheme() {
@@ -273,6 +282,11 @@ let filtered = [];
 let selected = 0;
 let formSnippet = null;   // snippet awaiting field fill-in
 let formPasteMode = true; // paste vs copy-only, captured when form opens
+
+// Keyboard/mouse arbitration: ignore hover-selection during keyboard nav and
+// when the list scrolls under a stationary cursor (both fire mousemove-like events)
+let suppressHoverUntil = 0;
+let lastMouseX = -1, lastMouseY = -1;
 
 // Per-category accent colors; unknown categories get a stable hashed pick
 const CAT_COLORS = {
@@ -302,7 +316,10 @@ function customFields(text) {
 }
 
 function expandConfig(text, snippet) {
-  return text.replace(/\{\{([a-z_]+)\}\}/g, (_, name) => (snippet.configValues || {})[name] ?? '');
+  return text.replace(/\{\{([a-z_]+)\}\}/g, (match, name) => {
+    const v = (snippet.configValues || {})[name];
+    return v ? v : match; // unset params survive, to be downgraded to fill-in fields
+  });
 }
 
 function expandBuiltins(text) {
@@ -359,7 +376,7 @@ function render() {
   if (!filtered.length) {
     const d = document.createElement('div');
     d.id = 'empty';
-    d.textContent = snippets.length ? 'No matches' : 'No prompts yet — open Promptline from the tray to add some';
+    d.textContent = snippets.length ? 'No matches' : 'No prompts yet — left-click the Promptline tray icon to add some';
     listEl.appendChild(d);
     updateClipPreview();
     return;
@@ -390,13 +407,25 @@ function render() {
     preview.textContent = s.text.replace(/\s+/g, ' ');
     item.append(row, preview);
     item.addEventListener('click', e => pick(s, !e.ctrlKey));
-    item.addEventListener('mousemove', () => {
-      if (selected !== i) { selected = i; render(); }
+    item.addEventListener('mousemove', e => {
+      const moved = e.clientX !== lastMouseX || e.clientY !== lastMouseY;
+      lastMouseX = e.clientX;
+      lastMouseY = e.clientY;
+      if (!moved || Date.now() < suppressHoverUntil) return;
+      if (selected !== i) { selected = i; updateSelection(); }
       scheduleHoverCard(s, item);
     });
     item.addEventListener('mouseleave', scheduleHoverHide);
     listEl.appendChild(item);
   });
+  const sel = listEl.children[selected];
+  if (sel) sel.scrollIntoView({ block: 'nearest' });
+  updateClipPreview();
+}
+
+// Selection moves swap classes on two rows instead of rebuilding the list
+function updateSelection() {
+  [...listEl.children].forEach((el, i) => el.classList.toggle('selected', i === selected));
   const sel = listEl.children[selected];
   if (sel) sel.scrollIntoView({ block: 'nearest' });
   updateClipPreview();
@@ -483,7 +512,10 @@ listEl.addEventListener('scroll', hideHoverCard);
 
 function pick(snippet, paste) {
   hideHoverCard();
-  const base = expandConfig(snippet.text, snippet); // config params never prompt
+  let base = expandConfig(snippet.text, snippet); // config params never prompt
+  // Unset config params must not paste invisible holes — downgrade them to
+  // fill-in fields for this paste so the user sees and fills them
+  base = base.replace(/\{\{([a-z_]+)\}\}/g, '{$1}');
   const fields = customFields(base);
   if (fields.length) {
     openForm(snippet, base, fields, paste);
@@ -524,13 +556,14 @@ function openForm(snippet, baseText, fields, paste) {
     ta.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        submitForm();
+        submitForm(e.ctrlKey); // Ctrl+Enter forces copy-only even mid-form
       }
     });
     formFieldsEl.append(label, ta);
   });
   document.body.classList.add('form-mode');
   formEl.classList.add('visible');
+  setHint('form');
   formFieldsEl.querySelector('textarea').focus();
 }
 
@@ -538,10 +571,11 @@ function closeForm() {
   formSnippet = null;
   document.body.classList.remove('form-mode');
   formEl.classList.remove('visible');
+  setHint('list');
   searchEl.focus();
 }
 
-function submitForm() {
+function submitForm(forceCopy = false) {
   if (!formSnippet) return;
   let text = formTextBase;
   const values = {};
@@ -550,7 +584,7 @@ function submitForm() {
     text = text.replaceAll(`{${ta.dataset.field}}`, ta.value);
   });
   const s = formSnippet;
-  const paste = formPasteMode;
+  const paste = forceCopy ? false : formPasteMode;
   closeForm();
   // Remember entered values so next time the form is pre-filled.
   // Sequenced: paste_snippet re-reads the file to bump the use count.
@@ -558,7 +592,7 @@ function submitForm() {
   invoke('save_snippets', { snippets }).then(() => send(s, expandBuiltins(text), paste));
 }
 
-formPasteEl.addEventListener('click', submitForm);
+formPasteEl.addEventListener('click', e => submitForm(e.ctrlKey));
 searchEl.addEventListener('input', filter);
 
 document.addEventListener('keydown', e => {
@@ -568,13 +602,16 @@ document.addEventListener('keydown', e => {
     return;
   }
   if (formSnippet) return; // form handles its own keys
-  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') hideHoverCard();
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    hideHoverCard();
+    suppressHoverUntil = Date.now() + 250;
+  }
   if (e.key === 'ArrowDown') {
     e.preventDefault();
-    if (filtered.length) { selected = (selected + 1) % filtered.length; render(); }
+    if (filtered.length) { selected = (selected + 1) % filtered.length; updateSelection(); }
   } else if (e.key === 'ArrowUp') {
     e.preventDefault();
-    if (filtered.length) { selected = (selected - 1 + filtered.length) % filtered.length; render(); }
+    if (filtered.length) { selected = (selected - 1 + filtered.length) % filtered.length; updateSelection(); }
   } else if (e.key === 'Enter') {
     e.preventDefault();
     if (filtered[selected]) pick(filtered[selected], !e.ctrlKey);
