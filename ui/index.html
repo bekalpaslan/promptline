@@ -416,6 +416,39 @@
   button.small:hover { border-color: var(--accent); }
   button.small.confirm { background: var(--accent); color: #fff; border: none; }
   button.small.confirm:hover { background: var(--accent-hover); }
+  button.small.claude { background: #d97757; color: #fff; border: none; font-weight: 600; }
+  button.small.claude:hover { background: #e2825f; }
+
+  /* Library pack list (Settings → Your library) */
+  #libPacks { display: flex; flex-direction: column; gap: 6px; }
+  .libPack { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+  .libPackHead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+    user-select: none;
+    font-size: var(--fs-ui);
+    color: var(--text-1);
+  }
+  .libPackHead:hover { background: var(--bg-2); }
+  .libPackHead .chev { font-size: 9px; width: 10px; color: var(--text-3); flex-shrink: 0; }
+  .libPackHead .dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+  .libPackHead .n { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .libPackHead .cnt { color: var(--text-3); font-size: var(--fs-caption); font-variant-numeric: tabular-nums; }
+  .libPackHead .lockicon { width: 10px; height: 10px; color: var(--warn); }
+  .libDetail {
+    padding: 8px 12px 10px;
+    border-top: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: var(--fs-caption);
+    color: var(--text-2);
+  }
+  .libPath { word-break: break-all; color: var(--text-3); }
+  .libDetail .rowBtns { display: flex; gap: 6px; flex-wrap: wrap; }
   label.check { display: flex; align-items: center; gap: 7px; cursor: pointer; color: var(--text-2); font-size: var(--fs-ui); }
   .btnCaption { font-size: var(--fs-caption); color: var(--text-3); line-height: 1.4; flex: 1; min-width: 200px; }
   .spane { display: contents; }
@@ -619,21 +652,19 @@
       <div class="spane" data-pane="data">
         <div class="card">
           <h2>Your library</h2>
-          <div class="settingRow">
-            <button class="small" id="exportBtn">Export library</button>
-            <span class="btnCaption">copies all packs to the clipboard as JSON — for backup or sharing with teammates</span>
+          <div id="libPacks"></div>
+          <div class="settingRow" style="margin-top:10px">
+            <button class="small claude" id="libNewClaudeBtn">+ New (with Claude)</button>
+            <button class="small" id="libNewBtn">+ New</button>
+            <input id="libNewName" type="text" placeholder="Pack name — Enter to create" spellcheck="false" style="display:none; flex:1; min-width:160px;" />
           </div>
-          <div class="settingRow">
+          <div class="settingRow" style="margin-top:4px">
+            <button class="small" id="exportBtn">Export library</button>
             <button class="small" id="importBtn">Import from clipboard</button>
             <button class="small" id="importFileBtn">Import from file…</button>
-            <span class="btnCaption">you'll review every prompt before anything is added — prefer the file path for packs generated in a terminal (clipboard copies from terminals corrupt)</span>
-          </div>
-          <div class="settingRow">
-            <button class="small" id="genFromDataBtn">Generate pack with Claude…</button>
-            <span class="btnCaption">also available under + New ▾ in the sidebar</span>
           </div>
           <div class="importPreview" id="dataImportPreview"></div>
-          <div class="hint">Pack format documentation lives in packs/TEMPLATE.md in the repo. Packs are managed in the sidebar: group by pack, then right-click a pack header.</div>
+          <div class="hint">Click a pack to see its file. Pack files under %APPDATA%\com.promptline.app\packs\ are always current — copy one to share or back up. Imports are reviewed prompt-by-prompt before anything is added.</div>
         </div>
       </div>
     </div>
@@ -773,6 +804,7 @@ function setSettingsBtn(open) {
 function showSettings(show) {
   document.body.classList.toggle('settings-mode', show);
   setSettingsBtn(show);
+  if (show && typeof renderLibPacks === 'function') renderLibPacks();
 }
 settingsBtnEl.addEventListener('click', () =>
   showSettings(!document.body.classList.contains('settings-mode')));
@@ -1732,7 +1764,124 @@ function closeGenDialog() {
   hideImportPreview(document.getElementById('genImportPreview'));
 }
 document.getElementById('genCloseBtn').addEventListener('click', closeGenDialog);
-document.getElementById('genFromDataBtn').addEventListener('click', openGenDialog);
+
+// ---- Library pack list (Settings → Your library) ----
+const libPacksEl = document.getElementById('libPacks');
+const libExpanded = new Set();
+
+function libButton(label, fn) {
+  const b = document.createElement('button');
+  b.className = 'small';
+  b.textContent = label;
+  b.addEventListener('click', e => { e.stopPropagation(); fn(); });
+  return b;
+}
+
+function renderLibPacks() {
+  libPacksEl.innerHTML = '';
+  for (const name of packNames()) {
+    const meta = packMeta.find(p => p.name === name);
+    const count = snippets.filter(s => (s.pack || DEFAULT_PACK) === name).length;
+    const expanded = libExpanded.has(name);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'libPack';
+    const head = document.createElement('div');
+    head.className = 'libPackHead';
+    head.tabIndex = 0;
+    const chev = document.createElement('span');
+    chev.className = 'chev';
+    chev.textContent = expanded ? '▼' : '▶';
+    const dot = document.createElement('span');
+    dot.className = 'dot';
+    dot.style.background = C.tagColor(name);
+    const n = document.createElement('span');
+    n.className = 'n';
+    n.textContent = name;
+    head.append(chev, dot, n);
+    if (isLocked(name)) head.insertAdjacentHTML('beforeend', ICONS.lock);
+    const cnt = document.createElement('span');
+    cnt.className = 'cnt';
+    cnt.textContent = `${count} prompt${count === 1 ? '' : 's'}`;
+    head.appendChild(cnt);
+    const toggle = () => {
+      if (libExpanded.has(name)) libExpanded.delete(name);
+      else libExpanded.add(name);
+      renderLibPacks();
+    };
+    head.addEventListener('click', toggle);
+    head.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+    wrap.appendChild(head);
+
+    if (expanded) {
+      const detail = document.createElement('div');
+      detail.className = 'libDetail';
+      const pathLine = document.createElement('div');
+      pathLine.className = 'libPath';
+      pathLine.textContent = meta?.path || 'not file-backed — this pack has no file yet';
+      detail.appendChild(pathLine);
+      const btns = document.createElement('div');
+      btns.className = 'rowBtns';
+      if (meta?.path) {
+        btns.append(
+          libButton('Copy path', async () => {
+            await invoke('set_clipboard_text', { text: meta.path });
+            setStatus('Path copied');
+          }),
+          libButton('Show in folder', () => invoke('show_in_folder', { path: meta.path })),
+          libButton('Sync from file', async () => {
+            try {
+              const raw = await invoke('read_pack_file', { path: meta.path });
+              startImport(document.getElementById('dataImportPreview'), raw);
+            } catch (e) {
+              setStatus(`Couldn't read the pack file: ${e}`, true);
+            }
+          }),
+          libButton('Export to clipboard', async () => {
+            await invoke('set_clipboard_text', { text: JSON.stringify(packToJson(name), null, 2) });
+            setStatus(`Pack "${name}" copied to clipboard`);
+          }),
+        );
+      } else {
+        btns.append(libButton('Back with a file…', async () => {
+          let m = meta;
+          if (!m) { m = { name, locked: false, path: '' }; packMeta.push(m); }
+          try {
+            m.path = await invoke('create_pack_file', { name });
+            await persistPackMeta();
+            await persist();
+            renderLibPacks();
+            setStatus(`"${name}" is now file-backed`);
+          } catch (e) {
+            setStatus(String(e), true);
+          }
+        }));
+      }
+      detail.appendChild(btns);
+      wrap.appendChild(detail);
+    }
+    libPacksEl.appendChild(wrap);
+  }
+}
+
+document.getElementById('libNewClaudeBtn').addEventListener('click', openGenDialog);
+const libNewNameEl = document.getElementById('libNewName');
+document.getElementById('libNewBtn').addEventListener('click', () => {
+  libNewNameEl.style.display = '';
+  libNewNameEl.focus();
+});
+libNewNameEl.addEventListener('keydown', async e => {
+  if (e.key === 'Escape') { libNewNameEl.style.display = 'none'; return; }
+  if (e.key !== 'Enter') return;
+  const name = libNewNameEl.value.trim();
+  if (!name) return;
+  libNewNameEl.value = '';
+  libNewNameEl.style.display = 'none';
+  await addPack(name);
+  renderLibPacks();
+});
 genOverlayEl.addEventListener('click', e => { if (e.target === genOverlayEl) closeGenDialog(); });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape' && genOverlayEl.classList.contains('visible')) closeGenDialog();
