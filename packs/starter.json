@@ -1,0 +1,21 @@
+{
+  "name": "Starter",
+  "prompts": [
+    { "title": "Root cause first", "tags": ["debug"], "text": "Here's the error:\n\n{clipboard}\n\nFind the root cause before proposing any fix. Explain what's actually happening, then suggest the minimal fix." },
+    { "title": "Reproduce before fixing", "tags": ["debug"], "text": "Before fixing, write a minimal reproduction or failing test for this bug: {bug}" },
+    { "title": "Diff review, bugs only", "tags": ["review"], "text": "Review this diff for correctness bugs only — no style or naming comments:\n\n{clipboard}" },
+    { "title": "Security pass", "tags": ["review"], "text": "Review this code for security issues (injection, authz, leaked secrets, unsafe deserialization):\n\n{clipboard}" },
+    { "title": "Plan before code", "tags": ["plan"], "text": "Don't write code yet. Propose a short implementation plan for: {goal}\n\nList the files you'd touch and the main risks, then wait for my approval." },
+    { "title": "Options with tradeoffs", "tags": ["plan"], "text": "Give me 2-3 approaches for {goal}, with tradeoffs, and recommend one." },
+    { "title": "Minimal refactor", "tags": ["refactor"], "text": "Refactor this for clarity without changing behavior. Keep the diff small:\n\n{clipboard}" },
+    { "title": "Scope guard", "tags": ["guardrails"], "text": "Constraints: don't refactor unrelated code, don't add new dependencies without asking, keep changes minimal, and ask before anything destructive.\n\n" },
+    { "title": "Ask, don't assume", "tags": ["guardrails"], "text": "If anything is ambiguous, ask me instead of assuming." },
+    { "title": "Context handoff", "tags": ["meta"], "text": "Summarize where we are: what's done, what's in progress, what's left, and any decisions made so far. I'll use this to continue in a fresh session." },
+    { "title": "Explain before edit", "tags": ["meta"], "text": "Before editing, explain what the current code does and why your change is correct." },
+    { "title": "TLDR first", "tags": ["meta"], "text": "Give me the TLDR first, then the details." },
+    { "title": "Test first", "tags": ["test"], "text": "Write failing tests for {feature} first and show them to me. Only implement after I confirm." },
+    { "title": "Add tests for change", "tags": ["test"], "text": "Add tests covering the change you just made, including edge cases." },
+    { "title": "Commit message", "tags": ["general"], "text": "Write a conventional commit message for these changes:\n\n{clipboard}" },
+    { "title": "Explain this code", "tags": ["general"], "text": "Explain what this code does, at a level for someone new to the codebase:\n\n{clipboard}" }
+  ]
+}

@@ -1,0 +1,55 @@
+{
+  "name": "Session Flow",
+  "prompts": [
+    {
+      "title": "Session kickoff",
+      "tags": ["session", "kickoff"],
+      "text": "Hi Claude — new session.\n\n{{standing_instructions}}\n\nToday's focus: {focus}\n\nBefore changing anything: skim CLAUDE.md and the recent git log, then give me a short plan."
+    },
+    {
+      "title": "I like your suggestion",
+      "tags": ["flow"],
+      "text": "I like your suggestion — go ahead and implement it exactly as you described. If reality turns out different from what you expected, flag it rather than silently adapting."
+    },
+    {
+      "title": "Green light, go autonomous",
+      "tags": ["flow", "autonomy"],
+      "text": "You have green light. Proceed autonomously: implement, verify, and report back when it's done. Only stop for destructive actions or genuinely ambiguous product decisions."
+    },
+    {
+      "title": "Clean up git changes",
+      "tags": ["git"],
+      "text": "Clean up the local git changes: look at git status and the full diff, group the changes into logical units, and commit each with a proper conventional message. Don't push. Flag anything that shouldn't be committed — secrets, debug leftovers, temp files."
+    },
+    {
+      "title": "Pick next task",
+      "tags": ["flow", "plan"],
+      "text": "Pick the most appropriate thing to work on next: check the roadmap or TODOs, failing tests, and recent session state. Tell me what you picked and why in two sentences, then start."
+    },
+    {
+      "title": "Wrap up session",
+      "tags": ["session", "git"],
+      "text": "Let's wrap up. Commit outstanding work in logical chunks, then summarize: what changed this session, what's verified versus untested, and the natural next step."
+    },
+    {
+      "title": "Push back if warranted",
+      "tags": ["flow", "guardrails"],
+      "text": "Before you implement: would you do this differently? Push back if this is a bad idea — I want your actual engineering opinion, not compliance. Then we decide together."
+    },
+    {
+      "title": "Investigate, don't fix",
+      "tags": ["flow", "guardrails"],
+      "text": "Investigate and report only — don't change anything yet. Tell me what's actually happening and what you'd do about it, then wait for my call."
+    },
+    {
+      "title": "Try a different angle",
+      "tags": ["flow", "debug"],
+      "text": "That approach isn't working. Step back, question the assumption behind it, and try a fundamentally different angle instead of patching the current attempt."
+    },
+    {
+      "title": "Verify before done",
+      "tags": ["flow", "test"],
+      "text": "Before you call this done: run the relevant checks, exercise the changed behavior end-to-end, and show me the evidence — not just \"tests pass\"."
+    }
+  ]
+}

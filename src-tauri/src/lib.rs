@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::PathBuf;
 use std::sync::Mutex;
@@ -25,6 +26,12 @@ struct Snippet {
     tags: Vec<String>,
     #[serde(default)]
     pack: String,
+    // Last-entered values for runtime {field}s; the popup pre-fills from these
+    #[serde(default, rename = "fieldValues")]
+    field_values: HashMap<String, String>,
+    // Saved values for {{config}} parameters; expanded silently at paste time
+    #[serde(default, rename = "configValues")]
+    config_values: HashMap<String, String>,
     // Legacy v2 field, migrated into `tags` on load
     #[serde(default, skip_serializing)]
     category: String,
@@ -35,14 +42,26 @@ struct Snippet {
 }
 
 #[derive(Serialize, Deserialize, Clone)]
+struct PackMeta {
+    name: String,
+    #[serde(default)]
+    locked: bool,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
 struct Config {
     hotkey: String,
+    // Explicit pack registry: allows empty packs and per-pack lock state.
+    // Packs referenced by snippets but absent here are implicit and unlocked.
+    #[serde(default)]
+    packs: Vec<PackMeta>,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
             hotkey: "ctrl+shift+v".into(),
+            packs: Vec::new(),
         }
     }
 }
@@ -102,6 +121,8 @@ fn snip(title: &str, tag: &str, text: &str) -> Snippet {
         text: text.into(),
         tags: vec![tag.to_lowercase()],
         pack: "Starter".into(),
+        field_values: HashMap::new(),
+        config_values: HashMap::new(),
         category: String::new(),
         uses: 0,
         pinned: false,
@@ -208,6 +229,13 @@ fn set_hotkey(app: AppHandle, hotkey: String) -> Result<(), String> {
     gs.register(shortcut).map_err(|e| e.to_string())?;
     let mut config = load_config_from_disk(&app);
     config.hotkey = hotkey;
+    save_config(&app, &config)
+}
+
+#[tauri::command]
+fn save_packs(app: AppHandle, packs: Vec<PackMeta>) -> Result<(), String> {
+    let mut config = load_config_from_disk(&app);
+    config.packs = packs;
     save_config(&app, &config)
 }
 
@@ -425,6 +453,7 @@ pub fn run() {
             save_snippets,
             get_config,
             set_hotkey,
+            save_packs,
             get_autostart,
             set_autostart,
             get_clipboard_text,

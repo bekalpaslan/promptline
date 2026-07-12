@@ -5,15 +5,29 @@
 <title>Promptline</title>
 <style>
   :root {
-    --bg-0: #15161a;
-    --bg-1: #1b1d23;
-    --bg-2: #23262e;
-    --bg-3: #2b2f3a;
-    --line: #2c2f38;
-    --text-1: #e9eaf0;
-    --text-2: #a2a6b3;
-    --text-3: #6b7080;
-    --accent: #6c8ef5;
+    /* Theme: Sand (warm, Gray sand scale) — default */
+    --bg-0: #131211;
+    --bg-1: #201f1d;
+    --bg-2: #2b2927;
+    --bg-3: #383633;
+    --bg-4: #46433f;
+    --line: #2b2927;
+    --text-1: #e4e3e2;
+    --text-2: #9e9b94;
+    --text-3: #6e6a63;
+    --accent: #645bc5;
+  }
+  :root[data-theme="sundown"] {
+    /* Theme: Sundown (cool, semantic colour system) */
+    --bg-0: #0d0e11;
+    --bg-1: #15171a;
+    --bg-2: #1e2126;
+    --bg-3: #282c33;
+    --bg-4: #363c45;
+    --line: #2d3136;
+    --text-1: #e9ebee;
+    --text-2: #aab1bd;
+    --text-3: #767d8a;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { height: 100%; overflow: hidden; }
@@ -40,7 +54,7 @@
   #search::placeholder { color: var(--text-3); }
   #search:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(108, 142, 245, .15);
+    box-shadow: 0 0 0 3px rgba(100, 91, 197, .15);
   }
   #list {
     flex: 1;
@@ -101,7 +115,7 @@
   }
   .item.selected { background: var(--bg-3); }
   .item.selected .preview { color: var(--text-2); }
-  .item.picked { background: rgba(108, 142, 245, .35); }
+  .item.picked { background: rgba(100, 91, 197, .35); }
   #empty {
     padding: 24px 20px;
     text-align: center;
@@ -121,8 +135,8 @@
     display: none;
     padding: 6px 14px;
     font-size: 11.5px;
-    color: #9fb3d9;
-    background: rgba(108, 142, 245, .08);
+    color: #b3aee0;
+    background: rgba(100, 91, 197, .08);
     border-top: 1px solid var(--line);
     white-space: nowrap;
     overflow: hidden;
@@ -173,7 +187,7 @@
   }
   #form textarea:focus {
     border-color: var(--accent);
-    box-shadow: 0 0 0 3px rgba(108, 142, 245, .15);
+    box-shadow: 0 0 0 3px rgba(100, 91, 197, .15);
   }
   #formPaste {
     padding: 9px;
@@ -185,7 +199,7 @@
     cursor: pointer;
     font-size: 13.5px;
   }
-  #formPaste:hover { background: #7d9bf7; }
+  #formPaste:hover { background: #7466d4; }
   /* Hover card: full prompt text, fixed max size, scrollable */
   #hoverCard {
     display: none;
@@ -196,7 +210,7 @@
     max-height: 220px;
     overflow-y: auto;
     background: var(--bg-2);
-    border: 1px solid #3a3f4c;
+    border: 1px solid var(--bg-4);
     border-radius: 8px;
     box-shadow: 0 8px 28px rgba(0, 0, 0, .55);
     padding: 10px 12px;
@@ -215,9 +229,10 @@
   }
   #hoverCard .tok.builtin { background: rgba(127,198,201,.15); color: #7fc6c9; }
   #hoverCard .tok.field { background: rgba(232,180,95,.15); color: #e8b45f; }
+  #hoverCard .tok.config { background: rgba(176,124,232,.15); color: #b07ce8; }
   ::-webkit-scrollbar { width: 8px; }
   ::-webkit-scrollbar-thumb { background: var(--bg-3); border-radius: 4px; }
-  ::-webkit-scrollbar-thumb:hover { background: #363b48; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--bg-4); }
 </style>
 </head>
 <body>
@@ -246,6 +261,12 @@ const clipPreviewEl = document.getElementById('clipPreview');
 const clipTextEl = document.getElementById('clipText');
 const hoverCardEl = document.getElementById('hoverCard');
 
+// Theme: set in the manager, shared via localStorage; re-applied on every show
+function applyTheme() {
+  document.documentElement.dataset.theme = localStorage.getItem('theme') || 'sand';
+}
+applyTheme();
+
 let clipboardNow = '';
 let snippets = [];
 let filtered = [];
@@ -267,15 +288,21 @@ function catColor(name) {
   return palette[h % palette.length];
 }
 
-// {clipboard} expands in Rust; {date}/{time} expand here; anything else is a fill-in field
+// {clipboard} expands in Rust; {date}/{time} expand here; {{name}} is a config
+// parameter (saved value, no prompt); any other {name} is a runtime fill-in field
 const RESERVED = new Set(['clipboard', 'date', 'time']);
 
 function customFields(text) {
   const fields = [];
-  for (const m of text.matchAll(/\{([a-z_]+)\}/g)) {
-    if (!RESERVED.has(m[1]) && !fields.includes(m[1])) fields.push(m[1]);
+  for (const m of text.matchAll(/\{\{([a-z_]+)\}\}|\{([a-z_]+)\}/g)) {
+    const runtime = m[2];
+    if (runtime && !RESERVED.has(runtime) && !fields.includes(runtime)) fields.push(runtime);
   }
   return fields;
+}
+
+function expandConfig(text, snippet) {
+  return text.replace(/\{\{([a-z_]+)\}\}/g, (_, name) => (snippet.configValues || {})[name] ?? '');
 }
 
 function expandBuiltins(text) {
@@ -395,14 +422,22 @@ let hoverCardFor = null;
 
 function renderTokens(target, text) {
   target.innerHTML = '';
-  const re = /\{([a-z_]+)\}/g;
+  const re = /\{\{([a-z_]+)\}\}|\{([a-z_]+)\}/g;
   let last = 0, m;
   while ((m = re.exec(text)) !== null) {
     if (m.index > last) target.appendChild(document.createTextNode(text.slice(last, m.index)));
     const tok = document.createElement('span');
-    const builtin = RESERVED.has(m[1]);
-    tok.className = 'tok ' + (builtin ? 'builtin' : 'field');
-    tok.textContent = builtin ? m[1] : `${m[1]} — fill-in`;
+    const name = m[1] || m[2];
+    if (m[1]) {
+      tok.className = 'tok config';
+      tok.textContent = `${name} — config`;
+    } else if (RESERVED.has(name)) {
+      tok.className = 'tok builtin';
+      tok.textContent = name;
+    } else {
+      tok.className = 'tok field';
+      tok.textContent = `${name} — fill-in`;
+    }
     target.appendChild(tok);
     last = re.lastIndex;
   }
@@ -448,24 +483,28 @@ listEl.addEventListener('scroll', hideHoverCard);
 
 function pick(snippet, paste) {
   hideHoverCard();
-  const fields = customFields(snippet.text);
+  const base = expandConfig(snippet.text, snippet); // config params never prompt
+  const fields = customFields(base);
   if (fields.length) {
-    openForm(snippet, fields, paste);
+    openForm(snippet, base, fields, paste);
     return;
   }
   // Brief flash on the chosen item so the action feels acknowledged
   const idx = filtered.indexOf(snippet);
   const el = listEl.children[idx];
   if (el) el.classList.add('picked');
-  setTimeout(() => send(snippet, expandBuiltins(snippet.text), paste), 90);
+  setTimeout(() => send(snippet, expandBuiltins(base), paste), 90);
 }
 
 async function send(snippet, text, paste) {
   await invoke('paste_snippet', { text, paste, id: snippet.id });
 }
 
-function openForm(snippet, fields, paste) {
+let formTextBase = ''; // snippet text with config params already expanded
+
+function openForm(snippet, baseText, fields, paste) {
   formSnippet = snippet;
+  formTextBase = baseText;
   formPasteMode = paste;
   formTitleEl.textContent = snippet.title;
   formFieldsEl.innerHTML = '';
@@ -475,6 +514,13 @@ function openForm(snippet, fields, paste) {
     const ta = document.createElement('textarea');
     ta.dataset.field = f;
     ta.rows = 1;
+    // Pre-fill with the last value used for this field (configurable defaults)
+    const remembered = (snippet.fieldValues || {})[f];
+    if (remembered) {
+      ta.value = remembered;
+      ta.rows = Math.min(4, remembered.split('\n').length);
+      ta.addEventListener('focus', () => ta.select(), { once: true });
+    }
     ta.addEventListener('keydown', e => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
@@ -497,14 +543,19 @@ function closeForm() {
 
 function submitForm() {
   if (!formSnippet) return;
-  let text = formSnippet.text;
+  let text = formTextBase;
+  const values = {};
   formFieldsEl.querySelectorAll('textarea').forEach(ta => {
+    values[ta.dataset.field] = ta.value;
     text = text.replaceAll(`{${ta.dataset.field}}`, ta.value);
   });
   const s = formSnippet;
   const paste = formPasteMode;
   closeForm();
-  send(s, expandBuiltins(text), paste);
+  // Remember entered values so next time the form is pre-filled.
+  // Sequenced: paste_snippet re-reads the file to bump the use count.
+  s.fieldValues = values;
+  invoke('save_snippets', { snippets }).then(() => send(s, expandBuiltins(text), paste));
 }
 
 formPasteEl.addEventListener('click', submitForm);
@@ -531,6 +582,7 @@ document.addEventListener('keydown', e => {
 });
 
 async function reload() {
+  applyTheme();
   closeForm();
   hideHoverCard();
   [snippets, clipboardNow] = await Promise.all([

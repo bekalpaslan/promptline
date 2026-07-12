@@ -35,7 +35,11 @@ the legacy flat array format `[{title, text, category}]` (category becomes a tag
 |---|---|
 | `{clipboard}` | user's clipboard at paste time |
 | `{date}` / `{time}` | current date / time |
-| any other `{lowercase_word}` | fill-in field shown before pasting |
+| any other `{lowercase_word}` | runtime fill-in field — asked before pasting (pre-filled with the last value) |
+| `{{lowercase_word}}` | config parameter — user saves a value once (editor → Advanced options), pastes silently |
+
+Config parameters are personal: exports ship the template with values empty, so
+each user sets their own (e.g. `{{standing_instructions}}`) after importing.
 
 ## Generating packs with Claude
 
