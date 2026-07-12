@@ -14,7 +14,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { DEFAULT_PACK, useManager } from "./state"
+import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr, sayUndo } from "./status"
 
@@ -234,13 +234,40 @@ export function Sidebar() {
   }
 
   // ---- Multi-select context menu ----
-  const openRowCtx = (x: number, y: number) => {
-    const ids = [...m.selection]
+  // Takes the target ids explicitly: the caller may have just replaced the
+  // selection, and reading m.selection here would still see the old one
+  // (stale render) — showing the previous prompt's menu.
+  const openRowCtx = (x: number, y: number, idSet: Set<string>) => {
+    const ids = [...idSet]
     const n = ids.length
+    // Unpin when everything selected is pinned; otherwise pin the rest
+    const selected = m.snippets.filter((s) => ids.includes(s.id))
+    const allPinned = selected.length > 0 && selected.every((s) => s.pinned)
     const items: CtxItem[] = [
       {
         kind: "header",
         text: n === 1 ? m.snippets.find((s) => s.id === ids[0])?.title || "1 prompt" : `${n} prompts`,
+      },
+      {
+        kind: "item",
+        label: allPinned ? (n === 1 ? "Unpin" : `Unpin ${n}`) : n === 1 ? "Pin" : `Pin ${n}`,
+        run: () => {
+          if (allPinned) {
+            void m
+              .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, pinned: false } : s)))
+              .then(() => say(n === 1 ? "Unpinned" : `Unpinned ${n}`))
+            return
+          }
+          const already = m.snippets.filter((s) => s.pinned && !ids.includes(s.id)).length
+          const toPin = selected.filter((s) => !s.pinned).length
+          if (already + selected.length > MAX_PINS) {
+            sayErr(`Max ${MAX_PINS} pins — that would make ${already + selected.length}`)
+            return
+          }
+          void m
+            .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, pinned: true } : s)))
+            .then(() => say(toPin === 1 ? "Pinned" : `Pinned ${toPin}`))
+        },
       },
       { kind: "header", text: "Move to pack" },
     ]
@@ -356,8 +383,9 @@ export function Sidebar() {
         }}
         onContextMenu={(e) => {
           e.preventDefault()
-          if (!m.selection.has(s.id)) m.setSelection(new Set([s.id]), s.id)
-          openRowCtx(e.clientX, e.clientY)
+          const ids = m.selection.has(s.id) ? m.selection : new Set([s.id])
+          if (!m.selection.has(s.id)) m.setSelection(ids, s.id)
+          openRowCtx(e.clientX, e.clientY, ids)
         }}
       >
         {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-amber-500" />}
