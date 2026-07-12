@@ -371,30 +371,7 @@
   #pinBtn.pinned { color: var(--warn); border-color: var(--warn-border); }
   #editorEmpty { color: var(--text-3); margin: auto; text-align: center; line-height: 1.7; }
 
-  /* ---- Settings (nav rail + panes) ---- */
-  #settingsNav {
-    display: none;
-    width: 180px;
-    border-right: 1px solid var(--line);
-    background: var(--bg-1);
-    flex-direction: column;
-    padding: 12px 8px;
-    gap: 2px;
-  }
-  body.settings-mode #settingsNav { display: flex; }
-  .navItem {
-    padding: 7px 12px;
-    border-radius: var(--r-sm);
-    font-size: var(--fs-ui);
-    color: var(--text-2);
-    cursor: pointer;
-    user-select: none;
-    background: none;
-    border: none;
-    text-align: left;
-  }
-  .navItem:hover { background: var(--bg-2); color: var(--text-1); }
-  .navItem.active { background: var(--bg-3); color: var(--text-1); }
+  /* ---- Settings (single scrollable page, all sections stacked) ---- */
   #settings {
     flex: 1;
     display: none;
@@ -404,6 +381,7 @@
     overflow-y: auto;
     min-width: 0;
   }
+  #settings .card { max-width: 640px; width: 100%; align-self: center; }
   body.settings-mode #settings { display: flex; }
   .card {
     background: var(--bg-1);
@@ -440,8 +418,7 @@
   button.small.confirm:hover { background: var(--accent-hover); }
   label.check { display: flex; align-items: center; gap: 7px; cursor: pointer; color: var(--text-2); font-size: var(--fs-ui); }
   .btnCaption { font-size: var(--fs-caption); color: var(--text-3); line-height: 1.4; flex: 1; min-width: 200px; }
-  .spane { display: none; flex-direction: column; gap: 12px; }
-  .spane.active { display: flex; }
+  .spane { display: contents; }
 
   /* Import curation */
   .importPreview {
@@ -569,12 +546,6 @@
         <label class="mini"><input id="groupToggle" type="checkbox" /> Group by pack</label>
       </div>
       <div id="snippetList"></div>
-    </div>
-
-    <div id="settingsNav">
-      <button class="navItem active" data-pane="general">General</button>
-      <button class="navItem" data-pane="appearance">Appearance</button>
-      <button class="navItem" data-pane="data">Data</button>
     </div>
 
     <div id="editor">
@@ -807,13 +778,6 @@ settingsBtnEl.addEventListener('click', () =>
   showSettings(!document.body.classList.contains('settings-mode')));
 setSettingsBtn(false);
 
-for (const item of document.querySelectorAll('.navItem')) {
-  item.addEventListener('click', () => {
-    document.querySelectorAll('.navItem').forEach(n => n.classList.toggle('active', n === item));
-    document.querySelectorAll('.spane').forEach(p =>
-      p.classList.toggle('active', p.dataset.pane === item.dataset.pane));
-  });
-}
 
 // ---- Context menu infrastructure ----
 function closeCtx() {
@@ -1105,8 +1069,8 @@ function packFileItems(name) {
         try {
           const raw = await invoke('read_pack_file', { path: meta.path });
           showSettings(true);
-          document.querySelector('.navItem[data-pane="data"]').click();
           startImport(document.getElementById('dataImportPreview'), raw);
+          document.getElementById('dataImportPreview').scrollIntoView({ block: 'nearest' });
         } catch (e) {
           setStatus(`Couldn't read the pack file: ${e}`, true);
         }
