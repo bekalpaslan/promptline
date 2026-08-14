@@ -109,6 +109,9 @@ export function App() {
   const [panelNote, setPanelNote] = useState<string | null>(null)
   const [deleteArmed, setDeleteArmed] = useState(false)
   const [previewIdx, setPreviewIdx] = useState<number | null>(null)
+  // Where the preview card anchors its top-left corner: the cursor on hover,
+  // the selected row on keyboard →
+  const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null)
   const [compact, setCompact] = useState(isCompact())
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
   const [create, setCreate] = useState<CreateState | null>(null)
@@ -417,7 +420,14 @@ export function App() {
         inputRef.current?.selectionStart === inputRef.current?.value.length
       ) {
         // At the end of the query, Right shows the full-prompt preview card
-        if (visible[sel]) { e.preventDefault(); setPreviewIdx(sel) }
+        if (visible[sel]) {
+          e.preventDefault()
+          const rect = listRef.current
+            ?.querySelector('[data-selected="true"]')
+            ?.getBoundingClientRect()
+          setPreviewPos(rect ? { x: rect.left + 16, y: rect.bottom + 4 } : null)
+          setPreviewIdx(sel)
+        }
       } else if (e.key === "ArrowLeft" && previewIdx !== null) {
         e.preventDefault()
         hidePreview()
@@ -441,7 +451,10 @@ export function App() {
     if (previewIdx !== i) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
-      hoverTimer.current = setTimeout(() => setPreviewIdx(i), 350)
+      hoverTimer.current = setTimeout(() => {
+        setPreviewPos({ x: lastMouse.current.x + 12, y: lastMouse.current.y + 12 })
+        setPreviewIdx(i)
+      }, 350)
     }
   }
   const onItemMouseLeave = () => {
@@ -716,15 +729,25 @@ export function App() {
         </span>
       </button>
 
-      {previewIdx !== null && visible[previewIdx] && (
-        <div
-          className="fixed inset-x-4 top-14 z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-popover p-2 text-xs leading-relaxed text-muted-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.24)]"
-          onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
-          onMouseLeave={onItemMouseLeave}
-        >
-          <Tokens text={visible[previewIdx].s.text} />
-        </div>
-      )}
+      {previewIdx !== null && visible[previewIdx] && (() => {
+        // Corner-anchored to the trigger point, clamped inside the window
+        const pad = 8
+        const maxH = 220 // matches max-h-55
+        const width = Math.min(320, window.innerWidth - pad * 2)
+        const pos = previewPos ?? { x: 16, y: 56 }
+        const left = Math.max(pad, Math.min(pos.x, window.innerWidth - width - pad))
+        const top = Math.max(pad, Math.min(pos.y, window.innerHeight - maxH - pad))
+        return (
+          <div
+            className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-popover p-2 text-xs leading-relaxed text-muted-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.24)]"
+            style={{ left, top, width }}
+            onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
+            onMouseLeave={onItemMouseLeave}
+          >
+            <Tokens text={visible[previewIdx].s.text} />
+          </div>
+        )
+      })()}
 
       {panelFor && (
         <div className="fixed inset-x-2 bottom-10 z-20 rounded-xl border border-border bg-popover p-2 shadow-[0px_0px_16px_rgba(18,45,88,0.24)]">
