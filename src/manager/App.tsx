@@ -84,7 +84,14 @@ export function App() {
 
   const newPrompt = useCallback(async () => {
     setSettingsOpen(false)
-    const pack = isLocked(DEFAULT_PACK) ? "Unsorted" : DEFAULT_PACK
+    // Default to the pack the user last saved a prompt into, not a fixed pack
+    const last = localStorage.getItem("lastPack")
+    const pack =
+      last && packNames().includes(last) && !isLocked(last)
+        ? last
+        : isLocked(DEFAULT_PACK)
+          ? "Unsorted"
+          : DEFAULT_PACK
     const s: Snippet = {
       id: crypto.randomUUID(),
       title: "New prompt",
@@ -100,7 +107,7 @@ export function App() {
     setSelectionState(new Set([s.id]))
     setSelectionAnchor(s.id)
     setActiveId(s.id)
-  }, [isLocked, persist])
+  }, [isLocked, packNames, persist])
 
   const addPack = useCallback(
     async (name: string) => {

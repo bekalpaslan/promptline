@@ -234,10 +234,17 @@ export function App() {
     hidePreview()
     closePanel()
     const firstLine = clip.trim().split(/\r?\n/)[0] ?? ""
-    const fallback = packNames.find((p) => !isLocked(p)) ?? DEFAULT_PACK
+    // Prefer the pack that last received a prompt (shared with the manager)
+    const usable = (p: string | null) => !!p && packNames.includes(p!) && !isLocked(p!)
+    const last = localStorage.getItem("lastPack")
+    const pack = usable(last)
+      ? last!
+      : usable(DEFAULT_PACK)
+        ? DEFAULT_PACK
+        : packNames.find((p) => !isLocked(p)) ?? DEFAULT_PACK
     setCreate({
       title: firstLine.slice(0, 40) || "New prompt",
-      pack: isLocked(DEFAULT_PACK) ? fallback : DEFAULT_PACK,
+      pack,
     })
   }, [clip, packNames, isLocked, hidePreview, closePanel])
 
@@ -257,6 +264,7 @@ export function App() {
     const next = [...snippets, snip]
     setSnippets(next)
     await invoke("save_snippets", { snippets: next })
+    localStorage.setItem("lastPack", create.pack)
     setCreate(null)
     setQuery("")
     inputRef.current?.focus()
