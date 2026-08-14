@@ -487,7 +487,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           <input
             placeholder="+ tag…"
             spellCheck={false}
-            className="w-20 shrink-0 bg-transparent px-1 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
+            className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
             onKeyDown={(e) => {
               if (e.key !== "Enter") return
               const name = e.currentTarget.value.trim().toLowerCase().replace(/,/g, "")
