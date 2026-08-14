@@ -72,7 +72,7 @@ export function useCtxMenu() {
           {state.items.map((it, i) => {
             if (it.kind === "header") {
               return (
-                <div key={i} className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                <div key={i} className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   {it.text}
                 </div>
               )

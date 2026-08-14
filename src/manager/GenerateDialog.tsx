@@ -78,7 +78,7 @@ function InstructionPreview({ segments }: { segments: Segment[] }) {
           <span
             key={i}
             className={cn(
-              "rounded px-1 font-semibold",
+              "rounded-sm px-1 font-semibold",
               s.kind === "topic" ? "bg-amber-500/15 text-amber-600 dark:text-amber-500" : "bg-cyan-500/15 text-cyan-600 dark:text-cyan-500"
             )}
           >
@@ -276,7 +276,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         />
 
         {/* Path picker — segmented, same idiom as the theme toggle */}
-        <div className="flex rounded-[1.375rem] bg-secondary/80 p-1">
+        <div className="flex rounded-lg bg-secondary/80 p-1">
           {(
             [
               ["chat", "Chat Claude — copy & paste"],
@@ -286,7 +286,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <button
               key={p}
               className={cn(
-                "h-8 flex-1 cursor-pointer rounded-full text-xs font-semibold",
+                "h-8 flex-1 cursor-pointer rounded-sm text-xs font-semibold",
                 path === p ? "bg-background text-foreground shadow-[0px_4px_6px_rgba(28,29,34,0.08)]" : "text-muted-foreground"
               )}
               onClick={() => switchPath(p)}
@@ -298,7 +298,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
         {/* What Claude will receive, rendered live */}
         <div>
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             What Claude gets
           </div>
           <InstructionPreview segments={segments} />

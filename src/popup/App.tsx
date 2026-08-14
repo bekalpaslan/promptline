@@ -27,10 +27,10 @@ type CreateState = { title: string; pack: string }
 
 const DEFAULT_PACK = "My prompts"
 
-// 20px bordered square, the kit's shortcut-label idiom
+// 16px bordered square, the kit's shortcut-label idiom
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded border border-border bg-background px-1 text-xs text-muted-foreground">
+    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-background px-0.5 text-xs text-muted-foreground">
       {children}
     </span>
   )
@@ -38,7 +38,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-2 pb-1 pt-2 text-xs font-medium tracking-[0.04em] text-muted-foreground">
+    <div className="px-2 pb-0.5 pt-1.5 text-xs font-medium tracking-[0.04em] text-muted-foreground">
       {children}
     </div>
   )
@@ -59,7 +59,7 @@ function Tokens({ text }: { text: string }) {
           <span
             key={i}
             className={cn(
-              "rounded px-1 text-xs font-semibold",
+              "rounded-sm px-1 text-xs font-semibold",
               part.type === "builtin" && "bg-cyan-500/15 text-cyan-500",
               part.type === "field" && "bg-amber-500/15 text-amber-500",
               part.type === "config" && "bg-fuchsia-500/15 text-fuchsia-500",
@@ -567,7 +567,7 @@ export function App() {
                 return <span key={i} className="rounded-sm bg-cyan-500/15 px-0.5 text-foreground">{clip || "(clipboard is empty)"}</span>
               }
               if (part.type === "field") {
-                return <span key={i} className="rounded bg-amber-500/15 px-1 text-xs font-semibold text-amber-500">{part.name}</span>
+                return <span key={i} className="rounded-sm bg-amber-500/15 px-1 text-xs font-semibold text-amber-500">{part.name}</span>
               }
               return <span key={i}>{part.raw}</span>
             })}
@@ -594,8 +594,8 @@ export function App() {
         key={s.id}
         data-selected={i === sel}
         className={cn(
-          "flex cursor-pointer select-none items-center gap-2 rounded-lg p-2",
-          compact ? "h-9" : "min-h-9",
+          "flex cursor-pointer select-none items-center gap-2 rounded-lg px-2 py-1",
+          compact ? "h-7" : "min-h-8",
           i === sel && "bg-accent",
           pickedId === s.id && "bg-primary/20"
         )}
@@ -603,7 +603,7 @@ export function App() {
         onMouseMove={(e) => onItemMouseMove(i, e)}
         onMouseLeave={onItemMouseLeave}
       >
-        <Icon className={cn("size-5 shrink-0", s.pinned ? "text-amber-500" : "text-muted-foreground")} />
+        <Icon className={cn("size-4 shrink-0", s.pinned ? "text-amber-500" : "text-muted-foreground")} />
         <div className="flex min-w-0 flex-1 flex-col justify-center">
           <span className="flex min-w-0 items-center text-sm text-foreground">
             <HighlightedTitle title={s.title} indices={indices} />
@@ -617,7 +617,7 @@ export function App() {
           return (
             <span
               key={tag}
-              className="flex h-5 shrink-0 cursor-pointer items-center whitespace-nowrap rounded border px-1 text-xs"
+              className="flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs"
               style={{ color: c, borderColor: c + "55" }}
               title={`Filter by #${tag}`}
               onClick={(e) => {
@@ -632,7 +632,7 @@ export function App() {
         })}
         {inputs.length > 0 && (
           <span
-            className="flex h-5 shrink-0 items-center rounded border border-amber-500/40 px-1 text-xs tabular-nums text-amber-500"
+            className="flex h-4 shrink-0 items-center rounded-sm border border-amber-500/40 px-1 text-xs tabular-nums text-amber-500"
             title={`Asks for ${inputs.length} value${inputs.length === 1 ? "" : "s"} before pasting: ${inputs.join(", ")}`}
           >
             {"{"}{inputs.length}{"}"}
@@ -667,20 +667,20 @@ export function App() {
         />
         {query && (
           <button
-            className="cursor-pointer rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="cursor-pointer rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             onClick={() => {
               setQuery("")
               inputRef.current?.focus()
             }}
           >
-            <RiCloseLine className="size-5" />
+            <RiCloseLine className="size-4" />
           </button>
         )}
       </div>
 
       <div ref={listRef} className="flex-1 overflow-y-auto" onScroll={hidePreview}>
         {filtered.length === 0 && (
-          <div className="px-4 py-6 text-center text-xs text-muted-foreground">
+          <div className="px-4 py-4 text-center text-xs text-muted-foreground">
             {snippets.length ? "No matches" : "No prompts yet — left-click the Promptline tray icon to add some"}
           </div>
         )}
@@ -697,7 +697,7 @@ export function App() {
           return (
             <div key={sec.name}>
               <button
-                className="flex w-full cursor-pointer items-center gap-1 px-2 pb-1 pt-2 text-xs font-medium tracking-[0.04em] text-muted-foreground hover:text-foreground"
+                className="flex w-full cursor-pointer items-center gap-1 px-2 pb-0.5 pt-1.5 text-xs font-medium tracking-[0.04em] text-muted-foreground hover:text-foreground"
                 onClick={() => toggleCollapsed(sec.name)}
               >
                 <Chev className="size-3.5 shrink-0" />
@@ -713,9 +713,9 @@ export function App() {
       {/* Fixed create action — pinned below the list, above the meta bars */}
       <button
         onClick={openCreate}
-        className="flex h-9 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-t border-border p-2 text-muted-foreground hover:bg-accent hover:text-foreground"
+        className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-t border-border px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground"
       >
-        <RiAddLine className="size-5 shrink-0" />
+        <RiAddLine className="size-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate text-left text-sm">New prompt from clipboard…</span>
         <span className="flex shrink-0 gap-1">
           <Kbd>Ctrl</Kbd>
@@ -750,7 +750,7 @@ export function App() {
             <div
               key={a.label}
               className={cn(
-                "flex h-9 cursor-pointer select-none items-center justify-between rounded-lg p-2 text-sm",
+                "flex h-8 cursor-pointer select-none items-center justify-between rounded-lg px-2 text-sm",
                 i === panelSel && "bg-accent",
                 a.danger && "text-destructive"
               )}

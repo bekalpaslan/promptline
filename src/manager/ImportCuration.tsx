@@ -148,7 +148,7 @@ export function ImportCuration({
               <span className="whitespace-nowrap font-semibold text-foreground">{r.title}</span>
               <span className="min-w-0 flex-1 truncate">{r.text.replace(/\s+/g, " ").slice(0, 80)}</span>
               {r.dupe && (
-                <span className="shrink-0 rounded-full bg-secondary px-1.5 text-[10px]">dupe</span>
+                <span className="shrink-0 rounded-full bg-secondary px-1.5 text-xs">dupe</span>
               )}
             </div>
           )

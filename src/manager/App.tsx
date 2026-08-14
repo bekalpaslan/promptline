@@ -251,7 +251,7 @@ export function App() {
               <span className="text-green-500">✓ That's it — pick a prompt and it pastes right where you were.</span>
             ) : (
               <span>
-                Press <kbd className="rounded bg-secondary px-1.5 py-0.5 font-semibold text-foreground">{fmtHotkey}</kbd>{" "}
+                Press <kbd className="rounded-sm bg-secondary px-1.5 py-0.5 font-semibold text-foreground">{fmtHotkey}</kbd>{" "}
                 in any app to open your prompts — try it now
               </span>
             )}

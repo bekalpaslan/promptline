@@ -12,8 +12,8 @@ import { say, sayErr, sayUndo } from "./status"
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="w-full max-w-160 self-center rounded-xl bg-card p-4 text-card-foreground">
-      <h2 className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+    <div className="w-full max-w-160 self-center rounded-xl bg-card p-3 text-card-foreground">
+      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
       {children}
     </div>
   )
@@ -21,7 +21,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="mb-2 flex flex-wrap items-center gap-3 last:mb-0">
+    <div className="mb-1.5 flex flex-wrap items-center gap-3 last:mb-0">
       <span className="min-w-28 text-xs text-muted-foreground">{label}</span>
       {children}
     </div>
@@ -112,7 +112,7 @@ export function Settings() {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-4 pb-6">
+    <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       <Card title="General">
         <Row label="Global hotkey">
           <input
@@ -138,7 +138,7 @@ export function Settings() {
             Start with Windows
           </label>
         </Row>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
           Click the hotkey field and press a combination to record it (Esc cancels). The default Ctrl+Shift+V
           shadows "paste without formatting" in browsers — pick Ctrl+Alt+V if you use that.
         </p>
@@ -216,12 +216,12 @@ export function Settings() {
                   <span className="size-1.75 shrink-0 rounded-full" style={{ background: C.tagColor(name) }} />
                   <span className="min-w-0 flex-1 truncate">{name}</span>
                   {m.isLocked(name) && <RiLock2Fill className="size-2.5 shrink-0 text-amber-500" />}
-                  <span className="text-[11px] tabular-nums text-muted-foreground">
+                  <span className="text-xs tabular-nums text-muted-foreground">
                     {count} prompt{count === 1 ? "" : "s"}
                   </span>
                 </div>
                 {isOpen && (
-                  <div className="flex flex-col gap-2 border-t border-border px-3 py-2 text-[11px] text-muted-foreground">
+                  <div className="flex flex-col gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
                     <div className="break-all">{meta?.path || "not file-backed — this pack has no file yet"}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {meta?.path ? (
@@ -229,7 +229,7 @@ export function Settings() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="h-auto px-2.5 py-1 text-[11px]"
+                            className="h-auto px-2.5 py-1 text-xs"
                             onClick={() =>
                               void invoke("set_clipboard_text", { text: meta.path }).then(() => say("Path copied"))
                             }
@@ -239,7 +239,7 @@ export function Settings() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="h-auto px-2.5 py-1 text-[11px]"
+                            className="h-auto px-2.5 py-1 text-xs"
                             onClick={() => void invoke("show_in_folder", { path: meta.path })}
                           >
                             Show in folder
@@ -247,7 +247,7 @@ export function Settings() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="h-auto px-2.5 py-1 text-[11px]"
+                            className="h-auto px-2.5 py-1 text-xs"
                             onClick={() =>
                               void invoke<string>("read_pack_file", { path: meta.path })
                                 .then(setImportRaw)
@@ -259,7 +259,7 @@ export function Settings() {
                           <Button
                             size="sm"
                             variant="secondary"
-                            className="h-auto px-2.5 py-1 text-[11px]"
+                            className="h-auto px-2.5 py-1 text-xs"
                             onClick={() =>
                               void invoke("set_clipboard_text", {
                                 text: JSON.stringify(packToJson(name), null, 2),
@@ -273,7 +273,7 @@ export function Settings() {
                         <Button
                           size="sm"
                           variant="secondary"
-                          className="h-auto px-2.5 py-1 text-[11px]"
+                          className="h-auto px-2.5 py-1 text-xs"
                           onClick={() =>
                             void (async () => {
                               try {
@@ -297,7 +297,7 @@ export function Settings() {
                         size="sm"
                         variant="secondary"
                         disabled={m.isLocked(name)}
-                        className="h-auto px-2.5 py-1 text-[11px] text-destructive hover:bg-destructive/15"
+                        className="h-auto px-2.5 py-1 text-xs text-destructive hover:bg-destructive/15"
                         onClick={() => {
                           if (deleteArm !== name) {
                             setDeleteArm(name)
@@ -323,10 +323,10 @@ export function Settings() {
           })}
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <Button
             size="sm"
-            className="h-auto bg-[#d97757] px-2.5 py-1 text-[11px] font-semibold text-white hover:bg-[#e2825f]"
+            className="h-auto bg-[#d97757] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#e2825f]"
             onClick={() => m.openGenerate()}
           >
             + New (with Claude)
@@ -351,18 +351,18 @@ export function Settings() {
             <Button
               size="sm"
               variant="secondary"
-              className="h-auto px-2.5 py-1 text-[11px]"
+              className="h-auto px-2.5 py-1 text-xs"
               onClick={() => setNewPackMode(true)}
             >
               + New
             </Button>
           )}
         </div>
-        <div className="mt-1 flex flex-wrap items-center gap-2">
+        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <Button
             size="sm"
             variant="secondary"
-            className="h-auto px-2.5 py-1 text-[11px]"
+            className="h-auto px-2.5 py-1 text-xs"
             onClick={() => {
               const packs = m.packNames().map(packToJson).filter((p) => p.prompts.length)
               void invoke("set_clipboard_text", { text: JSON.stringify(packs, null, 2) }).then(() =>
@@ -375,7 +375,7 @@ export function Settings() {
           <Button
             size="sm"
             variant="secondary"
-            className="h-auto px-2.5 py-1 text-[11px]"
+            className="h-auto px-2.5 py-1 text-xs"
             onClick={() => void invoke<string>("get_clipboard_text").then(setImportRaw)}
           >
             Import from clipboard
@@ -383,7 +383,7 @@ export function Settings() {
           <Button
             size="sm"
             variant="secondary"
-            className="h-auto px-2.5 py-1 text-[11px]"
+            className="h-auto px-2.5 py-1 text-xs"
             onClick={() =>
               void invoke<string | null>("import_pack_file")
                 .then((raw) => {
@@ -396,7 +396,7 @@ export function Settings() {
           </Button>
         </div>
         {importRaw !== null && <ImportCuration raw={importRaw} onClose={() => setImportRaw(null)} />}
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
           Click a pack to see its file. Pack files under %APPDATA%\com.promptline.app\packs\ are always current —
           copy one to share or back up. Imports are reviewed prompt-by-prompt before anything is added.
         </p>
