@@ -465,7 +465,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           placeholder="Prompt text…  Use {clipboard}, {date}, {time}, any {lowercase_word} as a fill-in field, or {{lowercase_word}} as a saved config parameter."
           className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 pt-3 pb-[calc(0.75rem+1lh)] leading-relaxed placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
         />
-        <div className="flex items-center gap-1.5 overflow-x-auto px-3 pb-2">
+        <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2">
           {tagList.map((t) => {
             const c = C.tagColor(t)
             return (
