@@ -1,10 +1,11 @@
-import { useMemo, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import {
-  RiAddLine,
   RiArrowDownSLine,
   RiArrowRightSLine,
   RiEqualizerLine,
+  RiFileAddLine,
+  RiFolderAddLine,
   RiLock2Fill,
   RiMoonClearLine,
   RiPushpinFill,
@@ -18,6 +19,7 @@ import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr, sayUndo } from "./status"
 
+// "custom" = the snippets array order itself, arranged by drag-and-drop
 const SORTS: Record<string, (a: Snippet, b: Snippet) => number> = {
   uses: (a, b) => b.uses - a.uses || a.title.localeCompare(b.title),
   title: (a, b) => a.title.localeCompare(b.title),
@@ -38,14 +40,31 @@ export function Sidebar() {
   const ctx = useCtxMenu()
   const [query, setQuery] = useState("")
   const [orderBy, setOrderBy] = useState(
-    ["uses", "title"].includes(localStorage.getItem("orderBy") ?? "") ? localStorage.getItem("orderBy")! : "uses"
+    ["uses", "title", "custom"].includes(localStorage.getItem("orderBy") ?? "")
+      ? localStorage.getItem("orderBy")!
+      : "uses"
   )
   // Group-by-pack is the default view
   const [grouped, setGrouped] = useState(localStorage.getItem("groupByPack") !== "0")
   const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed)
   const [renaming, setRenaming] = useState<string | null>(null)
   const [configOpen, setConfigOpen] = useState(false)
+  const [newPackInput, setNewPackInput] = useState(false)
   const visibleIdsRef = useRef<string[]>([])
+
+  // Drag-to-reorder: a short press-and-hold lifts the row (so the gesture is
+  // discoverable), then moving it slides an insertion mark between rows.
+  const [drag, setDrag] = useState<{ id: string; pack: string } | null>(null)
+  const [over, setOver] = useState<{ id: string; after: boolean } | null>(null)
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const downPos = useRef<{ x: number; y: number } | null>(null)
+  const dragMoved = useRef(false)
+  const suppressClick = useRef(false)
+
+  const cancelHold = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current)
+    holdTimer.current = null
+  }
 
   const q = query.trim().toLowerCase()
   // The list-view configuration deviates from defaults — surface a dot on the toggle
@@ -61,6 +80,8 @@ export function Sidebar() {
             s.text.toLowerCase().includes(q)
         )
       : [...m.snippets]
+    // Custom order is the array order itself — no sort, pins included
+    if (orderBy === "custom") return pool
     return pool.sort(withPins(SORTS[orderBy] || SORTS.uses))
   }, [m.snippets, q, orderBy])
 
@@ -90,7 +111,64 @@ export function Sidebar() {
   }
   visibleIdsRef.current = visibleIds
 
+  // Move the dragged snippet next to the drop target in the master array and
+  // persist; relative order within every pack follows from the array order.
+  const commitReorder = async (dragId: string, targetId: string, after: boolean) => {
+    const all = [...m.snippets]
+    const from = all.findIndex((s) => s.id === dragId)
+    if (from === -1) return
+    const [item] = all.splice(from, 1)
+    let to = all.findIndex((s) => s.id === targetId)
+    if (to === -1) return
+    if (after) to += 1
+    all.splice(to, 0, item)
+    await m.persist(all)
+    if (orderBy !== "custom") {
+      setOrderBy("custom")
+      localStorage.setItem("orderBy", "custom")
+      say('Sorting is now "Custom" — switch back under list view options')
+    }
+  }
+
+  // While a drag is live, track the row under the pointer and commit on release
+  useEffect(() => {
+    if (!drag) return
+    const move = (e: PointerEvent) => {
+      dragMoved.current = true
+      const el = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(
+        "[data-snip-id]"
+      ) as HTMLElement | null
+      const id = el?.dataset.snipId
+      const snip = id ? m.snippets.find((s) => s.id === id) : undefined
+      // Grouped view: only reorder within the pack the drag started in
+      if (!snip || (grouped && (snip.pack || DEFAULT_PACK) !== drag.pack)) {
+        setOver(null)
+        return
+      }
+      const r = el!.getBoundingClientRect()
+      setOver({ id: snip.id, after: e.clientY > r.top + r.height / 2 })
+    }
+    const up = () => {
+      if (over && over.id !== drag.id) void commitReorder(drag.id, over.id, over.after)
+      if (dragMoved.current) suppressClick.current = true
+      setDrag(null)
+      setOver(null)
+    }
+    document.addEventListener("pointermove", move)
+    document.addEventListener("pointerup", up)
+    return () => {
+      document.removeEventListener("pointermove", move)
+      document.removeEventListener("pointerup", up)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [drag, over, grouped, m.snippets, orderBy])
+
   const handleRowClick = (e: React.MouseEvent | React.KeyboardEvent, id: string) => {
+    // A completed drag still fires a click on release — swallow it
+    if (suppressClick.current) {
+      suppressClick.current = false
+      return
+    }
     m.showSettings(false)
     let sel: Set<string>
     let anchor: string | null = m.selectionAnchor
@@ -357,23 +435,48 @@ export function Sidebar() {
     localStorage.setItem("collapsedPacks", JSON.stringify([...next]))
   }
 
-  // Prompt row: plain text pill, active = soft rounded fill (kit style).
-  // Tree tick connects it to the section guide line when grouped.
-  const snipRow = (s: Snippet, inTree: boolean) => {
+  // Prompt row: bordered card, grey fill when active
+  const snipRow = (s: Snippet) => {
     const multi = m.selection.size > 1 && m.selection.has(s.id)
     const active = s.id === m.activeId && m.selection.size <= 1
+    const lifted = drag?.id === s.id
+    const mark = drag && drag.id !== s.id && over?.id === s.id ? over.after : null
     return (
       <div
         key={s.id}
         role="button"
         tabIndex={0}
+        data-snip-id={s.id}
         className={cn(
-          "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-semibold",
-          inTree &&
-            "relative before:absolute before:-left-3.5 before:top-1/2 before:h-px before:w-3 before:bg-border",
-          active ? "bg-accent text-foreground" : "text-muted-foreground hover:text-foreground",
-          multi && "outline outline-1 -outline-offset-1 outline-primary"
+          "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-sm font-semibold transition-[transform,box-shadow] duration-150",
+          active
+            ? "bg-accent text-foreground"
+            : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
+          multi && "outline outline-1 -outline-offset-1 outline-primary",
+          lifted && "z-10 scale-[1.02] cursor-grabbing shadow-lg ring-1 ring-ring/40",
+          mark !== null &&
+            (mark ? "shadow-[0_3px_0_0_var(--primary)]" : "shadow-[0_-3px_0_0_var(--primary)]")
         )}
+        onPointerDown={(e) => {
+          if (e.button !== 0) return
+          downPos.current = { x: e.clientX, y: e.clientY }
+          dragMoved.current = false
+          cancelHold()
+          holdTimer.current = setTimeout(() => {
+            holdTimer.current = null
+            setDrag({ id: s.id, pack: s.pack || DEFAULT_PACK })
+          }, 180)
+        }}
+        onPointerMove={(e) => {
+          // Moving before the hold delay elapses means a click, not a drag
+          if (!holdTimer.current || drag) return
+          const d = downPos.current
+          if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) cancelHold()
+        }}
+        onPointerUp={cancelHold}
+        onPointerLeave={() => {
+          if (!drag) cancelHold()
+        }}
         onClick={(e) => handleRowClick(e, s.id)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
@@ -400,7 +503,7 @@ export function Sidebar() {
       <div
         tabIndex={0}
         className={cn(
-          "flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-1 py-2 text-[15px] font-bold",
+          "flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-1 py-2 text-sm font-bold",
           isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
         )}
         onClick={() => toggleCollapsed(name)}
@@ -447,7 +550,7 @@ export function Sidebar() {
   return (
     <div className="flex w-[clamp(15rem,28%,20rem)] flex-col border-r border-border">
       {/* Title row: page title + view-config toggle + round add button */}
-      <div className="flex items-center gap-1.5 p-4 pb-2">
+      <div className="flex items-center gap-1.5 p-3">
         <h2 className="min-w-0 flex-1 truncate text-2xl font-bold">Prompts</h2>
         <button
           title="List view options"
@@ -462,37 +565,11 @@ export function Sidebar() {
             <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-primary" />
           )}
         </button>
-        <button
-          title="New prompt, pack, or generated pack"
-          className="flex size-7 cursor-pointer items-center justify-center rounded-full bg-secondary text-muted-foreground hover:text-foreground"
-          onClick={(e) => {
-            e.stopPropagation()
-            const r = e.currentTarget.getBoundingClientRect()
-            ctx.open(r.right - 190, r.bottom + 4, [
-              { kind: "item", label: "New prompt", run: () => void m.newPrompt() },
-              {
-                kind: "item",
-                label: "New pack…",
-                run: () => {
-                  ctx.open(r.right - 190, r.bottom + 4, [
-                    { kind: "header", text: "New pack" },
-                    { kind: "input", placeholder: "Pack name", onSubmit: (n) => void m.addPack(n) },
-                  ])
-                  return "keep"
-                },
-              },
-              { kind: "sep" },
-              { kind: "item", label: "Generate pack with Claude…", run: () => m.openGenerate() },
-            ])
-          }}
-        >
-          <RiAddLine className="size-4.5" />
-        </button>
       </div>
 
       {/* List-view configuration: filter, order, grouping — tucked away by default */}
       {configOpen && (
-        <div className="mx-4 mb-2 flex flex-col gap-2 rounded-xl bg-secondary/60 p-3">
+        <div className="mx-3 mb-3 flex flex-col gap-3 rounded-xl bg-secondary/60 p-3">
           <input
             autoFocus
             value={query}
@@ -513,6 +590,7 @@ export function Sidebar() {
             >
               <option value="uses">Most used</option>
               <option value="title">Title</option>
+              <option value="custom">Custom — drag to arrange</option>
             </select>
           </div>
           <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
@@ -530,36 +608,83 @@ export function Sidebar() {
       {/* A hidden active filter must stay visible — chip clears it */}
       {!configOpen && q && (
         <button
-          className="mx-4 mb-2 flex cursor-pointer items-center gap-1 self-start rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
+          className="mx-3 mb-3 flex cursor-pointer items-center gap-1 self-start rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
           onClick={() => setQuery("")}
         >
           filter: "{query.trim()}" ✕
         </button>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 pb-2">
+      <div className="flex-1 overflow-y-auto px-3 pb-3">
+        {/* Create bar: two dashed "empty slot" cards, echoing the row shape */}
+        {newPackInput ? (
+          <div className="mb-3 flex flex-col gap-1.5">
+            <input
+              autoFocus
+              placeholder="Pack name — Enter to create, Esc to cancel"
+              spellCheck={false}
+              className="rounded-xl border border-dashed border-primary bg-background px-3.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") setNewPackInput(false)
+                if (e.key === "Enter") {
+                  const name = e.currentTarget.value.trim()
+                  setNewPackInput(false)
+                  if (name) void m.addPack(name)
+                }
+              }}
+              onBlur={() => setNewPackInput(false)}
+            />
+            <button
+              className="cursor-pointer self-start px-1 text-xs text-muted-foreground hover:text-primary"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                setNewPackInput(false)
+                m.openGenerate()
+              }}
+            >
+              ✦ or generate a pack with Claude…
+            </button>
+          </div>
+        ) : (
+          <div className="mb-3 flex gap-1.5">
+            <button
+              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              onClick={() => void m.newPrompt()}
+            >
+              <RiFileAddLine className="size-4" />
+              New prompt
+            </button>
+            <button
+              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              onClick={() => setNewPackInput(true)}
+            >
+              <RiFolderAddLine className="size-4" />
+              New pack
+            </button>
+          </div>
+        )}
         {groups ? (
           groups.map(([name, items]) => {
             const isCollapsed = !q && collapsed.has(name)
             return (
-              <div key={name} className="mb-1">
+              <div key={name} className="mb-3">
                 {sectionTitle(name, items.length, isCollapsed)}
                 {!isCollapsed && (
-                  <div className="mb-2 ml-1.5 flex flex-col border-l border-border pl-3.5">
-                    {items.map((s) => snipRow(s, true))}
+                  <div className="flex flex-col gap-1.5">
+                    {items.map((s) => snipRow(s))}
                   </div>
                 )}
               </div>
             )
           })
         ) : (
-          <div className="flex flex-col">{visible.map((s) => snipRow(s, false))}</div>
+          <div className="flex flex-col gap-1.5">{visible.map((s) => snipRow(s))}</div>
         )}
       </div>
 
       {/* Light/Dark segmented mode toggle with the settings gear as a compact segment */}
-      <div className="p-4 pt-2">
-        <div className="flex items-center gap-1 rounded-[1.375rem] bg-secondary/80 p-1">
+      <div className="p-3">
+        <div className="flex items-center gap-1 rounded-lg bg-secondary/80 p-1">
           {(["light", "dark"] as const).map((t) => {
             const Icon = t === "light" ? RiSunLine : RiMoonClearLine
             const active = m.prefs.theme === t
@@ -567,7 +692,7 @@ export function Sidebar() {
               <button
                 key={t}
                 className={cn(
-                  "flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-full text-sm font-semibold capitalize",
+                  "flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-sm font-semibold capitalize",
                   active
                     ? "bg-background text-foreground shadow-[0px_4px_6px_rgba(28,29,34,0.08)]"
                     : "text-muted-foreground"
@@ -582,7 +707,7 @@ export function Sidebar() {
           <button
             title={`Settings — popup hotkey: ${C.fmtHotkey(m.hotkey)}`}
             className={cn(
-              "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-full",
+              "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm",
               m.settingsOpen
                 ? "bg-background text-foreground shadow-[0px_4px_6px_rgba(28,29,34,0.08)]"
                 : "text-muted-foreground hover:text-foreground"
