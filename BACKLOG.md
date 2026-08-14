@@ -15,8 +15,10 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 - **Generate packs via direct API call** — call Claude with a user-supplied API
   key from the generate dialog, skipping the copy/paste loop (roadmap 4.4
   long-term variant).
-- **Merge popup hint bar + clipboard preview** into one meta-bar (roadmap 2.6,
-  deliberately skipped — revisit if the two stacked bars bother anyone).
+- ~~**Merge popup hint bar + clipboard preview** into one meta-bar~~ (roadmap
+  2.6) — **resolved 2026-08-15 by removing the clipboard bar**: the token is
+  already highlighted in the preview card and rendered live in the fill-in
+  form, so the second bar only cost a row of prompts.
 
 ## Distribution
 

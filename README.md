@@ -37,6 +37,7 @@ behind **Advanced options** in the editor — invisible until you want it.
 - Search is fuzzy over titles, tags, and bodies with match highlighting;
   `#tag` and `@pack` terms filter (`#debug root cause`); click a tag pill to filter by it
 - With no query, prompts sort by how often you use them
+- **Drag the window edge** to resize; the size is remembered
 
 ## The manager (left-click the tray icon)
 
@@ -45,11 +46,15 @@ behind **Advanced options** in the editor — invisible until you want it.
   rename / lock / export / delete it; right-click prompts for multi-select
   actions (move to pack, add tag, export, delete) — Ctrl/Shift+click to select several
 - **Locked packs** (🔒) refuse new prompts and can't be deleted until unlocked
-- **+ New ▾** → new prompt, new pack, or **Generate pack with Claude**: type a
-  topic, copy the generated instruction to Claude, import its reply — every
-  prompt is reviewed in a checklist before anything is added
+- Two **empty-slot cards** at the top of the list create a new prompt or a new
+  pack; **Generate pack with Claude** takes a topic, hands you an instruction to
+  paste into Claude, and imports its reply — every prompt is reviewed in a
+  checklist before anything is added
+- Sort by uses, title, or **Custom** — press and hold a row to lift it, then
+  drag to arrange your own order
 - **Settings** (⚙): record a hotkey by pressing it, autostart, theme
-  (dark / light), popup density, UI scale (90–125%), library export/import
+  (dark / light), popup density, UI font (Outfit / system / serif / mono),
+  UI scale (90–125%), library export/import
 
 ## Data
 
