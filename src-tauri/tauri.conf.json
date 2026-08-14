@@ -28,10 +28,12 @@
         "url": "popup.html",
         "width": 400,
         "height": 460,
+        "minWidth": 320,
+        "minHeight": 280,
         "decorations": false,
         "alwaysOnTop": true,
         "skipTaskbar": true,
-        "resizable": false,
+        "resizable": true,
         "visible": false,
         "shadow": true
       }

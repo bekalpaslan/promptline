@@ -7,7 +7,7 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State, WindowEvent};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, State, WindowEvent};
 use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
@@ -90,6 +90,11 @@ struct Config {
     // First-run flag: has the popup ever been summoned?
     #[serde(default, rename = "popupSeen")]
     popup_seen: bool,
+    // Popup window size in logical px, saved when the user resizes; 0 = default
+    #[serde(default, rename = "popupWidth")]
+    popup_width: f64,
+    #[serde(default, rename = "popupHeight")]
+    popup_height: f64,
 }
 
 impl Default for Config {
@@ -102,6 +107,8 @@ impl Default for Config {
             scale: default_scale(),
             font: default_font(),
             popup_seen: false,
+            popup_width: 0.0,
+            popup_height: 0.0,
         }
     }
 }
@@ -453,8 +460,52 @@ fn set_clipboard_text(text: String) -> Result<(), String> {
     c.set_text(text).map_err(|e| e.to_string())
 }
 
+// Starting a border-resize drag steals focus from the webview, which would
+// trigger the hide-on-blur handler and close the popup mid-resize. Detect it:
+// left button held with the cursor on (or just outside) the popup frame.
+fn is_resize_drag(window: &tauri::Window) -> bool {
+    if !platform::left_button_down() {
+        return false;
+    }
+    let (Ok(cursor), Ok(pos), Ok(size)) = (
+        window.app_handle().cursor_position(),
+        window.outer_position(),
+        window.outer_size(),
+    ) else {
+        return false;
+    };
+    // Slop for the invisible resize border around an undecorated window
+    let m = 12.0;
+    cursor.x >= pos.x as f64 - m
+        && cursor.x <= pos.x as f64 + size.width as f64 + m
+        && cursor.y >= pos.y as f64 - m
+        && cursor.y <= pos.y as f64 + size.height as f64 + m
+}
+
+// The popup is user-resizable; remember its size so it survives restarts.
+// Called from every hide path — cheap, and only writes when the size changed.
+fn persist_popup_size(app: &AppHandle) {
+    let Some(w) = app.get_webview_window("popup") else {
+        return;
+    };
+    let (Ok(size), Ok(scale)) = (w.inner_size(), w.scale_factor()) else {
+        return;
+    };
+    let logical = size.to_logical::<f64>(scale);
+    let mut config = load_config_from_disk(app);
+    if (config.popup_width - logical.width).abs() < 1.0
+        && (config.popup_height - logical.height).abs() < 1.0
+    {
+        return;
+    }
+    config.popup_width = logical.width;
+    config.popup_height = logical.height;
+    let _ = save_config(app, &config);
+}
+
 #[tauri::command]
 fn hide_popup(app: AppHandle) {
+    persist_popup_size(&app);
     if let Some(w) = app.get_webview_window("popup") {
         let _ = w.hide();
     }
@@ -471,6 +522,7 @@ fn paste_snippet(
     paste: bool,
     id: Option<String>,
 ) -> Result<(), String> {
+    persist_popup_size(&app);
     if let Some(w) = app.get_webview_window("popup") {
         let _ = w.hide();
     }
@@ -562,13 +614,18 @@ fn show_popup(app: &AppHandle) {
 mod platform {
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
-        KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_MENU, VK_SHIFT, VK_V,
+        GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
+        KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_MENU,
+        VK_SHIFT, VK_V,
     };
     use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
 
     pub fn foreground_window() -> isize {
         unsafe { GetForegroundWindow().0 as isize }
+    }
+
+    pub fn left_button_down() -> bool {
+        unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) < 0 }
     }
 
     pub fn focus_window(hwnd: isize) {
@@ -623,6 +680,9 @@ mod platform {
     }
     pub fn focus_window(_hwnd: isize) {}
     pub fn send_ctrl_v() {}
+    pub fn left_button_down() -> bool {
+        false
+    }
 }
 
 #[cfg(test)]
@@ -682,6 +742,8 @@ mod tests {
         assert_eq!(c.scale, "100");
         assert_eq!(c.font, "outfit");
         assert!(!c.popup_seen);
+        assert_eq!(c.popup_width, 0.0);
+        assert_eq!(c.popup_height, 0.0);
 
         let with_packs: Config = serde_json::from_str(
             r#"{"hotkey": "x", "packs": [{"name": "Starter", "locked": true}, {"name": "Open"}]}"#,
@@ -689,6 +751,13 @@ mod tests {
         .unwrap();
         assert!(with_packs.packs[0].locked);
         assert!(!with_packs.packs[1].locked);
+
+        let sized: Config = serde_json::from_str(
+            r#"{"hotkey": "x", "popupWidth": 480.0, "popupHeight": 620.5}"#,
+        )
+        .unwrap();
+        assert_eq!(sized.popup_width, 480.0);
+        assert_eq!(sized.popup_height, 620.5);
     }
 
     #[test]
@@ -769,6 +838,13 @@ pub fn run() {
                 .unwrap_or_else(|_| Config::default().hotkey.parse().unwrap());
             handle.global_shortcut().register(shortcut)?;
 
+            // Restore the saved popup size (0 = never resized, keep the default)
+            if config.popup_width >= 200.0 && config.popup_height >= 200.0 {
+                if let Some(w) = handle.get_webview_window("popup") {
+                    let _ = w.set_size(LogicalSize::new(config.popup_width, config.popup_height));
+                }
+            }
+
             let open = MenuItem::with_id(app, "open", "Open Promptline", true, None::<&str>)?;
             let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
             let menu = Menu::with_items(app, &[&open, &quit])?;
@@ -798,7 +874,13 @@ pub fn run() {
         })
         .on_window_event(|window, event| match event {
             WindowEvent::Focused(false) if window.label() == "popup" => {
-                let _ = window.hide();
+                if is_resize_drag(window) {
+                    // Reclaim focus so the next real blur still hides the popup
+                    let _ = window.set_focus();
+                } else {
+                    persist_popup_size(window.app_handle());
+                    let _ = window.hide();
+                }
             }
             // Closing the main window hides to tray instead of quitting
             WindowEvent::CloseRequested { api, .. } if window.label() == "main" => {
