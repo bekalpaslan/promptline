@@ -18,6 +18,7 @@ interface Config {
   theme?: string
   density?: string
   scale?: string
+  font?: string
   popupSeen?: boolean
 }
 
@@ -30,7 +31,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [genOpen, setGenOpen] = useState(false)
   const [hotkey, setHotkeyState] = useState("ctrl+shift+v")
-  const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100" })
+  const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100", font: "outfit" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
 
   // Latest snippets for callbacks that outlive a render (event listeners)
@@ -129,9 +130,15 @@ export function App() {
       localStorage.setItem("theme", merged.theme)
       localStorage.setItem("density", merged.density)
       localStorage.setItem("scale", merged.scale)
+      localStorage.setItem("font", merged.font)
       applyPrefs()
       try {
-        await invoke("save_prefs", { theme: merged.theme, density: merged.density, scale: merged.scale })
+        await invoke("save_prefs", {
+          theme: merged.theme,
+          density: merged.density,
+          scale: merged.scale,
+          font: merged.font,
+        })
       } catch (e) {
         sayErr(String(e))
       }
@@ -158,11 +165,13 @@ export function App() {
         theme,
         density: config.density || "comfortable",
         scale: config.scale || "100",
+        font: config.font || "outfit",
       }
       setPrefs(loaded)
       localStorage.setItem("theme", loaded.theme)
       localStorage.setItem("density", loaded.density)
       localStorage.setItem("scale", loaded.scale)
+      localStorage.setItem("font", loaded.font)
       applyPrefs()
       if (!config.popupSeen) setFirstRun("show")
     })()

@@ -64,6 +64,10 @@ fn default_scale() -> String {
     "100".into()
 }
 
+fn default_font() -> String {
+    "outfit".into()
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct Config {
     hotkey: String,
@@ -80,6 +84,9 @@ struct Config {
     // UI scale percentage ("90" | "100" | "110" | "125"); rem tokens follow it
     #[serde(default = "default_scale")]
     scale: String,
+    // UI font id ("outfit" | "system" | "serif" | "mono"); stacks live in the frontend
+    #[serde(default = "default_font")]
+    font: String,
     // First-run flag: has the popup ever been summoned?
     #[serde(default, rename = "popupSeen")]
     popup_seen: bool,
@@ -93,6 +100,7 @@ impl Default for Config {
             theme: default_theme(),
             density: default_density(),
             scale: default_scale(),
+            font: default_font(),
             popup_seen: false,
         }
     }
@@ -376,11 +384,18 @@ fn show_in_folder(path: String) {
 }
 
 #[tauri::command]
-fn save_prefs(app: AppHandle, theme: String, density: String, scale: String) -> Result<(), String> {
+fn save_prefs(
+    app: AppHandle,
+    theme: String,
+    density: String,
+    scale: String,
+    font: String,
+) -> Result<(), String> {
     let mut config = load_config_from_disk(&app);
     config.theme = theme;
     config.density = density;
     config.scale = scale;
+    config.font = font;
     save_config(&app, &config)
 }
 
@@ -665,6 +680,7 @@ mod tests {
         assert_eq!(c.theme, "sand");
         assert_eq!(c.density, "comfortable");
         assert_eq!(c.scale, "100");
+        assert_eq!(c.font, "outfit");
         assert!(!c.popup_seen);
 
         let with_packs: Config = serde_json::from_str(

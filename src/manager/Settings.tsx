@@ -4,6 +4,7 @@ import { RiArrowDownSFill, RiArrowRightSFill, RiLock2Fill } from "@remixicon/rea
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { C } from "@/lib/core"
+import { FONTS, fontStack } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
 import { ImportCuration } from "./ImportCuration"
@@ -156,6 +157,22 @@ export function Settings() {
             <option value="compact">Compact — titles only, twice the rows</option>
           </select>
         </Row>
+        <Row label="Font">
+          <select
+            value={m.prefs.font}
+            style={{ fontFamily: fontStack(m.prefs.font) }}
+            onChange={(e) => {
+              void m.savePrefs({ font: e.target.value }).then(() => say("Font updated"))
+            }}
+            className={selectCls}
+          >
+            {FONTS.map((f) => (
+              <option key={f.id} value={f.id} style={{ fontFamily: f.stack }}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        </Row>
         <Row label="UI scale">
           <select
             value={m.prefs.scale}
@@ -170,14 +187,14 @@ export function Settings() {
             <option value="125">125%</option>
           </select>
         </Row>
-        <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
-          Density and scale apply to the popup the next time it opens; scale applies here immediately. Theme
-          switches with the Light/Dark toggle at the bottom of the sidebar.
+        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          Font and scale apply everywhere immediately (popup on its next open); density applies to the popup
+          the next time it opens. Theme switches with the Light/Dark toggle at the bottom of the sidebar.
         </p>
       </Card>
 
       <Card title="Your library">
-        <div className="flex flex-col gap-1">
+        <div className="flex flex-col gap-1.5">
           {m.packNames().map((name) => {
             const meta = m.packMeta.find((p) => p.name === name)
             const count = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).length

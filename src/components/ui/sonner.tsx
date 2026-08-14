@@ -30,6 +30,8 @@ const Toaster = ({ ...props }: ToasterProps) => {
       }}
       style={
         {
+          // Sonner ships its own font-family; follow the app font pref instead
+          fontFamily: "var(--app-font)",
           "--normal-bg": "var(--popover)",
           "--normal-text": "var(--popover-foreground)",
           "--normal-border": "var(--border)",

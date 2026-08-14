@@ -8,6 +8,7 @@ export interface Prefs {
   theme: string // "light" | "dark" (legacy "sand"/"sundown" map to dark)
   density: string
   scale: string
+  font: string // id into FONTS (lib/prefs.ts)
 }
 
 export interface ManagerApi {
