@@ -36,7 +36,6 @@ behind **Advanced options** in the editor — invisible until you want it.
 - **→** shows the full-prompt preview card (also on mouse hover)
 - Search is fuzzy over titles, tags, and bodies with match highlighting;
   `#tag` and `@pack` terms filter (`#debug root cause`); click a tag pill to filter by it
-- A clipboard preview bar shows exactly what `{clipboard}` will insert
 - With no query, prompts sort by how often you use them
 
 ## The manager (left-click the tray icon)

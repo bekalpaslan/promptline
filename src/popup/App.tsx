@@ -199,9 +199,6 @@ export function App() {
     if (sel >= visible.length && visible.length > 0) setSel(visible.length - 1)
   }, [sel, visible.length])
 
-  const selected = visible[sel]
-  const showsClip = !!selected && selected.s.text.includes("{clipboard}")
-
   const packNames = useMemo(() => {
     const names = new Set([
       ...packMeta.map((p) => p.name),
@@ -476,8 +473,8 @@ export function App() {
   // --- Create-from-clipboard confirmation --------------------------------------
   if (create) {
     return (
-      <Shell hint={hint} clip={null}>
-        <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-1">
+      <Shell hint={hint}>
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-1">
           <SectionHeader>New prompt from clipboard</SectionHeader>
           <div className="px-1">
             <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Name</label>
@@ -529,8 +526,8 @@ export function App() {
   // --- Form mode ----------------------------------------------------------------
   if (form) {
     return (
-      <Shell hint={hint} clip={null}>
-        <div className="flex flex-1 flex-col gap-2 overflow-y-auto p-1">
+      <Shell hint={hint}>
+        <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-1">
           <SectionHeader>{form.snippet.title}</SectionHeader>
           {form.fields.map((f, i) => {
             const remembered = (form.snippet.fieldValues || {})[f]
@@ -652,16 +649,13 @@ export function App() {
   }
 
   return (
-    <Shell
-      hint={hint}
-      clip={showsClip ? (clip.trim() ? clip.replace(/\s+/g, " ").slice(0, 300) : "(clipboard is empty)") : null}
-    >
+    <Shell hint={hint}>
       {/* Search — kit "Active" state: 36px boxed input, 2px focus border */}
       <div
-        className="flex h-9 shrink-0 items-center gap-1 rounded-lg border-2 border-input bg-background py-2 pl-2 pr-1.5 focus-within:border-(--palette-focus)"
+        className="flex h-8 shrink-0 items-center gap-1 rounded-lg border-2 border-input bg-background py-1.5 pl-2 pr-1.5 focus-within:border-(--palette-focus)"
         style={{ "--palette-focus": FOCUS_BORDER } as React.CSSProperties}
       >
-        <RiSearchLine className="size-5 shrink-0 text-muted-foreground" />
+        <RiSearchLine className="size-4 shrink-0 text-muted-foreground" />
         <input
           ref={inputRef}
           value={query}
@@ -774,17 +768,11 @@ export function App() {
 }
 
 // Window chrome — the kit palette card: 12px radius, 8px padding, soft shadow
-function Shell({ children, hint, clip }: { children: React.ReactNode; hint: React.ReactNode; clip: string | null }) {
+function Shell({ children, hint }: { children: React.ReactNode; hint: React.ReactNode }) {
   return (
-    <div className="flex h-dvh flex-col gap-2 overflow-hidden rounded-xl border border-border bg-background p-2 text-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.12)]">
+    <div className="flex h-dvh flex-col gap-3 overflow-hidden rounded-xl border border-border bg-background p-3 text-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.12)]">
       {children}
-      {clip !== null && (
-        <div className="shrink-0 truncate rounded-lg bg-accent/60 px-2 py-1 text-xs text-muted-foreground">
-          <span className="font-medium">clipboard → </span>
-          {clip}
-        </div>
-      )}
-      <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-1 pt-2 text-xs text-muted-foreground">
+      <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-1 pt-3 text-xs text-muted-foreground">
         {hint}
       </div>
     </div>
