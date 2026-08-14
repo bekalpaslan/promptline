@@ -1,4 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import {
+  RiAddLine,
+  RiArrowDownSLine,
+  RiArrowRightSLine,
+  RiCheckLine,
+  RiCloseLine,
+  RiDeleteBinLine,
+} from "@remixicon/react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
@@ -9,9 +17,111 @@ import { say, sayErr, sayUndo } from "./status"
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
 const SUGGESTED_PARAMS = ["goal", "feature", "task", "error", "file"]
 
-function TokenPreview({ text, configValues }: { text: string; configValues: Record<string, string> }) {
+// One card per parameter kind. The card's Edit toggle reveals delete badges
+// on the pills inside (children render from the editing flag).
+function ParamSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string
+  hint: string
+  children: (editing: boolean) => React.ReactNode
+}) {
+  const [editing, setEditing] = useState(false)
   return (
-    <div className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md bg-secondary/50 px-3 py-2 text-xs leading-relaxed text-muted-foreground">
+    <div className="flex flex-col gap-3 rounded-xl bg-secondary/50 p-3">
+      <span className="flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground">
+        <span className="font-semibold uppercase tracking-wide">{title}</span>
+        <span>· {hint}</span>
+        <button
+          className={cn(
+            "ml-auto cursor-pointer font-medium",
+            editing ? "text-primary hover:text-foreground" : "text-muted-foreground hover:text-foreground"
+          )}
+          onClick={() => setEditing((v) => !v)}
+        >
+          {editing ? "Done" : "Edit"}
+        </button>
+      </span>
+      {children(editing)}
+    </div>
+  )
+}
+
+// Addable pill: a + segment on the left, separated by a divider that cuts
+// the pill full-height. Spacing is tier-1 (6px) on every side of the + and
+// between the divider and the label.
+function AddPill({ label, title, onAdd }: { label: string; title: string; onAdd: () => void }) {
+  return (
+    <button
+      tabIndex={0}
+      title={title}
+      className="flex shrink-0 cursor-pointer select-none overflow-hidden rounded-sm border border-transparent bg-secondary text-xs font-medium text-muted-foreground transition-colors hover:border-primary"
+      onClick={onAdd}
+    >
+      <span className="flex items-center px-1.5">
+        <RiAddLine className="size-3" />
+      </span>
+      <span className="w-px bg-border" />
+      <span className="flex items-center py-0.5 pl-1.5 pr-2">{label}</span>
+    </button>
+  )
+}
+
+// Delete badge hovering on a pill's corner while its card is in edit mode
+function DeleteBadge({ onDelete }: { onDelete: () => void }) {
+  return (
+    <span
+      role="button"
+      title="Remove from this prompt"
+      className="absolute -right-1.5 -top-1.5 flex size-3.5 cursor-pointer items-center justify-center rounded-full bg-destructive text-white opacity-80 shadow-sm transition-transform duration-150 animate-in fade-in zoom-in hover:scale-110 hover:opacity-100"
+      onClick={(e) => {
+        e.stopPropagation()
+        onDelete()
+      }}
+    >
+      <RiCloseLine className="size-2.5" />
+    </span>
+  )
+}
+
+function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name: string) => void }) {
+  return (
+    <input
+      placeholder={placeholder}
+      spellCheck={false}
+      className="w-28 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
+      onKeyDown={(e) => {
+        if (e.key !== "Enter") return
+        const name = e.currentTarget.value.trim().toLowerCase().replace(/[^a-z_]+/g, "_").replace(/^_+|_+$/g, "")
+        if (!name) return
+        onAdd(name)
+        e.currentTarget.value = ""
+      }}
+    />
+  )
+}
+
+// Sized to mirror the prompt textarea exactly: same 4-line default, same
+// grow-with-content (1lh spare via bottom padding), same 10-line cap, same
+// text metrics — the transparent border offsets the textarea's real one
+function TokenPreview({
+  text,
+  configValues,
+  className,
+}: {
+  text: string
+  configValues: Record<string, string>
+  className?: string
+}) {
+  return (
+    <div
+      className={cn(
+        "min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-transparent bg-secondary/50 px-4 pt-3 pb-[calc(0.75rem+1lh)] text-sm leading-relaxed text-muted-foreground md:text-xs/relaxed",
+        className
+      )}
+    >
       {C.tokenize(text).map((part, i) => {
         if (part.type === "text") return <span key={i}>{part.value}</span>
         let label: string
@@ -31,7 +141,7 @@ function TokenPreview({ text, configValues }: { text: string; configValues: Reco
           cls = "bg-amber-500/15 text-amber-500"
         }
         return (
-          <span key={i} className={cn("rounded px-1 text-xs font-semibold", cls)}>
+          <span key={i} className={cn("rounded-sm px-1 text-xs font-semibold", cls)}>
             {label}
           </span>
         )
@@ -107,6 +217,8 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       ),
     }
     await mgr.persist(mgr.snippets.map((s) => (s.id === snippet.id ? next : s)))
+    // New prompts default to the pack that last received one
+    localStorage.setItem("lastPack", targetPack)
   }, [snippet.id])
 
   const scheduleSave = useCallback(() => {
@@ -176,34 +288,43 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     )
   }
 
-  const paramChip = (name: string, isBuiltin: boolean, presence: "config" | "field" | null) => {
-    const kind = presence === "config" ? "config" : isBuiltin ? "builtin" : "field"
+  const paramChip = (name: string, isBuiltin: boolean, inText: boolean, editing: boolean) => {
+    if (!inText)
+      return (
+        <AddPill
+          key={name}
+          label={`{${name}}`}
+          title={`Insert {${name}}`}
+          onAdd={() => insertParam(name, false)}
+        />
+      )
     return (
-      <button
+      <span
         key={name}
-        tabIndex={0}
-        title={
-          presence
-            ? `Remove ${name} from this prompt`
-            : isBuiltin
-              ? `Insert {${name}} — expands automatically`
-              : `Insert {${name}} — asks before pasting. Ctrl+click: insert {{${name}}} as a config parameter (saved value, no prompt).`
-        }
+        title={`{${name}} is in the prompt — Edit to remove`}
         className={cn(
-          "cursor-pointer select-none rounded-full border border-transparent bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary",
-          presence && kind === "builtin" && "bg-cyan-500/15 text-cyan-500",
-          presence && kind === "field" && "bg-amber-500/15 text-amber-500",
-          presence && kind === "config" && "bg-fuchsia-500/15 text-fuchsia-500",
-          presence && "hover:border-destructive hover:line-through"
+          "relative select-none rounded-sm border border-transparent px-2.5 py-0.5 text-xs font-medium",
+          isBuiltin ? "bg-cyan-500/15 text-cyan-500" : "bg-amber-500/15 text-amber-500"
         )}
-        onClick={(e) =>
-          presence ? removeParam(name) : insertParam(name, !isBuiltin && (e.ctrlKey || e.metaKey))
-        }
       >
-        {presence === "config" ? `{{${name}}}` : `{${name}}`}
-      </button>
+        {`{${name}}`}
+        {editing && <DeleteBadge onDelete={() => removeParam(name)} />}
+      </span>
     )
   }
+
+  // ---- Tags ----
+  const tagList = tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
+  const addTag = (t: string) => {
+    if (tagList.includes(t)) return
+    setTags([...tagList, t].join(", "))
+    scheduleSave()
+  }
+  const removeTag = (t: string) => {
+    setTags(tagList.filter((x) => x !== t).join(", "))
+    scheduleSave()
+  }
+  const tagSuggestions = m.allTags().filter((t) => !tagList.includes(t)).slice(0, 12)
 
   const customParams = new Set([
     ...[...configInText, ...runtimeInText].filter((t) => !BUILTIN_PARAMS.includes(t)),
@@ -245,8 +366,8 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 flex-col gap-3 p-4 px-6">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+      <div className="flex flex-wrap items-center gap-3">
         <input
           autoFocus={isDraft}
           onFocus={(e) => {
@@ -260,16 +381,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           placeholder="Title"
           spellCheck={false}
           className="min-w-50 flex-[2] bg-transparent py-1 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--color-primary)]"
-        />
-        <input
-          value={tags}
-          onChange={(e) => {
-            setTags(e.target.value)
-            scheduleSave()
-          }}
-          placeholder="Tags, comma separated"
-          spellCheck={false}
-          className="min-w-40 flex-[2] rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
         />
         {newPackMode ? (
           <input
@@ -311,7 +422,14 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
               setPack(e.target.value)
               scheduleSave()
             }}
-            className="min-w-32 flex-1 cursor-pointer rounded-md bg-secondary px-2 py-1.5 text-xs text-foreground outline-none"
+            // Native select arrows hug the edge; draw our own chevron inset
+            // by the tier-1 spacing (6px)
+            className="min-w-32 flex-1 cursor-pointer appearance-none rounded-md bg-secondary py-1.5 pl-2 pr-7 text-xs text-foreground outline-none"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888e98' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
+              backgroundRepeat: "no-repeat",
+              backgroundPosition: "right 6px center",
+            }}
           >
             {m.packNames(pack).map((p) => (
               <option key={p} value={p} disabled={m.isLocked(p) && p !== pack}>
@@ -321,81 +439,151 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             <option value="__new__">＋ New pack…</option>
           </select>
         )}
+        <Button
+          variant="secondary"
+          size="sm"
+          title="Delete prompt"
+          onClick={() => void doDelete()}
+          className={cn("text-destructive hover:bg-destructive/15", deleteArmed && "bg-destructive/15")}
+        >
+          {deleteArmed ? `Delete "${(snippet.title || "untitled").slice(0, 24)}"?` : <RiDeleteBinLine className="size-4" />}
+        </Button>
       </div>
 
-      <Textarea
-        ref={textRef}
-        value={text}
-        onChange={(e) => setTextAnd(e.target.value)}
-        spellCheck={false}
-        placeholder="Prompt text…  Use {clipboard}, {date}, {time}, any {lowercase_word} as a fill-in field, or {{lowercase_word}} as a saved config parameter."
-        className="min-h-22 flex-1 resize-none rounded-xl bg-secondary/50 px-4 py-3 leading-relaxed"
-      />
-
-      <button
-        className="cursor-pointer self-start text-xs text-muted-foreground hover:text-primary"
-        onClick={() => {
-          const next = !advOpen
-          setAdvOpen(next)
-          localStorage.setItem("advancedOpen", next ? "1" : "0")
-        }}
-      >
-        Advanced options {advOpen ? "▾" : "▸"}
-      </button>
-
-      {advOpen && (
-        <div className="flex flex-col gap-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-            Parameters — click: insert {"{field}"} · Ctrl+click: insert {"{{config}}"} · click again: remove
-          </span>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {BUILTIN_PARAMS.map((p) => paramChip(p, true, runtimeInText.has(p) ? "field" : null))}
-            {[...customParams].map((p) =>
-              paramChip(p, false, configInText.has(p) ? "config" : runtimeInText.has(p) ? "field" : null)
-            )}
-            <input
-              placeholder="+ custom…"
-              spellCheck={false}
-              className="w-28 rounded-full bg-secondary px-3 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
-              onKeyDown={(e) => {
-                if (e.key !== "Enter") return
-                const name = e.currentTarget.value.trim().toLowerCase().replace(/[^a-z_]+/g, "_").replace(/^_+|_+$/g, "")
-                if (!name) return
-                insertParam(name, e.ctrlKey)
-                e.currentTarget.value = ""
-              }}
-            />
-          </div>
-
-          {configNames.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Config values — saved with the prompt, pasted without asking
-              </span>
-              {configNames.map((name) => (
-                <div key={name} className="flex items-center gap-2">
-                  <span className="min-w-32 text-xs font-semibold text-fuchsia-500">{`{{${name}}}`}</span>
-                  <input
-                    value={configValues[name] || ""}
-                    spellCheck={false}
-                    placeholder="(unset — will ask as a fill-in field)"
-                    className="flex-1 rounded-md bg-secondary px-3 py-1 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
-                    onChange={(e) => {
-                      setConfigValues((v) => ({ ...v, [name]: e.target.value }))
-                      scheduleSave()
-                    }}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Preview</span>
-          <TokenPreview text={text} configValues={configValues} />
+      {/* Prompt panel: same header idiom as Advanced options and Preview.
+          The field (textarea + one-line tag strip) fills the card below the
+          header; the textarea is 4 lines by default, grows with content
+          (1lh bottom padding keeps one line free), capped at 10 lines. */}
+      <div className="flex flex-col gap-3 rounded-xl bg-card p-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt</span>
+        <div className="-mx-3 -mb-3 flex flex-col overflow-hidden rounded-b-xl border border-transparent bg-secondary/50 focus-within:border-ring">
+        <Textarea
+          ref={textRef}
+          value={text}
+          onChange={(e) => setTextAnd(e.target.value)}
+          spellCheck={false}
+          placeholder="Prompt text…  Use {clipboard}, {date}, {time}, any {lowercase_word} as a fill-in field, or {{lowercase_word}} as a saved config parameter."
+          className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 pt-3 pb-[calc(0.75rem+1lh)] leading-relaxed placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
+        />
+        <div className="flex items-center gap-1.5 overflow-x-auto px-3 pb-2">
+          {tagList.map((t) => {
+            const c = C.tagColor(t)
+            return (
+              <button
+                key={t}
+                title={`Remove tag "${t}"`}
+                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border bg-background/60 px-2 py-0.5 text-xs font-medium"
+                style={{ color: c, borderColor: c + "55" }}
+                onClick={() => removeTag(t)}
+              >
+                <RiCheckLine className="size-3" />
+                {t}
+              </button>
+            )
+          })}
+          {tagSuggestions.map((t) => (
+            <AddPill key={t} label={t} title={`Add tag "${t}"`} onAdd={() => addTag(t)} />
+          ))}
+          <input
+            placeholder="+ tag…"
+            spellCheck={false}
+            className="w-20 shrink-0 bg-transparent px-1 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground/50"
+            onKeyDown={(e) => {
+              if (e.key !== "Enter") return
+              const name = e.currentTarget.value.trim().toLowerCase().replace(/,/g, "")
+              if (name) addTag(name)
+              e.currentTarget.value = ""
+            }}
+          />
         </div>
-      )}
+        </div>
+      </div>
 
-      <div className="flex items-center gap-2">
+      {/* One containing card: the toggle is its header, the parameter cards
+          sit inside it on the tinted background */}
+      <div className="flex flex-col rounded-xl bg-card p-3">
+        <button
+          className="flex cursor-pointer items-center gap-1 self-start text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-primary"
+          onClick={() => {
+            const next = !advOpen
+            setAdvOpen(next)
+            localStorage.setItem("advancedOpen", next ? "1" : "0")
+          }}
+        >
+          Advanced options
+          {advOpen ? <RiArrowDownSLine className="size-3.5" /> : <RiArrowRightSLine className="size-3.5" />}
+        </button>
+
+        {advOpen && (
+          <div className="mt-3 flex flex-col gap-3">
+          <ParamSection title="Built-ins" hint="expand on their own when pasting — click to insert">
+            {(editing) => (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {BUILTIN_PARAMS.map((p) => paramChip(p, true, runtimeInText.has(p), editing))}
+              </div>
+            )}
+          </ParamSection>
+
+          <ParamSection
+            title="Fill-in fields"
+            hint={`{name} — you type the value each time you paste`}
+          >
+            {(editing) => (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[...customParams]
+                  .filter((p) => !configInText.has(p))
+                  .map((p) => paramChip(p, false, runtimeInText.has(p), editing))}
+                <ParamInput placeholder="+ field…" onAdd={(name) => insertParam(name, false)} />
+              </div>
+            )}
+          </ParamSection>
+
+          <ParamSection
+            title="Config parameters"
+            hint={`{{name}} — uses the value saved here, pastes without asking`}
+          >
+            {(editing) => (
+              <>
+                {configNames.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    {configNames.map((name) => (
+                      <div key={name} className="flex items-center gap-3">
+                        <span className="relative min-w-32 text-left text-xs font-semibold text-fuchsia-500">
+                          {`{{${name}}}`}
+                          {editing && <DeleteBadge onDelete={() => removeParam(name)} />}
+                        </span>
+                        <input
+                          value={configValues[name] || ""}
+                          spellCheck={false}
+                          placeholder="(unset — will ask as a fill-in field)"
+                          className="flex-1 rounded-md bg-secondary px-3 py-1 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+                          onChange={(e) => {
+                            setConfigValues((v) => ({ ...v, [name]: e.target.value }))
+                            scheduleSave()
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <ParamInput placeholder="+ config…" onAdd={(name) => insertParam(name, true)} />
+                </div>
+              </>
+            )}
+          </ParamSection>
+
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-xl bg-card p-3">
+        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview</span>
+        {/* The field's gray fills the card below the header, edge to edge */}
+        <TokenPreview text={text} configValues={configValues} className="-mx-3 -mb-3 rounded-none rounded-b-xl" />
+      </div>
+
+      <div className="mt-auto flex items-center gap-3">
         <Button
           variant="secondary"
           size="sm"
@@ -407,14 +595,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         {snippet.uses > 0 && (
           <span className="text-xs tabular-nums text-muted-foreground">used {snippet.uses}×</span>
         )}
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => void doDelete()}
-          className={cn("ml-auto text-destructive hover:bg-destructive/15", deleteArmed && "bg-destructive/15")}
-        >
-          {deleteArmed ? `Delete "${(snippet.title || "untitled").slice(0, 24)}"?` : "Delete"}
-        </Button>
       </div>
     </div>
   )
