@@ -65,6 +65,13 @@ Everything lives in `%APPDATA%\com.promptline.app\` as plain JSON — snippets,
 packs, and preferences. Pack format docs: [`packs/TEMPLATE.md`](packs/TEMPLATE.md);
 curated packs ship in [`packs/`](packs/). Older data formats migrate automatically.
 
+Every pack owns a file under `…\packs\` from the moment it exists — however it
+came about, including packs conjured by an import — and the app keeps it
+current, so it's always there to share, back up, or let an agent write into.
+Deleting a pack moves its file to `…\packs\deleted\` rather than unlinking it:
+the file may hold prompts written there but never imported, and deleting a pack
+in the app shouldn't be able to destroy them.
+
 > The default hotkey `Ctrl+Shift+V` shadows "paste without formatting" in
 > browsers — record `Ctrl+Alt+V` in Settings if you use that.
 

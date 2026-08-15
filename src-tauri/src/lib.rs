@@ -150,9 +150,69 @@ fn sanitize_pack_filename(name: &str) -> String {
     if s.is_empty() { "pack".into() } else { s }
 }
 
+/// Create a pack's .json file and return its absolute path, without touching
+/// any file that already exists.
+fn new_pack_file(app: &AppHandle, name: &str) -> Result<String, String> {
+    let dir = packs_dir(app);
+    let base = sanitize_pack_filename(name);
+    let mut path = dir.join(format!("{base}.json"));
+    let mut i = 2;
+    while path.exists() {
+        path = dir.join(format!("{base}-{i}.json"));
+        i += 1;
+    }
+    let doc = serde_json::json!({ "name": name, "prompts": [] });
+    let json = serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())?;
+    fs::write(&path, json).map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
+}
+
+// Give every pack that exists a PackMeta and a file of its own, whatever route
+// it came into being by. A pack needs no metadata to exist — naming one on a
+// prompt conjures it, which is how imports and moves create them — so backing
+// files can't be handled at the point of creation alone.
+fn ensure_packs_backed(app: &AppHandle) {
+    let mut config = load_config_from_disk(app);
+    let snippets = load_snippets_from_disk(app);
+
+    // Every name in play: declared metadata, plus whatever prompts reference.
+    // Migrations have already filled in empty pack fields by this point.
+    let mut names: Vec<String> = config.packs.iter().map(|p| p.name.clone()).collect();
+    for s in &snippets {
+        if !names.contains(&s.pack) {
+            names.push(s.pack.clone());
+        }
+    }
+
+    let mut changed = false;
+    for name in names {
+        match config.packs.iter_mut().find(|p| p.name == name) {
+            // Known pack, already backed
+            Some(pm) if !pm.path.is_empty() => {}
+            // Known pack that predates this, or whose file creation failed before
+            Some(pm) => {
+                if let Ok(path) = new_pack_file(app, &name) {
+                    pm.path = path;
+                    changed = true;
+                }
+            }
+            // Exists only as a name on a prompt — give it real metadata
+            None => {
+                let path = new_pack_file(app, &name).unwrap_or_default();
+                config.packs.push(PackMeta { name, locked: false, path });
+                changed = true;
+            }
+        }
+    }
+    if changed {
+        let _ = save_config(app, &config);
+    }
+}
+
 // Write each file-backed pack's shareable content (title/tags/text only —
 // never personal state like uses, pins, or config values) to its file.
 fn sync_pack_files(app: &AppHandle) {
+    ensure_packs_backed(app);
     let config = load_config_from_disk(app);
     if config.packs.iter().all(|p| p.path.is_empty()) {
         return;
@@ -350,27 +410,51 @@ fn set_hotkey(app: AppHandle, hotkey: String) -> Result<(), String> {
 #[tauri::command]
 fn save_packs(app: AppHandle, packs: Vec<PackMeta>) -> Result<(), String> {
     let mut config = load_config_from_disk(&app);
+
+    // A pack whose file is no longer claimed by any pack has been deleted, so
+    // its file goes to packs/deleted/. Compared by path, not by name: renaming
+    // a pack drops its old name from this list while keeping the same file.
+    for old in &config.packs {
+        if !old.path.is_empty() && !packs.iter().any(|p| p.path == old.path) {
+            retire_pack_file(&app, &old.path);
+        }
+    }
+
     config.packs = packs;
     save_config(&app, &config)?;
     sync_pack_files(&app);
     Ok(())
 }
 
+/// Move a deleted pack's file into packs/deleted/ rather than unlinking it. The
+/// file can hold prompts an agent wrote that were never imported — the same
+/// content sync_pack_files refuses to clobber — so deleting a pack in the app
+/// must not be able to destroy them.
+fn retire_pack_file(app: &AppHandle, path: &str) {
+    let src = PathBuf::from(path);
+    if !src.is_file() {
+        return;
+    }
+    let dir = packs_dir(app).join("deleted");
+    if fs::create_dir_all(&dir).is_err() {
+        return;
+    }
+    let stem = src.file_stem().unwrap_or_default().to_string_lossy().into_owned();
+    let mut dest = dir.join(format!("{stem}.json"));
+    let mut i = 2;
+    // Deleting, recreating and deleting the same pack again must not overwrite
+    // the first retirement
+    while dest.exists() {
+        dest = dir.join(format!("{stem}-{i}.json"));
+        i += 1;
+    }
+    let _ = fs::rename(&src, &dest);
+}
+
 /// Create a fresh file-backed pack file and return its absolute path.
 #[tauri::command]
 fn create_pack_file(app: AppHandle, name: String) -> Result<String, String> {
-    let dir = packs_dir(&app);
-    let base = sanitize_pack_filename(&name);
-    let mut path = dir.join(format!("{base}.json"));
-    let mut i = 2;
-    while path.exists() {
-        path = dir.join(format!("{base}-{i}.json"));
-        i += 1;
-    }
-    let doc = serde_json::json!({ "name": name, "prompts": [] });
-    let json = serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())?;
-    fs::write(&path, json).map_err(|e| e.to_string())?;
-    Ok(path.to_string_lossy().into_owned())
+    new_pack_file(&app, &name)
 }
 
 #[tauri::command]
@@ -826,6 +910,9 @@ pub fn run() {
             let handle = app.handle();
 
             migrate_v1_data(handle);
+            // Catches packs that predate file backing, so they get their file
+            // without waiting for the next save to touch them
+            ensure_packs_backed(handle);
 
             // Register the configured global hotkey (fall back to default on bad config)
             let config = load_config_from_disk(handle);
