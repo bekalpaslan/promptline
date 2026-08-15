@@ -38,6 +38,9 @@ behind **Advanced options** in the editor — invisible until you want it.
   `#tag` and `@pack` terms filter (`#debug root cause`); click a tag pill to filter by it
 - With no query, prompts sort by how often you use them
 - **Drag the window edge** to resize; the size is remembered
+- The prompt stays on your clipboard after pasting — if the app you came from
+  had no text field focused, the keystroke lands nowhere, so click into one and
+  paste it yourself
 
 ## The manager (left-click the tray icon)
 

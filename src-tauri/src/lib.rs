@@ -550,19 +550,16 @@ fn paste_snippet(
         }
     }
 
+    // The prompt stays on the clipboard afterwards, deliberately. Ctrl+V only
+    // lands if the window we return to has a focused text field; when it
+    // doesn't, leaving the text there is the fallback — click into a field and
+    // paste it yourself. Restoring the old clipboard would silently discard it.
     if paste {
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(80));
             platform::focus_window(prev_window);
             std::thread::sleep(Duration::from_millis(80));
             platform::send_ctrl_v();
-            // Give the target app time to consume the clipboard before restoring it
-            if let Some(old) = prev_clipboard {
-                std::thread::sleep(Duration::from_millis(400));
-                if let Ok(mut c) = arboard::Clipboard::new() {
-                    let _ = c.set_text(old);
-                }
-            }
         });
     }
     Ok(())
