@@ -401,6 +401,28 @@ export function Settings() {
           copy one to share or back up. Imports are reviewed prompt-by-prompt before anything is added.
         </p>
       </Card>
+
+      {/* Buy Me a Coffee, rendered locally rather than by their CDN script:
+          a desktop webview holding the user's clipboard and prompt library has
+          no business running remote JS, and this way it still works offline.
+          Colours mirror the button's own config. */}
+      <div className="mb-2 flex flex-wrap items-center justify-center gap-3 self-center">
+        <span className="max-w-72 text-xs leading-relaxed text-muted-foreground">
+          This app is open source. If you find it useful, I'd appreciate it if you'd consider:
+        </span>
+        <button
+          className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-black px-4 py-2 text-sm font-semibold text-black transition-transform hover:scale-[1.03]"
+          style={{ background: "#d97757" }}
+          onClick={() => {
+            void invoke("open_url", { url: "https://buymeacoffee.com/hurryupbob" }).catch((e) =>
+              sayErr(String(e))
+            )
+          }}
+        >
+          <span style={{ color: "#FFDD00" }}>☕</span>
+          Buy me a coffee
+        </button>
+      </div>
     </div>
   )
 }

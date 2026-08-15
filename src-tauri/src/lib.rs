@@ -474,6 +474,23 @@ fn show_in_folder(path: String) {
     let _ = path;
 }
 
+/// Open an https URL in the user's default browser. Restricted to https so a
+/// URL can never turn into a command or a local executable.
+#[tauri::command]
+fn open_url(url: String) -> Result<(), String> {
+    if !url.starts_with("https://") {
+        return Err("Only https links can be opened".into());
+    }
+    #[cfg(windows)]
+    {
+        std::process::Command::new("explorer")
+            .arg(&url)
+            .spawn()
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
 #[tauri::command]
 fn save_prefs(
     app: AppHandle,
@@ -898,6 +915,7 @@ pub fn run() {
             create_pack_file,
             read_pack_file,
             show_in_folder,
+            open_url,
             edit_in_manager,
             get_autostart,
             set_autostart,
