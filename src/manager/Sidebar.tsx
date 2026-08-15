@@ -586,7 +586,7 @@ export function Sidebar() {
                 setOrderBy(e.target.value)
                 localStorage.setItem("orderBy", e.target.value)
               }}
-              className="cursor-pointer rounded-lg bg-background px-2 py-1 text-xs text-foreground outline-none"
+              className="min-w-0 flex-1 cursor-pointer truncate rounded-lg bg-background px-2 py-1 text-xs text-foreground outline-none"
             >
               <option value="uses">Most used</option>
               <option value="title">Title</option>
