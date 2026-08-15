@@ -24,8 +24,9 @@ Copy an error / stack trace / diff, hit the hotkey, pick **"Root cause first"**
 | `{{lowercase_word}}` | a config parameter — set its value once (editor → Advanced options), it pastes silently every time |
 
 Unset config parameters downgrade to fill-in fields instead of pasting holes.
-Parameter tooling (insert/remove chips, config values, live preview) lives
-behind **Advanced options** in the editor — invisible until you want it.
+Parameter tooling lives behind **Advanced options** in the editor — one card
+per kind (built-in / fill-in / config), each with an Edit toggle for removing
+them, plus config values and a live preview. Invisible until you want it.
 
 ## The popup
 
@@ -36,7 +37,10 @@ behind **Advanced options** in the editor — invisible until you want it.
 - **→** shows the full-prompt preview card (also on mouse hover)
 - Search is fuzzy over titles, tags, and bodies with match highlighting;
   `#tag` and `@pack` terms filter (`#debug root cause`); click a tag pill to filter by it
-- With no query, prompts sort by how often you use them
+- With no query, prompts sort by how often you use them, grouped under
+  collapsible pack sections; searching flattens them into one ranked list
+- **Ctrl+N** turns whatever you just copied into a new prompt without leaving
+  the popup — name pre-filled from the first line, pick its pack, confirm
 - **Drag the window edge** to resize; the size is remembered
 - The prompt stays on your clipboard after pasting — if the app you came from
   had no text field focused, the keystroke lands nowhere, so click into one and
@@ -47,7 +51,8 @@ behind **Advanced options** in the editor — invisible until you want it.
 - **Autosaves** — no Save button, no lost drafts; deletes are two-click with Undo
 - Sidebar groups by **pack** (collapsible); right-click a pack header to
   rename / lock / export / delete it; right-click prompts for multi-select
-  actions (move to pack, add tag, export, delete) — Ctrl/Shift+click to select several
+  actions (move to pack, add tag, pin/unpin, export, delete) — Ctrl/Shift+click
+  to select several
 - **Locked packs** (🔒) refuse new prompts and can't be deleted until unlocked
 - Two **empty-slot cards** at the top of the list create a new prompt or a new
   pack; **Generate pack with Claude** takes a topic, hands you an instruction to
@@ -55,9 +60,11 @@ behind **Advanced options** in the editor — invisible until you want it.
   checklist before anything is added
 - Sort by uses, title, or **Custom** — press and hold a row to lift it, then
   drag to arrange your own order
-- **Settings** (⚙): record a hotkey by pressing it, autostart, theme
-  (dark / light), popup density, UI font (Outfit / system / serif / mono),
-  UI scale (90–125%), library export/import
+- **Light / Dark** toggle sits at the bottom of the sidebar, next to the
+  settings gear
+- **Settings** (⚙): record a hotkey by pressing it, autostart, popup density,
+  UI font (Outfit / system / serif / mono), UI scale (90–125%), and
+  library export/import
 
 ## Data
 
