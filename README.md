@@ -99,3 +99,7 @@ Tauri 2 (Rust) + React 19 + Vite + Tailwind v4 + [shadcn/ui](https://ui.shadcn.c
 restore via `SetForegroundWindow`, paste via `SendInput`) are isolated in the
 `platform` module in `src-tauri/src/lib.rs`; a macOS port only needs that
 module reimplemented (CGEventPost + Accessibility permission).
+
+## License
+
+MIT — see [`LICENSE`](LICENSE).

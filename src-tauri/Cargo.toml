@@ -3,6 +3,7 @@ name = "promptline"
 version = "0.2.2"
 description = "Your prompt vocabulary, one hotkey away, in every window"
 edition = "2021"
+license = "MIT"
 
 [lib]
 name = "promptline_lib"
