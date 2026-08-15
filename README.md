@@ -99,6 +99,10 @@ The frontend is a two-entry Vite app (`index.html` → manager window,
 `popup.html` → popup window) under `src/`. Shared pure logic lives in
 `ui/core.js` (UMD; bridged into React via `src/lib/core.ts`, covered by tests).
 
+[`BEHAVIOR.md`](BEHAVIOR.md) covers what each surface does and why the
+non-obvious parts are built the way they are — start there before changing
+the paste pipeline or anything touching pack files.
+
 ## Stack
 
 Tauri 2 (Rust) + React 19 + Vite + Tailwind v4 + [shadcn/ui](https://ui.shadcn.com)
