@@ -1,6 +1,6 @@
 [package]
 name = "promptline"
-version = "0.2.0"
+version = "0.2.1"
 description = "Your prompt vocabulary, one hotkey away, in every window"
 edition = "2021"
 
