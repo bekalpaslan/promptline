@@ -44,10 +44,10 @@ app.
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 5 | 13 | 12 | 6 | 36 |
+| TODO | 4 | 13 | 12 | 6 | 35 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 1 | 0 | 0 | 1 | 2 |
+| DONE | 2 | 0 | 0 | 1 | 3 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **7** | **38** |
 
@@ -95,7 +95,7 @@ duplication listed in L1.
   from the sidebar context menu (34 → 32 rows), clicked Undo: 34 rows, 34
   unique ids, "Restored" toast, `snippets.json` holds 34 unique ids and the
   pack's file was re-created. Same for a group via the delete dialog.
-- *Commit:* see commit list (H1).
+- *Commit:* `e437876`.
 
 ### H2. Holding or double-tapping the hotkey makes the popup its own paste target
 **Status:** TODO
@@ -117,7 +117,7 @@ touching `prev_window` (or toggle-hide; see D1). Document in BEHAVIOR.md.
 **Evidence:** confirmed against crate source.
 
 ### H3. A partial write or unreadable JSON silently replaces the library with the starter pack
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs:351-358` (`load_snippets_from_disk`), `:360-363`
 (`write_snippets`), `:365-370` (`load_config_from_disk`), `:403-406`
 (`save_config`).
@@ -135,6 +135,35 @@ volume). On a parse failure, rename the bad file to
 `library-recovered` event the manager shows as a persistent error toast. Rust
 tests for the rename path and for "parse failure never overwrites".
 **Evidence:** by reading.
+**Resolution:**
+- *Implementation (`lib.rs`):* `write_atomic` (temp file beside the target,
+  then `rename`) is used for `snippets.json`, `config.json`, new pack files,
+  pack sync and the generated scratch file. `load_json_file` returns a typed
+  `Loaded::{Present, Missing, Quarantined}`; an I/O error other than
+  not-found is an `Err` and nothing is written over the file. A file that
+  fails to parse is moved to `<name>.corrupt-<unix seconds>` (numbered if
+  that exists) and reported through a new `Notice` channel: `notify` logs,
+  stores in `AppState.notices`, and emits a `notice` event; the manager calls
+  `take_notices` on startup and listens for the event, showing each as a
+  persistent error toast (`sayPersistent`). The library then starts *empty*
+  (an empty `[]` is written so the next load isn't a first run), never with
+  starters; a quarantined config falls back to defaults with the same notice.
+  `load_snippets_from_disk` / `load_config_from_disk` now return `Result`,
+  and every read-modify-write command holds `AppState.store` for its
+  duration. Callers that can't load skip writing (`ensure_packs_backed`,
+  `sync_pack_files`, `persist_popup_size`).
+- *Tests added (`cargo test`):* `write_atomic` replaces content and leaves no
+  temp file; missing file is `Missing`, not an error; a good file parses; a
+  truncated file is quarantined byte-for-byte under `snippets.json.corrupt-…`,
+  a subsequent write to the original path leaves it untouched, and a second
+  corruption in the same second gets a distinct name.
+- *Manual verification:* backed up the real library, truncated
+  `snippets.json` to half, relaunched the dev build: file moved to
+  `snippets.json.corrupt-1789419932`, `snippets.json` is `[]`, sidebar shows
+  every pack at (0), the manager shows the persistent toast with the path and
+  a close button, pack files untouched (they still hold the prompts). Restored
+  the backup, relaunched: 34 rows, no toast, no `.tmp` left behind.
+- *Commit:* see commit list (H3).
 
 ### H4. A hotkey the OS refuses aborts startup; a failed re-register leaves no hotkey
 **Status:** TODO
@@ -537,7 +566,7 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
 
 **Highest-value missing tests, in order** (ticked as they land):
 1. [ ] `fillFields` with `$&`/`$$` values (H5), after moving it into core.
-2. [ ] Rust: atomic write, and "unreadable file is preserved, never overwritten"
+2. [x] Rust: atomic write, and "unreadable file is preserved, never overwritten"
    (H3), via a temp dir and `AppHandle`-free helpers.
 3. [ ] Rust: `sync_pack_files` skips empty packs and unchanged files (M4);
    `retire_pack_file` numbering on repeated deletes.
@@ -573,7 +602,8 @@ passed at its commit and the manual check performed.
 
 | Finding | typecheck | npm test | test:rust | Manual (app) | Commit |
 |---|---|---|---|---|---|
-| H1 | ✓ | ✓ 32/32 | ✓ 7/7 | delete pack / group → Undo, ids unique on screen and on disk | (H1 commit) |
+| H1 | ✓ | ✓ 32/32 | ✓ 7/7 | delete pack / group → Undo, ids unique on screen and on disk | `e437876` |
+| H3 | ✓ | ✓ 32/32 | ✓ 11/11 | truncated snippets.json → quarantined, empty library, persistent toast; backup restored | (H3 commit) |
 
 ## Commit list
 
@@ -581,6 +611,8 @@ passed at its commit and the manual check performed.
 |---|---|---|
 | `1f548bc` | D7 | Ignore agent scratch directories |
 | `7265cf5` | D7 | Groups inside packs, and an agent survey mode for Generate |
+| `996007f` | — | REVIEW.md: turn the review into a findings tracker |
+| `e437876` | H1 | Undo after delete restores from the live library, never a snapshot |
 
 ## Remaining risks and deliberate exclusions
 

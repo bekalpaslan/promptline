@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
+use serde::de::DeserializeOwned;
 use serde::{Deserialize, Serialize};
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
@@ -15,9 +16,106 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 struct AppState {
     // HWND of the window that was focused before the popup was summoned
     prev_window: Mutex<isize>,
+    // Things that went wrong that the user must see: a quarantined data file,
+    // a hotkey the OS refused. Collected here because they can happen before
+    // the manager's webview is listening; the manager takes them on startup
+    // and receives later ones through the `notice` event.
+    notices: Mutex<Vec<Notice>>,
+    // Held for the duration of every read-modify-write of the data files, so
+    // two commands can never interleave a load and a save. Locked only at
+    // command / event-handler entry points; helpers never lock it.
+    store: Mutex<()>,
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+/// A problem the user has to know about; `kind` is stable for the frontend.
+#[derive(Serialize, Clone, Debug, PartialEq)]
+struct Notice {
+    kind: String,
+    message: String,
+}
+
+fn notify(app: &AppHandle, kind: &str, message: String) {
+    eprintln!("[promptline] {kind}: {message}");
+    let notice = Notice { kind: kind.into(), message };
+    if let Some(state) = app.try_state::<AppState>() {
+        state.notices.lock().unwrap().push(notice.clone());
+    }
+    let _ = app.emit("notice", notice);
+}
+
+/// Hand the manager everything collected so far; it shows each as a
+/// persistent error toast.
+#[tauri::command]
+fn take_notices(state: State<AppState>) -> Vec<Notice> {
+    std::mem::take(&mut *state.notices.lock().unwrap())
+}
+
+// ---- Data files: atomic writes, typed loads, quarantine -------------------
+
+/// Write `bytes` to `path` by way of a sibling temp file and a rename, so a
+/// crash or power loss mid-write leaves the previous file intact rather than
+/// a truncated one. `rename` replaces the destination on Windows and POSIX.
+fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    let tmp = tmp_path(path);
+    fs::write(&tmp, bytes)?;
+    fs::rename(&tmp, path)
+}
+
+fn tmp_path(path: &Path) -> PathBuf {
+    let mut name = path.file_name().unwrap_or_default().to_os_string();
+    name.push(".tmp");
+    path.with_file_name(name)
+}
+
+/// What a data file held, or why it couldn't be used.
+#[derive(Debug)]
+enum Loaded<T> {
+    Present(T),
+    /// No file at all: a first run, never an error.
+    Missing,
+    /// The file exists but isn't valid JSON of the expected shape. It has been
+    /// moved to `moved_to` untouched so nothing can overwrite it; the caller
+    /// decides what to start from. `error` is serde's message.
+    Quarantined { moved_to: PathBuf, error: String },
+}
+
+/// Read and parse a JSON data file. An I/O failure other than "not found"
+/// (a lock, a permission problem) is an `Err`: the file may be perfectly good,
+/// so the caller must not write anything over it.
+fn load_json_file<T: DeserializeOwned>(path: &Path) -> Result<Loaded<T>, String> {
+    let text = match fs::read_to_string(path) {
+        Ok(t) => t,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Loaded::Missing),
+        Err(e) => return Err(format!("{}: {e}", path.display())),
+    };
+    match serde_json::from_str::<T>(&text) {
+        Ok(v) => Ok(Loaded::Present(v)),
+        Err(e) => {
+            let moved_to = quarantine(path)?;
+            Ok(Loaded::Quarantined { moved_to, error: e.to_string() })
+        }
+    }
+}
+
+/// Move an unreadable file to `<name>.corrupt-<unix seconds>` beside it,
+/// never overwriting an earlier quarantine.
+fn quarantine(path: &Path) -> Result<PathBuf, String> {
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let base = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+    let mut dest = path.with_file_name(format!("{base}.corrupt-{stamp}"));
+    let mut i = 2;
+    while dest.exists() {
+        dest = path.with_file_name(format!("{base}.corrupt-{stamp}-{i}"));
+        i += 1;
+    }
+    fs::rename(path, &dest).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(dest)
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug)]
 struct Snippet {
     id: String,
     title: String,
@@ -167,7 +265,7 @@ fn new_pack_file(app: &AppHandle, name: &str) -> Result<String, String> {
     }
     let doc = serde_json::json!({ "name": name, "prompts": [] });
     let json = serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())?;
-    fs::write(&path, json).map_err(|e| e.to_string())?;
+    write_atomic(&path, json.as_bytes()).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -176,8 +274,10 @@ fn new_pack_file(app: &AppHandle, name: &str) -> Result<String, String> {
 // prompt conjures it, which is how imports and moves create them — so backing
 // files can't be handled at the point of creation alone.
 fn ensure_packs_backed(app: &AppHandle) {
-    let mut config = load_config_from_disk(app);
-    let snippets = load_snippets_from_disk(app);
+    // An unreadable file is no reason to invent metadata over it
+    let (Ok(mut config), Ok(snippets)) = (load_config_from_disk(app), load_snippets_from_disk(app)) else {
+        return;
+    };
 
     // Every name in play: declared metadata, plus whatever prompts reference.
     // Migrations have already filled in empty pack fields by this point.
@@ -217,11 +317,15 @@ fn ensure_packs_backed(app: &AppHandle) {
 // never personal state like uses, pins, or config values) to its file.
 fn sync_pack_files(app: &AppHandle) {
     ensure_packs_backed(app);
-    let config = load_config_from_disk(app);
+    let Ok(config) = load_config_from_disk(app) else {
+        return;
+    };
     if config.packs.iter().all(|p| p.path.is_empty()) {
         return;
     }
-    let snippets = load_snippets_from_disk(app);
+    let Ok(snippets) = load_snippets_from_disk(app) else {
+        return;
+    };
     for pm in config.packs.iter().filter(|p| !p.path.is_empty()) {
         let prompts: Vec<serde_json::Value> = snippets
             .iter()
@@ -242,7 +346,7 @@ fn sync_pack_files(app: &AppHandle) {
         }
         let doc = serde_json::json!({ "name": pm.name, "prompts": prompts });
         if let Ok(json) = serde_json::to_string_pretty(&doc) {
-            let _ = fs::write(&pm.path, json);
+            let _ = write_atomic(Path::new(&pm.path), json.as_bytes());
         }
     }
 }
@@ -348,29 +452,66 @@ fn apply_snippet_migrations(snippets: &mut [Snippet]) {
     }
 }
 
-fn load_snippets_from_disk(app: &AppHandle) -> Vec<Snippet> {
-    let mut snippets: Vec<Snippet> = fs::read_to_string(snippets_path(app))
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_else(default_snippets);
+/// The library as on disk. A missing file is a first run and yields the
+/// starter pack; a file that won't parse is quarantined, reported, and
+/// replaced by an *empty* library — never by the starters, which would look
+/// like a reset rather than a loss. An I/O error is an `Err` and writes
+/// nothing: the file may still be good.
+fn load_snippets_from_disk(app: &AppHandle) -> Result<Vec<Snippet>, String> {
+    let path = snippets_path(app);
+    let mut snippets = match load_json_file::<Vec<Snippet>>(&path)? {
+        Loaded::Present(s) => s,
+        Loaded::Missing => default_snippets(),
+        Loaded::Quarantined { moved_to, error } => {
+            notify(
+                app,
+                "library-recovered",
+                format!(
+                    "Your prompt library couldn't be read ({error}). The file was moved to {} and the library starts empty — copy it back over snippets.json to recover it.",
+                    moved_to.display()
+                ),
+            );
+            // Pin the empty state so the next load isn't a "first run"
+            write_snippets(app, &[])?;
+            Vec::new()
+        }
+    };
     apply_snippet_migrations(&mut snippets);
-    snippets
+    Ok(snippets)
 }
 
 fn write_snippets(app: &AppHandle, snippets: &[Snippet]) -> Result<(), String> {
     let json = serde_json::to_string_pretty(snippets).map_err(|e| e.to_string())?;
-    fs::write(snippets_path(app), json).map_err(|e| e.to_string())
+    write_atomic(&snippets_path(app), json.as_bytes()).map_err(|e| e.to_string())
 }
 
-fn load_config_from_disk(app: &AppHandle) -> Config {
-    fs::read_to_string(config_path(app))
-        .ok()
-        .and_then(|s| serde_json::from_str(&s).ok())
-        .unwrap_or_default()
+/// Same policy as `load_snippets_from_disk`: missing is a first run,
+/// unparseable is quarantined and reported (lock flags and pack paths are in
+/// the quarantined file), unreadable is an `Err`.
+fn load_config_from_disk(app: &AppHandle) -> Result<Config, String> {
+    let path = config_path(app);
+    match load_json_file::<Config>(&path)? {
+        Loaded::Present(c) => Ok(c),
+        Loaded::Missing => Ok(Config::default()),
+        Loaded::Quarantined { moved_to, error } => {
+            notify(
+                app,
+                "config-recovered",
+                format!(
+                    "Your settings couldn't be read ({error}). The file was moved to {} and defaults apply — hotkey, pack locks and pack file paths are in that file.",
+                    moved_to.display()
+                ),
+            );
+            let config = Config::default();
+            save_config(app, &config)?;
+            Ok(config)
+        }
+    }
 }
 
 #[tauri::command]
-fn get_snippets(app: AppHandle) -> Vec<Snippet> {
+fn get_snippets(app: AppHandle, state: State<AppState>) -> Result<Vec<Snippet>, String> {
+    let _guard = state.store.lock().unwrap();
     load_snippets_from_disk(&app)
 }
 
@@ -384,9 +525,11 @@ fn notify_manager_snippets_changed(app: &AppHandle) {
 #[tauri::command]
 fn save_snippets(
     app: AppHandle,
+    state: State<AppState>,
     window: tauri::WebviewWindow,
     snippets: Vec<Snippet>,
 ) -> Result<(), String> {
+    let _guard = state.store.lock().unwrap();
     write_snippets(&app, &snippets)?;
     sync_pack_files(&app);
     if window.label() != "main" {
@@ -396,31 +539,34 @@ fn save_snippets(
 }
 
 #[tauri::command]
-fn get_config(app: AppHandle) -> Config {
+fn get_config(app: AppHandle, state: State<AppState>) -> Result<Config, String> {
+    let _guard = state.store.lock().unwrap();
     load_config_from_disk(&app)
 }
 
 fn save_config(app: &AppHandle, config: &Config) -> Result<(), String> {
     let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
-    fs::write(config_path(app), json).map_err(|e| e.to_string())
+    write_atomic(&config_path(app), json.as_bytes()).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
-fn set_hotkey(app: AppHandle, hotkey: String) -> Result<(), String> {
+fn set_hotkey(app: AppHandle, state: State<AppState>, hotkey: String) -> Result<(), String> {
     let shortcut: Shortcut = hotkey
         .parse()
         .map_err(|e| format!("Invalid hotkey \"{hotkey}\": {e}"))?;
+    let _guard = state.store.lock().unwrap();
     let gs = app.global_shortcut();
     gs.unregister_all().map_err(|e| e.to_string())?;
     gs.register(shortcut).map_err(|e| e.to_string())?;
-    let mut config = load_config_from_disk(&app);
+    let mut config = load_config_from_disk(&app)?;
     config.hotkey = hotkey;
     save_config(&app, &config)
 }
 
 #[tauri::command]
-fn save_packs(app: AppHandle, packs: Vec<PackMeta>) -> Result<(), String> {
-    let mut config = load_config_from_disk(&app);
+fn save_packs(app: AppHandle, state: State<AppState>, packs: Vec<PackMeta>) -> Result<(), String> {
+    let _guard = state.store.lock().unwrap();
+    let mut config = load_config_from_disk(&app)?;
 
     // A pack whose file is no longer claimed by any pack has been deleted, so
     // its file goes to packs/deleted/. Compared by path, not by name: renaming
@@ -486,7 +632,7 @@ fn create_generated_file(app: AppHandle) -> Result<String, String> {
         path = dir.join(format!("generated-{stamp}-{i}.json"));
         i += 1;
     }
-    fs::write(&path, "[]").map_err(|e| e.to_string())?;
+    write_atomic(&path, b"[]").map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -527,12 +673,14 @@ fn open_url(url: String) -> Result<(), String> {
 #[tauri::command]
 fn save_prefs(
     app: AppHandle,
+    state: State<AppState>,
     theme: String,
     density: String,
     scale: String,
     font: String,
 ) -> Result<(), String> {
-    let mut config = load_config_from_disk(&app);
+    let _guard = state.store.lock().unwrap();
+    let mut config = load_config_from_disk(&app)?;
     config.theme = theme;
     config.density = density;
     config.scale = scale;
@@ -626,7 +774,9 @@ fn persist_popup_size(app: &AppHandle) {
         return;
     };
     let logical = size.to_logical::<f64>(scale);
-    let mut config = load_config_from_disk(app);
+    let Ok(mut config) = load_config_from_disk(app) else {
+        return;
+    };
     if (config.popup_width - logical.width).abs() < 1.0
         && (config.popup_height - logical.height).abs() < 1.0
     {
@@ -638,7 +788,8 @@ fn persist_popup_size(app: &AppHandle) {
 }
 
 #[tauri::command]
-fn hide_popup(app: AppHandle) {
+fn hide_popup(app: AppHandle, state: State<AppState>) {
+    let _guard = state.store.lock().unwrap();
     persist_popup_size(&app);
     if let Some(w) = app.get_webview_window("popup") {
         let _ = w.hide();
@@ -656,6 +807,7 @@ fn paste_snippet(
     paste: bool,
     id: Option<String>,
 ) -> Result<(), String> {
+    let _guard = state.store.lock().unwrap();
     persist_popup_size(&app);
     if let Some(w) = app.get_webview_window("popup") {
         let _ = w.hide();
@@ -676,7 +828,7 @@ fn paste_snippet(
     drop(clipboard);
 
     if let Some(id) = id {
-        let mut snippets = load_snippets_from_disk(&app);
+        let mut snippets = load_snippets_from_disk(&app)?;
         if let Some(s) = snippets.iter_mut().find(|s| s.id == id) {
             s.uses += 1;
             let _ = write_snippets(&app, &snippets);
@@ -712,11 +864,15 @@ fn show_popup(app: &AppHandle) {
     *state.prev_window.lock().unwrap() = platform::foreground_window();
 
     // First-run: record that the user found the hotkey, tell the manager
-    let mut config = load_config_from_disk(app);
-    if !config.popup_seen {
-        config.popup_seen = true;
-        let _ = save_config(app, &config);
-        let _ = app.emit("first-popup", ());
+    {
+        let _guard = state.store.lock().unwrap();
+        if let Ok(mut config) = load_config_from_disk(app) {
+            if !config.popup_seen {
+                config.popup_seen = true;
+                let _ = save_config(app, &config);
+                let _ = app.emit("first-popup", ());
+            }
+        }
     }
 
     if let Some(w) = app.get_webview_window("popup") {
@@ -909,6 +1065,74 @@ mod tests {
         assert!(c.packs[0].locked);
     }
 
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir = std::env::temp_dir().join(format!("promptline-test-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn write_atomic_replaces_the_file_and_leaves_no_temp_behind() {
+        let dir = temp_dir("atomic");
+        let path = dir.join("snippets.json");
+        write_atomic(&path, b"[1]").unwrap();
+        write_atomic(&path, b"[1,2]").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "[1,2]");
+        assert!(!tmp_path(&path).exists());
+        let names: Vec<_> = fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name()).collect();
+        assert_eq!(names.len(), 1);
+    }
+
+    #[test]
+    fn load_json_file_missing_is_not_an_error() {
+        let dir = temp_dir("missing");
+        let loaded: Loaded<Vec<Snippet>> = load_json_file(&dir.join("snippets.json")).unwrap();
+        assert!(matches!(loaded, Loaded::Missing));
+    }
+
+    #[test]
+    fn load_json_file_parses_a_good_file() {
+        let dir = temp_dir("good");
+        let path = dir.join("snippets.json");
+        fs::write(&path, r#"[{"id": "a", "title": "t", "text": "b"}]"#).unwrap();
+        match load_json_file::<Vec<Snippet>>(&path).unwrap() {
+            Loaded::Present(v) => assert_eq!(v[0].id, "a"),
+            other => panic!("expected Present, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unreadable_file_is_quarantined_intact_and_never_overwritten() {
+        let dir = temp_dir("corrupt");
+        let path = dir.join("snippets.json");
+        // A write that died halfway through
+        let truncated = r#"[{"id": "a", "title": "t", "te"#;
+        fs::write(&path, truncated).unwrap();
+        let moved_to = match load_json_file::<Vec<Snippet>>(&path).unwrap() {
+            Loaded::Quarantined { moved_to, error } => {
+                assert!(!error.is_empty());
+                moved_to
+            }
+            other => panic!("expected Quarantined, got {other:?}"),
+        };
+        // The bytes survive under the quarantine name, and the original path
+        // is free, so whatever gets written next cannot destroy them
+        assert!(!path.exists());
+        assert!(moved_to.file_name().unwrap().to_string_lossy().starts_with("snippets.json.corrupt-"));
+        assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
+        write_atomic(&path, b"[]").unwrap();
+        assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
+        // A second corruption in the same second gets its own file
+        fs::write(&path, "{").unwrap();
+        let again = match load_json_file::<Vec<Snippet>>(&path).unwrap() {
+            Loaded::Quarantined { moved_to, .. } => moved_to,
+            other => panic!("expected Quarantined, got {other:?}"),
+        };
+        assert_ne!(again, moved_to);
+        assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
+    }
+
     #[test]
     fn starter_pack_ids_are_unique_and_tagged() {
         let snippets = default_snippets();
@@ -941,6 +1165,7 @@ pub fn run() {
             get_snippets,
             save_snippets,
             get_config,
+            take_notices,
             set_hotkey,
             save_packs,
             save_prefs,
@@ -967,7 +1192,7 @@ pub fn run() {
             ensure_packs_backed(handle);
 
             // Register the configured global hotkey (fall back to default on bad config)
-            let config = load_config_from_disk(handle);
+            let config = load_config_from_disk(handle).unwrap_or_default();
             let shortcut: Shortcut = config
                 .hotkey
                 .parse()
@@ -1014,7 +1239,10 @@ pub fn run() {
                     // Reclaim focus so the next real blur still hides the popup
                     let _ = window.set_focus();
                 } else {
-                    persist_popup_size(window.app_handle());
+                    let app = window.app_handle();
+                    let state = app.state::<AppState>();
+                    let _guard = state.store.lock().unwrap();
+                    persist_popup_size(app);
                     let _ = window.hide();
                 }
             }

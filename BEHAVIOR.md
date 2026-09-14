@@ -130,6 +130,26 @@ of what was generated.
 | `snippets.json` | `Vec<Snippet>` — the library |
 | `config.json` | Hotkey, pack metadata, prefs, popup size, first-run flag |
 | `packs/*.json` | Per-pack shareable content, derived from the library |
+| `*.corrupt-<unix seconds>` | A data file that failed to parse, moved aside untouched |
+
+**Every write goes through `write_atomic`**: the bytes land in a sibling
+`.tmp` file that is then renamed over the target, so a crash or power loss
+mid-write leaves the previous file whole instead of a truncated one.
+
+**A file that won't parse is quarantined, never replaced in place.** Loading
+distinguishes three cases. Missing means a first run and yields the starter
+pack. Unparseable means the file is renamed to `<name>.corrupt-<timestamp>`,
+a `Notice` is raised, and the library starts *empty* — starting with the
+starters instead would look like a reset rather than a loss, and the first
+autosave would have buried the only copy of the user's prompts. An I/O error
+(a lock, a permission problem) is an error the command returns; nothing is
+written, because the file may be perfectly good.
+
+`Notice`s are the channel for anything the user must see that can happen
+before the manager's webview is listening: they are stored in `AppState`, the
+manager drains them with `take_notices` on startup and receives later ones
+through the `notice` event, and shows each as a toast that stays until
+dismissed.
 
 Disk is the single source of truth; both windows re-read rather than caching
 across each other. When one window writes, Rust emits an event so the other
@@ -140,6 +160,7 @@ re-fetches:
 | `snippets-changed` | Another window wrote the library — re-fetch before saving over it |
 | `edit-prompt` | Popup asked the manager to open a prompt |
 | `popup-shown` / `first-popup` | Popup opened; the second only ever fires once |
+| `notice` | Rust hit something the user must see (quarantined file); shown until dismissed |
 
 Every delete in the manager goes through one `deleteWithUndo`, and both the
 delete and the Undo read the *live* library, never the array captured by the

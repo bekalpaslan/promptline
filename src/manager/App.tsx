@@ -7,11 +7,17 @@ import { Toaster } from "@/components/ui/sonner"
 import { C, type PackMeta, type Snippet } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
 import { DEFAULT_PACK, ManagerCtx, type ManagerApi, type Prefs } from "./state"
-import { say, sayErr, sayUndo } from "./status"
+import { say, sayErr, sayPersistent, sayUndo } from "./status"
 import { Sidebar } from "./Sidebar"
 import { Editor } from "./Editor"
 import { Settings } from "./Settings"
 import { GenerateDialog } from "./GenerateDialog"
+
+/** Something Rust needs the user to see; see `notify` in lib.rs */
+interface Notice {
+  kind: string
+  message: string
+}
 
 interface Config {
   hotkey: string
@@ -174,31 +180,38 @@ export function App() {
   // ---- Init ----
   useEffect(() => {
     void (async () => {
-      let snips = await invoke<Snippet[]>("get_snippets")
-      // GC abandoned "+ New" drafts (default title, no text, never used)
-      const before = snips.length
-      snips = snips.filter((s) => !(s.title === "New prompt" && !s.text.trim() && !s.uses))
-      if (snips.length !== before) await invoke("save_snippets", { snippets: snips })
-      setSnippets(snips)
-      snippetsRef.current = snips
+      try {
+        let snips = await invoke<Snippet[]>("get_snippets")
+        // GC abandoned "+ New" drafts (default title, no text, never used)
+        const before = snips.length
+        snips = snips.filter((s) => !(s.title === "New prompt" && !s.text.trim() && !s.uses))
+        if (snips.length !== before) await invoke("save_snippets", { snippets: snips })
+        setSnippets(snips)
+        snippetsRef.current = snips
 
-      const config = await invoke<Config>("get_config")
-      setHotkeyState(config.hotkey)
-      setPackMeta(Array.isArray(config.packs) ? config.packs : [])
-      const theme = config.theme === "light" ? "light" : "dark"
-      const loaded: Prefs = {
-        theme,
-        density: config.density || "comfortable",
-        scale: config.scale || "100",
-        font: config.font || "outfit",
+        const config = await invoke<Config>("get_config")
+        setHotkeyState(config.hotkey)
+        setPackMeta(Array.isArray(config.packs) ? config.packs : [])
+        const theme = config.theme === "light" ? "light" : "dark"
+        const loaded: Prefs = {
+          theme,
+          density: config.density || "comfortable",
+          scale: config.scale || "100",
+          font: config.font || "outfit",
+        }
+        setPrefs(loaded)
+        localStorage.setItem("theme", loaded.theme)
+        localStorage.setItem("density", loaded.density)
+        localStorage.setItem("scale", loaded.scale)
+        localStorage.setItem("font", loaded.font)
+        applyPrefs()
+        if (!config.popupSeen) setFirstRun("show")
+      } catch (e) {
+        sayPersistent(`Couldn't load the library: ${e}`)
       }
-      setPrefs(loaded)
-      localStorage.setItem("theme", loaded.theme)
-      localStorage.setItem("density", loaded.density)
-      localStorage.setItem("scale", loaded.scale)
-      localStorage.setItem("font", loaded.font)
-      applyPrefs()
-      if (!config.popupSeen) setFirstRun("show")
+      // Anything Rust hit before this window was listening (a quarantined
+      // file, a refused hotkey) is shown now and stays until dismissed
+      for (const n of await invoke<Notice[]>("take_notices").catch(() => [] as Notice[])) sayPersistent(n.message)
     })()
   }, [])
 
@@ -210,6 +223,7 @@ export function App() {
       setSelectionAnchor(payload)
       setActiveId(payload)
     })
+    const unNotice = listen<Notice>("notice", ({ payload }) => sayPersistent(payload.message))
     const unFirst = listen("first-popup", () => {
       setFirstRun((state) => {
         if (state !== "show") return state
@@ -226,6 +240,7 @@ export function App() {
     })
     return () => {
       void unEdit.then((f) => f())
+      void unNotice.then((f) => f())
       void unFirst.then((f) => f())
       void unChanged.then((f) => f())
     }
