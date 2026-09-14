@@ -10,6 +10,7 @@ interface Row {
   title: string
   text: string
   tags: string[]
+  group: string
   dupe: boolean
   include: boolean
 }
@@ -85,6 +86,7 @@ export function ImportCuration({
         text: r.text,
         tags: r.tags,
         pack,
+        group: r.group,
         uses: 0,
         pinned: false,
         fieldValues: {},
@@ -146,6 +148,9 @@ export function ImportCuration({
             >
               <Checkbox checked={r.include} className="pointer-events-none" tabIndex={-1} />
               <span className="whitespace-nowrap font-semibold text-foreground">{r.title}</span>
+              {r.group && (
+                <span className="shrink-0 rounded-full bg-secondary px-1.5 text-xs">{r.group}</span>
+              )}
               <span className="min-w-0 flex-1 truncate">{r.text.replace(/\s+/g, " ").slice(0, 80)}</span>
               {r.dupe && (
                 <span className="shrink-0 rounded-full bg-secondary px-1.5 text-xs">dupe</span>

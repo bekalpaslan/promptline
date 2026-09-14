@@ -13,7 +13,7 @@ import { say, sayErr, sayUndo } from "./status"
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="w-full max-w-160 self-center rounded-xl bg-card p-3 text-card-foreground">
-      <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
       {children}
     </div>
   )
@@ -204,7 +204,7 @@ export function Settings() {
               <div key={name} className="overflow-hidden rounded-md bg-secondary/60">
                 <div
                   tabIndex={0}
-                  className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-xs text-foreground hover:bg-secondary"
+                  className="flex cursor-pointer select-none items-center gap-2 px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary"
                   onClick={() => {
                     const next = new Set(expanded)
                     if (next.has(name)) next.delete(name)
@@ -221,7 +221,7 @@ export function Settings() {
                   </span>
                 </div>
                 {isOpen && (
-                  <div className="flex flex-col gap-2 border-t border-border px-3 py-2 text-xs text-muted-foreground">
+                  <div className="flex flex-col gap-2 border-t border-border px-2.5 py-2 text-xs text-muted-foreground">
                     <div className="break-all">{meta?.path || "not file-backed — this pack has no file yet"}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {meta?.path ? (

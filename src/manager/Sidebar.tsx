@@ -12,7 +12,16 @@ import {
   RiSettings3Line,
   RiSunLine,
 } from "@remixicon/react"
+import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
@@ -27,12 +36,31 @@ const SORTS: Record<string, (a: Snippet, b: Snippet) => number> = {
 const withPins = (cmp: (a: Snippet, b: Snippet) => number) => (a: Snippet, b: Snippet) =>
   (+b.pinned - +a.pinned) || cmp(a, b)
 
-function loadCollapsed(): Set<string> {
+function loadCollapsed(key: string): Set<string> {
   try {
-    return new Set(JSON.parse(localStorage.getItem("collapsedPacks") || "[]"))
+    return new Set(JSON.parse(localStorage.getItem(key) || "[]"))
   } catch {
     return new Set()
   }
+}
+
+// Groups are labels on prompts, scoped to a pack; this is their identity key
+const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
+
+// A pack's prompts split into the ungrouped run, then its groups in order of
+// first appearance — so a custom arrangement holds, and any other sort order
+// carries through from the rows themselves.
+function splitGroups(items: Snippet[]): { ungrouped: Snippet[]; groups: [string, Snippet[]][] } {
+  const ungrouped: Snippet[] = []
+  const map = new Map<string, Snippet[]>()
+  for (const s of items) {
+    if (!s.group) ungrouped.push(s)
+    else {
+      if (!map.has(s.group)) map.set(s.group, [])
+      map.get(s.group)!.push(s)
+    }
+  }
+  return { ungrouped, groups: [...map.entries()] }
 }
 
 export function Sidebar() {
@@ -46,8 +74,11 @@ export function Sidebar() {
   )
   // Group-by-pack is the default view
   const [grouped, setGrouped] = useState(localStorage.getItem("groupByPack") !== "0")
-  const [collapsed, setCollapsed] = useState<Set<string>>(loadCollapsed)
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsed("collapsedPacks"))
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => loadCollapsed("collapsedGroups"))
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [renamingGroup, setRenamingGroup] = useState<string | null>(null) // a groupKey
+  const [deleteGroupAsk, setDeleteGroupAsk] = useState<{ pack: string; group: string; count: number } | null>(null)
   const [configOpen, setConfigOpen] = useState(false)
   const [newPackInput, setNewPackInput] = useState(false)
   const visibleIdsRef = useRef<string[]>([])
@@ -68,7 +99,6 @@ export function Sidebar() {
 
   const q = query.trim().toLowerCase()
   // The list-view configuration deviates from defaults — surface a dot on the toggle
-  const configActive = !!q || orderBy !== "uses" || !grouped
 
   const visible = useMemo(() => {
     const pool = q
@@ -77,6 +107,7 @@ export function Sidebar() {
             s.title.toLowerCase().includes(q) ||
             (s.tags || []).some((t) => t.toLowerCase().includes(q)) ||
             (s.pack || "").toLowerCase().includes(q) ||
+            (s.group || "").toLowerCase().includes(q) ||
             s.text.toLowerCase().includes(q)
         )
       : [...m.snippets]
@@ -104,7 +135,8 @@ export function Sidebar() {
   const visibleIds: string[] = []
   if (groups) {
     for (const [name, items] of groups) {
-      if (q || !collapsed.has(name)) for (const s of items) visibleIds.push(s.id)
+      if (q || !collapsed.has(name))
+        for (const s of items) if (q || !s.group || !collapsedGroups.has(groupKey(name, s.group))) visibleIds.push(s.id)
     }
   } else {
     for (const s of visible) visibleIds.push(s.id)
@@ -120,8 +152,11 @@ export function Sidebar() {
     const [item] = all.splice(from, 1)
     let to = all.findIndex((s) => s.id === targetId)
     if (to === -1) return
+    // Dropping among another group's rows moves the prompt into that group
+    const target = all[to]
+    const moved = grouped && target.group !== item.group ? { ...item, group: target.group } : item
     if (after) to += 1
-    all.splice(to, 0, item)
+    all.splice(to, 0, moved)
     await m.persist(all)
     if (orderBy !== "custom") {
       setOrderBy("custom")
@@ -208,8 +243,59 @@ export function Sidebar() {
     name,
     prompts: m.snippets
       .filter((s) => (s.pack || DEFAULT_PACK) === name)
-      .map(({ title, text, tags }) => ({ title, text, tags })),
+      .map(({ title, text, tags, group }) => (group ? { title, text, tags, group } : { title, text, tags })),
   })
+
+  // ---- Group operations: a group is a label, so these rewrite the prompts that carry it ----
+  const renameGroup = async (pack: string, group: string, next: string) => {
+    setRenamingGroup(null)
+    if (!next || next === group) return
+    const merging = m.snippets.some((s) => (s.pack || DEFAULT_PACK) === pack && s.group === next)
+    await m.persist(
+      m.snippets.map((s) => ((s.pack || DEFAULT_PACK) === pack && s.group === group ? { ...s, group: next } : s))
+    )
+    say(merging ? `Merged into "${next}"` : `Renamed to "${next}"`)
+  }
+
+  const deleteGroup = async (pack: string, group: string) => {
+    setDeleteGroupAsk(null)
+    const inGroup = (s: Snippet) => (s.pack || DEFAULT_PACK) === pack && s.group === group
+    const removed = m.snippets.filter(inGroup)
+    const kept = m.snippets.filter((s) => !inGroup(s))
+    await m.persist(kept)
+    if (m.activeId && !kept.some((s) => s.id === m.activeId)) m.select(null)
+    m.setSelection(new Set(), null)
+    sayUndo(`Deleted group "${group}" (${removed.length} prompts)`, () => {
+      void m.persist([...m.snippets, ...removed]).then(() => say("Restored"))
+    })
+  }
+
+  const openGroupCtx = (x: number, y: number, pack: string, group: string, count: number) => {
+    ctx.open(x, y, [
+      { kind: "header", text: `${pack} › ${group}` },
+      { kind: "item", label: "Rename group", run: () => setRenamingGroup(groupKey(pack, group)) },
+      {
+        kind: "item",
+        label: "Ungroup prompts",
+        run: () => {
+          void m
+            .persist(
+              m.snippets.map((s) =>
+                (s.pack || DEFAULT_PACK) === pack && s.group === group ? { ...s, group: "" } : s
+              )
+            )
+            .then(() => say(`Ungrouped ${count}`))
+        },
+      },
+      { kind: "sep" },
+      {
+        kind: "item",
+        label: "Delete group…",
+        danger: true,
+        run: () => setDeleteGroupAsk({ pack, group, count }),
+      },
+    ])
+  }
 
   const deletePack = async (name: string) => {
     const removed = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name)
@@ -289,6 +375,28 @@ export function Sidebar() {
       ...packFileItems(name),
       { kind: "sep" },
       {
+        // A group is a label, so it starts life on a prompt: this creates a
+        // draft in the group and opens it in the editor
+        kind: "item",
+        label: locked ? "New group (locked)" : "New group…",
+        disabled: locked,
+        run: () => {
+          ctx.open(x, y, [
+            { kind: "header", text: `New group in ${name}` },
+            {
+              kind: "input",
+              placeholder: "Group name — creates a first prompt in it",
+              onSubmit: (g) => {
+                if (!g) return
+                if (collapsed.has(name)) toggleCollapsed(name)
+                void m.newPrompt({ pack: name, group: g })
+              },
+            },
+          ])
+          return "keep"
+        },
+      },
+      {
         kind: "item",
         label: locked ? "Delete (locked)" : "Delete pack…",
         danger: true,
@@ -347,20 +455,49 @@ export function Sidebar() {
             .then(() => say(toPin === 1 ? "Pinned" : `Pinned ${toPin}`))
         },
       },
-      { kind: "header", text: "Move to pack" },
+      { kind: "header", text: "Move to" },
     ]
+    // One submenu per pack: hovering lists its groups (a group lives in a
+    // pack, so moving into one moves across packs too); clicking the pack
+    // itself moves there ungrouped
+    const homePack = selected[0]?.pack || DEFAULT_PACK
+    const groupsOf = (pk: string) =>
+      [...new Set(m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pk && s.group).map((s) => s.group))].sort(
+        (a, b) => a.localeCompare(b)
+      )
+    const moveTo = (pk: string, g: string) =>
+      void m
+        .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, pack: pk, group: g } : s)))
+        .then(() => say(g ? `Moved ${n} to "${pk}" › "${g}"` : `Moved ${n} to "${pk}"`))
     for (const p of m.packNames()) {
+      const locked = m.isLocked(p)
+      const gs = groupsOf(p)
       items.push({
-        kind: "item",
-        label: (m.isLocked(p) ? "🔒 " : "") + p,
-        disabled: m.isLocked(p),
-        run: () => {
-          void m
-            .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, pack: p } : s)))
-            .then(() => say(`Moved ${n} to "${p}"`))
-        },
+        kind: "submenu",
+        label: (locked ? "🔒 " : "") + p,
+        disabled: locked,
+        run: () => moveTo(p, ""),
+        items: [
+          { kind: "header", text: p },
+          { kind: "item", label: "No group", run: () => moveTo(p, "") },
+          ...gs.map((g): CtxItem => ({ kind: "item", label: g, run: () => moveTo(p, g) })),
+          { kind: "sep" },
+          {
+            kind: "item",
+            label: "New group…",
+            run: () => {
+              ctx.open(x, y, [
+                { kind: "header", text: `New group in ${p}` },
+                { kind: "input", placeholder: "Group name", onSubmit: (g) => g && moveTo(p, g) },
+              ])
+              return "keep"
+            },
+          },
+        ],
       })
     }
+    if (selected.some((s) => s.group))
+      items.push({ kind: "item", label: "Ungroup", run: () => moveTo(homePack, "") })
     items.push(
       { kind: "sep" },
       {
@@ -399,7 +536,7 @@ export function Sidebar() {
             prompts: ids
               .map((id) => m.snippets.find((s) => s.id === id))
               .filter((s): s is Snippet => !!s)
-              .map(({ title, text, tags }) => ({ title, text, tags })),
+              .map(({ title, text, tags, group }) => (group ? { title, text, tags, group } : { title, text, tags })),
           }
           void invoke("set_clipboard_text", { text: JSON.stringify(pack, null, 2) }).then(() =>
             say(`Copied ${n} prompts to clipboard`)
@@ -435,6 +572,65 @@ export function Sidebar() {
     localStorage.setItem("collapsedPacks", JSON.stringify([...next]))
   }
 
+  const toggleCollapsedGroup = (key: string) => {
+    const next = new Set(collapsedGroups)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    setCollapsedGroups(next)
+    localStorage.setItem("collapsedGroups", JSON.stringify([...next]))
+  }
+
+  // Group header: quieter than the pack title, sits among its rows
+  const groupTitle = (pack: string, group: string, count: number, isCollapsed: boolean) => {
+    const key = groupKey(pack, group)
+    const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+    return (
+      <div
+        tabIndex={0}
+        className={cn(
+          "flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em]",
+          isCollapsed ? "text-muted-foreground/70 hover:text-foreground" : "text-muted-foreground"
+        )}
+        onClick={() => toggleCollapsedGroup(key)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault()
+            toggleCollapsedGroup(key)
+          }
+        }}
+        onDoubleClick={(e) => {
+          e.stopPropagation()
+          setRenamingGroup(key)
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          openGroupCtx(e.clientX, e.clientY, pack, group, count)
+        }}
+      >
+        {renamingGroup === key ? (
+          <input
+            autoFocus
+            defaultValue={group}
+            spellCheck={false}
+            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.05em] text-foreground outline-none"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setRenamingGroup(null)
+              if (e.key === "Enter") void renameGroup(pack, group, e.currentTarget.value.trim())
+            }}
+            onBlur={(e) => void renameGroup(pack, group, e.target.value.trim())}
+          />
+        ) : (
+          <span className="min-w-0 flex-1 truncate">
+            {group} <span className="font-medium opacity-70">({count})</span>
+          </span>
+        )}
+        <Chev className="size-3.5 shrink-0" />
+      </div>
+    )
+  }
+
   // Prompt row: bordered card, grey fill when active
   const snipRow = (s: Snippet) => {
     const multi = m.selection.size > 1 && m.selection.has(s.id)
@@ -448,7 +644,7 @@ export function Sidebar() {
         tabIndex={0}
         data-snip-id={s.id}
         className={cn(
-          "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-xl border border-border bg-background px-3.5 py-2 text-sm font-semibold transition-[transform,box-shadow] duration-150",
+          "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] font-semibold transition-[transform,box-shadow] duration-150",
           active
             ? "bg-accent text-foreground"
             : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
@@ -528,7 +724,7 @@ export function Sidebar() {
             autoFocus
             defaultValue={name}
             spellCheck={false}
-            className="min-w-0 flex-1 rounded-sm bg-secondary px-2 py-0.5 text-sm font-normal text-foreground outline-none"
+            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-sm font-bold text-foreground outline-none"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === "Escape") setRenaming(null)
@@ -555,21 +751,20 @@ export function Sidebar() {
         <button
           title="List view options"
           className={cn(
-            "relative flex size-7 cursor-pointer items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground",
+            "relative flex h-7 cursor-pointer items-center gap-0.5 rounded-md px-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
             configOpen && "bg-secondary text-foreground"
           )}
           onClick={() => setConfigOpen((v) => !v)}
         >
           <RiEqualizerLine className="size-4" />
-          {configActive && !configOpen && (
-            <span className="absolute right-0.5 top-0.5 size-1.5 rounded-full bg-primary" />
-          )}
+          {/* Points at the panel that unfolds beneath; flips once it is open */}
+          <RiArrowDownSLine className={cn("size-3.5 transition-transform", configOpen && "rotate-180")} />
         </button>
       </div>
 
       {/* List-view configuration: filter, order, grouping — tucked away by default */}
       {configOpen && (
-        <div className="mx-3 mb-3 flex flex-col gap-3 rounded-xl bg-secondary/60 p-3">
+        <div className="mx-3 mb-3 flex flex-col gap-3 rounded-lg bg-secondary/60 p-3">
           <input
             autoFocus
             value={query}
@@ -623,7 +818,7 @@ export function Sidebar() {
               autoFocus
               placeholder="Pack name — Enter to create, Esc to cancel"
               spellCheck={false}
-              className="rounded-xl border border-dashed border-primary bg-background px-3.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+              className="rounded-lg border border-dashed border-primary bg-background px-3.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
               onKeyDown={(e) => {
                 if (e.key === "Escape") setNewPackInput(false)
                 if (e.key === "Enter") {
@@ -648,14 +843,14 @@ export function Sidebar() {
         ) : (
           <div className="mb-3 flex gap-1.5">
             <button
-              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
               onClick={() => void m.newPrompt()}
             >
               <RiFileAddLine className="size-4" />
               New prompt
             </button>
             <button
-              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
               onClick={() => setNewPackInput(true)}
             >
               <RiFolderAddLine className="size-4" />
@@ -669,11 +864,24 @@ export function Sidebar() {
             return (
               <div key={name} className="mb-3">
                 {sectionTitle(name, items.length, isCollapsed)}
-                {!isCollapsed && (
-                  <div className="flex flex-col gap-1.5">
-                    {items.map((s) => snipRow(s))}
-                  </div>
-                )}
+                {!isCollapsed &&
+                  (() => {
+                    const { ungrouped, groups: gs } = splitGroups(items)
+                    return (
+                      <div className="flex flex-col gap-1.5">
+                        {ungrouped.map((s) => snipRow(s))}
+                        {gs.map(([g, rows]) => {
+                          const gc = !q && collapsedGroups.has(groupKey(name, g))
+                          return (
+                            <div key={g} className="flex flex-col gap-1.5 pl-2.5">
+                              {groupTitle(name, g, rows.length, gc)}
+                              {!gc && rows.map((s) => snipRow(s))}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
               </div>
             )
           })
@@ -719,6 +927,31 @@ export function Sidebar() {
         </div>
       </div>
       {ctx.element}
+
+      {/* Deleting a group deletes its prompts — a real dialog, not an armed menu item */}
+      <Dialog open={deleteGroupAsk !== null} onOpenChange={(v) => !v && setDeleteGroupAsk(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="text-sm">Delete group "{deleteGroupAsk?.group}"?</DialogTitle>
+            <DialogDescription>
+              This deletes {deleteGroupAsk?.count === 1 ? "the 1 prompt" : `all ${deleteGroupAsk?.count ?? 0} prompts`} in
+              it from "{deleteGroupAsk?.pack}". To keep the prompts, choose Ungroup instead.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button size="sm" variant="secondary" onClick={() => setDeleteGroupAsk(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={() => deleteGroupAsk && void deleteGroup(deleteGroupAsk.pack, deleteGroupAsk.group)}
+            >
+              Delete {deleteGroupAsk?.count ?? 0} prompt{deleteGroupAsk?.count === 1 ? "" : "s"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

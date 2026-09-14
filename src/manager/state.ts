@@ -28,7 +28,8 @@ export interface ManagerApi {
   select(id: string | null): void
   setSelection(sel: Set<string>, anchor?: string | null): void
   selectionAnchor: string | null
-  newPrompt(): Promise<void>
+  /** Create a draft prompt and open it; `into` overrides the default pack/group. */
+  newPrompt(into?: { pack: string; group?: string }): Promise<void>
   addPack(name: string): Promise<void>
   savePrefs(next: Partial<Prefs>): Promise<void>
   setHotkey(hotkey: string): void

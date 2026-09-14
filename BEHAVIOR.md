@@ -82,6 +82,15 @@ A pack is just a name. It has no independent existence — `packNames()` is the
 union of declared `PackMeta` and every `snippet.pack` in the library, so naming
 a pack on a prompt conjures it. Imports and moves create packs this way.
 
+**A group is the same kind of thing one level down**: `snippet.group`, a
+label scoped to its pack, empty meaning ungrouped. It has no metadata, no lock,
+no file. Renaming a group rewrites the label on every prompt that carries it,
+and renaming onto an existing name merges the two. Deleting a group deletes its
+prompts, so it goes through a real dialog rather than an armed menu item, and
+the status bar offers Undo afterwards. Pack files carry the label as an
+optional `"group"` on each prompt; older files and libraries load with it
+empty.
+
 That is why file backing is reconciled rather than handled at creation.
 **`ensure_packs_backed`** runs at startup and before every sync, giving every
 name in play a `PackMeta` and a `.json` of its own. Handling it only in
@@ -104,6 +113,13 @@ Two guards follow from that:
 
 Orphans are never swept automatically. A file in `packs/` that no pack claims
 may be one an agent just dropped there for importing.
+
+**`packs/generated/`** holds scratch files for the Generate dialog's survey mode
+(agent path, empty topic). An agent writes the project's pack into one, with a
+group per practice, and the pack is created on import under whatever name the
+agent gave it. The scratch file backs no pack, so it lives below the top-level
+`packs/` that metadata points into, and it stays there afterwards as a record
+of what was generated.
 
 ## State and where it lives
 

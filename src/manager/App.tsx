@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
+import { SizeDebug } from "@/lib/SizeDebug"
 import { RiCloseLine } from "@remixicon/react"
 import { Toaster } from "@/components/ui/sonner"
 import { C, type PackMeta, type Snippet } from "@/lib/core"
@@ -82,22 +83,25 @@ export function App() {
     if (anchor !== undefined) setSelectionAnchor(anchor)
   }, [])
 
-  const newPrompt = useCallback(async () => {
+  const newPrompt = useCallback(async (into?: { pack: string; group?: string }) => {
     setSettingsOpen(false)
     // Default to the pack the user last saved a prompt into, not a fixed pack
     const last = localStorage.getItem("lastPack")
     const pack =
-      last && packNames().includes(last) && !isLocked(last)
-        ? last
-        : isLocked(DEFAULT_PACK)
-          ? "Unsorted"
-          : DEFAULT_PACK
+      into?.pack && !isLocked(into.pack)
+        ? into.pack
+        : last && packNames().includes(last) && !isLocked(last)
+          ? last
+          : isLocked(DEFAULT_PACK)
+            ? "Unsorted"
+            : DEFAULT_PACK
     const s: Snippet = {
       id: crypto.randomUUID(),
       title: "New prompt",
       text: "",
       tags: [],
       pack,
+      group: (into?.pack && !isLocked(into.pack) && into.group) || "",
       uses: 0,
       pinned: false,
       fieldValues: {},
@@ -244,6 +248,7 @@ export function App() {
 
   return (
     <ManagerCtx.Provider value={api}>
+      <SizeDebug />
       <div className="flex h-dvh flex-col bg-background text-foreground">
         {firstRun !== "hidden" && (
           <div className="flex items-center gap-2 border-b border-border bg-primary/8 px-4 py-2 text-xs text-primary">

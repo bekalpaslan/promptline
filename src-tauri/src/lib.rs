@@ -26,6 +26,10 @@ struct Snippet {
     tags: Vec<String>,
     #[serde(default)]
     pack: String,
+    // Optional group within the pack; empty = ungrouped. A label, not an
+    // entity: naming a group on a prompt is what creates it.
+    #[serde(default)]
+    group: String,
     // Last-entered values for runtime {field}s; the popup pre-fills from these
     #[serde(default, rename = "fieldValues")]
     field_values: HashMap<String, String>,
@@ -222,7 +226,13 @@ fn sync_pack_files(app: &AppHandle) {
         let prompts: Vec<serde_json::Value> = snippets
             .iter()
             .filter(|s| s.pack == pm.name)
-            .map(|s| serde_json::json!({ "title": s.title, "tags": s.tags, "text": s.text }))
+            .map(|s| {
+                let mut v = serde_json::json!({ "title": s.title, "tags": s.tags, "text": s.text });
+                if !s.group.is_empty() {
+                    v["group"] = serde_json::Value::String(s.group.clone());
+                }
+                v
+            })
             .collect();
         // Never write an empty pack over its file: an agent may have just
         // written prompts there that haven't been imported yet, and clobbering
@@ -278,6 +288,7 @@ fn snip(title: &str, tag: &str, text: &str) -> Snippet {
         field_values: HashMap::new(),
         config_values: HashMap::new(),
         category: String::new(),
+        group: String::new(),
         uses: 0,
         pinned: false,
     }
@@ -455,6 +466,28 @@ fn retire_pack_file(app: &AppHandle, path: &str) {
 #[tauri::command]
 fn create_pack_file(app: AppHandle, name: String) -> Result<String, String> {
     new_pack_file(&app, &name)
+}
+
+/// Create an empty scratch file under packs/generated/ for an agent to fill
+/// with several packs at once (a JSON array). It backs no pack of its own —
+/// the packs inside get their own files on import — so it lives outside the
+/// top-level packs/ that pack metadata points into.
+#[tauri::command]
+fn create_generated_file(app: AppHandle) -> Result<String, String> {
+    let dir = packs_dir(&app).join("generated");
+    fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0);
+    let mut path = dir.join(format!("generated-{stamp}.json"));
+    let mut i = 2;
+    while path.exists() {
+        path = dir.join(format!("generated-{stamp}-{i}.json"));
+        i += 1;
+    }
+    fs::write(&path, "[]").map_err(|e| e.to_string())?;
+    Ok(path.to_string_lossy().into_owned())
 }
 
 #[tauri::command]
@@ -913,6 +946,7 @@ pub fn run() {
             save_prefs,
             import_pack_file,
             create_pack_file,
+            create_generated_file,
             read_pack_file,
             show_in_folder,
             open_url,

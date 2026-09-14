@@ -107,6 +107,24 @@ test('matchesFilters requires every tag and pack filter to hit', () => {
   assert.ok(!core.matchesFilters(s, { tags: [], packs: ['session'] }));
 });
 
+test('parseQuery splits >group terms; matchesFilters honours them', () => {
+  const q = core.parseQuery('>debug fix > it');
+  assert.deepEqual(q.groups, ['debug']);
+  assert.equal(q.text, 'fix it');
+  const s = { tags: [], pack: 'Promptline', group: 'Debugging' };
+  assert.ok(core.matchesFilters(s, { tags: [], packs: [], groups: ['debug'] }));
+  assert.ok(!core.matchesFilters(s, { tags: [], packs: [], groups: ['review'] }));
+  assert.ok(core.matchesFilters({ tags: [], pack: 'x' }, { tags: [], packs: [] }));
+});
+
+test('parsePacks: prompts carry an optional group, trimmed; missing means ungrouped', () => {
+  const packs = core.parsePacks(JSON.stringify({
+    name: 'P', prompts: [{ title: 'A', text: 'x', group: ' Debugging ' }, { title: 'B', text: 'y' }],
+  }));
+  assert.equal(packs[0].prompts[0].group, 'Debugging');
+  assert.equal(packs[0].prompts[1].group, '');
+});
+
 // ---- tag colors -----------------------------------------------------------------
 
 test('known tags get fixed colors; unknown tags get a stable hashed color', () => {

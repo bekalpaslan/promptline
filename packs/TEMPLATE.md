@@ -24,6 +24,9 @@ whole library from **Your library**.
   manageable under Settings → Packs
 - `title` — short imperative name, unique within the pack
 - `tags` — 1–3 lowercase tags per prompt (searchable, shown as colored pills)
+- `group` — optional; a sub-heading within the pack (e.g. `"Debugging"`).
+  Prompts without one are ungrouped. One pack per project with a group per
+  practice is the intended shape for project packs
 - `text` — the prompt body
 
 Also accepted on import: an array of pack objects (a full library export), and
@@ -47,6 +50,15 @@ Don't write packs by hand — in **Settings → Generate a pack with Claude**,
 type a topic, click **1 · Copy prompt for Claude**, paste it into Claude, then
 click **2 · Import Claude's reply** on its response. The copied instruction
 already carries your topic, your existing tags, and the format rules.
+
+The **Agent** path is for a coding agent that sits in a project (Claude Code,
+for example): it writes the pack straight into a file and the app picks it up.
+There the topic is optional. Leave it empty and the agent surveys the project it
+is running in — contributor docs, roadmap, git log, build commands, workflow
+commands like `/gsd:next` — and writes one pack named after the project, with
+a group per daily practice (orientation, development, debugging, verification,
+review, documentation, housekeeping). Give a topic to narrow the pack to one
+area instead.
 
 Duplicate title+text pairs are skipped on import, so re-importing an updated
 pack only adds what's new.

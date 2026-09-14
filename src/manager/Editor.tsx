@@ -177,6 +177,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const [title, setTitle] = useState(snippet.title)
   const [tags, setTags] = useState((snippet.tags || []).join(", "))
   const [pack, setPack] = useState(snippet.pack || DEFAULT_PACK)
+  const [group, setGroup] = useState(snippet.group || "")
   const [newPackMode, setNewPackMode] = useState(false)
   const [text, setText] = useState(snippet.text)
   const [configValues, setConfigValues] = useState<Record<string, string>>({ ...(snippet.configValues || {}) })
@@ -187,8 +188,8 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
 
   // Autosave: edits persist on a short debounce — no Save button, no lost drafts
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const latest = useRef({ title, tags, pack, text, configValues })
-  latest.current = { title, tags, pack, text, configValues }
+  const latest = useRef({ title, tags, pack, group, text, configValues })
+  latest.current = { title, tags, pack, group, text, configValues }
   const mRef = useRef(m)
   mRef.current = m
 
@@ -211,6 +212,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       title: cur.title.trim() || "(untitled)",
       tags: cur.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean),
       pack: targetPack,
+      group: cur.group.trim(),
       text: cur.text,
       configValues: Object.fromEntries(
         Object.entries(cur.configValues).filter(([k, v]) => names.includes(k) && v !== "")
@@ -238,8 +240,16 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     if (saveTimer.current) return // don't clobber in-flight edits
     setTags((snippet.tags || []).join(", "))
     setPack(snippet.pack || DEFAULT_PACK)
+    setGroup(snippet.group || "")
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snippet.tags, snippet.pack])
+  }, [snippet.tags, snippet.pack, snippet.group])
+
+  // Groups already in use in the chosen pack, for the group field's suggestions
+  const packGroups = useMemo(() => {
+    const set = new Set<string>()
+    for (const s of m.snippets) if ((s.pack || DEFAULT_PACK) === pack && s.group) set.add(s.group)
+    return [...set].sort((a, b) => a.localeCompare(b))
+  }, [m.snippets, pack])
 
   // ---- Params ----
   const libraryParams = useMemo(() => {
@@ -439,6 +449,23 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             <option value="__new__">＋ New pack…</option>
           </select>
         )}
+        {/* Group within the pack — a label, so free text with the pack's existing groups as suggestions */}
+        <input
+          value={group}
+          list={`groups-${snippet.id}`}
+          onChange={(e) => {
+            setGroup(e.target.value)
+            scheduleSave()
+          }}
+          placeholder="Group (optional)"
+          spellCheck={false}
+          className="min-w-28 flex-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+        />
+        <datalist id={`groups-${snippet.id}`}>
+          {packGroups.map((g) => (
+            <option key={g} value={g} />
+          ))}
+        </datalist>
         <Button
           variant="secondary"
           size="sm"

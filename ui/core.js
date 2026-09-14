@@ -101,16 +101,17 @@
     return { score: 1000 + gaps, indices }; // subsequence ranks below contiguous
   }
 
-  // ---- Search query parsing: `#tag` and `@pack` filter terms ---------------
-  // Returns {text, tags: [..], packs: [..]}
+  // ---- Search query parsing: `#tag`, `@pack` and `>group` filter terms -----
+  // Returns {text, tags: [..], packs: [..], groups: [..]}
   function parseQuery(raw) {
-    const tags = [], packs = [], words = [];
+    const tags = [], packs = [], groups = [], words = [];
     for (const term of (raw || '').trim().split(/\s+/).filter(Boolean)) {
       if (term.startsWith('#') && term.length > 1) tags.push(term.slice(1).toLowerCase());
       else if (term.startsWith('@') && term.length > 1) packs.push(term.slice(1).toLowerCase());
-      else if (term !== '#' && term !== '@') words.push(term);
+      else if (term.startsWith('>') && term.length > 1) groups.push(term.slice(1).toLowerCase());
+      else if (term !== '#' && term !== '@' && term !== '>') words.push(term);
     }
-    return { text: words.join(' '), tags, packs };
+    return { text: words.join(' '), tags, packs, groups };
   }
 
   function matchesFilters(snippet, filters) {
@@ -119,6 +120,9 @@
     }
     for (const pack of filters.packs) {
       if (!(snippet.pack || '').toLowerCase().includes(pack)) return false;
+    }
+    for (const group of filters.groups || []) {
+      if (!(snippet.group || '').toLowerCase().includes(group)) return false;
     }
     return true;
   }
@@ -165,6 +169,7 @@
         title: p.title,
         text: p.text,
         tags: tags.map(t => t.trim().toLowerCase()).filter(Boolean),
+        group: typeof p.group === 'string' ? p.group.trim() : '',
       };
     };
     const normPack = obj => ({

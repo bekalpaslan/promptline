@@ -36,9 +36,10 @@ them, plus config values and a live preview. Invisible until you want it.
 - **Tab** opens an action panel: paste / copy / pin / edit in manager / delete
 - **→** shows the full-prompt preview card (also on mouse hover)
 - Search is fuzzy over titles, tags, and bodies with match highlighting;
-  `#tag` and `@pack` terms filter (`#debug root cause`); click a tag pill to filter by it
+  `#tag`, `@pack` and `>group` terms filter (`#debug root cause`); click a tag pill to filter by it
 - With no query, prompts sort by how often you use them, grouped under
-  collapsible pack sections; searching flattens them into one ranked list
+  collapsible pack sections with a sub-header per group; searching flattens
+  them into one ranked list
 - **Ctrl+N** turns whatever you just copied into a new prompt without leaving
   the popup — name pre-filled from the first line, pick its pack, confirm
 - **Drag the window edge** to resize; the size is remembered
@@ -51,13 +52,21 @@ them, plus config values and a live preview. Invisible until you want it.
 - **Autosaves** — no Save button, no lost drafts; deletes are two-click with Undo
 - Sidebar groups by **pack** (collapsible); right-click a pack header to
   rename / lock / export / delete it; right-click prompts for multi-select
-  actions (move to pack, add tag, pin/unpin, export, delete) — Ctrl/Shift+click
-  to select several
+  actions (move to pack or group, add tag, pin/unpin, export, delete) —
+  Ctrl/Shift+click to select several
+- **Groups** sit inside a pack: one pack per project, a group per practice
+  (debugging, review, docs…). Right-click a pack header → **New group** to
+  start one with a fresh prompt; set a prompt's group in the editor or from
+  the right-click menu; dragging a prompt into another group moves it there.
+  Right-click a group header to rename it, ungroup its prompts, or delete
+  the group — deleting removes its prompts after a confirmation dialog
 - **Locked packs** (🔒) refuse new prompts and can't be deleted until unlocked
 - Two **empty-slot cards** at the top of the list create a new prompt or a new
   pack; **Generate pack with Claude** takes a topic, hands you an instruction to
   paste into Claude, and imports its reply — every prompt is reviewed in a
-  checklist before anything is added
+  checklist before anything is added. With a coding agent, leave the topic
+  empty and it surveys the project it runs in, writing one pack per daily
+  practice
 - Sort by uses, title, or **Custom** — press and hold a row to lift it, then
   drag to arrange your own order
 - **Light / Dark** toggle sits at the bottom of the sidebar, next to the

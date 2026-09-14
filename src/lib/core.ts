@@ -9,6 +9,8 @@ export interface Snippet {
   text: string
   tags: string[]
   pack: string
+  /** Group within the pack; empty = ungrouped */
+  group: string
   uses: number
   pinned: boolean
   fieldValues: Record<string, string>
@@ -29,6 +31,7 @@ export interface ParsedQuery {
   text: string
   tags: string[]
   packs: string[]
+  groups: string[]
 }
 
 export interface FuzzyResult {
@@ -39,7 +42,7 @@ export interface FuzzyResult {
 export interface PackDiagnosis {
   ok: boolean
   message?: string
-  packs?: { name: string; prompts: { title: string; text: string; tags: string[] }[] }[]
+  packs?: { name: string; prompts: { title: string; text: string; tags: string[]; group: string }[] }[]
 }
 
 interface PromptlineCore {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
+import { SizeDebug } from "@/lib/SizeDebug"
 import {
   RiAddLine,
   RiArrowDownSLine,
@@ -23,7 +24,7 @@ const FOCUS_BORDER = "#00a6f4"
 type Entry = { s: Snippet; indices: number[] | null }
 type FormState = { snippet: Snippet; base: string; fields: string[]; paste: boolean }
 type PanelAction = { label: string; danger?: boolean; run: () => void }
-type CreateState = { title: string; pack: string }
+type CreateState = { title: string; pack: string; group: string }
 
 const DEFAULT_PACK = "My prompts"
 
@@ -182,7 +183,14 @@ export function App() {
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(e)
     }
-    const packs = [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+    // Within a pack: ungrouped prompts first, then groups alphabetically, so
+    // the list can render a sub-header wherever the group changes. Sorted
+    // here so keyboard order (visible) matches what is drawn (sections).
+    const byGroup = (a: Entry, b: Entry) =>
+      (a.s.group ? 1 : 0) - (b.s.group ? 1 : 0) || (a.s.group || "").localeCompare(b.s.group || "")
+    const packs = [...map.entries()]
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .map(([n, es]) => [n, [...es].sort(byGroup)] as [string, Entry[]])
     const sections: Section[] = []
     if (pinned.length) sections.push({ name: "Pinned", entries: pinned, collapsible: false, isCollapsed: false })
     for (const [name, entries] of packs)
@@ -245,6 +253,7 @@ export function App() {
     setCreate({
       title: firstLine.slice(0, 40) || "New prompt",
       pack,
+      group: "",
     })
   }, [clip, packNames, isLocked, hidePreview, closePanel])
 
@@ -256,6 +265,7 @@ export function App() {
       text: clip,
       tags: [],
       pack: create.pack,
+      group: create.group,
       uses: 0,
       pinned: false,
       fieldValues: {},
@@ -490,7 +500,7 @@ export function App() {
                   void saveCreate()
                 }
               }}
-              className="w-full rounded-lg border-2 border-input bg-background p-2 text-sm text-foreground outline-none focus:border-(--palette-focus)"
+              className="w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[13px] text-foreground outline-none focus:border-(--palette-focus)"
               style={{ "--palette-focus": FOCUS_BORDER } as React.CSSProperties}
             />
           </div>
@@ -498,8 +508,8 @@ export function App() {
             <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Pack</label>
             <select
               value={create.pack}
-              onChange={(e) => setCreate((c) => c && { ...c, pack: e.target.value })}
-              className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-2 text-sm text-foreground outline-none"
+              onChange={(e) => setCreate((c) => c && { ...c, pack: e.target.value, group: "" })}
+              className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-1.5 text-[13px] text-foreground outline-none"
             >
               {packNames.map((p) => (
                 <option key={p} value={p} disabled={isLocked(p)}>
@@ -508,13 +518,37 @@ export function App() {
               ))}
             </select>
           </div>
+          {(() => {
+            // Groups already in the chosen pack; a group is a label so any is fine
+            const gs = [...new Set(snippets.filter((s) => s.pack === create.pack && s.group).map((s) => s.group))].sort(
+              (a, b) => a.localeCompare(b)
+            )
+            if (!gs.length) return null
+            return (
+              <div className="px-1">
+                <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Group</label>
+                <select
+                  value={create.group}
+                  onChange={(e) => setCreate((c) => c && { ...c, group: e.target.value })}
+                  className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-1.5 text-[13px] text-foreground outline-none"
+                >
+                  <option value="">No group</option>
+                  {gs.map((g) => (
+                    <option key={g} value={g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )
+          })()}
           <SectionHeader>Prompt body — current clipboard</SectionHeader>
           <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-xs leading-relaxed text-muted-foreground">
             {clip || "(clipboard is empty)"}
           </div>
           <button
             onClick={() => void saveCreate()}
-            className="h-9 cursor-pointer rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="h-8 cursor-pointer rounded-lg bg-primary text-[13px] font-medium text-primary-foreground hover:bg-primary/90"
           >
             Save prompt
           </button>
@@ -550,7 +584,7 @@ export function App() {
                       void submitForm(e.ctrlKey)
                     }
                   }}
-                  className="min-h-9 w-full resize-none rounded-lg border-2 border-input bg-background p-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-(--palette-focus)"
+                  className="min-h-8 w-full resize-none rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-(--palette-focus)"
                   style={{ "--palette-focus": FOCUS_BORDER } as React.CSSProperties}
                 />
               </div>
@@ -574,7 +608,7 @@ export function App() {
           </div>
           <button
             onClick={(e) => void submitForm(e.ctrlKey)}
-            className="h-9 cursor-pointer rounded-lg bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/90"
+            className="h-8 cursor-pointer rounded-lg bg-primary text-[13px] font-medium text-primary-foreground hover:bg-primary/90"
           >
             Paste
           </button>
@@ -594,22 +628,22 @@ export function App() {
         key={s.id}
         data-selected={i === sel}
         className={cn(
-          "flex cursor-pointer select-none items-center gap-2 rounded-lg px-2 py-1",
-          compact ? "h-7" : "min-h-8",
-          i === sel && "bg-accent",
+          "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[13px] font-semibold",
+          compact ? "py-1" : "py-1.5",
+          i === sel ? "bg-accent text-foreground" : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
           pickedId === s.id && "bg-primary/20"
         )}
         onClick={(e) => pick(s, !e.ctrlKey)}
         onMouseMove={(e) => onItemMouseMove(i, e)}
         onMouseLeave={onItemMouseLeave}
       >
-        <Icon className={cn("size-4 shrink-0", s.pinned ? "text-amber-500" : "text-muted-foreground")} />
+        <Icon className={cn("size-3.5 shrink-0", s.pinned ? "text-amber-500" : "opacity-70")} />
         <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <span className="flex min-w-0 items-center text-sm text-foreground">
+          <span className="flex min-w-0 items-center">
             <HighlightedTitle title={s.title} indices={indices} />
           </span>
           {!compact && (
-            <span className="truncate text-xs text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
+            <span className="truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
           )}
         </div>
         {tags.slice(0, 1).map((tag) => {
@@ -660,10 +694,10 @@ export function App() {
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Type to search…  (#tag, @pack)"
+          placeholder="Type to search…  (#tag, @pack, >group)"
           spellCheck={false}
           autoComplete="off"
-          className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
         />
         {query && (
           <button
@@ -678,33 +712,54 @@ export function App() {
         )}
       </div>
 
-      <div ref={listRef} className="flex-1 overflow-y-auto" onScroll={hidePreview}>
+      <div ref={listRef} className="flex-1 overflow-y-auto px-0.5" onScroll={hidePreview}>
         {filtered.length === 0 && (
           <div className="px-4 py-4 text-center text-xs text-muted-foreground">
             {snippets.length ? "No matches" : "No prompts yet — left-click the Promptline tray icon to add some"}
           </div>
         )}
         {sections.map((sec) => {
-          if (!sec.collapsible) {
-            return (
-              <div key={sec.name}>
-                <SectionHeader>{sec.name}</SectionHeader>
-                {sec.entries.map((entry) => row(entry, rowIndex.get(entry.s.id)!))}
-              </div>
-            )
+          // Rows split like the sidebar: the ungrouped run, then one block per group
+          const ungrouped = sec.entries.filter((e) => !e.s.group)
+          const groups = new Map<string, Entry[]>()
+          for (const e of sec.entries) {
+            if (!e.s.group) continue
+            if (!groups.has(e.s.group)) groups.set(e.s.group, [])
+            groups.get(e.s.group)!.push(e)
           }
+          const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!))
           const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
           return (
-            <div key={sec.name}>
-              <button
-                className="flex w-full cursor-pointer items-center gap-1 px-2 pb-0.5 pt-1.5 text-xs font-medium tracking-[0.04em] text-muted-foreground hover:text-foreground"
-                onClick={() => toggleCollapsed(sec.name)}
+            <div key={sec.name} className="mb-3">
+              {/* Pack title, as in the sidebar; Pinned / Results are not collapsible */}
+              <div
+                className={cn(
+                  "flex select-none items-center gap-1.5 rounded-lg px-1 py-2 text-sm font-bold",
+                  sec.collapsible && "cursor-pointer",
+                  sec.isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
+                )}
+                onClick={sec.collapsible ? () => toggleCollapsed(sec.name) : undefined}
               >
-                <Chev className="size-3.5 shrink-0" />
-                <span className="min-w-0 truncate">{sec.name}</span>
-                <span className="opacity-70">({sec.entries.length})</span>
-              </button>
-              {!sec.isCollapsed && sec.entries.map((entry) => row(entry, rowIndex.get(entry.s.id)!))}
+                <span className="min-w-0 flex-1 truncate">
+                  {sec.name} <span className="font-semibold text-muted-foreground">({sec.entries.length})</span>
+                </span>
+                {sec.collapsible && <Chev className="size-4 shrink-0 text-muted-foreground" />}
+              </div>
+              {!sec.isCollapsed && (
+                <div className="flex flex-col gap-1.5">
+                  {rows(ungrouped)}
+                  {[...groups.entries()].map(([g, es]) => (
+                    <div key={g} className="flex flex-col gap-1.5 pl-2.5">
+                      <div className="flex select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
+                        <span className="min-w-0 flex-1 truncate">
+                          {g} <span className="font-medium opacity-70">({es.length})</span>
+                        </span>
+                      </div>
+                      {rows(es)}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )
         })}
@@ -716,7 +771,7 @@ export function App() {
         className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-t border-border px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground"
       >
         <RiAddLine className="size-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-left text-sm">New prompt from clipboard…</span>
+        <span className="min-w-0 flex-1 truncate text-left text-[13px]">New prompt from clipboard…</span>
         <span className="flex shrink-0 gap-1">
           <Kbd>Ctrl</Kbd>
           <Kbd>N</Kbd>
@@ -744,13 +799,13 @@ export function App() {
       })()}
 
       {panelFor && (
-        <div className="fixed inset-x-2 bottom-10 z-20 rounded-xl border border-border bg-popover p-2 shadow-[0px_0px_16px_rgba(18,45,88,0.24)]">
+        <div className="fixed inset-x-2 bottom-10 z-20 rounded-lg border border-border bg-popover p-2 shadow-[0px_0px_16px_rgba(18,45,88,0.24)]">
           <SectionHeader>{panelNote ?? panelFor.title}</SectionHeader>
           {panelActions.map((a, i) => (
             <div
               key={a.label}
               className={cn(
-                "flex h-8 cursor-pointer select-none items-center justify-between rounded-lg px-2 text-sm",
+                "flex h-[30px] cursor-pointer select-none items-center justify-between rounded-lg px-2 text-[13px]",
                 i === panelSel && "bg-accent",
                 a.danger && "text-destructive"
               )}
@@ -770,9 +825,10 @@ export function App() {
 // Window chrome — the kit palette card: 12px radius, 8px padding, soft shadow
 function Shell({ children, hint }: { children: React.ReactNode; hint: React.ReactNode }) {
   return (
-    <div className="flex h-dvh flex-col gap-3 overflow-hidden rounded-xl border border-border bg-background p-3 text-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.12)]">
+    <div className="flex h-dvh flex-col gap-2.5 overflow-hidden rounded-lg border border-border bg-background p-2.5 text-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.12)]">
+      <SizeDebug />
       {children}
-      <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-1 pt-3 text-xs text-muted-foreground">
+      <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-1 pt-2.5 text-xs text-muted-foreground">
         {hint}
       </div>
     </div>
