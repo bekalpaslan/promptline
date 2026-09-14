@@ -200,6 +200,18 @@ Migrations run on load in `apply_snippet_migrations` (v2 `category` becomes the
 first tag; packless prompts get a default pack) and via `#[serde(default)]` on
 every field added since. Old data must keep opening.
 
+## Content Security Policy
+
+`tauri.conf.json` sets a CSP: only the app's own scripts, styles (inline
+allowed — Tailwind and Base UI set style attributes), `data:` images (the
+editor's select chevron) and fonts; `connect-src` is the IPC only. Tauri
+injects it into the HTML it serves, so it is live in a release build and in
+a dev build that uses the embedded assets; a page served by the Vite dev
+server carries no CSP at all, which is why `devCsp` looks permissive (Fast
+Refresh needs inline scripts and the HMR websocket) yet changes nothing
+under `npm run dev`. Anything new that loads a remote resource, an inline
+script, or a `blob:` URL has to be added to the policy first.
+
 ## The hotkey
 
 A combination the OS refuses at startup — another program owns it — is a

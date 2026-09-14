@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 12 | 12 | 6 | 30 |
+| TODO | 0 | 11 | 12 | 5 | 28 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 1 | 0 | 2 | 9 |
+| DONE | 6 | 2 | 0 | 3 | 11 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -274,7 +274,7 @@ with a function replacer; use it from the popup; test the `$` cases.
 - *Manual verification:* dev build. Added a prompt `goal: {goal} end`,
   summoned the popup, filled the field with `spend $$50 and $& here`,
   Ctrl+Enter (copy only): clipboard reads `goal: spend $$50 and $& here end`.
-- *Commit:* see commit list (H5).
+- *Commit:* `35adc7d`.
 
 ### H6. Popup writes the whole library from a snapshot and can drop a manager edit
 **Status:** DONE
@@ -427,7 +427,7 @@ and the pack is never file-backed.
 **Fix:** suffix reserved stems with `-pack`; extend the filename test.
 
 ### M9. No Content Security Policy
-**Status:** TODO
+**Status:** DONE
 **Where:** `src-tauri/tauri.conf.json:45` (`"csp": null`).
 **What:** the app loads no remote content and renders all text through React
 text nodes, so there is no injection today. A CSP is defense in depth against a
@@ -436,6 +436,25 @@ future `dangerouslySetInnerHTML` or a dependency that injects.
 'unsafe-inline'; font-src 'self'`. `data:` is needed for the select chevron in
 `Editor.tsx:439`; `'unsafe-inline'` for style because Tailwind and Base UI set
 inline styles. Verify both windows in dev and in a release build. See D2.
+**Resolution:**
+- *Implementation (`tauri.conf.json`):* `csp` = `default-src 'self';
+  script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:;
+  font-src 'self'; connect-src 'self' ipc: http://ipc.localhost; object-src
+  'none'; base-uri 'self'; form-action 'none'`. `devCsp` is the same with
+  `'unsafe-inline'` scripts (React Fast Refresh preamble) and the Vite
+  origin/websocket in `connect-src`. Tauri injects the policy only into HTML
+  it serves itself (`get_asset` in `tauri-2.11.5/src/manager/mod.rs`), so
+  under `npm run dev` the Vite-served pages carry no CSP at all; `devCsp`
+  applies when a dev build uses the embedded assets. Recorded in BEHAVIOR.md.
+- *Tests added:* none automated (configuration).
+- *Manual verification:* release build (`tauri build --no-bundle`), both
+  windows: a `fetch("https://example.com")` raises a
+  `securitypolicyviolation` (`connect-src blocked https://example.com/`) and
+  rejects; a `data:` image loads; Outfit loads; IPC works (34 rows); the
+  editor opens with its data-URI select chevron intact and no violations;
+  toasts render. Dev build, both windows: no CSP present (as explained), app
+  unaffected.
+- *Commit:* see commit list (M9).
 
 ### M10. Toasts follow the OS theme, not the app theme
 **Status:** TODO
@@ -1131,7 +1150,7 @@ change product behavior, in which case the item is BLOCKED and asked.
 | # | Question | Options / recommendation | Status / resolution |
 |---|---|---|---|
 | D1 | H2: when the hotkey fires while the popup is open, **toggle** (hide) or **ignore**? | Toggle matches Raycast/Alfred; ignore is the minimal change. Recommend ignore now, toggle as a follow-up | DONE — ignore (a repeat re-focuses the open popup); toggle-to-hide noted in BACKLOG |
-| D2 | M9: add a CSP? Hardens a local-only app; every future inline style/data URL must be allowed explicitly | Recommend yes with the policy in M9, verified in dev and a release build | TODO — yes |
+| D2 | M9: add a CSP? Hardens a local-only app; every future inline style/data URL must be allowed explicitly | Recommend yes with the policy in M9, verified in dev and a release build | DONE — added; enforced in release, not injectable into the Vite dev page |
 | D3 | M12: flush the editor on quit via `beforeunload` (cheap, may miss OS shutdown) or a Rust handshake (robust, more code)? | Recommend the cheap one now | TODO — see M12 for the choice made and why |
 | D4 | L2: remove the unused shadcn components, or keep them as a palette? | Recommend remove; `npx shadcn add` restores any in seconds | TODO — remove |
 | D5 | Add a minimal ESLint config (`react-hooks`, `typescript-eslint`) so the nine `eslint-disable` comments mean something, or delete the comments? | Recommend add; ~20 lines, and `react-hooks/exhaustive-deps` catches stale closures like H1 | TODO — add |
@@ -1240,7 +1259,8 @@ passed at its commit and the manual check performed.
 | H6 + M13 | ✓ | ✓ 32/32 | ✓ 15/15 | stale popup write keeps the manager's edit; stale full-array save refused | `c725a09` |
 | H2 + D1 | ✓ | ✓ 32/32 | ✓ 15/15 | repeat press keeps popup state; double-tap and single-tap pastes land | `f82c4d4` |
 | H4 | ✓ | ✓ 32/32 | ✓ 16/16 | second instance starts with a notice; taken combination refused, old one keeps working | `13ca171` |
-| H5 + UH3 | ✓ | ✓ 34/34 | ✓ 16/16 | `$$`/`$&` value copies literally; empty field outlined and labelled | (H5 commit) |
+| H5 + UH3 | ✓ | ✓ 34/34 | ✓ 16/16 | `$$`/`$&` value copies literally; empty field outlined and labelled | `35adc7d` |
+| M9 + D2 | ✓ | ✓ 34/34 | ✓ 16/16 | release build: remote fetch blocked by connect-src, assets/IPC/editor fine in both windows | (M9 commit) |
 
 ## Commit list
 
@@ -1255,6 +1275,7 @@ passed at its commit and the manual check performed.
 | `c725a09` | H6, M13 | Snippet edits become intent-level Rust commands with a revision guard |
 | `f82c4d4` | H2, D1 | Ignore the hotkey while the popup is already open |
 | `13ca171` | H4 | A refused hotkey no longer aborts startup or drops the old binding |
+| `35adc7d` | H5, UH3 | Fill-in values paste literally, and an empty field is never silent |
 
 ## Remaining risks and deliberate exclusions
 
