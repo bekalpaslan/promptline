@@ -188,6 +188,15 @@ test('parsePacks: invalid prompts are dropped, garbage throws', () => {
   assert.throws(() => core.parsePacks('"just a string"'));
 });
 
+test('stripFences drops a leading UTF-8 BOM, and a BOM file diagnoses ok (M7)', () => {
+  const json = JSON.stringify({ name: 'P', prompts: [{ title: 't', text: 'x' }] });
+  assert.equal(core.stripFences('\uFEFF' + json), json);
+  const d = core.diagnosePack('\uFEFF' + json);
+  assert.ok(d.ok, d.message);
+  assert.equal(d.packs[0].name, 'P');
+  assert.equal(core.parsePacks('\uFEFF```json\n' + json + '\n```')[0].name, 'P');
+});
+
 // ---- pack diagnosis ----------------------------------------------------------------
 
 test('diagnosePack: valid pack parses ok', () => {

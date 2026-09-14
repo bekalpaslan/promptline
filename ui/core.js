@@ -158,9 +158,11 @@
   }
 
   // ---- Prompt packs ---------------------------------------------------------
-  // Strip markdown code fences that LLMs wrap around generated JSON.
+  // Strip markdown code fences that LLMs wrap around generated JSON, and a
+  // UTF-8 byte-order mark (Notepad and older PowerShell write one), which
+  // JSON.parse rejects.
   function stripFences(raw) {
-    return (raw || '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    return (raw || '').replace(/^\uFEFF/, '').trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
   }
 
   // Accepts: {name, prompts:[...]} | [{name, prompts}, ...] |

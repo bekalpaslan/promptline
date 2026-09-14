@@ -423,13 +423,18 @@ last rows and the hint bar sit under the taskbar.
 bottom 1385, right 2553, i.e. inside the work area. Commit: `418bf92`.
 
 ### M7. A UTF-8 BOM makes a valid pack file "not JSON"
-**Status:** TODO
+**Status:** DONE
 **Where:** `ui/core.js:153-154` (`stripFences`), `:199` (prefix test).
 **What:** `﻿` is not stripped; `JSON.parse` fails and the diagnosis says
 "not JSON — the source starts with '{'", which is contradictory on screen.
 **Failure:** save a pack from Notepad or PowerShell `Out-File` (BOM by default
 on older setups), Import from file: rejected with a misleading message.
 **Fix:** strip a leading BOM in `stripFences`; one test.
+**Resolution:** `stripFences` removes a leading U+FEFF before trimming and
+de-fencing. Tests: `stripFences` drops the BOM; `diagnosePack` of a BOM
+file is `ok`; `parsePacks` handles BOM plus fences. Manual: covered by the
+pure test (the import path calls `diagnosePack` on the file's text
+unchanged). Commit: see commit list (M7).
 
 ### M8. Reserved Windows device names become pack filenames
 **Status:** DONE
@@ -1238,7 +1243,7 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
 3. [x] Rust: `sync_pack_files` skips empty packs and unchanged files (M4);
    `retire_pack_file` numbering on repeated deletes — the retire numbering is
    still untested (needs an `AppHandle`); covered by the H1 manual check.
-4. [ ] `stripFences` strips a BOM; `diagnosePack` of a BOM file is `ok` (M7).
+4. [x] `stripFences` strips a BOM; `diagnosePack` of a BOM file is `ok` (M7).
 5. [x] `sanitize_pack_filename("CON")` (M8).
 6. [ ] Popup ranking as a pure function: extract the title/tags/body tiering from
    `popup/App.tsx:129-149` into `core.rankSnippets(query, snippets)` and test
