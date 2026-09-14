@@ -63,10 +63,10 @@ a task):
 
 | Status | High | Medium | Low | Total |
 |---|---|---|---|---|
-| TODO | 11 | 19 | 7 | 37 |
+| TODO | 9 | 16 | 7 | 32 |
 | IN PROGRESS | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 |
-| DONE | 2 | 3 | 1 | 6 |
+| DONE | 4 | 6 | 1 | 11 |
 | DECLINED | 0 | 1 | 0 | 1 |
 | **Total** | **13** | **23** | **8** | **44** |
 
@@ -817,7 +817,7 @@ toast as before. Every bare `String(e)` now names the action (preferences,
 pack file, link). "Back with a file…" is renamed "Give this pack a file…"
 (UM21's suggestion) in the sidebar and Settings. Verified by reading and
 typecheck; the failure itself needs an unwritable packs directory. Commit:
-see commit list (UH4).
+`33ebab9`.
 
 ### UH5. Pin guard rejects legal pins and the message is wrong
 **Status:** DONE
@@ -834,8 +834,10 @@ would make 6", though the result would be 4.
 rows that would newly be pinned (already-pinned rows in the selection take
 no slot) and returns `already`, `toPin`, `room`; the sidebar's Pin action
 uses it and says `Max 5 pins — N already pinned, so you can pin M more`.
-Test covers the review's scenario. Manual: see verification note. Commit:
-see commit list (UH5).
+Test covers the review's scenario. Manual (dev build): with 3 pinned
+outside, a selection of 1 pinned + 1 unpinned → menu "Pin 2" → toast
+"Pinned", 5 pinned; then 2 unpinned rows → `Max 5 pins — 5 already pinned,
+so you can pin no more`. Commit: `20dcd6b`.
 
 ### UH6. Popup list is a listbox with no ARIA
 **Status:** TODO
@@ -971,8 +973,11 @@ Follow-up to H1.
 `PackMeta`; deleting an empty pack still toasts with Undo; Undo restores
 the prompts and re-adds the metadata (lock flag kept, path cleared so
 `ensure_packs_backed` gives it a fresh file — the old one is in
-`packs/deleted/`). Both delete sites (sidebar, Settings) pass it. Manual:
-see verification note. Commit: see commit list (UM2).
+`packs/deleted/`). Both delete sites (sidebar, Settings) pass it. Manual
+(dev build): created the empty pack "UM2 temp", deleted it from the
+header menu → toast `Deleted pack "UM2 temp" (0 prompts)` with Undo; Undo
+→ header back, `config.json` lists it again with a fresh `um2-temp.json`,
+the old file in `packs/deleted/`. Commit: `8834808`.
 
 ### UM3. Copy-only gives no feedback, and the form button says "Paste" while copying
 **Status:** DONE
@@ -1028,8 +1033,9 @@ deliberate (BEHAVIOR.md:88-90) and does toast, but is irreversible.
 **Evidence:** by reading; cross-verified.
 **Resolution:** Ungroup remembers the ids that carried the label and
 toasts `Ungrouped N prompts from "<group>"` with Undo, which puts the label
-back on exactly those prompts. Manual: see verification note. Commit: see
-commit list (UM7).
+back on exactly those prompts. Manual (dev build): Ungroup on "as" → toast
+`Ungrouped 2 prompts from "as"` with Undo, header gone; Undo → "Restored",
+header back. Commit: `aed6f92`.
 
 ### UM8. Import curation: no bulk select, hidden pack names, lost input on bad JSON, double-submit
 **Status:** TODO
@@ -1118,7 +1124,7 @@ at `:816`.
 **Where:** `src/manager/Settings.tsx:246-253` → append-only `ImportCuration`.
 **Fix:** relabel "Import from this file…".
 **Evidence:** by reading; cross-verified.
-**Resolution:** relabelled. Commit: see commit list (UM16).
+**Resolution:** relabelled. Commit: `2e1eadd`.
 
 ### UM17. Truncated names have no tooltip; import titles cannot shrink
 **Status:** TODO
@@ -1399,7 +1405,12 @@ passed at its commit and the manual check performed.
 | M10 | ✓ | ✓ 36/36 | ✓ 18/18 | toaster `data-sonner-theme` follows Light/Dark | `195215d` |
 | L2 + D4 | ✓ | ✓ 36/36 | ✓ 18/18 | app reloads and renders with the primitives and deps removed | `f3454bd` |
 | M3 + UM3 | ✓ | ✓ 36/36 | ✓ 18/18 | held clipboard → error strip, popup stays, Esc clears; copy-only → "Copied" strip | `25d006d` |
-| UH2, UM4, UM22, UL1 (+D8) | ✓ | ✓ 36/36 | ✓ 18/18 | delete → U restores (disk checked); Saved-to strip; Esc-twice on edited title; hint shows Esc | (popup feedback commit) |
+| UH2, UM4, UM22, UL1 (+D8) | ✓ | ✓ 36/36 | ✓ 18/18 | delete → U restores (disk checked); Saved-to strip; Esc-twice on edited title; hint shows Esc | `6e692dc` |
+| UH5 | ✓ | ✓ 37/37 | ✓ 18/18 | mixed selection pins; over-limit message names the room | `20dcd6b` |
+| UM2 | ✓ | ✓ 37/37 | ✓ 18/18 | empty pack delete toasts; Undo restores metadata and file | `8834808` |
+| UM7 | ✓ | ✓ 37/37 | ✓ 18/18 | ungroup → Undo restores the label | `aed6f92` |
+| UH4 | ✓ | ✓ 37/37 | ✓ 18/18 | by reading (needs an unwritable packs dir) | `33ebab9` |
+| UM16 | ✓ | ✓ 37/37 | ✓ 18/18 | label | `2e1eadd` |
 
 ## Commit list
 
@@ -1428,6 +1439,12 @@ passed at its commit and the manual check performed.
 | `f3454bd` | L2, D4 | Remove unused shadcn primitives and cmdk; gate SizeDebug behind DEV |
 | `4fbcb30` | — | REVIEW.md: verification notes and commits for M1, M2, M7, M10, L2 |
 | `25d006d` | M3, UM3 | Popup: a feedback strip for failures, and copy-only confirms |
+| `6e692dc` | UH2, UM4, UM22, UL1, D8 | Popup: undo after delete, save confirmation, Esc asks before discarding |
+| `20dcd6b` | UH5 | Pin guard counts only rows that would newly be pinned |
+| `8834808` | UM2 | Undo after deleting a pack brings the pack back, not just its prompts |
+| `aed6f92` | UM7 | Ungroup offers Undo and names what it did |
+| `33ebab9` | UH4 | One message when a new pack's file can't be written |
+| `2e1eadd` | UM16 | Settings: "Sync from file" is an import, so call it one |
 
 ## Remaining risks and deliberate exclusions
 
