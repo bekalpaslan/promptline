@@ -582,6 +582,10 @@ export function Sidebar() {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
             toggleCollapsedGroup(key)
+          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+            e.preventDefault()
+            const r = e.currentTarget.getBoundingClientRect()
+            openGroupCtx(r.left + 24, r.bottom, pack, group, count)
           }
         }}
         onDoubleClick={(e) => {
@@ -667,6 +671,13 @@ export function Sidebar() {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
             handleRowClick(e, s.id)
+          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+            // The keyboard's right-click: menu at the row, not at the pointer
+            e.preventDefault()
+            const r = e.currentTarget.getBoundingClientRect()
+            const ids = m.selection.has(s.id) ? m.selection : new Set([s.id])
+            if (!m.selection.has(s.id)) m.setSelection(ids, s.id)
+            openRowCtx(r.left + 24, r.bottom, ids)
           }
         }}
         onContextMenu={(e) => {
@@ -699,6 +710,10 @@ export function Sidebar() {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
             toggleCollapsed(name)
+          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+            e.preventDefault()
+            const r = e.currentTarget.getBoundingClientRect()
+            openPackCtx(r.left + 24, r.bottom, name, count)
           }
         }}
         onDoubleClick={(e) => {

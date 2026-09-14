@@ -10,12 +10,14 @@ export type CtxItem =
   | { kind: "sep" }
   | { kind: "input"; placeholder: string; onSubmit: (value: string) => void }
   /** Hover opens a nested panel of items to the right; click runs `run` if given. */
-  | { kind: "submenu"; label: string; disabled?: boolean; items: CtxItem[]; run?: () => void | "keep" }
+  | { kind: "submenu"; label: string; disabled?: boolean; hint?: string; items: CtxItem[]; run?: () => void | "keep" }
   | {
       kind: "item"
       label: string
       danger?: boolean
       disabled?: boolean
+      /** Tooltip — say why a disabled item is disabled, or what a key does */
+      hint?: string
       /** Second label shown after the first click; the second click runs. */
       confirm?: string
       /** Return "keep" to leave the menu open (e.g. to swap in a submenu). */
@@ -24,6 +26,10 @@ export type CtxItem =
 
 type OpenState = { x: number; y: number; items: CtxItem[] } | null
 
+// Focusable entries of one panel, in visual order: enabled items and inputs
+const focusables = (root: HTMLElement | null): HTMLElement[] =>
+  root ? [...root.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled), input')] : []
+
 export function useCtxMenu() {
   const [state, setState] = useState<OpenState>(null)
   const [armed, setArmed] = useState<number | null>(null)
@@ -31,8 +37,11 @@ export function useCtxMenu() {
   const [sub, setSub] = useState<{ index: number; x: number; y: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const subRef = useRef<HTMLDivElement>(null)
+  // Where focus was when the menu opened, to give it back on close
+  const opener = useRef<HTMLElement | null>(null)
 
   const open = useCallback((x: number, y: number, items: CtxItem[]) => {
+    if (!opener.current) opener.current = document.activeElement as HTMLElement | null
     setArmed(null)
     setSub(null)
     setState({ x, y, items })
@@ -41,6 +50,10 @@ export function useCtxMenu() {
     setState(null)
     setArmed(null)
     setSub(null)
+    const back = opener.current
+    opener.current = null
+    // Give focus back to whatever opened the menu (a row, a header)
+    if (back && document.contains(back)) back.focus()
   }, [])
 
   useEffect(() => {
@@ -49,8 +62,37 @@ export function useCtxMenu() {
       const t = e.target as Node
       if (!ref.current?.contains(t) && !subRef.current?.contains(t)) close()
     }
+    // Roving focus: Up/Down/Home/End within the open panel, Right/Enter opens
+    // a submenu, Left closes it, Escape closes the menu. An inline input keeps
+    // its own keys except Escape.
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") close()
+      if (e.key === "Escape") {
+        e.preventDefault()
+        close()
+        return
+      }
+      const active = document.activeElement as HTMLElement | null
+      if (active instanceof HTMLInputElement) return
+      const inSub = !!subRef.current
+      const panel = inSub ? subRef.current : ref.current
+      const items = focusables(panel)
+      if (!items.length) return
+      const at = items.indexOf(active as HTMLElement)
+      const focusAt = (i: number) => items[(i + items.length) % items.length]?.focus()
+      if (e.key === "ArrowDown") { e.preventDefault(); focusAt(at + 1) }
+      else if (e.key === "ArrowUp") { e.preventDefault(); focusAt(at - 1) }
+      else if (e.key === "Home") { e.preventDefault(); focusAt(0) }
+      else if (e.key === "End") { e.preventDefault(); focusAt(items.length - 1) }
+      else if ((e.key === "ArrowRight" || e.key === "Enter") && !inSub && active?.dataset.submenu !== undefined) {
+        e.preventDefault()
+        const r = active.getBoundingClientRect()
+        setSub({ index: Number(active.dataset.submenu), x: r.right + 2, y: r.top - 4 })
+      } else if (e.key === "ArrowLeft" && inSub) {
+        e.preventDefault()
+        const parent = ref.current?.querySelector<HTMLElement>(`[data-submenu="${sub?.index}"]`)
+        setSub(null)
+        parent?.focus()
+      }
     }
     document.addEventListener("mousedown", onDown)
     document.addEventListener("keydown", onKey)
@@ -58,9 +100,10 @@ export function useCtxMenu() {
       document.removeEventListener("mousedown", onDown)
       document.removeEventListener("keydown", onKey)
     }
-  }, [state, close])
+  }, [state, sub, close])
 
-  // Clamp into the viewport once rendered
+  // Clamp into the viewport once rendered, then focus the first item so the
+  // keyboard can drive it (Shift+F10 / the Menu key open it with no pointer)
   useEffect(() => {
     if (!state || !ref.current) return
     const rect = ref.current.getBoundingClientRect()
@@ -68,6 +111,8 @@ export function useCtxMenu() {
     const top = Math.min(state.y, window.innerHeight - rect.height - 8)
     ref.current.style.left = `${Math.max(4, left)}px`
     ref.current.style.top = `${Math.max(4, top)}px`
+    const first = focusables(ref.current)[0]
+    if (first && !(first instanceof HTMLInputElement)) first.focus()
   }, [state])
 
   // Submenu opens to the right of its item, flipping left when it would overflow
@@ -78,6 +123,8 @@ export function useCtxMenu() {
     const top = Math.min(sub.y, window.innerHeight - rect.height - 8)
     subRef.current.style.left = `${Math.max(4, left)}px`
     subRef.current.style.top = `${Math.max(4, top)}px`
+    // Opened from the keyboard: land on its first item
+    if (ref.current?.contains(document.activeElement)) focusables(subRef.current)[0]?.focus()
   }, [sub])
 
   // One item renderer for both panels; `onSub` is only wired for the top level
@@ -114,9 +161,16 @@ export function useCtxMenu() {
       return (
         <button
           key={i}
+          type="button"
+          role="menuitem"
+          tabIndex={-1}
+          aria-haspopup="menu"
+          aria-expanded={onSub ? sub?.index === i : undefined}
+          data-submenu={onSub ? i : undefined}
           disabled={it.disabled}
+          title={it.hint}
           className={cn(
-            "flex w-full cursor-pointer items-center justify-between gap-3 whitespace-nowrap rounded-sm px-2 py-1 text-left text-xs text-foreground hover:bg-accent disabled:cursor-default disabled:opacity-40",
+            "flex w-full cursor-pointer items-center justify-between gap-3 whitespace-nowrap rounded-sm px-2 py-1 text-left text-xs text-foreground hover:bg-accent focus-visible:bg-accent focus-visible:outline-none disabled:cursor-default disabled:opacity-40",
             onSub && sub?.index === i && "bg-accent"
           )}
           onMouseEnter={(e) => onSub?.(i, e.currentTarget)}
@@ -138,9 +192,13 @@ export function useCtxMenu() {
     return (
       <button
         key={i}
+        type="button"
+        role="menuitem"
+        tabIndex={-1}
         disabled={it.disabled}
+        title={it.hint}
         className={cn(
-          "block w-full cursor-pointer whitespace-nowrap rounded-sm px-2 py-1 text-left text-xs text-foreground hover:bg-accent disabled:cursor-default disabled:opacity-40",
+          "block w-full cursor-pointer whitespace-nowrap rounded-sm px-2 py-1 text-left text-xs text-foreground hover:bg-accent focus-visible:bg-accent focus-visible:outline-none disabled:cursor-default disabled:opacity-40",
           it.danger && "text-destructive"
         )}
         onMouseEnter={() => {
@@ -172,6 +230,7 @@ export function useCtxMenu() {
         <>
           <div
             ref={ref}
+            role="menu"
             className="fixed z-40 min-w-48 rounded-md border border-border bg-popover p-1 shadow-lg"
             style={{ left: state.x, top: state.y }}
           >
@@ -180,6 +239,8 @@ export function useCtxMenu() {
           {subItems?.kind === "submenu" && (
             <div
               ref={subRef}
+              role="menu"
+              aria-label={subItems.label}
               className="fixed z-40 min-w-40 rounded-md border border-border bg-popover p-1 shadow-lg"
               style={{ left: sub!.x, top: sub!.y }}
             >
