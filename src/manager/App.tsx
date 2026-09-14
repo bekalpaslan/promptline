@@ -201,13 +201,18 @@ export function App() {
       // New packs are file-backed: they own a .json under the profile that the
       // app keeps current — grab the file to back up or share the pack.
       let path = ""
+      let fileError: string | null = null
       try {
         path = await invoke<string>("create_pack_file", { name })
       } catch (e) {
-        sayErr(String(e))
+        fileError = String(e)
       }
+      // A pack is just a name, so it exists either way; but say one thing,
+      // not a failure and a success at once
       await persistPacks([...packMeta, { name, locked: false, path }])
-      say(`Pack "${name}" created`)
+      if (fileError)
+        sayErr(`Pack "${name}" created, but its file couldn't be written (${fileError}) — use "Give this pack a file…" to retry`)
+      else say(`Pack "${name}" created`)
     },
     [packMeta, packNames, persistPacks]
   )
@@ -229,7 +234,7 @@ export function App() {
           font: merged.font,
         })
       } catch (e) {
-        sayErr(String(e))
+        sayErr(`Couldn't save the preferences: ${e}`)
       }
     },
     [prefs]

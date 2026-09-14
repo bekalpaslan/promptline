@@ -799,7 +799,7 @@ button "Paste with 1 field empty"; filled → plain "Paste". Screenshot taken.
 Commit: see H5.
 
 ### UH4. Pack-file failure produces two contradictory toasts
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/App.tsx:139-146`; raw `String(e)` also at
 `App.tsx:168`, `Sidebar.tsx:320`, `Settings.tsx:283, 413`.
 **What:** on `create_pack_file` failure `sayErr(String(e))` runs, then the
@@ -810,6 +810,14 @@ an un-backed pack and is told it is fine.
 couldn't be written — use "Back with a file…" to retry`. Replace every bare
 `String(e)` with a sentence that names the action.
 **Evidence:** by reading; cross-verified.
+**Resolution:** `addPack` still creates the pack (a pack is just a name)
+but says one thing: `Pack "X" created, but its file couldn't be written
+(<reason>) — use "Give this pack a file…" to retry`; on success the green
+toast as before. Every bare `String(e)` now names the action (preferences,
+pack file, link). "Back with a file…" is renamed "Give this pack a file…"
+(UM21's suggestion) in the sidebar and Settings. Verified by reading and
+typecheck; the failure itself needs an unwritable packs directory. Commit:
+see commit list (UH4).
 
 ### UH5. Pin guard rejects legal pins and the message is wrong
 **Status:** DONE

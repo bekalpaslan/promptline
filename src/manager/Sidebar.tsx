@@ -308,7 +308,7 @@ export function Sidebar() {
       return [
         {
           kind: "item",
-          label: "Back with a file…",
+          label: "Give this pack a file…",
           run: () => {
             void (async () => {
               try {
@@ -318,9 +318,9 @@ export function Sidebar() {
                   : [...m.packMeta, { name, locked: false, path }]
                 await m.persistPacks(next)
                 await m.persist([...m.snippets]) // triggers the sync that fills the fresh file
-                say(`"${name}" is now file-backed`)
+                say(`"${name}" now has a file`)
               } catch (e) {
-                sayErr(String(e))
+                sayErr(`Couldn't create a file for "${name}": ${e}`)
               }
             })()
           },

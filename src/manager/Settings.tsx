@@ -214,7 +214,7 @@ export function Settings() {
                 </div>
                 {isOpen && (
                   <div className="flex flex-col gap-2 border-t border-border px-2.5 py-2 text-xs text-muted-foreground">
-                    <div className="break-all">{meta?.path || "not file-backed — this pack has no file yet"}</div>
+                    <div className="break-all">{meta?.path || "This pack has no file yet"}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {meta?.path ? (
                         <>
@@ -275,14 +275,14 @@ export function Settings() {
                                   : [...m.packMeta, { name, locked: false, path }]
                                 await m.persistPacks(next)
                                 await m.persist([...m.snippets])
-                                say(`"${name}" is now file-backed`)
+                                say(`"${name}" now has a file`)
                               } catch (e) {
-                                sayErr(String(e))
+                                sayErr(`Couldn't create a file for "${name}": ${e}`)
                               }
                             })()
                           }
                         >
-                          Back with a file…
+                          Give this pack a file…
                         </Button>
                       )}
                       <Button
@@ -407,7 +407,7 @@ export function Settings() {
           style={{ background: "#d97757" }}
           onClick={() => {
             void invoke("open_url", { url: "https://buymeacoffee.com/hurryupbob" }).catch((e) =>
-              sayErr(String(e))
+              sayErr(`Couldn't open the link: ${e}`)
             )
           }}
         >
