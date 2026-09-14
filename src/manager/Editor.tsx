@@ -92,21 +92,37 @@ function DeleteBadge({ onDelete }: { onDelete: () => void }) {
   )
 }
 
+// A parameter name is lowercase letters and underscores (BEHAVIOR.md); what
+// the user typed is folded into that, and the fold is shown before Enter
+// rather than discovered in the chip afterwards
+const paramName = (raw: string) => raw.trim().toLowerCase().replace(/[^a-z_]+/g, "_").replace(/^_+|_+$/g, "")
+
 function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name: string) => void }) {
+  const [raw, setRaw] = useState("")
+  const name = paramName(raw)
+  const differs = raw.trim() !== "" && name !== raw.trim()
   return (
-    <input
-      placeholder={placeholder}
-      aria-label={placeholder.replace(/^\+ /, "Add ").replace(/…$/, "")}
-      spellCheck={false}
-      className="w-28 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
-      onKeyDown={(e) => {
-        if (e.key !== "Enter") return
-        const name = e.currentTarget.value.trim().toLowerCase().replace(/[^a-z_]+/g, "_").replace(/^_+|_+$/g, "")
-        if (!name) return
-        onAdd(name)
-        e.currentTarget.value = ""
-      }}
-    />
+    <span className="flex items-center gap-1.5">
+      <input
+        value={raw}
+        placeholder={placeholder}
+        aria-label={placeholder.replace(/^\+ /, "Add ").replace(/…$/, "")}
+        spellCheck={false}
+        className="w-28 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
+        onChange={(e) => setRaw(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return
+          if (!name) return
+          onAdd(name)
+          setRaw("")
+        }}
+      />
+      {differs && (
+        <span className="text-xs text-muted-foreground" role="status">
+          {name ? `will insert {${name}}` : "lowercase letters and _ only"}
+        </span>
+      )}
+    </span>
   )
 }
 
@@ -624,6 +640,12 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
 
       <div className="flex flex-col gap-3 rounded-xl bg-card p-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview</span>
+        {/* The one line of syntax help that doesn't vanish once typing starts */}
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          <code>{"{clipboard}"}</code> <code>{"{date}"}</code> <code>{"{time}"}</code> fill themselves ·{" "}
+          <code>{"{field}"}</code> asks each time · <code>{"{{config}}"}</code> uses the value saved under
+          Advanced options · names are lowercase letters and _ only
+        </p>
         {/* The field's gray fills the card below the header, edge to edge */}
         <TokenPreview text={text} configValues={configValues} className="-mx-3 -mb-3 rounded-none rounded-b-xl" />
       </div>
