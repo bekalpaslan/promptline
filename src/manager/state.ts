@@ -56,6 +56,11 @@ export interface ManagerApi {
   openGenerate(): void
   settingsOpen: boolean
   showSettings(open: boolean): void
+  /**
+   * Where the editor parks its pending autosave so a quit request can
+   * flush it: set while a save is scheduled, cleared when it lands.
+   */
+  pendingFlush: { current: (() => Promise<void>) | null }
 }
 
 export const ManagerCtx = createContext<ManagerApi>(null!)

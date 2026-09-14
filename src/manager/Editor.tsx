@@ -198,6 +198,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     saveTimer.current = null
     const cur = latest.current
     const mgr = mRef.current
+    mgr.pendingFlush.current = null
     const existing = mgr.snippets.find((s) => s.id === snippet.id)
     if (!existing) return
     let targetPack = cur.pack.trim() || existing.pack || DEFAULT_PACK
@@ -227,12 +228,16 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     if (saveTimer.current) clearTimeout(saveTimer.current)
     // A failed save has already been toasted by updateSnippet
     saveTimer.current = setTimeout(() => void commit().catch(() => {}), 600)
+    // Park the flush so a quit request can run it before the process exits
+    mRef.current.pendingFlush.current = () => commit().catch(() => {})
   }, [commit])
 
   // Flush pending edits when switching prompts / unmounting
   useEffect(() => {
+    const flushRef = mRef.current.pendingFlush
     return () => {
       if (saveTimer.current) void commit().catch(() => {})
+      flushRef.current = null
     }
   }, [commit])
 

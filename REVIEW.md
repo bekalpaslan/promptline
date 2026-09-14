@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 2 | 11 | 3 | 16 |
+| TODO | 0 | 1 | 11 | 2 | 14 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 11 | 1 | 5 | 23 |
+| DONE | 6 | 12 | 1 | 6 | 25 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -541,7 +541,7 @@ after clicking Dark; light-mode toast screenshot checked. Commit: `195215d`.
 points at the body's note and BEHAVIOR.md. Commit: `17766a9`.
 
 ### M12. Pending editor autosave is lost on tray Quit
-**Status:** TODO
+**Status:** DONE
 **Where:** `Editor.tsx:226-229` (600 ms debounce), `lib.rs:994`
 (`app.exit(0)`).
 **Failure:** type, then Quit from the tray within 600 ms: the last edit never
@@ -551,6 +551,21 @@ reaches disk. Also true for Windows shutdown.
 "Saving…/Saved" caption or dirty marker anywhere, so the user has no signal
 that it is safe to close; add a two-state caption near the title driven by
 `saveTimer`.
+**Resolution (D3: the handshake, not `beforeunload`):** `app.exit(0)` from
+the tray tears the webview down without an unload, so `beforeunload` could
+not have caught the very case in the finding. Tray Quit now calls
+`request_quit`: it emits `quit-requested` to the manager and starts a
+1.5 s fallback timer; the manager runs the editor's parked autosave
+(`pendingFlush`, set when a save is scheduled, cleared when it lands or the
+editor unmounts) and then invokes `quit_now`. If the webview never answers,
+the timer exits anyway, so Quit cannot hang. Windows shutdown is out of
+scope (noted in BACKLOG). The "Saving…/Saved" caption suggested by the UI
+pass is UM12-adjacent polish and deferred (BACKLOG).
+- *Tests added:* none automated (needs the process).
+- *Manual verification:* dev build. Selected "Test", typed "Test M12",
+  called `request_quit_cmd` 100 ms later: the process exited (code 0)
+  and `snippets.json` holds "Test M12". Title restored afterwards.
+- *Commit:* see commit list (M12).
 
 ### M13. `submitForm` mutates an object that lives in React state
 **Status:** DONE
@@ -1284,7 +1299,7 @@ change product behavior, in which case the item is BLOCKED and asked.
 |---|---|---|---|
 | D1 | H2: when the hotkey fires while the popup is open, **toggle** (hide) or **ignore**? | Toggle matches Raycast/Alfred; ignore is the minimal change. Recommend ignore now, toggle as a follow-up | DONE — ignore (a repeat re-focuses the open popup); toggle-to-hide noted in BACKLOG |
 | D2 | M9: add a CSP? Hardens a local-only app; every future inline style/data URL must be allowed explicitly | Recommend yes with the policy in M9, verified in dev and a release build | DONE — added; enforced in release, not injectable into the Vite dev page |
-| D3 | M12: flush the editor on quit via `beforeunload` (cheap, may miss OS shutdown) or a Rust handshake (robust, more code)? | Recommend the cheap one now | TODO — see M12 for the choice made and why |
+| D3 | M12: flush the editor on quit via `beforeunload` (cheap, may miss OS shutdown) or a Rust handshake (robust, more code)? | Recommend the cheap one now | DONE — handshake with a 1.5 s fallback; `beforeunload` never fires on `app.exit`, so the cheap option would not have fixed the failure |
 | D4 | L2: remove the unused shadcn components, or keep them as a palette? | Recommend remove; `npx shadcn add` restores any in seconds | DONE — removed nine; `input`/`label`/`kbd`/`separator` kept for UL6 adoption |
 | D5 | Add a minimal ESLint config (`react-hooks`, `typescript-eslint`) so the nine `eslint-disable` comments mean something, or delete the comments? | Recommend add; ~20 lines, and `react-hooks/exhaustive-deps` catches stale closures like H1 | TODO — add |
 | D6 | Split `Editor.tsx` (628), `GenerateDialog.tsx` (434), `Settings.tsx` (428)? Cuts: `Editor` → `ParamsPanel` + `TagStrip`; `GenerateDialog` → `generate-instructions.ts` (pure, testable) + dialog; `Settings` → `HotkeyRecorder` + `LibraryCard` | Pure moves, no behavior change; defer if you prefer the files as they are | TODO — defer until correctness work is done |
@@ -1411,6 +1426,7 @@ passed at its commit and the manual check performed.
 | UM7 | ✓ | ✓ 37/37 | ✓ 18/18 | ungroup → Undo restores the label | `aed6f92` |
 | UH4 | ✓ | ✓ 37/37 | ✓ 18/18 | by reading (needs an unwritable packs dir) | `33ebab9` |
 | UM16 | ✓ | ✓ 37/37 | ✓ 18/18 | label | `2e1eadd` |
+| M12 + D3 | ✓ | ✓ 37/37 | ✓ 18/18 | edit, quit 100 ms later → process exits, edit on disk | (M12 commit) |
 
 ## Commit list
 

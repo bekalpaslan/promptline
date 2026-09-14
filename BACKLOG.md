@@ -20,6 +20,13 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   already highlighted in the preview card and rendered live in the fill-in
   form, so the second bar only cost a row of prompts.
 
+## Manager
+
+- **Flush the editor on Windows shutdown** — tray Quit now flushes a
+  pending autosave (BEHAVIOR.md "Quitting"); `WM_QUERYENDSESSION` does not.
+- **"Saving… / Saved" caption in the editor** — there is no visible signal
+  that an edit has reached disk (UI review, M12).
+
 ## Popup
 
 - **Hotkey toggles the popup closed** — a press while the popup is open

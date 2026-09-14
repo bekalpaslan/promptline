@@ -1112,6 +1112,38 @@ fn paste_snippet(
     Ok(())
 }
 
+/// Quit, but let the manager flush a pending autosave first: the editor
+/// saves on a 600 ms debounce, so Quit from the tray right after typing
+/// used to drop the last edit. The manager answers `quit-requested` with
+/// `quit_now`; if it doesn't (webview gone or hung) we exit anyway after a
+/// grace period, so Quit can never hang.
+fn request_quit(app: &AppHandle) {
+    let asked = app
+        .get_webview_window("main")
+        .map(|w| w.emit("quit-requested", ()).is_ok())
+        .unwrap_or(false);
+    if !asked {
+        app.exit(0);
+        return;
+    }
+    let handle = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(Duration::from_millis(1500));
+        handle.exit(0);
+    });
+}
+
+#[tauri::command]
+fn quit_now(app: AppHandle) {
+    app.exit(0);
+}
+
+/// Tray "Quit" and the manager's answer share one path.
+#[tauri::command]
+fn request_quit_cmd(app: AppHandle) {
+    request_quit(&app);
+}
+
 fn show_main(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
         let _ = w.show();
@@ -1586,7 +1618,9 @@ pub fn run() {
             get_clipboard_text,
             set_clipboard_text,
             hide_popup,
-            paste_snippet
+            paste_snippet,
+            quit_now,
+            request_quit_cmd
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -1630,7 +1664,7 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => show_main(app),
-                    "quit" => app.exit(0),
+                    "quit" => request_quit(app),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {

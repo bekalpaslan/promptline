@@ -217,6 +217,15 @@ Migrations run on load in `apply_snippet_migrations` (v2 `category` becomes the
 first tag; packless prompts get a default pack) and via `#[serde(default)]` on
 every field added since. Old data must keep opening.
 
+## Quitting
+
+Tray Quit is a handshake, not an `app.exit`: Rust emits `quit-requested`,
+the manager runs the editor's pending autosave (the 600 ms debounce would
+otherwise lose the last edit) and answers with `quit_now`; Rust exits on
+its own after 1.5 s if the webview never answers, so Quit can't hang.
+`beforeunload` would not have done it — `app.exit` tears the webview down
+without firing it.
+
 ## Content Security Policy
 
 `tauri.conf.json` sets a CSP: only the app's own scripts, styles (inline

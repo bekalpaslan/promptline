@@ -40,6 +40,8 @@ export function App() {
   const [hotkey, setHotkeyState] = useState("ctrl+shift+v")
   const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100", font: "outfit" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
+  // The editor's debounced autosave, if one is pending (see quit-requested)
+  const pendingFlush = useRef<(() => Promise<void>) | null>(null)
 
   // Latest snippets for callbacks that outlive a render (event listeners)
   const snippetsRef = useRef(snippets)
@@ -297,11 +299,23 @@ export function App() {
     })
     // The popup writes too (create-from-clipboard, pins, use counts) — refresh
     const unChanged = listen<number>("snippets-changed", () => void reloadLibrary())
+    // Tray Quit asks first so a pending autosave reaches disk; Rust exits on
+    // its own after a grace period if this never answers
+    const unQuit = listen("quit-requested", () => {
+      void (async () => {
+        try {
+          await pendingFlush.current?.()
+        } finally {
+          await invoke("quit_now")
+        }
+      })()
+    })
     return () => {
       void unEdit.then((f) => f())
       void unNotice.then((f) => f())
       void unFirst.then((f) => f())
       void unChanged.then((f) => f())
+      void unQuit.then((f) => f())
     }
   }, [reloadLibrary])
 
@@ -330,6 +344,7 @@ export function App() {
       openGenerate: () => setGenOpen(true),
       settingsOpen,
       showSettings: setSettingsOpen,
+      pendingFlush,
     }),
     [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
   )
