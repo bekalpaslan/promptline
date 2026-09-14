@@ -2,9 +2,10 @@
 
 > **Status (2026-07-12): all phases implemented.** Phase 0 in commit `27793f0`;
 > test infra in `e43cbd0`; Phases 1–5 in the full-rework commit that follows.
-> Two deliberate deviations: the popup's two bottom meta-bars (hint + clipboard
-> preview) were kept separate rather than merged (2.6), and the long-term
-> "direct API call" variant of 4.4 remains future work.
+> Two deliberate deviations at the time: the popup's two bottom meta-bars
+> (hint + clipboard preview) were kept separate rather than merged (2.6) —
+> since resolved on 2026-08-15 by removing the clipboard bar (see BACKLOG.md)
+> — and the long-term "direct API call" variant of 4.4 remains future work.
 
 Synthesized from three parallel audits (2026-07-12): UX heuristics (Nielsen/Krug,
 severity-rated), visual design system (tokens/type/spacing/states/palette), and

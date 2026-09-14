@@ -51,11 +51,11 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 0 | 3 | 2 | 5 |
+| TODO | 0 | 0 | 0 | 0 | 0 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 7 | 13 | 9 | 6 | 35 |
-| DECLINED | 0 | 0 | 0 | 0 | 0 |
+| DONE | 7 | 13 | 11 | 7 | 38 |
+| DECLINED | 0 | 0 | 1 | 1 | 2 |
 | **Total** | **7** | **13** | **12** | **8** | **40** |
 
 UI findings (UH, UM, UL — see "UI findings" below; UL9 is a keep-list, not
@@ -721,12 +721,16 @@ Manual: a temp prompt titled `🚀 Root cause L4` searched with `root` showed
 the underlined run `Root`. Commit: `055d067`.
 
 ### L5. Search ergonomics (design notes, not defects)
-**Status:** TODO
+**Status:** DECLINED
 - Multi-word queries must match as one subsequence including the space
   (`core.js:85-101`); "root fix" misses "Root cause first" on title and falls
   to body. Word-wise AND matching would rank better; a ranking decision.
 - A bare `>` in the query is dropped (`core.js:112`), so "a > b" and "a>b"
   differ. Documented by the test; acceptable.
+**Resolution:** declined as a defect — both are documented ranking
+decisions with tests (`parseQuery` bare sigils; `rankSnippets` tiers). The
+word-wise matching idea is in BACKLOG under "Search" for its own discussion;
+the bare-`>` behaviour stays as tested.
 
 ### L6. Non-text clipboard reads as empty
 **Status:** DONE
@@ -803,7 +807,7 @@ brand colours carry a comment (UL5); dark-mode `--border` is 16 % (UM20).
 Commit: see commit list (theme).
 
 ### L11. Docs drift
-**Status:** TODO
+**Status:** DONE
 - `UI-REWORK-ROADMAP.md` (lines 3-6) says the two meta-bars were "kept
   separate"; `BACKLOG.md` says the clipboard bar was removed on 2026-08-15.
   The backlog is right.
@@ -816,9 +820,18 @@ Commit: see commit list (theme).
 - `lib.rs:648-650` (M11).
 - README, the macOS note, the `platform` module description, and BACKLOG's
   open items all match the code.
+**Resolution:** the roadmap header now records that the clipboard bar was
+removed on 2026-08-15; BEHAVIOR.md's state table lists `packs/deleted/`,
+`packs/generated/` and `*.corrupt-*`; the draft sweep has its own paragraph
+(with the popup's L7 guarantee); M11's comment was fixed in `17766a9`; the
+capability description in L2. BEHAVIOR.md also gained sections for every
+non-obvious decision this review introduced (atomic writes and quarantine,
+intent-level writes and the revision guard, the repeat-hotkey guard, the
+quit handshake, the CSP, pack operations, the popup's undo, theme tokens).
+Commit: see commit list (docs).
 
 ### L12. Build and release
-**Status:** TODO
+**Status:** DONE
 - Versions consistent (0.2.4 × 3). `dist/` ignored. `src-tauri/gen/schemas`
   committed, as Tauri expects.
 - No `lint` script; `typecheck` and both test suites exist. No CI in the repo.
@@ -829,6 +842,12 @@ Commit: see commit list (theme).
   `index.css`.
 - `typescript ~6`, `vite ^8`, `@vitejs/plugin-react ^6` are current majors;
   `package-lock.json` is committed.
+**Resolution:** `npm run lint` exists (D5); `.github/workflows/ci.yml` runs
+lint, typecheck, `node --test` and `cargo test` on `windows-latest`;
+`index.css` explains why `shadcn` is a runtime dependency; versions were left
+at 0.2.4 (bumping is a release decision). A release build
+(`tauri build --no-bundle`) was produced and exercised for M9. Commit: see
+commit list (tooling).
 
 ---
 
@@ -1601,8 +1620,8 @@ change product behavior, in which case the item is BLOCKED and asked.
 | D2 | M9: add a CSP? Hardens a local-only app; every future inline style/data URL must be allowed explicitly | Recommend yes with the policy in M9, verified in dev and a release build | DONE — added; enforced in release, not injectable into the Vite dev page |
 | D3 | M12: flush the editor on quit via `beforeunload` (cheap, may miss OS shutdown) or a Rust handshake (robust, more code)? | Recommend the cheap one now | DONE — handshake with a 1.5 s fallback; `beforeunload` never fires on `app.exit`, so the cheap option would not have fixed the failure |
 | D4 | L2: remove the unused shadcn components, or keep them as a palette? | Recommend remove; `npx shadcn add` restores any in seconds | DONE — removed nine; `input`/`label`/`kbd`/`separator` kept for UL6 adoption |
-| D5 | Add a minimal ESLint config (`react-hooks`, `typescript-eslint`) so the nine `eslint-disable` comments mean something, or delete the comments? | Recommend add; ~20 lines, and `react-hooks/exhaustive-deps` catches stale closures like H1 | TODO — add |
-| D6 | Split `Editor.tsx` (628), `GenerateDialog.tsx` (434), `Settings.tsx` (428)? Cuts: `Editor` → `ParamsPanel` + `TagStrip`; `GenerateDialog` → `generate-instructions.ts` (pure, testable) + dialog; `Settings` → `HotkeyRecorder` + `LibraryCard` | Pure moves, no behavior change; defer if you prefer the files as they are | TODO — defer until correctness work is done |
+| D5 | Add a minimal ESLint config (`react-hooks`, `typescript-eslint`) so the nine `eslint-disable` comments mean something, or delete the comments? | Recommend add; ~20 lines, and `react-hooks/exhaustive-deps` catches stale closures like H1 | DONE — `eslint.config.mjs` (js + typescript-eslint recommended + react-hooks; `exhaustive-deps` warns; the React-Compiler-only `refs` and `set-state-in-effect` rules are off with the reason in the config). `npm run lint` is clean; one stale disable directive removed, one real missing dependency fixed |
+| D6 | Split `Editor.tsx` (628), `GenerateDialog.tsx` (434), `Settings.tsx` (428)? Cuts: `Editor` → `ParamsPanel` + `TagStrip`; `GenerateDialog` → `generate-instructions.ts` (pure, testable) + dialog; `Settings` → `HotkeyRecorder` + `LibraryCard` | Pure moves, no behavior change; defer if you prefer the files as they are | DECLINED for this pass — no behaviour change and a large diff on files this review already touched heavily; recorded in BACKLOG under "Code structure" |
 | D7 | Commit the in-progress groups work first (coherent and green), then land the fixes on top? | Recommend yes; small commits on a clean base | DONE — `1f548bc` (gitignore), `7265cf5` (groups work, SizeDebug, window sizes) |
 | D8 | UH2: give the popup its own undo (a timed "Deleted — U to undo" strip, popup-local state) or route popup deletes through the manager so `deleteWithUndo` covers both? | Popup-local is self-contained and works with the manager closed; routing via the manager depends on H6's Rust-side mutations landing first. Recommend popup-local now, revisit after H6 | DONE — popup-local (`add_snippet` re-adds by id, so nothing is lost) |
 

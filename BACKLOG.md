@@ -20,6 +20,21 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   already highlighted in the preview card and rendered live in the fill-in
   form, so the second bar only cost a row of prompts.
 
+## Code structure
+
+- **Split the three largest components** — `Editor.tsx` (params panel + tag
+  strip), `GenerateDialog.tsx` (pure `generate-instructions.ts` + dialog),
+  `Settings.tsx` (hotkey recorder + library card). Pure moves, no behaviour
+  change; deferred from the 2026-09 review (D6) to keep that diff readable.
+
+## Search
+
+- **Word-wise fuzzy matching** — "root fix" should match "Root cause first"
+  on title; today a multi-word query is one subsequence including the space
+  (review L5). A ranking change that deserves its own discussion.
+- **Virtualize the popup list** only when a real library shows the need
+  (memoized rows handle ~1k today).
+
 ## Manager
 
 - **Flush the editor on Windows shutdown** — tray Quit now flushes a

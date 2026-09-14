@@ -167,6 +167,8 @@ of what was generated.
 | `snippets.json` | `Vec<Snippet>` — the library |
 | `config.json` | Hotkey, pack metadata, prefs, popup size, first-run flag |
 | `packs/*.json` | Per-pack shareable content, derived from the library |
+| `packs/deleted/*.json` | Files of deleted packs, retired rather than unlinked (numbered on repeats) |
+| `packs/generated/*.json` | Scratch files the Generate dialog's survey mode hands to an agent |
 | `*.corrupt-<unix seconds>` | A data file that failed to parse, moved aside untouched |
 
 **Every write goes through `write_atomic`**: the bytes land in a sibling
@@ -226,6 +228,13 @@ with its revision, and the store lock serialises every read-modify-write.
 **Preferences are mirrored into `localStorage`** as well as `config.json`. The
 popup must apply theme, scale and font on first paint — a round-trip to Rust
 would show a flash of the wrong theme on every summon.
+
+**The manager sweeps abandoned drafts at startup.** "+ New" creates a real
+prompt titled "New prompt" with an empty body so the editor has something to
+autosave into; one that was never filled in (that title, no text, never used)
+is deleted when the manager next starts (roadmap 0.7). The popup cannot make
+one: with an empty clipboard it refuses to save (L7), and a saved popup prompt
+always has a body.
 
 Migrations run on load in `apply_snippet_migrations` (v2 `category` becomes the
 first tag; packless prompts get a default pack) and via `#[serde(default)]` on
