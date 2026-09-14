@@ -63,10 +63,10 @@ a task):
 
 | Status | High | Medium | Low | Total |
 |---|---|---|---|---|
-| TODO | 6 | 8 | 4 | 18 |
+| TODO | 4 | 8 | 4 | 16 |
 | IN PROGRESS | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 |
-| DONE | 7 | 14 | 4 | 25 |
+| DONE | 9 | 14 | 4 | 27 |
 | DECLINED | 0 | 1 | 0 | 1 |
 | **Total** | **13** | **23** | **8** | **44** |
 
@@ -807,7 +807,7 @@ sit unimported (D4); colour is set by literal value in four places and each
 fails in the theme it was not tuned for (UH10, UH12, UH13).
 
 ### UH1. Hotkey recorder commits on the first keystroke and registers Shift+Tab
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Settings.tsx:49-83, 113-128`.
 **What:** recording starts on focus (:122) and the first valid combo is
 registered immediately (:76); no Apply, Cancel or Reset. `e.preventDefault()`
@@ -820,6 +820,17 @@ the field has no label or `aria-describedby`.
 explicit Record button; show the pending combo with Apply / Cancel / Reset to
 default. Related: H4 (a failed re-register must not drop the old hotkey).
 **Evidence:** by reading; cross-verified.
+**Resolution:** a Record button arms the read-only field (focus alone no
+longer records); Tab and Shift+Tab pass through untouched; a valid
+combination becomes a pending value shown in the field with Apply / Cancel;
+Apply registers it (a refusal keeps the old hotkey, H4, and the pending
+value for another try); "Reset to Ctrl+Shift+V" appears when the hotkey
+differs from the default; the field has `aria-describedby` help and an
+sr-only status announces recording / recorded. Verified in the dev build:
+Record → "Recording…", Tab/Shift+Tab not prevented, Ctrl+Alt+Shift+F8 →
+pending with Apply/Cancel and config unchanged, Cancel → back to the
+current hotkey, Apply of a combination → "Hotkey set to …". Commit:
+`082041b`.
 
 ### UH2. Popup delete is permanent with no undo
 **Status:** DONE
@@ -922,7 +933,7 @@ Verified in the dev build: `aria-activedescendant` equals the selected
 row's id, 32 options, 9 groups. Commit: `345d900`.
 
 ### UH7. Context menus cannot be operated from the keyboard
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/ctx-menu.tsx:35-39` (`open`), `:122-131` (submenu),
 `:190` (portal); `Sidebar.tsx:468, 663, 696`.
 **What:** `open()` sets state only; the portal lands on `document.body`; no
@@ -934,6 +945,16 @@ export, rename, lock, delete are all behind it.
 **Fix:** focus the first item on open; roving Up/Down/Home/End; restore focus
 on close; ArrowRight/Enter opens a submenu, ArrowLeft/Escape returns.
 **Evidence:** by reading; cross-verified.
+**Resolution:** `ctx-menu.tsx` focuses the first item on open, roves with
+Up/Down/Home/End (wrapping), opens a submenu with Right or Enter and lands
+on its first item, returns with Left, closes with Escape and gives focus
+back to the opener; panels are `role="menu"`, items `role="menuitem"` with
+`aria-haspopup`/`aria-expanded` on submenu items, and every item accepts a
+`hint` tooltip (used by UM21). Rows, pack headers and group headers open
+their menu in place on the Menu key or Shift+F10. Verified in the dev
+build: Menu key on a row → focus on "Pin"; Down/End/Home rove; Right on
+"Desktop ›" opens the submenu focused on "No group" (`aria-expanded=true`);
+Left returns; Escape closes with focus back on the row. Commit: `d4d7927`.
 
 ### UH8. Settings pack rows are tabbable but inert
 **Status:** DONE
@@ -946,8 +967,7 @@ sync / export / back with a file / delete (:218-315) from keyboard users.
 **Evidence:** by reading; cross-verified.
 **Resolution:** the pack rows are `<button aria-expanded>` (styling kept);
 the lock icon has an `aria-label`. Verified in the dev build: a click flips
-`aria-expanded` and reveals the three file actions and Delete. Commit: see
-commit list (manager semantics).
+`aria-expanded` and reveals the three file actions and Delete. Commit: `23506c7`.
 
 ### UH9. Popup pack headers collapse by mouse only
 **Status:** DONE
@@ -1139,8 +1159,7 @@ only cue is the gear tint.
 **Evidence:** by reading; cross-verified.
 **Resolution:** the pane opens with an `h1` "Settings" and a ✕ ("Close
 settings"); Escape outside a text field closes it, unless an armed delete
-takes the key first (UM23). Verified in the dev build. Commit: see commit
-list (manager semantics).
+takes the key first (UM23). Verified in the dev build. Commit: `23506c7`.
 
 ### UM10. Empty states: no actions, three treatments, none in the sidebar
 **Status:** TODO
@@ -1165,8 +1184,7 @@ density, font and scale controls; the editor's title, pack, group, prompt
 text, tag input, param inputs, config values, new-pack input and tag-remove
 buttons carry `aria-label`s; the Generate topic and the sidebar filter too;
 the popup's form labels got `htmlFor` in UH3. Verified in the dev build
-(four `label[for]`/`id` pairs, five editor labels). Commit: see commit list
-(manager semantics).
+(four `label[for]`/`id` pairs, five editor labels). Commit: `23506c7`.
 
 ### UM12. Tab hijack in the popup strands three controls
 **Status:** DECLINED
@@ -1199,8 +1217,7 @@ preview card is `role="tooltip"` and the row it describes carries
 `aria-describedby` (`345d900`). Manager — sidebar pack and group headers are
 `role="button"` with `aria-expanded`, rows carry `aria-current` (active) and
 `aria-pressed` (multi-selected); `DeleteBadge` is a `<button>` with a label
-and a 30 px hit area. Verified in the dev build. Commit: see commit list
-(manager semantics).
+and a 30 px hit area. Verified in the dev build. Commit: `23506c7`.
 
 ### UM14. No live region in the popup; no reduced-motion handling
 **Status:** DONE
@@ -1228,7 +1245,7 @@ at `:816`.
 **Resolution:** `DeleteBadge` gets the `after:-inset-2` hit area (14 px
 badge, 30 px target); `AddPill` and the editor's tag pills use `py-1`. The
 popup's `Kbd` beside panel items is decorative (the whole row is the
-button). By reading. Commit: see commit list (manager semantics).
+button). By reading. Commit: `23506c7`.
 
 ### UM16. "Sync from file" does not sync
 **Status:** DONE
@@ -1247,7 +1264,7 @@ without `truncate`/`min-w-0`.
 **Resolution:** popup rows carry `title={s.title}` (or the clipboard-empty
 hint, L6; `345d900`); sidebar rows and headers carry `title`s; Settings
 pack names too; ImportCuration titles are `min-w-0 truncate` with a `title`
-and capped at half the row. Commit: see commit list (manager semantics).
+and capped at half the row. Commit: `23506c7`.
 
 ### UM18. Placeholder syntax help disappears; field names are sanitised silently
 **Status:** TODO
@@ -1342,8 +1359,7 @@ labels sit in an `aria-live="assertive"` span and the editor button's
 the capture phase and `preventDefault`, so the same Escape does not also
 close Settings. Context-menu and popup Escapes keep closing their surface,
 which disarms as a side effect. Verified in the dev build: armed → Esc →
-"Delete pack" with Settings still open; a second Esc closes it. Commit: see
-commit list (manager semantics).
+"Delete pack" with Settings still open; a second Esc closes it. Commit: `23506c7`.
 
 ### UL1. List-mode hint bar omits Esc
 **Status:** DONE
@@ -1395,7 +1411,7 @@ and `text-xs uppercase` (`Settings.tsx:16`).
 `h1` ("Prompts"); Settings opens with an `h1` ("Settings") above its `h2`
 cards; the popup's search box is `role="search"`. The `h2` size split
 (sidebar title vs card captions) is resolved by the `h1`s: cards are now
-the only `h2`. Commit: see commit list (manager semantics).
+the only `h2`. Commit: `23506c7`.
 
 ### UL8. Three identical "Edit" buttons
 **Status:** DONE
@@ -1403,7 +1419,7 @@ the only `h2`. Commit: see commit list (manager semantics).
 `aria-pressed`; fix with `aria-label={editing ? \`Done editing ${title}\` : \`Edit ${title}\`}`.
 **Resolution:** done as proposed (`aria-pressed` + the two labels).
 Verified in the dev build ("Done editing Built-ins", pressed=true). Commit:
-see commit list (manager semantics).
+see commit list (`23506c7`).
 
 ### UL9. What the UI does well (keep while fixing)
 The paste loop is keyboard-first with a hint bar that teaches in place and
@@ -1558,7 +1574,9 @@ passed at its commit and the manual check performed.
 | M5 + L4 | ✓ | ✓ 41/41 | ✓ 18/18 | ArrowDown touches 2 of 32 rows; hover/pill/preview unchanged; emoji underline aligned | `055d067` |
 | L1 + L3 | ✓ | ✓ 42/42 | ✓ 18/18 | popup Ctrl+N and manager New prompt default to the last-used pack | `65ca6a0` |
 | UH6, UH9, UM14, L6, L7, UL2 (+UM13/UM17 popup half) | ✓ | ✓ 42/42 | ✓ 18/18 | combobox/listbox/option ids; Left/Ctrl+Right collapse/expand; menu and tooltip roles; empty-clipboard states | `345d900` |
-| UH8, UM9, UM11, UM13, UM15, UM17, UM19, UM23, UL7, UL8 | ✓ | ✓ 42/42 | ✓ 18/18 | Settings h1/close/Esc, labelled rows, pack rows as buttons, armed deletes disarm on Esc, editor labels, badge button, toaster bottom-right, Ctrl+Z undo | (manager semantics commit) |
+| UH8, UM9, UM11, UM13, UM15, UM17, UM19, UM23, UL7, UL8 | ✓ | ✓ 42/42 | ✓ 18/18 | Settings h1/close/Esc, labelled rows, pack rows as buttons, armed deletes disarm on Esc, editor labels, badge button, toaster bottom-right, Ctrl+Z undo | `23506c7` |
+| UH7 | ✓ | ✓ 42/42 | ✓ 18/18 | Menu key opens; arrows rove; submenu Right/Left; Esc returns focus | `d4d7927` |
+| UH1 | ✓ | ✓ 42/42 | ✓ 18/18 | Record → pending → Apply/Cancel; Tab passes; Reset offered | `082041b` |
 
 ## Commit list
 
@@ -1598,6 +1616,9 @@ passed at its commit and the manual check performed.
 | `055d067` | M5, L4 | Popup: memoized rows, ranking in core, emoji-safe highlighting |
 | `65ca6a0` | L1, L3 | One library.ts for what both windows knew separately; honest bridge types |
 | `345d900` | UH6, UH9, UM14, L6, L7, UL2, UM13/UM17 (popup) | Popup: listbox semantics, keyboard pack collapse, honest empty states |
+| `23506c7` | UH8, UM9, UM11, UM13, UM15, UM17, UM19, UM23, UL7, UL8 | Manager: real semantics, labelled controls, consistent armed deletes |
+| `d4d7927` | UH7 | Context menus work from the keyboard |
+| `082041b` | UH1 | Settings: the hotkey recorder records, then asks before applying |
 
 ## Remaining risks and deliberate exclusions
 
