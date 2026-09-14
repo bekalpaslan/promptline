@@ -287,7 +287,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       {/* Base DialogContent caps at sm:max-w-sm — lift it, this dialog is content-heavy */}
       <DialogContent className="flex max-h-[92vh] w-[min(42rem,94vw)] max-w-none flex-col overflow-y-auto sm:max-w-none">
         <DialogHeader>
-          <DialogTitle className="text-sm">Generate a pack with Claude</DialogTitle>
+          <DialogTitle className="text-sm">Generate pack with Claude</DialogTitle>
           <DialogDescription className="sr-only">
             Generate a prompt pack from a topic, then review each prompt before importing.
           </DialogDescription>

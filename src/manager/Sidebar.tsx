@@ -407,12 +407,13 @@ export function Sidebar() {
         kind: "item",
         label: locked ? "New group (locked)" : "New group…",
         disabled: locked,
+        hint: locked ? "Unlock the pack first (this menu → Unlock)" : undefined,
         run: () => {
           ctx.open(x, y, [
             { kind: "header", text: `New group in ${name}` },
             {
               kind: "input",
-              placeholder: "Group name — creates a first prompt in it",
+              placeholder: "Group name — Enter creates a first prompt in it",
               onSubmit: (g) => {
                 if (!g) return
                 if (collapsed.has(name)) toggleCollapsed(name)
@@ -428,6 +429,7 @@ export function Sidebar() {
         label: locked ? "Delete (locked)" : "Delete pack…",
         danger: true,
         disabled: locked,
+        hint: locked ? "Unlock the pack first (this menu → Unlock)" : undefined,
         confirm: count ? `Really delete ${count} prompts?` : "Really delete pack?",
         run: () => void deletePack(name),
       },
@@ -438,7 +440,7 @@ export function Sidebar() {
         run: () => {
           ctx.open(x, y, [
             { kind: "header", text: "New pack" },
-            { kind: "input", placeholder: "Pack name", onSubmit: (n) => void m.addPack(n) },
+            { kind: "input", placeholder: "Pack name — Enter to create", onSubmit: (n) => void m.addPack(n) },
           ])
           return "keep"
         },
@@ -512,6 +514,7 @@ export function Sidebar() {
         kind: "submenu",
         label: (locked ? "🔒 " : "") + p,
         disabled: locked,
+        hint: locked ? "Locked — unlock it from its header menu" : undefined,
         run: () => moveTo(p, ""),
         items: [
           { kind: "header", text: p },
@@ -524,7 +527,7 @@ export function Sidebar() {
             run: () => {
               ctx.open(x, y, [
                 { kind: "header", text: `New group in ${p}` },
-                { kind: "input", placeholder: "Group name", onSubmit: (g) => g && moveTo(p, g) },
+                { kind: "input", placeholder: "Group name — Enter to move", onSubmit: (g) => g && moveTo(p, g) },
               ])
               return "keep"
             },
@@ -544,7 +547,7 @@ export function Sidebar() {
             { kind: "header", text: `Add tag to ${n} prompt${n === 1 ? "" : "s"}` },
             {
               kind: "input",
-              placeholder: "tag name",
+              placeholder: "Tag name — Enter to add",
               onSubmit: (raw) => {
                 const tag = raw.toLowerCase().replace(/[^a-z0-9_-]+/g, "")
                 if (!tag) return
@@ -579,9 +582,9 @@ export function Sidebar() {
       { kind: "sep" },
       {
         kind: "item",
-        label: `Delete ${n}…`,
+        label: `Delete ${n} prompt${n === 1 ? "" : "s"}…`,
         danger: true,
-        confirm: `Really delete ${n}?`,
+        confirm: `Really delete ${n} prompt${n === 1 ? "" : "s"}?`,
         run: () => void m.deleteWithUndo(ids, `Deleted ${n} prompts`),
       }
     )
@@ -927,7 +930,7 @@ export function Sidebar() {
                 m.openGenerate()
               }}
             >
-              ✦ or generate a pack with Claude…
+              ✦ Generate pack with Claude…
             </button>
           </div>
         ) : (

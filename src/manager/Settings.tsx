@@ -420,7 +420,7 @@ export function Settings() {
             className="h-auto bg-[#d97757] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#e2825f]"
             onClick={() => m.openGenerate()}
           >
-            + New (with Claude)
+            Generate pack with Claude…
           </Button>
           {newPackMode ? (
             <input
