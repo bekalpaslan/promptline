@@ -11,6 +11,12 @@ export interface Prefs {
   font: string // id into FONTS (lib/prefs.ts)
 }
 
+/** Extras a delete can carry so Undo brings back everything it removed. */
+export interface DeleteOpts {
+  /** A pack's metadata (lock flag) to restore with its prompts; its file is re-created */
+  pack?: PackMeta
+}
+
 export interface ManagerApi {
   snippets: Snippet[]
   packMeta: PackMeta[]
@@ -38,7 +44,7 @@ export interface ManagerApi {
    * can't duplicate what it puts back. Clears selection/active if they were
    * among the removed. Resolves with the number removed.
    */
-  deleteWithUndo(ids: Iterable<string>, label: string): Promise<number>
+  deleteWithUndo(ids: Iterable<string>, label: string, opts?: DeleteOpts): Promise<number>
   select(id: string | null): void
   setSelection(sel: Set<string>, anchor?: string | null): void
   selectionAnchor: string | null

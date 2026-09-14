@@ -286,12 +286,13 @@ export function Sidebar() {
     ])
   }
 
-  // Undo restores the prompts; the pack comes back with them because a pack
-  // is just a name (its file was retired to packs/deleted/, a new one is made)
+  // Undo restores the prompts and the pack's metadata (its lock flag); the
+  // file was retired to packs/deleted/ and a fresh one is made
   const deletePack = async (name: string) => {
     const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).map((s) => s.id)
+    const pack = m.packMeta.find((p) => p.name === name) ?? { name, locked: false }
     await m.persistPacks(m.packMeta.filter((p) => p.name !== name))
-    await m.deleteWithUndo(ids, `Deleted pack "${name}" (${ids.length} prompts)`)
+    await m.deleteWithUndo(ids, `Deleted pack "${name}" (${ids.length} prompt${ids.length === 1 ? "" : "s"})`, { pack })
   }
 
   // File actions for file-backed packs; non-backed packs get an upgrade action

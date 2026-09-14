@@ -950,7 +950,7 @@ without losing progress and toast when the file lands.
 **Evidence:** by reading; cross-verified.
 
 ### UM2. Pack-delete undo restores prompts but not the pack; empty-pack delete is silent
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/App.tsx:54-55`; `Sidebar.tsx:295-299`;
 `Settings.tsx:103-107`.
 **What:** `deleteWithUndo` returns early when nothing was removed, so
@@ -959,6 +959,12 @@ undo. For non-empty packs undo brings prompts back but `PackMeta` is gone.
 **Fix:** capture and restore `PackMeta` alongside the prompts; always toast.
 Follow-up to H1.
 **Evidence:** by reading; cross-verified.
+**Resolution:** `deleteWithUndo(ids, label, { pack })` captures the pack's
+`PackMeta`; deleting an empty pack still toasts with Undo; Undo restores
+the prompts and re-adds the metadata (lock flag kept, path cleared so
+`ensure_packs_backed` gives it a fresh file — the old one is in
+`packs/deleted/`). Both delete sites (sidebar, Settings) pass it. Manual:
+see verification note. Commit: see commit list (UM2).
 
 ### UM3. Copy-only gives no feedback, and the form button says "Paste" while copying
 **Status:** DONE
