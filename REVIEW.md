@@ -563,7 +563,7 @@ form-values path is exercised again in M3's paste check.
 and the `Config` type; both windows import it.
 
 ### L2. Dead code and stray dev aids
-**Status:** TODO
+**Status:** DONE
 - 13 unused shadcn components: `badge`, `collapsible`, `command`,
   `context-menu`, `dropdown-menu`, `input`, `input-group`, `kbd`, `label`,
   `scroll-area`, `select`, `separator`, `tooltip`. Tree-shaken from the
@@ -577,6 +577,15 @@ and the `Config` type; both windows import it.
   Decide: keep behind `import.meta.env.DEV` at the import site, or remove
   before committing the groups work.
 - `src-tauri/capabilities/default.json:4` still says "EasyPaste windows".
+**Resolution:** deleted nine unused primitives (`badge`, `collapsible`,
+`command`, `context-menu`, `dropdown-menu`, `input-group`, `scroll-area`,
+`select`, `tooltip`) and the `cmdk` dependency; kept `input`, `label`,
+`kbd`, `separator` because UL6/UM11/UM20 adopt them (D4 refined by UL6).
+`next-themes` went with M10. `SizeDebug` is mounted only behind
+`import.meta.env.DEV` at both sites, so production neither renders it nor
+attaches its listener. Capability description now names Promptline. The
+`eslint-disable` comments are D5's. Typecheck proves nothing imports the
+removed files. Commit: see commit list (L2).
 
 ### L3. TypeScript strictness gaps in the bridge
 **Status:** TODO
@@ -1195,7 +1204,7 @@ change product behavior, in which case the item is BLOCKED and asked.
 | D1 | H2: when the hotkey fires while the popup is open, **toggle** (hide) or **ignore**? | Toggle matches Raycast/Alfred; ignore is the minimal change. Recommend ignore now, toggle as a follow-up | DONE — ignore (a repeat re-focuses the open popup); toggle-to-hide noted in BACKLOG |
 | D2 | M9: add a CSP? Hardens a local-only app; every future inline style/data URL must be allowed explicitly | Recommend yes with the policy in M9, verified in dev and a release build | DONE — added; enforced in release, not injectable into the Vite dev page |
 | D3 | M12: flush the editor on quit via `beforeunload` (cheap, may miss OS shutdown) or a Rust handshake (robust, more code)? | Recommend the cheap one now | TODO — see M12 for the choice made and why |
-| D4 | L2: remove the unused shadcn components, or keep them as a palette? | Recommend remove; `npx shadcn add` restores any in seconds | TODO — remove |
+| D4 | L2: remove the unused shadcn components, or keep them as a palette? | Recommend remove; `npx shadcn add` restores any in seconds | DONE — removed nine; `input`/`label`/`kbd`/`separator` kept for UL6 adoption |
 | D5 | Add a minimal ESLint config (`react-hooks`, `typescript-eslint`) so the nine `eslint-disable` comments mean something, or delete the comments? | Recommend add; ~20 lines, and `react-hooks/exhaustive-deps` catches stale closures like H1 | TODO — add |
 | D6 | Split `Editor.tsx` (628), `GenerateDialog.tsx` (434), `Settings.tsx` (428)? Cuts: `Editor` → `ParamsPanel` + `TagStrip`; `GenerateDialog` → `generate-instructions.ts` (pure, testable) + dialog; `Settings` → `HotkeyRecorder` + `LibraryCard` | Pure moves, no behavior change; defer if you prefer the files as they are | TODO — defer until correctness work is done |
 | D7 | Commit the in-progress groups work first (coherent and green), then land the fixes on top? | Recommend yes; small commits on a clean base | DONE — `1f548bc` (gitignore), `7265cf5` (groups work, SizeDebug, window sizes) |

@@ -851,7 +851,7 @@ export function App() {
 function Shell({ children, hint }: { children: React.ReactNode; hint: React.ReactNode }) {
   return (
     <div className="flex h-dvh flex-col gap-2.5 overflow-hidden rounded-lg border border-border bg-background p-2.5 text-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.12)]">
-      <SizeDebug />
+      {import.meta.env.DEV && <SizeDebug />}
       {children}
       <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-1 pt-2.5 text-xs text-muted-foreground">
         {hint}

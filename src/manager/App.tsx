@@ -322,7 +322,7 @@ export function App() {
 
   return (
     <ManagerCtx.Provider value={api}>
-      <SizeDebug />
+      {import.meta.env.DEV && <SizeDebug />}
       <div className="flex h-dvh flex-col bg-background text-foreground">
         {firstRun !== "hidden" && (
           <div className="flex items-center gap-2 border-b border-border bg-primary/8 px-4 py-2 text-xs text-primary">
