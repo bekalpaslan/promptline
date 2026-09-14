@@ -80,6 +80,10 @@ interface PromptlineCore {
   fillFields(text: string, values: Record<string, string>): string
   expandBuiltins(text: string): string
   fuzzyScore(query: string, target: string): FuzzyResult | null
+  /** The popup's list order: filters, then pins/uses or title>tag>body fuzzy tiers */
+  rankSnippets(query: string, snippets: Snippet[]): { s: Snippet; indices: number[] | null }[]
+  /** Title split into code-point runs marked hit/miss from UTF-16 match indices */
+  highlightSegments(title: string, indices: number[] | null): { text: string; hit: boolean }[]
   parseQuery(raw: string): ParsedQuery
   matchesFilters(snippet: Snippet, query: ParsedQuery): boolean
   TAG_COLORS: string[]

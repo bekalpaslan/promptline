@@ -110,6 +110,53 @@
     return { score: 1000 + gaps, indices }; // subsequence ranks below contiguous
   }
 
+  // ---- Ranking ---------------------------------------------------------------------
+  // The popup's list order, as one pure function. No query text: pinned first,
+  // then most used, then title. With text: title matches rank above tag
+  // matches above body matches, each tier by fuzzy score, ties by uses.
+  // Returns [{s, indices}] where indices are title-highlight positions
+  // (UTF-16 offsets into the title; null for tag/body matches).
+  function rankSnippets(rawQuery, snippets) {
+    const q = parseQuery(rawQuery);
+    const pool = snippets.filter(s => matchesFilters(s, q));
+    if (!q.text) {
+      return pool
+        .slice()
+        .sort((a, b) => (+!!b.pinned - +!!a.pinned) || ((b.uses || 0) - (a.uses || 0)) || a.title.localeCompare(b.title))
+        .map(s => ({ s, indices: null }));
+    }
+    return pool
+      .map(s => {
+        const title = fuzzyScore(q.text, s.title);
+        if (title) return { s, score: title.score, indices: title.indices };
+        const tag = fuzzyScore(q.text, (s.tags || []).join(' '));
+        if (tag) return { s, score: 3000 + tag.score, indices: null };
+        const body = fuzzyScore(q.text, s.text);
+        if (body) return { s, score: 5000 + body.score, indices: null };
+        return null;
+      })
+      .filter(Boolean)
+      .sort((a, b) => (a.score - b.score) || ((b.s.uses || 0) - (a.s.uses || 0)))
+      .map(({ s, indices }) => ({ s, indices }));
+  }
+
+  // Split a title into code-point segments marked hit/miss from UTF-16
+  // match indices, so an emoji (two UTF-16 units) before a match doesn't
+  // shift every underline after it.
+  function highlightSegments(title, indices) {
+    const hits = new Set(indices || []);
+    const out = [];
+    let unit = 0;
+    for (const ch of title) {
+      const hit = hits.has(unit) || (ch.length === 2 && hits.has(unit + 1));
+      const last = out[out.length - 1];
+      if (last && last.hit === hit) last.text += ch;
+      else out.push({ text: ch, hit });
+      unit += ch.length;
+    }
+    return out;
+  }
+
   // ---- Search query parsing: `#tag`, `@pack` and `>group` filter terms -----
   // Returns {text, tags: [..], packs: [..], groups: [..]}
   function parseQuery(raw) {
@@ -306,6 +353,8 @@
     fillFields,
     expandBuiltins,
     fuzzyScore,
+    rankSnippets,
+    highlightSegments,
     parseQuery,
     matchesFilters,
     TAG_COLORS,

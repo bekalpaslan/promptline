@@ -96,6 +96,50 @@ test('fuzzyScore: no match returns null; empty query matches everything', () => 
   assert.deepEqual(core.fuzzyScore('', 'anything'), { score: 0, indices: [] });
 });
 
+// ---- ranking -------------------------------------------------------------------------
+
+test('rankSnippets: pins lead with no query, then uses, then title', () => {
+  const lib = [
+    { id: 'a', title: 'Zeta', text: '', tags: [], uses: 9, pinned: false },
+    { id: 'b', title: 'Alpha', text: '', tags: [], uses: 0, pinned: true },
+    { id: 'c', title: 'Beta', text: '', tags: [], uses: 2, pinned: false },
+    { id: 'd', title: 'Gamma', text: '', tags: [], uses: 2, pinned: false },
+  ];
+  assert.deepEqual(core.rankSnippets('', lib).map(e => e.s.id), ['b', 'a', 'c', 'd']);
+  assert.equal(core.rankSnippets('', lib)[0].indices, null);
+});
+
+test('rankSnippets: a title subsequence beats a contiguous tag match beats a body match', () => {
+  const lib = [
+    { id: 'body', title: 'Nothing here', text: 'plan the work', tags: [], uses: 50 },
+    { id: 'tag', title: 'Other', text: '', tags: ['plan'], uses: 50 },
+    { id: 'title', title: 'Pick a lane now', text: '', tags: [], uses: 0 },
+  ];
+  const r = core.rankSnippets('plan', lib);
+  assert.deepEqual(r.map(e => e.s.id), ['title', 'tag', 'body']);
+  assert.ok(Array.isArray(r[0].indices) && r[0].indices.length === 4);
+  assert.equal(r[1].indices, null);
+});
+
+test('rankSnippets honours #tag / @pack / >group filters', () => {
+  const lib = [
+    { id: 'a', title: 'A', text: '', tags: ['debug'], pack: 'P', group: 'g' },
+    { id: 'b', title: 'B', text: '', tags: ['review'], pack: 'P', group: '' },
+  ];
+  assert.deepEqual(core.rankSnippets('#debug', lib).map(e => e.s.id), ['a']);
+  assert.deepEqual(core.rankSnippets('>g', lib).map(e => e.s.id), ['a']);
+  assert.deepEqual(core.rankSnippets('@P', lib).map(e => e.s.id), ['a', 'b']);
+});
+
+test('highlightSegments keeps underlines aligned after an emoji (L4)', () => {
+  const title = '🚀 Root cause';
+  const { indices } = core.fuzzyScore('root', title);
+  const segs = core.highlightSegments(title, indices);
+  assert.deepEqual(segs, [{ text: '🚀 ', hit: false }, { text: 'Root', hit: true }, { text: ' cause', hit: false }]);
+  assert.deepEqual(core.highlightSegments('abc', null), [{ text: 'abc', hit: false }]);
+  assert.deepEqual(core.highlightSegments('', [0]), []);
+});
+
 // ---- query parsing / filters --------------------------------------------------
 
 test('parseQuery splits #tag and @pack terms from fuzzy text', () => {

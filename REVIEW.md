@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 1 | 11 | 2 | 14 |
+| TODO | 0 | 0 | 10 | 2 | 12 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 12 | 1 | 6 | 25 |
+| DONE | 6 | 13 | 2 | 6 | 27 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -428,7 +428,7 @@ each time while `promptline.json` and `my-prompts.json` kept theirs.
 Commit: `26fb8f2`.
 
 ### M5. Popup list rendering does redundant work per row and has no memoization
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:93-98` (`rowIcon` calls `requiredInputs`), `:624`
 (`requiredInputs` again), `:621-683` (`row` closure re-created every render),
 keyboard effect `:386-451` re-subscribes on every `sel` change.
@@ -439,6 +439,16 @@ tokenizations plus a 1k-row reconcile. Noticeable at 2-3k; fine today.
 **Fix:** a `useMemo` map id → `{inputs, Icon}` on `snippets`; a `memo`ized
 `Row` taking `(entry, selected, picked, compact)`. Leave virtualization until
 a real library shows the need.
+**Resolution:** ranking moved into `ui/core.js` as `rankSnippets(query,
+snippets)` (pure, tested: pins/uses/title order, title > tag > body tiers,
+`#`/`@`/`>` filters); a `derived` map (`requiredInputs` + icon) is computed
+once per library load; rows are a `memo`ized `Row` with stable handlers
+(hover arbitration reads `sel`/`previewIdx` through refs). No
+virtualization. Manual (dev build, 32 visible rows): a `MutationObserver`
+on the list saw exactly 2 rows change on ArrowDown; hover after the 250 ms
+keyboard-suppression window selects the hovered row and opens the preview;
+the tag pill sets `#debug `; ArrowRight opens the preview card; Enter and
+Ctrl+Enter unchanged (M3 checks). Commit: see commit list (M5).
 
 ### M6. Popup clamps to the monitor bounds, not the work area
 **Status:** DONE
@@ -565,7 +575,7 @@ pass is UM12-adjacent polish and deferred (BACKLOG).
 - *Manual verification:* dev build. Selected "Test", typed "Test M12",
   called `request_quit_cmd` 100 ms later: the process exited (code 0)
   and `snippets.json` holds "Test M12". Title restored afterwards.
-- *Commit:* see commit list (M12).
+- *Commit:* `79be540`.
 
 ### M13. `submitForm` mutates an object that lives in React state
 **Status:** DONE
@@ -643,11 +653,17 @@ removed files. Commit: `f3454bd`.
   reads that are already guarded, at the cost of a few `?.`.
 
 ### L4. Match highlighting can misalign on non-BMP titles
-**Status:** TODO
+**Status:** DONE
 **Where:** `popup/App.tsx:79-90` iterates `[...title]` (code points) with
 indices from `fuzzyScore`, which are UTF-16 offsets of the lowercased string
 (`core.js:86-101`). An emoji in a title shifts every underline after it.
 **Fix:** iterate by UTF-16 index, or accept the edge.
+**Resolution:** `highlightSegments(title, indices)` in core splits the title
+into code-point runs marked hit/miss from the UTF-16 indices (a surrogate
+pair counts as hit if either unit is); `HighlightedTitle` renders those
+runs. Test: `🚀 Root cause` with query `root` underlines exactly `Root`.
+Manual: a temp prompt titled `🚀 Root cause L4` searched with `root` showed
+the underlined run `Root`. Commit: see commit list (L4, same commit as M5).
 
 ### L5. Search ergonomics (design notes, not defects)
 **Status:** TODO
@@ -1366,7 +1382,7 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
    still untested (needs an `AppHandle`); covered by the H1 manual check.
 4. [x] `stripFences` strips a BOM; `diagnosePack` of a BOM file is `ok` (M7).
 5. [x] `sanitize_pack_filename("CON")` (M8).
-6. [ ] Popup ranking as a pure function: extract the title/tags/body tiering from
+6. [x] Popup ranking as a pure function: extract the title/tags/body tiering from
    `popup/App.tsx:129-149` into `core.rankSnippets(query, snippets)` and test
    that a title subsequence beats a tag contiguous match and that pins lead
    with no query.
@@ -1426,7 +1442,8 @@ passed at its commit and the manual check performed.
 | UM7 | ✓ | ✓ 37/37 | ✓ 18/18 | ungroup → Undo restores the label | `aed6f92` |
 | UH4 | ✓ | ✓ 37/37 | ✓ 18/18 | by reading (needs an unwritable packs dir) | `33ebab9` |
 | UM16 | ✓ | ✓ 37/37 | ✓ 18/18 | label | `2e1eadd` |
-| M12 + D3 | ✓ | ✓ 37/37 | ✓ 18/18 | edit, quit 100 ms later → process exits, edit on disk | (M12 commit) |
+| M12 + D3 | ✓ | ✓ 37/37 | ✓ 18/18 | edit, quit 100 ms later → process exits, edit on disk | `79be540` |
+| M5 + L4 | ✓ | ✓ 41/41 | ✓ 18/18 | ArrowDown touches 2 of 32 rows; hover/pill/preview unchanged; emoji underline aligned | (M5 commit) |
 
 ## Commit list
 
@@ -1461,6 +1478,8 @@ passed at its commit and the manual check performed.
 | `aed6f92` | UM7 | Ungroup offers Undo and names what it did |
 | `33ebab9` | UH4 | One message when a new pack's file can't be written |
 | `2e1eadd` | UM16 | Settings: "Sync from file" is an import, so call it one |
+| `292dfb4` | — | REVIEW.md: verification notes for the manager batch; regenerated capability schema |
+| `79be540` | M12, D3 | Tray Quit flushes a pending autosave before exiting |
 
 ## Remaining risks and deliberate exclusions
 

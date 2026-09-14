@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { SizeDebug } from "@/lib/SizeDebug"
@@ -78,27 +78,114 @@ function Tokens({ text }: { text: string }) {
   )
 }
 
-// The kit highlights matched characters with an underline
+// The kit highlights matched characters with an underline. Segments come
+// from core so UTF-16 match indices line up with code points (emoji).
 function HighlightedTitle({ title, indices }: { title: string; indices: number[] | null }) {
   if (!indices?.length) return <span className="truncate">{title}</span>
-  const set = new Set(indices)
   return (
     <span className="truncate">
-      {[...title].map((ch, i) => (
-        <span key={i} className={set.has(i) ? "underline decoration-solid underline-offset-2" : undefined}>
-          {ch}
+      {C.highlightSegments(title, indices).map((seg, i) => (
+        <span key={i} className={seg.hit ? "underline decoration-solid underline-offset-2" : undefined}>
+          {seg.text}
         </span>
       ))}
     </span>
   )
 }
 
-function rowIcon(s: Snippet) {
-  if (s.pinned) return RiPushpinFill
-  if (C.requiredInputs(s).length) return RiEdit2Line
-  if (s.text.includes("{clipboard}")) return RiClipboardLine
-  return RiFileTextLine
+// Per-snippet facts that don't change between renders: computed once per
+// library load, not once per row per keystroke
+type Derived = { inputs: string[]; Icon: typeof RiFileTextLine }
+function derive(s: Snippet): Derived {
+  const inputs = C.requiredInputs(s)
+  const Icon = s.pinned ? RiPushpinFill : inputs.length ? RiEdit2Line : s.text.includes("{clipboard}") ? RiClipboardLine : RiFileTextLine
+  return { inputs, Icon }
 }
+
+// One list row. Memoized so an arrow key re-renders only the two rows whose
+// `selected` changed, not every visible row.
+const Row = memo(function Row({
+  entry,
+  index,
+  selected,
+  picked,
+  compact,
+  derived,
+  onPick,
+  onMove,
+  onLeave,
+  onTag,
+}: {
+  entry: Entry
+  index: number
+  selected: boolean
+  picked: boolean
+  compact: boolean
+  derived: Derived
+  onPick: (s: Snippet, paste: boolean) => void
+  onMove: (i: number, e: React.MouseEvent) => void
+  onLeave: () => void
+  onTag: (tag: string) => void
+}) {
+  const { s, indices } = entry
+  const tags = s.tags || []
+  const { inputs, Icon } = derived
+  return (
+    <div
+      data-selected={selected}
+      className={cn(
+        "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[13px] font-semibold",
+        compact ? "py-1" : "py-1.5",
+        selected ? "bg-accent text-foreground" : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
+        picked && "bg-primary/20"
+      )}
+      onClick={(e) => onPick(s, !e.ctrlKey)}
+      onMouseMove={(e) => onMove(index, e)}
+      onMouseLeave={onLeave}
+    >
+      <Icon className={cn("size-3.5 shrink-0", s.pinned ? "text-amber-500" : "opacity-70")} />
+      <div className="flex min-w-0 flex-1 flex-col justify-center">
+        <span className="flex min-w-0 items-center">
+          <HighlightedTitle title={s.title} indices={indices} />
+        </span>
+        {!compact && (
+          <span className="truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
+        )}
+      </div>
+      {tags.slice(0, 1).map((tag) => {
+        const c = C.tagColor(tag)
+        return (
+          <span
+            key={tag}
+            className="flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs"
+            style={{ color: c, borderColor: c + "55" }}
+            title={`Filter by #${tag}`}
+            onClick={(e) => {
+              e.stopPropagation()
+              onTag(tag)
+            }}
+          >
+            {tag}
+          </span>
+        )
+      })}
+      {inputs.length > 0 && (
+        <span
+          className="flex h-4 shrink-0 items-center rounded-sm border border-amber-500/40 px-1 text-xs tabular-nums text-amber-500"
+          title={`Asks for ${inputs.length} value${inputs.length === 1 ? "" : "s"} before pasting: ${inputs.join(", ")}`}
+        >
+          {"{"}{inputs.length}{"}"}
+        </span>
+      )}
+      {index < 5 && (
+        <span className="flex shrink-0 gap-1">
+          <Kbd>Ctrl</Kbd>
+          <Kbd>{index + 1}</Kbd>
+        </span>
+      )}
+    </div>
+  )
+})
 
 export function App() {
   const [snippets, setSnippets] = useState<Snippet[]>([])
@@ -135,27 +222,9 @@ export function App() {
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const filtered = useMemo<Entry[]>(() => {
-    const q = C.parseQuery(query)
-    const pool = snippets.filter((s) => C.matchesFilters(s, q))
-    if (!q.text) {
-      return pool
-        .sort((a, b) => (+b.pinned - +a.pinned) || (b.uses - a.uses) || a.title.localeCompare(b.title))
-        .map((s) => ({ s, indices: null }))
-    }
-    return pool
-      .map((s) => {
-        const title = C.fuzzyScore(q.text, s.title)
-        if (title) return { s, score: title.score, indices: title.indices }
-        const tag = C.fuzzyScore(q.text, (s.tags || []).join(" "))
-        if (tag) return { s, score: 3000 + tag.score, indices: null }
-        const body = C.fuzzyScore(q.text, s.text)
-        if (body) return { s, score: 5000 + body.score, indices: null }
-        return null
-      })
-      .filter((e): e is Entry & { score: number } => e !== null)
-      .sort((a, b) => (a.score - b.score) || (b.s.uses - a.s.uses))
-  }, [snippets, query])
+  // Ranking is a pure core function (tested); this only memoizes it
+  const filtered = useMemo<Entry[]>(() => C.rankSnippets(query, snippets), [snippets, query])
+  const derived = useMemo(() => new Map(snippets.map((s) => [s.id, derive(s)])), [snippets])
 
   const hasQuery = !!C.parseQuery(query).text
 
@@ -555,12 +624,18 @@ export function App() {
     return () => document.removeEventListener("keydown", onKey)
   }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete])
 
-  const onItemMouseMove = (i: number, e: React.MouseEvent) => {
+  // Stable handlers for the memoized rows: they read the live selection and
+  // preview index through refs instead of closing over them
+  const selRef = useRef(sel)
+  selRef.current = sel
+  const previewRef = useRef(previewIdx)
+  previewRef.current = previewIdx
+  const onItemMouseMove = useCallback((i: number, e: React.MouseEvent) => {
     const moved = e.clientX !== lastMouse.current.x || e.clientY !== lastMouse.current.y
     lastMouse.current = { x: e.clientX, y: e.clientY }
     if (!moved || Date.now() < suppressHoverUntil.current) return
-    if (sel !== i) setSel(i)
-    if (previewIdx !== i) {
+    if (selRef.current !== i) setSel(i)
+    if (previewRef.current !== i) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
       hoverTimer.current = setTimeout(() => {
@@ -568,11 +643,15 @@ export function App() {
         setPreviewIdx(i)
       }, 350)
     }
-  }
-  const onItemMouseLeave = () => {
+  }, [])
+  const onItemMouseLeave = useCallback(() => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
     hideTimer.current = setTimeout(() => setPreviewIdx(null), 150)
-  }
+  }, [])
+  const onTagClick = useCallback((tag: string) => {
+    setQuery(`#${tag} `)
+    inputRef.current?.focus()
+  }, [])
 
   // --- Hint bar (kit kbd-chip idiom) -------------------------------------------
   const hint = panelFor ? (
@@ -737,69 +816,21 @@ export function App() {
   }
 
   // --- List mode ------------------------------------------------------------------
-  const row = (entry: Entry, i: number) => {
-    const { s, indices } = entry
-    const tags = s.tags || []
-    const inputs = C.requiredInputs(s)
-    const Icon = rowIcon(s)
-    return (
-      <div
-        key={s.id}
-        data-selected={i === sel}
-        className={cn(
-          "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[13px] font-semibold",
-          compact ? "py-1" : "py-1.5",
-          i === sel ? "bg-accent text-foreground" : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
-          pickedId === s.id && "bg-primary/20"
-        )}
-        onClick={(e) => pick(s, !e.ctrlKey)}
-        onMouseMove={(e) => onItemMouseMove(i, e)}
-        onMouseLeave={onItemMouseLeave}
-      >
-        <Icon className={cn("size-3.5 shrink-0", s.pinned ? "text-amber-500" : "opacity-70")} />
-        <div className="flex min-w-0 flex-1 flex-col justify-center">
-          <span className="flex min-w-0 items-center">
-            <HighlightedTitle title={s.title} indices={indices} />
-          </span>
-          {!compact && (
-            <span className="truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
-          )}
-        </div>
-        {tags.slice(0, 1).map((tag) => {
-          const c = C.tagColor(tag)
-          return (
-            <span
-              key={tag}
-              className="flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs"
-              style={{ color: c, borderColor: c + "55" }}
-              title={`Filter by #${tag}`}
-              onClick={(e) => {
-                e.stopPropagation()
-                setQuery(`#${tag} `)
-                inputRef.current?.focus()
-              }}
-            >
-              {tag}
-            </span>
-          )
-        })}
-        {inputs.length > 0 && (
-          <span
-            className="flex h-4 shrink-0 items-center rounded-sm border border-amber-500/40 px-1 text-xs tabular-nums text-amber-500"
-            title={`Asks for ${inputs.length} value${inputs.length === 1 ? "" : "s"} before pasting: ${inputs.join(", ")}`}
-          >
-            {"{"}{inputs.length}{"}"}
-          </span>
-        )}
-        {i < 5 && (
-          <span className="flex shrink-0 gap-1">
-            <Kbd>Ctrl</Kbd>
-            <Kbd>{i + 1}</Kbd>
-          </span>
-        )}
-      </div>
-    )
-  }
+  const row = (entry: Entry, i: number) => (
+    <Row
+      key={entry.s.id}
+      entry={entry}
+      index={i}
+      selected={i === sel}
+      picked={pickedId === entry.s.id}
+      compact={compact}
+      derived={derived.get(entry.s.id) ?? derive(entry.s)}
+      onPick={pick}
+      onMove={onItemMouseMove}
+      onLeave={onItemMouseLeave}
+      onTag={onTagClick}
+    />
+  )
 
   return (
     <Shell hint={hint} notice={notice}>
