@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 0 | 8 | 2 | 10 |
+| TODO | 0 | 0 | 6 | 2 | 8 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 13 | 4 | 6 | 29 |
+| DONE | 6 | 13 | 6 | 6 | 31 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -63,10 +63,10 @@ a task):
 
 | Status | High | Medium | Low | Total |
 |---|---|---|---|---|
-| TODO | 9 | 16 | 7 | 32 |
+| TODO | 7 | 15 | 6 | 28 |
 | IN PROGRESS | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 |
-| DONE | 4 | 6 | 1 | 11 |
+| DONE | 6 | 7 | 2 | 15 |
 | DECLINED | 0 | 1 | 0 | 1 |
 | **Total** | **13** | **23** | **8** | **44** |
 
@@ -618,7 +618,7 @@ an existing unlocked pack like the popup did — a change only when "My
 prompts" is locked. `packToJson` and `deletePack` were unified in M1 / H1 /
 UM2. Manual: popup Ctrl+N and manager "New prompt" both default to the
 last-used pack ("Desktop"); typecheck is the safety net for the rest.
-Commit: see commit list (L1).
+Commit: `65ca6a0`.
 
 ### L2. Dead code and stray dev aids
 **Status:** DONE
@@ -670,7 +670,7 @@ removed files. Commit: `f3454bd`.
 provider; `handleRowClick` takes `{ctrlKey, metaKey, shiftKey}` with no
 casts. `noUncheckedIndexedAccess` left off (declined: it would add `?.` to
 already-guarded reads for no defect found). Commit: see commit list (L3,
-same commit as L1).
+`65ca6a0`).
 
 ### L4. Match highlighting can misalign on non-BMP titles
 **Status:** DONE
@@ -694,13 +694,18 @@ the underlined run `Root`. Commit: `055d067`.
   differ. Documented by the test; acceptable.
 
 ### L6. Non-text clipboard reads as empty
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs:583-589`. An image on the clipboard expands `{clipboard}`
 to nothing with no hint in list mode (the form preview already says
 "(clipboard is empty)").
+**Resolution:** in list mode, when the clipboard holds no text, every row
+whose prompt uses `{clipboard}` carries the tooltip "Clipboard is empty —
+{clipboard} will paste nothing" (rows otherwise show their full title, UM17).
+Verified in the dev build with a cleared clipboard. Commit: see commit list
+(popup a11y).
 
 ### L7. Ctrl+N with an empty clipboard creates an empty prompt
-**Status:** TODO
+**Status:** DONE
 **Where:** `popup/App.tsx:241-281`. Saving with `clip === ""` yields a
 "New prompt" with no body, which the manager's startup GC
 (`manager/App.tsx:166`) later deletes silently.
@@ -709,6 +714,12 @@ something first — the clipboard is the prompt body"; and give popup-created
 drafts a non-sentinel title (e.g. "Untitled prompt") so the GC can never
 claim them. The Save button is always enabled today (`popup/App.tsx:549`).
 UI review rated this Medium: the loss is silent and delayed.
+**Resolution:** with an empty clipboard the create view shows "Copy
+something first — the clipboard is the prompt body" and Save is disabled
+(`saveCreate` also refuses); since a saved prompt always has a body, the
+manager's draft GC (title "New prompt" and no text) can never claim one.
+Verified in the dev build with a cleared clipboard. Commit: see commit list
+(popup a11y).
 
 ### L8. Agent generate path creates the pack before anything is written
 **Status:** TODO
@@ -891,7 +902,7 @@ outside, a selection of 1 pinned + 1 unpinned → menu "Pin 2" → toast
 so you can pin no more`. Commit: `20dcd6b`.
 
 ### UH6. Popup list is a listbox with no ARIA
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:627-639` (rows), `:693` (input), `:733-747`
 (sections).
 **What:** rows are bare `div`s carrying only `data-selected`; the input has no
@@ -902,6 +913,13 @@ app's primary surface.
 `role="listbox"` on the list, `role="option" id aria-selected` on rows,
 `role="group" aria-label` on sections.
 **Evidence:** by reading; cross-verified.
+**Resolution:** the search input is `role="combobox"` with `aria-label`,
+`aria-autocomplete="list"`, `aria-expanded`, `aria-controls="popup-list"`
+and `aria-activedescendant` pointing at the selected row; the list is
+`role="listbox"`; rows are `role="option"` with stable ids and
+`aria-selected`; pack and group sections are `role="group"` with labels.
+Verified in the dev build: `aria-activedescendant` equals the selected
+row's id, 32 options, 9 groups. Commit: see commit list (popup a11y).
 
 ### UH7. Context menus cannot be operated from the keyboard
 **Status:** TODO
@@ -928,7 +946,7 @@ sync / export / back with a file / delete (:218-315) from keyboard users.
 **Evidence:** by reading; cross-verified.
 
 ### UH9. Popup pack headers collapse by mouse only
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:735-747, 198, 441-443`.
 **What:** header `div` with `onClick`, no `tabIndex`, role or `aria-expanded`.
 Collapsed packs drop out of `visible`, and Tab is taken by the action panel.
@@ -936,6 +954,13 @@ Collapsed packs drop out of `visible`, and Tab is taken by the action panel.
 **Fix:** `<button aria-expanded>`, plus ArrowLeft/ArrowRight on a row to
 collapse/expand its pack.
 **Evidence:** by reading; cross-verified.
+**Resolution:** collapsible headers are `<button aria-expanded>` (Pinned /
+Results stay plain); Left on a row collapses its pack; Ctrl+Right expands
+every collapsed pack (collapsed rows leave `visible`, so there is no row to
+expand one from; plain Right stays the preview). Verified in the dev build:
+Left on a Desktop row gives its header `aria-expanded=false`, 34 to 32
+options; Ctrl+Right gives 34 options with every header expanded. Commit:
+see commit list (popup a11y).
 
 ### UH10. Focus styling is four systems, and a dozen controls have none
 **Status:** TODO
@@ -1152,15 +1177,29 @@ has no `role="menu"`/`menuitem` and its Tab-open is unannounced; preview card
 **Fix:** real buttons and roles; `role="tooltip"` + `aria-describedby` for
 the preview (not `dialog`, it never takes focus).
 **Evidence:** by reading; cross-verified.
+**Progress (popup half):** tag chip is a `<button>` with an `aria-label`;
+the action panel is `role="menu"` of `<button role="menuitem">` with
+`aria-current` on the highlighted one and its note is `role="alert"`; the
+preview card is `role="tooltip"` and the row it describes carries
+`aria-describedby`. Verified in the dev build. The sidebar headers and
+`DeleteBadge` are in the manager batch. Commit: see commit list (popup
+a11y).
 
 ### UM14. No live region in the popup; no reduced-motion handling
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:716-720, 172-200`; no `prefers-reduced-motion`
 anywhere (`dialog.tsx:32, 54`, `tooltip.tsx:51`, `Editor.tsx:78`,
 `Sidebar.tsx:627, 632`, `GenerateDialog.tsx:405` spinner).
 **Fix:** sr-only `role="status"` in `Shell` fed by result count and mode; a
 reduced-motion block in `index.css`.
 **Evidence:** by reading; cross-verified.
+**Resolution:** `Shell` renders an sr-only `role="status"` announcing the
+result count ("32 prompts" / "N prompts match") or the mode (actions for a
+prompt, fill-in fields, new prompt); the feedback strip (M3) is a second
+polite live region for errors and confirmations. `index.css` gains a
+`prefers-reduced-motion: reduce` block that zeroes animation and transition
+durations. Verified: status text "32 prompts" in the dev build; the CSS
+block by reading. Commit: see commit list (popup a11y).
 
 ### UM15. Hit targets under 24 px
 **Status:** TODO
@@ -1184,6 +1223,9 @@ at `:816`.
 without `truncate`/`min-w-0`.
 **Fix:** `title=`; `min-w-0 truncate`.
 **Evidence:** by reading; cross-verified.
+**Progress (popup half):** rows carry `title={s.title}` (or the
+clipboard-empty hint, L6). Sidebar and ImportCuration are in the manager
+batch.
 
 ### UM18. Placeholder syntax help disappears; field names are sanitised silently
 **Status:** TODO
@@ -1273,10 +1315,15 @@ change.
 dev build). Commit: see commit list (popup feedback).
 
 ### UL2. Search feedback and clear controls
-**Status:** TODO
+**Status:** DONE
 "No matches" gives no hint that `#`/`@`/`>` terms are narrowing
 (`popup/App.tsx:716-720`); clear ✕ has no label (`:703-711`); sidebar chip
 reads `filter: "…" ✕` (`Sidebar.tsx:784-790`). Related: L5.
+**Resolution:** a miss with `#`/`@`/`>` terms reads "No matches — #tag,
+@pack and >group terms narrow the list; remove one to widen it"; the clear
+✕ has `aria-label="Clear search"`. The sidebar chip is reworded in the
+manager batch (UM21). Verified in the dev build. Commit: see commit list
+(popup a11y).
 
 ### UL3. Off-scale sizes
 **Status:** TODO
@@ -1464,7 +1511,8 @@ passed at its commit and the manual check performed.
 | UM16 | ✓ | ✓ 37/37 | ✓ 18/18 | label | `2e1eadd` |
 | M12 + D3 | ✓ | ✓ 37/37 | ✓ 18/18 | edit, quit 100 ms later → process exits, edit on disk | `79be540` |
 | M5 + L4 | ✓ | ✓ 41/41 | ✓ 18/18 | ArrowDown touches 2 of 32 rows; hover/pill/preview unchanged; emoji underline aligned | `055d067` |
-| L1 + L3 | ✓ | ✓ 42/42 | ✓ 18/18 | popup Ctrl+N and manager New prompt default to the last-used pack | (L1 commit) |
+| L1 + L3 | ✓ | ✓ 42/42 | ✓ 18/18 | popup Ctrl+N and manager New prompt default to the last-used pack | `65ca6a0` |
+| UH6, UH9, UM14, L6, L7, UL2 (+UM13/UM17 popup half) | ✓ | ✓ 42/42 | ✓ 18/18 | combobox/listbox/option ids; Left/Ctrl+Right collapse/expand; menu and tooltip roles; empty-clipboard states | (popup a11y commit) |
 
 ## Commit list
 
@@ -1502,6 +1550,7 @@ passed at its commit and the manual check performed.
 | `292dfb4` | — | REVIEW.md: verification notes for the manager batch; regenerated capability schema |
 | `79be540` | M12, D3 | Tray Quit flushes a pending autosave before exiting |
 | `055d067` | M5, L4 | Popup: memoized rows, ranking in core, emoji-safe highlighting |
+| `65ca6a0` | L1, L3 | One library.ts for what both windows knew separately; honest bridge types |
 
 ## Remaining risks and deliberate exclusions
 

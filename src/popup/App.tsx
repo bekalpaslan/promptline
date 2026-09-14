@@ -108,6 +108,8 @@ const Row = memo(function Row({
   onMove,
   onLeave,
   onTag,
+  previewed,
+  clipEmpty,
 }: {
   entry: Entry
   index: number
@@ -119,12 +121,22 @@ const Row = memo(function Row({
   onMove: (i: number, e: React.MouseEvent) => void
   onLeave: () => void
   onTag: (tag: string) => void
+  /** The preview card is open for this row (it describes the row) */
+  previewed: boolean
+  /** Clipboard is empty, so a `{clipboard}` prompt would paste a hole */
+  clipEmpty: boolean
 }) {
   const { s, indices } = entry
   const tags = s.tags || []
   const { inputs, Icon } = derived
+  const usesClip = clipEmpty && s.text.includes("{clipboard}")
   return (
     <div
+      id={`row-${s.id}`}
+      role="option"
+      aria-selected={selected}
+      aria-describedby={previewed ? "popup-preview" : undefined}
+      title={usesClip ? "Clipboard is empty — {clipboard} will paste nothing" : s.title}
       data-selected={selected}
       className={cn(
         "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[13px] font-semibold",
@@ -148,18 +160,21 @@ const Row = memo(function Row({
       {tags.slice(0, 1).map((tag) => {
         const c = C.tagColor(tag)
         return (
-          <span
+          <button
             key={tag}
+            type="button"
+            tabIndex={-1}
             className="flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs"
             style={{ color: c, borderColor: c + "55" }}
             title={`Filter by #${tag}`}
+            aria-label={`Filter by #${tag}`}
             onClick={(e) => {
               e.stopPropagation()
               onTag(tag)
             }}
           >
             {tag}
-          </span>
+          </button>
         )
       })}
       {inputs.length > 0 && (
@@ -331,7 +346,7 @@ export function App() {
   }, [clip, packMeta, snippets, hidePreview, closePanel])
 
   const saveCreate = useCallback(async () => {
-    if (!create) return
+    if (!create || !clip) return
     const snip: Snippet = {
       id: crypto.randomUUID(),
       title: create.title.trim() || "(untitled)",
@@ -567,7 +582,14 @@ export function App() {
         hidePreview()
         suppressHoverUntil.current = Date.now() + 250
       }
-      if (e.key === "ArrowDown") {
+      if (e.key === "ArrowRight" && e.ctrlKey && collapsed.size) {
+        // Keyboard path for the pack headers (with ← below): Ctrl+→ expands
+        // every collapsed pack, since collapsed rows leave `visible` and
+        // there is no row to expand from
+        e.preventDefault()
+        setCollapsed(new Set())
+        localStorage.setItem("popupCollapsedPacks", "[]")
+      } else if (e.key === "ArrowDown") {
         e.preventDefault()
         if (visible.length) setSel((s) => (s + 1) % visible.length)
       } else if (e.key === "ArrowUp") {
@@ -589,6 +611,10 @@ export function App() {
       } else if (e.key === "ArrowLeft" && previewIdx !== null) {
         e.preventDefault()
         hidePreview()
+      } else if (e.key === "ArrowLeft" && !hasQuery && visible[sel] && !visible[sel].s.pinned) {
+        // ← collapses the selected row's pack
+        e.preventDefault()
+        toggleCollapsed(visible[sel].s.pack || DEFAULT_PACK)
       } else if (e.key === "Tab") {
         e.preventDefault()
         if (visible[sel]) { hidePreview(); setPanelFor(visible[sel].s); setPanelSel(0) }
@@ -599,7 +625,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, hasQuery, collapsed])
 
   // Stable handlers for the memoized rows: they read the live selection and
   // preview index through refs instead of closing over them
@@ -641,10 +667,19 @@ export function App() {
     <><Kbd>↵</Kbd> paste <Kbd>Ctrl ↵</Kbd> copy <Kbd>Tab</Kbd> actions <Kbd>→</Kbd> preview <Kbd>Esc</Kbd> close</>
   )
 
+  // What a screen reader hears when the state changes (UM14)
+  const announce = panelFor
+    ? `Actions for ${panelFor.title}`
+    : form
+      ? `Fill in ${form.fields.length} field${form.fields.length === 1 ? "" : "s"} for ${form.snippet.title}`
+      : create
+        ? "New prompt from clipboard"
+        : `${visible.length} prompt${visible.length === 1 ? "" : "s"}${hasQuery ? " match" : ""}`
+
   // --- Create-from-clipboard confirmation --------------------------------------
   if (create) {
     return (
-      <Shell hint={hint} notice={notice}>
+      <Shell hint={hint} notice={notice} announce={announce}>
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-1">
           <SectionHeader>New prompt from clipboard</SectionHeader>
           <div className="px-1">
@@ -707,9 +742,15 @@ export function App() {
           <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-xs leading-relaxed text-muted-foreground">
             {clip || "(clipboard is empty)"}
           </div>
+          {/* The clipboard is the body: with nothing copied there is nothing
+              to save, and an empty draft would only be swept by the manager */}
+          {!clip && (
+            <div className="px-1 text-xs text-destructive">Copy something first — the clipboard is the prompt body</div>
+          )}
           <button
             onClick={() => void saveCreate()}
-            className="h-8 cursor-pointer rounded-lg bg-primary text-[13px] font-medium text-primary-foreground hover:bg-primary/90"
+            disabled={!clip}
+            className="h-8 cursor-pointer rounded-lg bg-primary text-[13px] font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Save prompt
           </button>
@@ -728,7 +769,7 @@ export function App() {
     const submitLabel =
       emptyCount === 0 ? verb : `${verb} with ${emptyCount} field${emptyCount === 1 ? "" : "s"} empty`
     return (
-      <Shell hint={hint} notice={notice}>
+      <Shell hint={hint} notice={notice} announce={announce}>
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-1">
           <SectionHeader>{form.snippet.title}</SectionHeader>
           {form.fields.map((f, i) => {
@@ -806,11 +847,13 @@ export function App() {
       onMove={onItemMouseMove}
       onLeave={onItemMouseLeave}
       onTag={onTagClick}
+      previewed={previewIdx === i}
+      clipEmpty={!clip}
     />
   )
 
   return (
-    <Shell hint={hint} notice={notice}>
+    <Shell hint={hint} notice={notice} announce={announce}>
       {/* Search — kit "Active" state: 36px boxed input, 2px focus border */}
       <div
         className="flex h-8 shrink-0 items-center gap-1 rounded-lg border-2 border-input bg-background py-1.5 pl-2 pr-1.5 focus-within:border-(--palette-focus)"
@@ -824,10 +867,18 @@ export function App() {
           placeholder="Type to search…  (#tag, @pack, >group)"
           spellCheck={false}
           autoComplete="off"
+          role="combobox"
+          aria-label="Search prompts"
+          aria-autocomplete="list"
+          aria-expanded={visible.length > 0}
+          aria-controls="popup-list"
+          aria-activedescendant={visible[sel] ? `row-${visible[sel].s.id}` : undefined}
           className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
         />
         {query && (
           <button
+            type="button"
+            aria-label="Clear search"
             className="cursor-pointer rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
             onClick={() => {
               setQuery("")
@@ -839,10 +890,21 @@ export function App() {
         )}
       </div>
 
-      <div ref={listRef} className="flex-1 overflow-y-auto px-0.5" onScroll={hidePreview}>
+      <div
+        ref={listRef}
+        id="popup-list"
+        role="listbox"
+        aria-label="Prompts"
+        className="flex-1 overflow-y-auto px-0.5"
+        onScroll={hidePreview}
+      >
         {filtered.length === 0 && (
           <div className="px-4 py-4 text-center text-xs text-muted-foreground">
-            {snippets.length ? "No matches" : "No prompts yet — left-click the Promptline tray icon to add some"}
+            {!snippets.length
+              ? "No prompts yet — left-click the Promptline tray icon to add some"
+              : C.parseQuery(query).tags.length || C.parseQuery(query).packs.length || C.parseQuery(query).groups.length
+                ? "No matches — #tag, @pack and >group terms narrow the list; remove one to widen it"
+                : "No matches"}
           </div>
         )}
         {sections.map((sec) => {
@@ -856,27 +918,35 @@ export function App() {
           }
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!))
           const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+          const headerClass = cn(
+            "flex w-full select-none items-center gap-1.5 rounded-lg px-1 py-2 text-left text-sm font-bold",
+            sec.collapsible && "cursor-pointer",
+            sec.isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
+          )
+          const headerBody = (
+            <>
+              <span className="min-w-0 flex-1 truncate">
+                {sec.name} <span className="font-semibold text-muted-foreground">({sec.entries.length})</span>
+              </span>
+              {sec.collapsible && <Chev className="size-4 shrink-0 text-muted-foreground" />}
+            </>
+          )
           return (
-            <div key={sec.name} className="mb-3">
-              {/* Pack title, as in the sidebar; Pinned / Results are not collapsible */}
-              <div
-                className={cn(
-                  "flex select-none items-center gap-1.5 rounded-lg px-1 py-2 text-sm font-bold",
-                  sec.collapsible && "cursor-pointer",
-                  sec.isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
-                )}
-                onClick={sec.collapsible ? () => toggleCollapsed(sec.name) : undefined}
-              >
-                <span className="min-w-0 flex-1 truncate">
-                  {sec.name} <span className="font-semibold text-muted-foreground">({sec.entries.length})</span>
-                </span>
-                {sec.collapsible && <Chev className="size-4 shrink-0 text-muted-foreground" />}
-              </div>
+            <div key={sec.name} className="mb-3" role="group" aria-label={sec.name}>
+              {/* Pack title, as in the sidebar: a disclosure button (← / Ctrl+→
+                  from a row do the same); Pinned / Results are plain headings */}
+              {sec.collapsible ? (
+                <button type="button" tabIndex={-1} aria-expanded={!sec.isCollapsed} className={headerClass} onClick={() => toggleCollapsed(sec.name)}>
+                  {headerBody}
+                </button>
+              ) : (
+                <div className={headerClass}>{headerBody}</div>
+              )}
               {!sec.isCollapsed && (
                 <div className="flex flex-col gap-1.5">
                   {rows(ungrouped)}
                   {[...groups.entries()].map(([g, es]) => (
-                    <div key={g} className="flex flex-col gap-1.5 pl-2.5">
+                    <div key={g} className="flex flex-col gap-1.5 pl-2.5" role="group" aria-label={g}>
                       <div className="flex select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
                         <span className="min-w-0 flex-1 truncate">
                           {g} <span className="font-medium opacity-70">({es.length})</span>
@@ -915,6 +985,8 @@ export function App() {
         const top = Math.max(pad, Math.min(pos.y, window.innerHeight - maxH - pad))
         return (
           <div
+            id="popup-preview"
+            role="tooltip"
             className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-popover p-2 text-xs leading-relaxed text-muted-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.24)]"
             style={{ left, top, width }}
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
@@ -926,14 +998,22 @@ export function App() {
       })()}
 
       {panelFor && (
-        <div className="fixed inset-x-2 bottom-10 z-20 rounded-lg border border-border bg-popover p-2 shadow-[0px_0px_16px_rgba(18,45,88,0.24)]">
+        <div
+          role="menu"
+          aria-label={`Actions for ${panelFor.title}`}
+          className="fixed inset-x-2 bottom-10 z-20 rounded-lg border border-border bg-popover p-2 shadow-[0px_0px_16px_rgba(18,45,88,0.24)]"
+        >
           <SectionHeader>{panelFor.title}</SectionHeader>
-          {panelNote && <div className="px-2 pb-1 text-xs text-destructive">{panelNote}</div>}
+          {panelNote && <div role="alert" className="px-2 pb-1 text-xs text-destructive">{panelNote}</div>}
           {panelActions.map((a, i) => (
-            <div
+            <button
               key={a.label}
+              type="button"
+              role="menuitem"
+              tabIndex={-1}
+              aria-current={i === panelSel || undefined}
               className={cn(
-                "flex h-[30px] cursor-pointer select-none items-center justify-between rounded-lg px-2 text-[13px]",
+                "flex h-[30px] w-full cursor-pointer select-none items-center justify-between rounded-lg px-2 text-[13px]",
                 i === panelSel && "bg-accent",
                 a.danger && "text-destructive"
               )}
@@ -942,7 +1022,7 @@ export function App() {
             >
               <span>{a.label}</span>
               <Kbd>{i + 1}</Kbd>
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -951,10 +1031,22 @@ export function App() {
 }
 
 // Window chrome — the kit palette card: 12px radius, 8px padding, soft shadow
-function Shell({ children, hint, notice }: { children: React.ReactNode; hint: React.ReactNode; notice: Notice | null }) {
+function Shell({
+  children,
+  hint,
+  notice,
+  announce,
+}: {
+  children: React.ReactNode
+  hint: React.ReactNode
+  notice: Notice | null
+  /** What a screen reader should hear about the current state (results, mode) */
+  announce: string
+}) {
   return (
     <div className="flex h-dvh flex-col gap-2.5 overflow-hidden rounded-lg border border-border bg-background p-2.5 text-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.12)]">
       {import.meta.env.DEV && <SizeDebug />}
+      <div className="sr-only" role="status" aria-live="polite">{announce}</div>
       {children}
       {/* Feedback strip: errors stay until Esc or the next summon, confirmations
           go with the popup. A live region, so it is announced. */}
