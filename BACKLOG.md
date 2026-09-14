@@ -20,6 +20,12 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   already highlighted in the preview card and rendered live in the fill-in
   form, so the second bar only cost a row of prompts.
 
+## Popup
+
+- **Hotkey toggles the popup closed** — a press while the popup is open
+  currently only re-focuses it (deliberate, see BEHAVIOR.md); Raycast/Alfred
+  hide on a second press. Revisit once the repeat guard has settled.
+
 ## Distribution
 
 - **Code signing** — unsigned installers trip Windows SmartScreen.

@@ -33,6 +33,12 @@ The one flow everything else exists to serve. Hotkey to pasted text:
 1. **`show_popup`** records the foreground window in `AppState.prev_window`
    *before* showing anything — once the popup takes focus, the window the user
    came from is unrecoverable.
+   A hotkey press while the popup is already up — keyboard autorepeat while
+   the keys are held, or a second tap — only re-focuses it. `RegisterHotKey`
+   has no repeat suppression, and recording the foreground window on the
+   repeat would make the popup its own paste target: Ctrl+V would land on a
+   window that has just been hidden. Toggling the popup closed on a repeat is
+   a possible follow-up (BACKLOG).
 2. The popup is positioned at the cursor, then clamped to the monitor under the
    cursor so it can't open half off-screen.
 3. The user picks a prompt. If it needs runtime `{field}` values, the popup

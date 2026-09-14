@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 3 | 12 | 12 | 7 | 34 |
+| TODO | 2 | 12 | 12 | 6 | 32 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 3 | 1 | 0 | 1 | 5 |
+| DONE | 4 | 1 | 0 | 2 | 7 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -125,7 +125,7 @@ duplication listed in L1.
 - *Commit:* `e437876`.
 
 ### H2. Holding or double-tapping the hotkey makes the popup its own paste target
-**Status:** TODO
+**Status:** DONE
 **Where:** `src-tauri/src/lib.rs:710-712` (`show_popup`); plugin handler
 `:932-936`.
 **What:** `show_popup` unconditionally records `GetForegroundWindow()` into
@@ -142,6 +142,24 @@ user sees "nothing happened".
 or the foreground HWND equals the popup's own (`w.hwnd()`), return without
 touching `prev_window` (or toggle-hide; see D1). Document in BEHAVIOR.md.
 **Evidence:** confirmed against crate source.
+**Resolution:**
+- *Implementation (`lib.rs` `show_popup`):* if the popup is already visible
+  the hotkey only re-focuses it and returns (D1: ignore, not toggle); when it
+  is not visible, the foreground HWND is recorded only if it isn't the popup's
+  own. `prev_window` is still captured before the popup is shown.
+- *Tests added:* none automated — `show_popup` needs an `AppHandle` and the
+  Win32 foreground window; covered by the manual check below.
+- *Manual verification:* dev build with a paste-target window and synthesized
+  hotkey presses (Ctrl+Shift+V is intercepted by another tool on this machine,
+  so the test hotkey was Ctrl+Alt+Shift+F9; the config was restored). Before
+  the fix a second press while the popup was open re-ran `show_popup` (the
+  popup reloaded and the typed query was reset — the same path that records
+  the popup as `prev_window`). After: the second press leaves the query
+  intact, and both a double-tap (300 ms gap) and a single tap followed by
+  Enter paste "test" into the target window. The repeat-driven "nothing
+  happened" case could not be provoked directly because synthesized key
+  events don't autorepeat; the guard is on the path the review confirmed.
+- *Commit:* see commit list (H2).
 
 ### H3. A partial write or unreadable JSON silently replaces the library with the starter pack
 **Status:** DONE
@@ -272,7 +290,7 @@ popup then never sends a full array. Rust tests on the merge helpers.
   list refreshed to "Test H6c", the manager row lost its pin icon. Called
   `save_snippets` from the manager with `baseRevision - 1`: refused with
   `{"kind":"stale","revision":6}`, nothing written. Test prompt renamed back.
-- *Commit:* see commit list (H6).
+- *Commit:* `c725a09`.
 
 ---
 
@@ -1071,7 +1089,7 @@ change product behavior, in which case the item is BLOCKED and asked.
 
 | # | Question | Options / recommendation | Status / resolution |
 |---|---|---|---|
-| D1 | H2: when the hotkey fires while the popup is open, **toggle** (hide) or **ignore**? | Toggle matches Raycast/Alfred; ignore is the minimal change. Recommend ignore now, toggle as a follow-up | TODO — ignore (refocus the open popup); toggle noted in BACKLOG |
+| D1 | H2: when the hotkey fires while the popup is open, **toggle** (hide) or **ignore**? | Toggle matches Raycast/Alfred; ignore is the minimal change. Recommend ignore now, toggle as a follow-up | DONE — ignore (a repeat re-focuses the open popup); toggle-to-hide noted in BACKLOG |
 | D2 | M9: add a CSP? Hardens a local-only app; every future inline style/data URL must be allowed explicitly | Recommend yes with the policy in M9, verified in dev and a release build | TODO — yes |
 | D3 | M12: flush the editor on quit via `beforeunload` (cheap, may miss OS shutdown) or a Rust handshake (robust, more code)? | Recommend the cheap one now | TODO — see M12 for the choice made and why |
 | D4 | L2: remove the unused shadcn components, or keep them as a palette? | Recommend remove; `npx shadcn add` restores any in seconds | TODO — remove |
@@ -1178,7 +1196,8 @@ passed at its commit and the manual check performed.
 |---|---|---|---|---|---|
 | H1 | ✓ | ✓ 32/32 | ✓ 7/7 | delete pack / group → Undo, ids unique on screen and on disk | `e437876` |
 | H3 | ✓ | ✓ 32/32 | ✓ 11/11 | truncated snippets.json → quarantined, empty library, persistent toast; backup restored | `a025d20` |
-| H6 + M13 | ✓ | ✓ 32/32 | ✓ 15/15 | stale popup write keeps the manager's edit; stale full-array save refused | (H6 commit) |
+| H6 + M13 | ✓ | ✓ 32/32 | ✓ 15/15 | stale popup write keeps the manager's edit; stale full-array save refused | `c725a09` |
+| H2 + D1 | ✓ | ✓ 32/32 | ✓ 15/15 | repeat press keeps popup state; double-tap and single-tap pastes land | (H2 commit) |
 
 ## Commit list
 
@@ -1190,6 +1209,7 @@ passed at its commit and the manual check performed.
 | `e437876` | H1 | Undo after delete restores from the live library, never a snapshot |
 | `a025d20` | H3 | Write data files atomically and quarantine ones that won't parse |
 | `183835f` | — | REVIEW.md: merge the UI review's findings into the tracker |
+| `c725a09` | H6, M13 | Snippet edits become intent-level Rust commands with a revision guard |
 
 ## Remaining risks and deliberate exclusions
 

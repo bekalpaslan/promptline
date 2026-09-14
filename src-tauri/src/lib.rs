@@ -1049,8 +1049,24 @@ fn show_main(app: &AppHandle) {
 }
 
 fn show_popup(app: &AppHandle) {
+    let Some(w) = app.get_webview_window("popup") else {
+        return;
+    };
+    // The hotkey fires again while the popup is already up whenever the keys
+    // are held (RegisterHotKey has no autorepeat suppression) or tapped twice.
+    // Recording the foreground window then would make the popup its own paste
+    // target, so a repeat only makes sure the popup has focus (D1: ignore,
+    // not toggle). The same guard covers the foreground HWND being ours.
+    if w.is_visible().unwrap_or(false) {
+        let _ = w.set_focus();
+        return;
+    }
+    let fg = platform::foreground_window();
+    let own = w.hwnd().map(|h| h.0 as isize).unwrap_or(0);
     let state = app.state::<AppState>();
-    *state.prev_window.lock().unwrap() = platform::foreground_window();
+    if fg != own {
+        *state.prev_window.lock().unwrap() = fg;
+    }
 
     // First-run: record that the user found the hotkey, tell the manager
     {
@@ -1064,26 +1080,24 @@ fn show_popup(app: &AppHandle) {
         }
     }
 
-    if let Some(w) = app.get_webview_window("popup") {
-        if let Ok(cursor) = app.cursor_position() {
-            let mut x = cursor.x;
-            let mut y = cursor.y;
-            if let (Ok(Some(monitor)), Ok(size)) =
-                (app.monitor_from_point(cursor.x, cursor.y), w.outer_size())
-            {
-                let mpos = monitor.position();
-                let msize = monitor.size();
-                let max_x = (mpos.x + msize.width as i32 - size.width as i32) as f64;
-                let max_y = (mpos.y + msize.height as i32 - size.height as i32) as f64;
-                x = x.min(max_x).max(mpos.x as f64);
-                y = y.min(max_y).max(mpos.y as f64);
-            }
-            let _ = w.set_position(PhysicalPosition::new(x, y));
+    if let Ok(cursor) = app.cursor_position() {
+        let mut x = cursor.x;
+        let mut y = cursor.y;
+        if let (Ok(Some(monitor)), Ok(size)) =
+            (app.monitor_from_point(cursor.x, cursor.y), w.outer_size())
+        {
+            let mpos = monitor.position();
+            let msize = monitor.size();
+            let max_x = (mpos.x + msize.width as i32 - size.width as i32) as f64;
+            let max_y = (mpos.y + msize.height as i32 - size.height as i32) as f64;
+            x = x.min(max_x).max(mpos.x as f64);
+            y = y.min(max_y).max(mpos.y as f64);
         }
-        let _ = w.show();
-        let _ = w.set_focus();
-        let _ = app.emit("popup-shown", ());
+        let _ = w.set_position(PhysicalPosition::new(x, y));
     }
+    let _ = w.show();
+    let _ = w.set_focus();
+    let _ = app.emit("popup-shown", ());
 }
 
 #[cfg(windows)]
