@@ -741,8 +741,7 @@ to nothing with no hint in list mode (the form preview already says
 **Resolution:** in list mode, when the clipboard holds no text, every row
 whose prompt uses `{clipboard}` carries the tooltip "Clipboard is empty —
 {clipboard} will paste nothing" (rows otherwise show their full title, UM17).
-Verified in the dev build with a cleared clipboard. Commit: see commit list
-(`345d900`).
+Verified in the dev build with a cleared clipboard. Commit: `345d900`.
 
 ### L7. Ctrl+N with an empty clipboard creates an empty prompt
 **Status:** DONE
@@ -758,8 +757,7 @@ UI review rated this Medium: the loss is silent and delayed.
 something first — the clipboard is the prompt body" and Save is disabled
 (`saveCreate` also refuses); since a saved prompt always has a body, the
 manager's draft GC (title "New prompt" and no text) can never claim one.
-Verified in the dev build with a cleared clipboard. Commit: see commit list
-(`345d900`).
+Verified in the dev build with a cleared clipboard. Commit: `345d900`.
 
 ### L8. Agent generate path creates the pack before anything is written
 **Status:** DONE
@@ -1589,8 +1587,7 @@ the only `h2`. Commit: `23506c7`.
 `ParamSection` (`Editor.tsx:37-45`, instantiated :537/:545/:559) with no
 `aria-pressed`; fix with `aria-label={editing ? \`Done editing ${title}\` : \`Edit ${title}\`}`.
 **Resolution:** done as proposed (`aria-pressed` + the two labels).
-Verified in the dev build ("Done editing Built-ins", pressed=true). Commit:
-see commit list (`23506c7`).
+Verified in the dev build ("Done editing Built-ins", pressed=true). Commit: `23506c7`.
 
 ### UL9. What the UI does well (keep while fixing)
 The paste loop is keyboard-first with a hint bar that teaches in place and
