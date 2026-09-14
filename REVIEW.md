@@ -347,7 +347,7 @@ become `[]`. Manual: Settings → Export library in the dev build copies JSON
 whose Desktop prompts carry `"group": "as"`. Commit: see commit list (M1).
 
 ### M2. Keyboard focus is lost when leaving form or create mode
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:397-402` (Escape), `:278-280` (`saveCreate`).
 **What:** form and create views replace the whole tree, so the search input
 unmounts. On Escape nothing refocuses it; `saveCreate` calls
@@ -358,6 +358,11 @@ keystrokes go nowhere (arrows still work because that handler is on
 `document`). Same after Ctrl+N then Enter.
 **Fix:** an effect keyed on `form`/`create` returning to null that focuses
 `inputRef`; delete the synchronous focus call.
+**Resolution:** an effect tracks `form`/`create` and focuses the search
+input on the transition back to the list; the synchronous
+`inputRef.current?.focus()` in `saveCreate` is gone. No automated test
+(DOM focus). Manual: see the resolution's verification note below (filled
+in after the dev-build check). Commit: see commit list (M2).
 **Evidence:** by reading; verify in the app. Independently confirmed by the
 UI pass (rated High there: focus lands on `body`, no caret explains why).
 

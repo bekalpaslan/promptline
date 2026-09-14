@@ -277,7 +277,6 @@ export function App() {
     localStorage.setItem("lastPack", create.pack)
     setCreate(null)
     setQuery("")
-    inputRef.current?.focus()
   }, [create, clip])
 
   // One prompt's pin state or remembered fill-ins, merged on disk
@@ -377,6 +376,17 @@ export function App() {
   }, [])
 
   useEffect(() => { setSel(0) }, [query])
+
+  // Form and create mode replace the whole tree, so the search input is
+  // unmounted while they are up; give it focus back once the list returns
+  // (Escape out of a form, or saving a new prompt) — a synchronous focus()
+  // right after setState finds no input yet.
+  const wasInMode = useRef(false)
+  useEffect(() => {
+    const inMode = !!(form || create)
+    if (wasInMode.current && !inMode) inputRef.current?.focus()
+    wasInMode.current = inMode
+  }, [form, create])
 
   // Keep the selected row in view
   useEffect(() => {
