@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 11 | 12 | 5 | 28 |
+| TODO | 0 | 7 | 12 | 5 | 24 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 2 | 0 | 3 | 11 |
+| DONE | 6 | 6 | 0 | 3 | 15 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -393,7 +393,7 @@ to one prompt rewrites only its pack, personal state (`uses`, `pinned`) never
 triggers a write, an empty pack never gets a file. Manual: with three pack
 files, editing a Desktop prompt's title twice changed `desktop.json`'s mtime
 each time while `promptline.json` and `my-prompts.json` kept theirs.
-Commit: see commit list (M4).
+Commit: `26fb8f2`.
 
 ### M5. Popup list rendering does redundant work per row and has no memoization
 **Status:** TODO
@@ -420,8 +420,7 @@ last rows and the hint bar sit under the taskbar.
 (position and size) instead of `position()`/`size()`. No automated test
 (needs a monitor). Manual: screen bottom 1440, work-area bottom 1392
 (taskbar); cursor placed at (2520, 1434) and the popup summoned — popup
-bottom 1385, right 2553, i.e. inside the work area. Commit: see commit
-list (M6).
+bottom 1385, right 2553, i.e. inside the work area. Commit: `418bf92`.
 
 ### M7. A UTF-8 BOM makes a valid pack file "not JSON"
 **Status:** TODO
@@ -445,7 +444,7 @@ and the pack is never file-backed.
 `COM0`, `com10`, `Console`, `Con Air` are not reserved). Test added for the
 reserved set and the near-misses. Manual: `create_pack_file("Con")` in the
 dev build returned `…\packs\con-pack.json` (test file removed afterwards).
-Commit: see commit list (M8).
+Commit: `d994932`.
 
 ### M9. No Content Security Policy
 **Status:** DONE
@@ -475,7 +474,7 @@ inline styles. Verify both windows in dev and in a release build. See D2.
   editor opens with its data-URI select chevron intact and no violations;
   toasts render. Dev build, both windows: no CSP present (as explained), app
   unaffected.
-- *Commit:* see commit list (M9).
+- *Commit:* `0a803aa`.
 
 ### M10. Toasts follow the OS theme, not the app theme
 **Status:** TODO
@@ -496,7 +495,7 @@ else uses it.
 `d46212e`). The comment predates that.
 **Fix:** rewrite the comment.
 **Resolution:** comment now says the prompt stays on the clipboard and
-points at the body's note and BEHAVIOR.md. Commit: see commit list (M11).
+points at the body's note and BEHAVIOR.md. Commit: `17766a9`.
 
 ### M12. Pending editor autosave is lost on tray Quit
 **Status:** TODO
@@ -1284,7 +1283,11 @@ passed at its commit and the manual check performed.
 | H2 + D1 | ✓ | ✓ 32/32 | ✓ 15/15 | repeat press keeps popup state; double-tap and single-tap pastes land | `f82c4d4` |
 | H4 | ✓ | ✓ 32/32 | ✓ 16/16 | second instance starts with a notice; taken combination refused, old one keeps working | `13ca171` |
 | H5 + UH3 | ✓ | ✓ 34/34 | ✓ 16/16 | `$$`/`$&` value copies literally; empty field outlined and labelled | `35adc7d` |
-| M9 + D2 | ✓ | ✓ 34/34 | ✓ 16/16 | release build: remote fetch blocked by connect-src, assets/IPC/editor fine in both windows | (M9 commit) |
+| M9 + D2 | ✓ | ✓ 34/34 | ✓ 16/16 | release build: remote fetch blocked by connect-src, assets/IPC/editor fine in both windows | `0a803aa` |
+| M8 | ✓ | ✓ 34/34 | ✓ 18/18 | `create_pack_file("Con")` → `con-pack.json` | `d994932` |
+| M4 | ✓ | ✓ 34/34 | ✓ 18/18 | title edit rewrites only `desktop.json` | `26fb8f2` |
+| M11 | ✓ | ✓ 34/34 | ✓ 18/18 | comment only | `17766a9` |
+| M6 | ✓ | ✓ 34/34 | ✓ 18/18 | cursor at (2520,1434): popup bottom 1385 ≤ work area 1392 | `418bf92` |
 
 ## Commit list
 
@@ -1300,6 +1303,11 @@ passed at its commit and the manual check performed.
 | `f82c4d4` | H2, D1 | Ignore the hotkey while the popup is already open |
 | `13ca171` | H4 | A refused hotkey no longer aborts startup or drops the old binding |
 | `35adc7d` | H5, UH3 | Fill-in values paste literally, and an empty field is never silent |
+| `0a803aa` | M9, D2 | Add a Content Security Policy |
+| `d994932` | M8 | Reserved Windows device names can't become pack filenames |
+| `26fb8f2` | M4 | Write a pack file only when its content changed |
+| `17766a9` | M11 | Fix the paste_snippet doc comment |
+| `418bf92` | M6 | Clamp the popup to the work area, not the monitor |
 
 ## Remaining risks and deliberate exclusions
 
