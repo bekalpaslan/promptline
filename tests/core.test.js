@@ -56,6 +56,18 @@ test('requiredInputs counts runtime fields plus unset config params', () => {
   assert.deepEqual(core.requiredInputs({ text: 'plain {clipboard} only', configValues: {} }), []);
 });
 
+test('fillFields inserts values literally, including $ patterns (H5)', () => {
+  assert.equal(core.fillFields('cap {goal} now', { goal: 'spend at $$50' }), 'cap spend at $$50 now');
+  assert.equal(core.fillFields('see {goal} above', { goal: 'this $& and $\' and $`' }), "see this $& and $' and $` above");
+  assert.equal(core.fillFields('{a} and {a} and {b}', { a: '1', b: '' }), '1 and 1 and ');
+});
+
+test('fillFields leaves builtins and unvalued fields alone', () => {
+  assert.equal(core.fillFields('{clipboard} {goal} {File}', { goal: 'x' }), '{clipboard} x {File}');
+  assert.equal(core.fillFields('{goal}', {}), '{goal}');
+  assert.equal(core.fillFields('{goal}'), '{goal}');
+});
+
 test('expandBuiltins replaces date and time deterministically', () => {
   const now = new Date(2026, 6, 12, 9, 5);
   const out = core.expandBuiltins('on {date} at {time}', now);

@@ -76,6 +76,8 @@ interface PromptlineCore {
   expandConfig(text: string, values?: Record<string, string>): string
   downgradeUnsetConfig(text: string): string
   requiredInputs(snippet: Pick<Snippet, "text" | "configValues">): string[]
+  /** Substitute runtime {field} values literally (safe for `$` patterns) */
+  fillFields(text: string, values: Record<string, string>): string
   expandBuiltins(text: string): string
   fuzzyScore(query: string, target: string): FuzzyResult | null
   parseQuery(raw: string): ParsedQuery

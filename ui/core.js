@@ -72,6 +72,15 @@
     return customFields(base);
   }
 
+  // Substitute runtime {field} values. A function replacer, so a value holding
+  // `$&`, `$$` or `$'` is inserted literally instead of being read as a
+  // replacement pattern. Names without a value are left as they are.
+  function fillFields(text, values) {
+    const v = values || {};
+    return text.replace(/\{([a-z_]+)\}/g, (match, name) =>
+      Object.prototype.hasOwnProperty.call(v, name) ? v[name] : match);
+  }
+
   function expandBuiltins(text, now) {
     const d = now || new Date();
     return text
@@ -264,6 +273,7 @@
     expandConfig,
     downgradeUnsetConfig,
     requiredInputs,
+    fillFields,
     expandBuiltins,
     fuzzyScore,
     parseQuery,

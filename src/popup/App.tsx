@@ -306,8 +306,9 @@ export function App() {
 
   const submitForm = useCallback(async (forceCopy: boolean) => {
     if (!form) return
-    let text = form.base
-    for (const f of form.fields) text = text.replaceAll(`{${f}}`, formValues[f] ?? "")
+    // A function replacer in core: a value containing `$&` or `$$` must paste
+    // as typed, not as a replacement pattern
+    const text = C.fillFields(form.base, formValues)
     const { snippet } = form
     const paste = forceCopy ? false : form.paste
     setForm(null)
@@ -559,19 +560,30 @@ export function App() {
 
   // --- Form mode ----------------------------------------------------------------
   if (form) {
+    // An empty field pastes an empty hole — allowed (a deliberate blank is
+    // legitimate) but never silent: the field is outlined and the button
+    // says so
+    const emptyCount = form.fields.filter((f) => !(formValues[f] ?? "").trim()).length
+    const verb = form.paste ? "Paste" : "Copy"
+    const submitLabel =
+      emptyCount === 0 ? verb : `${verb} with ${emptyCount} field${emptyCount === 1 ? "" : "s"} empty`
     return (
       <Shell hint={hint}>
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-1">
           <SectionHeader>{form.snippet.title}</SectionHeader>
           {form.fields.map((f, i) => {
             const remembered = (form.snippet.fieldValues || {})[f]
+            const empty = !(formValues[f] ?? "").trim()
             return (
               <div key={f} className="px-1">
-                <label className="mb-1 flex items-center gap-1.5 text-xs font-medium capitalize tracking-[0.04em] text-muted-foreground">
+                <label htmlFor={`field-${f}`} className="mb-1 flex items-center gap-1.5 text-xs font-medium capitalize tracking-[0.04em] text-muted-foreground">
                   {f.replace(/_/g, " ")}
                   {remembered && <Kbd>last used</Kbd>}
+                  {empty && <span className="normal-case text-destructive">empty — pastes nothing</span>}
                 </label>
                 <textarea
+                  id={`field-${f}`}
+                  aria-invalid={empty || undefined}
                   autoFocus={i === 0}
                   rows={remembered ? Math.min(4, remembered.split("\n").length) : 1}
                   value={formValues[f] ?? ""}
@@ -584,7 +596,10 @@ export function App() {
                       void submitForm(e.ctrlKey)
                     }
                   }}
-                  className="min-h-8 w-full resize-none rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-(--palette-focus)"
+                  className={cn(
+                    "min-h-8 w-full resize-none rounded-lg border-2 bg-background px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-(--palette-focus)",
+                    empty ? "border-destructive/60" : "border-input"
+                  )}
                   style={{ "--palette-focus": FOCUS_BORDER } as React.CSSProperties}
                 />
               </div>
@@ -610,7 +625,7 @@ export function App() {
             onClick={(e) => void submitForm(e.ctrlKey)}
             className="h-8 cursor-pointer rounded-lg bg-primary text-[13px] font-medium text-primary-foreground hover:bg-primary/90"
           >
-            Paste
+            {submitLabel}
           </button>
         </div>
       </Shell>

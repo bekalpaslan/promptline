@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 1 | 12 | 12 | 6 | 31 |
+| TODO | 0 | 12 | 12 | 6 | 30 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 5 | 1 | 0 | 2 | 8 |
+| DONE | 6 | 1 | 0 | 2 | 9 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -63,10 +63,10 @@ a task):
 
 | Status | High | Medium | Low | Total |
 |---|---|---|---|---|
-| TODO | 13 | 23 | 8 | 44 |
+| TODO | 12 | 23 | 8 | 43 |
 | IN PROGRESS | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 |
-| DONE | 0 | 0 | 0 | 0 |
+| DONE | 1 | 0 | 0 | 1 |
 | DECLINED | 0 | 0 | 0 | 0 |
 | **Total** | **13** | **23** | **8** | **44** |
 
@@ -248,10 +248,10 @@ hotkey exited at startup. (b) by reading.
   combination succeeded, `set_hotkey` to F8 was refused ("HotKey already
   registered"), `config.json` still held the previous combination, and that
   combination still summoned the popup.
-- *Commit:* see commit list (H4).
+- *Commit:* `13ca171`.
 
 ### H5. Fill-in values containing `$` are mangled
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:304`
 (`text.replaceAll(`{${f}}`, formValues[f] ?? "")`).
 **What:** a string replacement interprets `$$`, `$&`, `` $` ``, `$'`.
@@ -262,6 +262,19 @@ expanded in Rust, so only runtime fields are affected.
 **Fix:** move the substitution into `ui/core.js` as `fillFields(text, values)`
 with a function replacer; use it from the popup; test the `$` cases.
 **Evidence:** by reading; certain.
+**Resolution:**
+- *Implementation:* `ui/core.js` `fillFields(text, values)` substitutes
+  `{field}` tokens through a function replacer (values are inserted
+  literally; names without a value, including builtins, are left alone);
+  `submitForm` in the popup calls it instead of `replaceAll`. Done together
+  with UH3, which lives on the same lines.
+- *Tests added:* `tests/core.test.js` — `$$`, `$&`, `` $` ``, `$'` are
+  inserted literally; repeated fields; builtins and unvalued fields
+  untouched; missing values object tolerated.
+- *Manual verification:* dev build. Added a prompt `goal: {goal} end`,
+  summoned the popup, filled the field with `spend $$50 and $& here`,
+  Ctrl+Enter (copy only): clipboard reads `goal: spend $$50 and $& here end`.
+- *Commit:* see commit list (H5).
 
 ### H6. Popup writes the whole library from a snapshot and can drop a manager edit
 **Status:** DONE
@@ -667,7 +680,7 @@ D8.
 **Evidence:** by reading; cross-verified.
 
 ### UH3. An empty fill-in field pastes an empty hole, silently
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:304, 609-614`.
 **What:** `formValues[f] ?? ""`; the button reads "Paste" and is enabled.
 This is the failure BEHAVIOR.md:73-75 builds the config-downgrade rule to
@@ -676,6 +689,13 @@ prevent, permitted at runtime.
 (`Paste with 1 field empty`); keep it enabled, deliberate blanks are
 legitimate. Lands naturally with H5 (`fillFields` in `ui/core.js`).
 **Evidence:** by reading; cross-verified.
+**Resolution:** done with H5. An empty field gets a destructive outline,
+`aria-invalid`, and the label suffix "empty — pastes nothing"; the submit
+button reads `Paste with 1 field empty` (or `Copy …` in copy mode — the
+label half of UM3) and stays enabled. Labels now carry `htmlFor` to the
+textarea `id`. Verified in the popup: empty → outlined, `aria-invalid=true`,
+button "Paste with 1 field empty"; filled → plain "Paste". Screenshot taken.
+Commit: see H5.
 
 ### UH4. Pack-file failure produces two contradictory toasts
 **Status:** TODO
@@ -1171,7 +1191,7 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
 `PackMeta.path` default, starter ids unique.
 
 **Highest-value missing tests, in order** (ticked as they land):
-1. [ ] `fillFields` with `$&`/`$$` values (H5), after moving it into core.
+1. [x] `fillFields` with `$&`/`$$` values (H5), after moving it into core.
 2. [x] Rust: atomic write, and "unreadable file is preserved, never overwritten"
    (H3), via a temp dir and `AppHandle`-free helpers.
 3. [ ] Rust: `sync_pack_files` skips empty packs and unchanged files (M4);
@@ -1219,7 +1239,8 @@ passed at its commit and the manual check performed.
 | H3 | ✓ | ✓ 32/32 | ✓ 11/11 | truncated snippets.json → quarantined, empty library, persistent toast; backup restored | `a025d20` |
 | H6 + M13 | ✓ | ✓ 32/32 | ✓ 15/15 | stale popup write keeps the manager's edit; stale full-array save refused | `c725a09` |
 | H2 + D1 | ✓ | ✓ 32/32 | ✓ 15/15 | repeat press keeps popup state; double-tap and single-tap pastes land | `f82c4d4` |
-| H4 | ✓ | ✓ 32/32 | ✓ 16/16 | second instance starts with a notice; taken combination refused, old one keeps working | (H4 commit) |
+| H4 | ✓ | ✓ 32/32 | ✓ 16/16 | second instance starts with a notice; taken combination refused, old one keeps working | `13ca171` |
+| H5 + UH3 | ✓ | ✓ 34/34 | ✓ 16/16 | `$$`/`$&` value copies literally; empty field outlined and labelled | (H5 commit) |
 
 ## Commit list
 
@@ -1233,6 +1254,7 @@ passed at its commit and the manual check performed.
 | `183835f` | — | REVIEW.md: merge the UI review's findings into the tracker |
 | `c725a09` | H6, M13 | Snippet edits become intent-level Rust commands with a revision guard |
 | `f82c4d4` | H2, D1 | Ignore the hotkey while the popup is already open |
+| `13ca171` | H4 | A refused hotkey no longer aborts startup or drops the old binding |
 
 ## Remaining risks and deliberate exclusions
 
