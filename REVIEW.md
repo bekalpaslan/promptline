@@ -18,7 +18,9 @@ same day as the `U`-prefixed findings; its line numbers were taken after
 than the code findings' numbers.
 
 Baseline before any change: `npm run typecheck` clean, `npm test` 29/29,
-`npm run test:rust` 7/7. Versions agree at 0.2.4 across `package.json`,
+`npm run test:rust` 7/7. At completion: typecheck clean, `npm run lint`
+clean, `npm test` 42/42, `npm run test:rust` 19/19, and a release build
+(`tauri build --no-bundle`) produced. Versions agree at 0.2.4 across `package.json`,
 `Cargo.toml`, `tauri.conf.json`. `dist/` is gitignored and not committed.
 `npm run dev` with another Promptline instance already running exited at
 startup because that instance owned the global hotkey (see H4).
@@ -704,8 +706,7 @@ removed files. Commit: `f3454bd`.
 `ManagerCtx` is `ManagerApi | null` and `useManager` throws outside the
 provider; `handleRowClick` takes `{ctrlKey, metaKey, shiftKey}` with no
 casts. `noUncheckedIndexedAccess` left off (declined: it would add `?.` to
-already-guarded reads for no defect found). Commit: see commit list (L3,
-`65ca6a0`).
+already-guarded reads for no defect found). Commit: `65ca6a0`.
 
 ### L4. Match highlighting can misalign on non-BMP titles
 **Status:** DONE
@@ -789,7 +790,7 @@ Superseded in detail by the UI findings; this item closes when they do.
   though the inner `<Checkbox>` needs `aria-hidden` (UM20).
 **Resolution:** every item it points at is done: UH6 (`345d900`), UM13/UM11
 (`23506c7`), UH7 (`d4d7927`), UH8 (`23506c7`), UH9 (`345d900`), UH11
-(`3c0fa88`), UH10/UH13/UM20 (theme commit), UM14/UM15 (`345d900`/`23506c7`).
+(`3c0fa88`), UH10/UH13/UM20 `86a4a61`, UM14/UM15 (`345d900`/`23506c7`).
 
 ### L10. Theme and visual consistency
 **Status:** DONE
@@ -804,7 +805,7 @@ Superseded in detail by the UI findings; this item closes when they do.
 **Resolution:** the unused `--sidebar-*` and `--chart-*` tokens are gone from
 `index.css`; the popup's focus colour is the `--focus` token (UH10) and the
 brand colours carry a comment (UL5); dark-mode `--border` is 16 % (UM20).
-Commit: see commit list (theme).
+Commit: `86a4a61`.
 
 ### L11. Docs drift
 **Status:** DONE
@@ -828,7 +829,7 @@ capability description in L2. BEHAVIOR.md also gained sections for every
 non-obvious decision this review introduced (atomic writes and quarantine,
 intent-level writes and the revision guard, the repeat-hotkey guard, the
 quit handshake, the CSP, pack operations, the popup's undo, theme tokens).
-Commit: see commit list (docs).
+Commit: `37cf76c`.
 
 ### L12. Build and release
 **Status:** DONE
@@ -846,8 +847,7 @@ Commit: see commit list (docs).
 lint, typecheck, `node --test` and `cargo test` on `windows-latest`;
 `index.css` explains why `shadcn` is a runtime dependency; versions were left
 at 0.2.4 (bumping is a release decision). A release build
-(`tauri build --no-bundle`) was produced and exercised for M9. Commit: see
-commit list (tooling).
+(`tauri build --no-bundle`) was produced and exercised for M9. Commit: `f0106f0`.
 
 ---
 
@@ -918,8 +918,7 @@ re-adds the exact snippet through `add_snippet` (same id, so uses, pin and
 remembered fill-ins come back) and the strip says `Restored "<title>"`. The
 offer expires with the strip and is cleared on the next summon. Verified in
 the dev build: Tab → 5 → 5 deleted "FB temp" (18 → 17 rows), U restored it
-(18 rows, present on disk with its body). Commit: see commit list (popup
-feedback).
+(18 rows, present on disk with its body). Commit: `6e692dc`.
 
 ### UH3. An empty fill-in field pastes an empty hole, silently
 **Status:** DONE
@@ -1052,7 +1051,7 @@ every collapsed pack (collapsed rows leave `visible`, so there is no row to
 expand one from; plain Right stays the preview). Verified in the dev build:
 Left on a Desktop row gives its header `aria-expanded=false`, 34 to 32
 options; Ctrl+Right gives 34 options with every header expanded. Commit:
-see commit list (`345d900`).
+`345d900`.
 
 ### UH10. Focus styling is four systems, and a dozen controls have none
 **Status:** DONE
@@ -1080,7 +1079,7 @@ boxed inputs use `border-(--focus)`; the editor's title keeps its underline
 mark, now in `--focus`, and its prompt card its `focus-within` border, now
 `--focus`. Verified in the dev build: the stylesheet holds `.focus-ring
 {outline: none}` and `.focus-ring:focus-visible {box-shadow: … var(--focus)}`,
-`--focus` resolves to `#00a6f4`. Commit: see commit list (theme).
+`--focus` resolves to `#00a6f4`. Commit: `86a4a61`.
 
 ### UH11. Drag-to-reorder: no keyboard path, no resting affordance, silent regroup
 **Status:** DONE
@@ -1121,7 +1120,7 @@ secondary. The theme toggle carries `aria-pressed` (UM11 batch); the
 Generate path picker is a `radiogroup` of `radio` buttons with
 `aria-checked`. Verified in the dev build: light active `oklch(1 0 0)` on
 `oklch(0.955 …)`, dark active `oklch(0.33 …)` on `oklch(0.22 …)`; screenshots
-of both. Commit: see commit list (theme).
+of both. Commit: `86a4a61`.
 
 ### UH13. Three colour systems fail contrast
 **Status:** DONE
@@ -1151,8 +1150,7 @@ as a 35 % / 45 % edge (`tag-border`); the `/50` placeholders are `/80`, the
 `/70` and `opacity-70` real text is full. Measured in the dev build (canvas
 sRGB, WCAG): light on white — builtin 5.12, field 4.98, config 6.25, warn
 4.99, tag `debug` 8.83, muted 4.74; dark on the shell — builtin 10.63, field
-11.54, config 9.05, warn 11.54, tag 6.95, muted 7.66. Commit: see commit list
-(theme).
+11.54, config 9.05, warn 11.54, tag 6.95, muted 7.66. Commit: `86a4a61`.
 
 ### UM1. Agent-mode generate blocks the manager with no stop or timeout
 **Status:** DONE
@@ -1215,7 +1213,7 @@ hint bar.
 **Evidence:** by reading; cross-verified.
 **Resolution:** the feedback strip says `Saved "<title>" to <pack> › <group>`
 after Ctrl+N → Enter. Verified in the dev build (`Saved "FB temp" to
-Desktop`). Commit: see commit list (popup feedback).
+Desktop`). Commit: `6e692dc`.
 
 ### UM5. Pack and group operations exist only behind right-click
 **Status:** DONE
@@ -1370,7 +1368,7 @@ prompt, fill-in fields, new prompt); the feedback strip (M3) is a second
 polite live region for errors and confirmations. `index.css` gains a
 `prefers-reduced-motion: reduce` block that zeroes animation and transition
 durations. Verified: status text "32 prompts" in the dev build; the CSS
-block by reading. Commit: see commit list (`345d900`).
+block by reading. Commit: `345d900`.
 
 ### UM15. Hit targets under 24 px
 **Status:** DONE
@@ -1430,8 +1428,7 @@ undo callback. Related: M10.
 close button; undo lasts 12 s; `status.ts` remembers the Undo on offer and
 `undoLast()` takes it — bound to Ctrl+Z outside text fields. Verified in
 the dev build: toaster `right/bottom`, close button present, Ungroup then
-Ctrl+Z restored the group ("Restored"). Commit: see commit list (manager
-semantics).
+Ctrl+Z restored the group ("Restored"). Commit: `23506c7`.
 
 ### UM20. Design-system drift
 **Status:** DONE
@@ -1466,7 +1463,7 @@ and pin icons are `size-3`, chevrons `size-4`, Settings uses the line arrow
 family and a `size-2` dot; the inner import checkbox is `aria-hidden`. Hover
 fills stay two idioms on purpose: `bg-accent` for menus and popup rows,
 `bg-secondary` for the manager's flat rows — the same split as the primitives.
-Commit: see commit list (theme).
+Commit: `86a4a61`.
 
 ### UM21. Terminology and labels
 **Status:** DONE
@@ -1503,7 +1500,7 @@ in place of `panelFor.title` and only clears on `closePanel`.
 edited title first shows `Press Esc again to discard "<title>"`, the second
 Escape discards. The action panel now renders `panelNote` under the title
 instead of in its place. Verified: first Esc keeps the create view with the
-strip, second returns to the list. Commit: see commit list (popup feedback).
+strip, second returns to the list. Commit: `6e692dc`.
 
 ### UM23. Armed-delete cancellation differs across four controls
 **Status:** DONE
@@ -1526,7 +1523,7 @@ which disarms as a side effect. Verified in the dev build: armed → Esc →
 **Status:** DONE
 `popup/App.tsx:480` vs `:474/476/478`; the other three variants include it.
 **Resolution:** list-mode hint now ends with `Esc close` (verified in the
-dev build). Commit: see commit list (popup feedback).
+dev build). Commit: `6e692dc`.
 
 ### UL2. Search feedback and clear controls
 **Status:** DONE
@@ -1536,8 +1533,7 @@ reads `filter: "…" ✕` (`Sidebar.tsx:784-790`). Related: L5.
 **Resolution:** a miss with `#`/`@`/`>` terms reads "No matches — #tag,
 @pack and >group terms narrow the list; remove one to widen it"; the clear
 ✕ has `aria-label="Clear search"`. The sidebar chip is reworded in the
-manager batch (UM21). Verified in the dev build. Commit: see commit list
-(popup a11y).
+manager batch (UM21). Verified in the dev build. Commit: `345d900`.
 
 ### UL3. Off-scale sizes
 **Status:** DONE
@@ -1547,14 +1543,14 @@ incl. the `// matches max-h-55` comment (`popup/App.tsx:784`);
 **Resolution:** `--text-ui: 13px` in the theme gives `text-ui`, used at every
 former `text-[13px]`; ctx-menu disabled items use 50 like the primitives.
 The remaining arbitrary sizes are layout (`max-h-55`, `min-w-19`) and stay.
-Commit: see commit list (theme).
+Commit: `86a4a61`.
 
 ### UL4. Pack select chevron is a data-URI SVG with `#888e98` baked in
 **Status:** DONE
 `Editor.tsx:430`; passes 3:1 in both themes but is the only non-Remix chevron.
 **Resolution:** a `RiArrowDownSLine` overlay in `text-muted-foreground`
 replaces the data URI (`img-src data:` stays in the CSP; nothing else needs
-it today). Commit: see commit list (theme).
+it today). Commit: `86a4a61`.
 
 ### UL5. Brand button colours are hardcoded
 **Status:** DONE
@@ -1562,7 +1558,7 @@ it today). Commit: see commit list (theme).
 `text-black` on `#d97757` is 6.7:1. Worth a comment (was in L10).
 **Resolution:** commented at both sites (Claude's brand orange on the
 generate button; Buy Me a Coffee's own palette on the support button, with
-the 6.7:1 note). Commit: see commit list (theme).
+the 6.7:1 note). Commit: `86a4a61`.
 
 ### UL6. Unused shadcn primitives
 **Status:** DONE
@@ -1574,7 +1570,7 @@ scroll-area, select, separator, tooltip). Keep the hand-rolled ctx-menu
 **Resolution:** nine deleted in L2; `Kbd` and `Label` adopted (popup
 shortcut chips, first-run banner, Settings row captions); `Input` and
 `Separator` found no site in UM11/UM20 and are deleted too. The hand-rolled
-ctx-menu stays, now keyboard-complete (UH7). Commit: see commit list (theme).
+ctx-menu stays, now keyboard-complete (UH7). Commit: `86a4a61`.
 
 ### UL7. Landmarks and headings
 **Status:** DONE
@@ -1676,6 +1672,12 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
 `category` not re-serialized, config defaults, pack filename sanitizing,
 `PackMeta.path` default, starter ids unique.
 
+**Added during the review:** `tests/core.test.js` 29 → 42 (`fillFields`,
+BOM, `removeByIds` / `restoreRemoved`, `packToJson`, `pinPlan`,
+`defaultPackFor`, `rankSnippets`, `highlightSegments`); `cargo test` 7 → 19
+(atomic write, quarantine, merge helpers, `StoreError`, `resolve_hotkey`,
+reserved filenames, pack-file sync, `rename_pack_in`).
+
 **Highest-value missing tests, in order** (ticked as they land):
 1. [x] `fillFields` with `$&`/`$$` values (H5), after moving it into core.
 2. [x] Rust: atomic write, and "unreadable file is preserved, never overwritten"
@@ -1761,7 +1763,10 @@ passed at its commit and the manual check performed.
 | UM8 | ✓ | ✓ 42/42 | ✓ 18/18 | bad JSON inline + Retry; All/None; multi-pack chips | `92c0847` |
 | UM1 + L8 | ✓ | ✓ 42/42 | ✓ 18/18 | Stop / Keep watching / import; no pack before import | `f5cb074` |
 | N1 | ✓ | ✓ 42/42 | ✓ 19/19 | rename round trip keeps one pack; delete + undo of a non-empty pack | `c098b2c` |
-| UH10, UH12, UH13, UM20, L10, UL3–UL6, L9 | ✓ | ✓ 42/42 | ✓ 19/19 | focus rule present; token contrast measured both themes; segmented tiles; light/dark screenshots of both windows | (theme commit) |
+| UH10, UH12, UH13, UM20, L10, UL3–UL6, L9 | ✓ | ✓ 42/42 | ✓ 19/19 | focus rule present; token contrast measured both themes; segmented tiles; light/dark screenshots of both windows | `86a4a61` |
+| D5 + L12 | ✓ | ✓ 42/42 | ✓ 19/19 | `npm run lint` clean (0 problems); CI workflow by reading | `f0106f0` |
+| L11, L5, D6 | ✓ | ✓ 42/42 | ✓ 19/19 | docs only | `37cf76c` |
+| **Final** | ✓ 0 errors | ✓ 42/42 | ✓ 19/19 | lint clean; library 34 prompts / 34 unique ids / 0 drafts; config restored (hotkey `ctrl+alt+v`, three packs); release build `tauri build --no-bundle` exit 0 | (this commit) |
 
 ## Commit list
 
@@ -1814,12 +1819,57 @@ passed at its commit and the manual check performed.
 | `92c0847` | UM8 | Import curation: bulk select, pack names per row, editable bad JSON, no double add |
 | `f5cb074` | UM1, L8 | Generate (agent): a stop, a clock, manual import, and no pack until import |
 | `c098b2c` | N1 | Rename a pack in one Rust step; delete prompts before metadata |
+| `86a4a61` | UH10, UH12, UH13, UM20, L10, UL3, UL4, UL5, UL6, L9 | One focus treatment, contrast-safe tokens, and the design-system drift |
+| `f0106f0` | D5, L12 | Add a lint script with ESLint, and a CI workflow |
+| `37cf76c` | L11, L5, D6 | Docs: roadmap deviation resolved, state table complete, draft sweep explained |
+| (this commit) | — | REVIEW.md: final verification matrix, commit list, remaining risks |
 
 ## Remaining risks and deliberate exclusions
 
-Written at completion.
+**What the verification could not cover.**
+- Every UI check drove the real app over WebView2's remote-debugging port
+  with synthesized DOM/CDP events and OS-level `SendKeys`; no human eyes
+  were on the windows beyond the screenshots recorded here. Hover, focus
+  rings and the drag lift were checked through computed styles and DOM
+  state, not by a pointer.
+- Ctrl+Shift+V is intercepted by another program on this machine before the
+  app sees it, so every hotkey test used Ctrl+Alt+Shift+F9. The app never
+  saw a genuine keyboard autorepeat (H2): the guard is on the path the
+  review confirmed against the crate source, and the observable effect (a
+  repeat no longer re-runs `show_popup`) was checked.
+- Tray Quit was exercised through the same `request_quit` the tray calls,
+  not by clicking the tray icon. Windows shutdown is not handled (BACKLOG).
+- A real clipboard-open failure was reproduced (M3); a disk-full or locked
+  `snippets.json` was not — the I/O-error path is by reading.
+- The CI workflow (`f0106f0`) has not run yet: it lands with the push.
+- The CSP is enforced only in release builds; nothing checks the dev page.
 
-**Deliberately not proposed by the review:** virtualizing the popup list (no
-evidence of need yet), word-wise fuzzy search (a ranking change that deserves
-its own discussion), changing copy-only use counting, the macOS port, and
-anything in BACKLOG's Distribution section.
+**Risks that remain by design.**
+- `save_snippets` from the manager's bulk operations is still a full-array
+  write behind a revision check; a stale write is refused and must be redone
+  by the user, not merged.
+- Cancelling an agent generate leaves an orphan file in `packs/` (L8),
+  consistent with the rule that orphans are never swept.
+- The popup's U-to-undo captures a bare `u` keypress in list mode for 8 s
+  after a delete; a query starting with "u" typed in that window would
+  trigger it instead.
+- The `react-hooks/refs` and `set-state-in-effect` rules are off; the
+  latest-ref idiom the code relies on is documented in `eslint.config.mjs`.
+- The dark-mode `--border` bump to 16 % and the new tokens were tuned by
+  measurement, not by a designer.
+
+**Deliberately excluded (recorded in BACKLOG where they are work):**
+virtualizing the popup list (no evidence of need yet), word-wise fuzzy
+search (L5, a ranking change that deserves its own discussion), changing
+copy-only use counting, splitting the three largest components (D6), a
+"Saving…/Saved" caption in the editor, hotkey toggle-to-hide (D1), the
+macOS port, and anything in BACKLOG's Distribution section. Versions stay at
+0.2.4: bumping is a release decision.
+
+**Process notes.** A parallel session merged the 44 UI findings into this
+file mid-review (`183835f`) and, at one point, an unrelated `UI-REVIEW.md`
+was swept into a commit and removed again before it was pushed. The user's
+library was backed up before the destructive checks (H3, N1) and every test
+artifact (temporary prompts and packs, retired files, the phantom pack N1's
+reproduction left behind) was removed afterwards; the two prompts of the
+"Desktop" pack carry a few extra `uses` from the paste checks.
