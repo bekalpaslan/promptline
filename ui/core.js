@@ -277,6 +277,17 @@
     }
   }
 
+  // ---- Where a new prompt goes ---------------------------------------------------
+  // The pack that last received a prompt if it still exists and is unlocked,
+  // else the default pack if unlocked, else the first unlocked pack, else a
+  // fresh "Unsorted". One rule for both windows.
+  function defaultPackFor(lastPack, names, isLocked, defaultPack) {
+    const usable = p => !!p && names.includes(p) && !isLocked(p);
+    if (usable(lastPack)) return lastPack;
+    if (!isLocked(defaultPack)) return defaultPack;
+    return names.find(p => !isLocked(p)) || 'Unsorted';
+  }
+
   // ---- Pins -----------------------------------------------------------------------
   // Whether pinning `ids` fits under `max`, counting only what would newly
   // be pinned: rows in the selection that are already pinned take no new
@@ -362,6 +373,7 @@
     stripFences,
     parsePacks,
     diagnosePack,
+    defaultPackFor,
     pinPlan,
     packToJson,
     removeByIds,

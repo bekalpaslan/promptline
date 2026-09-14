@@ -32,10 +32,10 @@ export function ImportCuration({
 }) {
   const m = useManager()
   const diag = useMemo(() => C.diagnosePack(raw), [raw])
-  const singlePack = diag.ok && diag.packs!.length === 1
+  const singlePack = diag.ok && diag.packs.length === 1
   const [packName, setPackName] = useState(() => {
     if (!diag.ok || !singlePack) return ""
-    const name = diag.packs![0].name
+    const name = diag.packs[0].name
     return name === "Imported" && defaultName ? defaultName : name
   })
   const [rows, setRows] = useState<Row[]>(() => {
@@ -43,7 +43,7 @@ export function ImportCuration({
     const isDupe = (p: { title: string; text: string }) =>
       m.snippets.some((s) => s.title === p.title && s.text === p.text)
     const out: Row[] = []
-    for (const pk of diag.packs!)
+    for (const pk of diag.packs)
       for (const p of pk.prompts) {
         const dupe = isDupe(p)
         out.push({ packName: pk.name, ...p, dupe, include: !dupe })

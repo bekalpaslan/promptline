@@ -63,11 +63,23 @@ export interface FuzzyResult {
   indices: number[]
 }
 
-export interface PackDiagnosis {
-  ok: boolean
-  message?: string
-  packs?: { name: string; prompts: { title: string; text: string; tags: string[]; group: string }[] }[]
+/** A prompt as it appears in a pack file, after parsing */
+export interface ParsedPrompt {
+  title: string
+  text: string
+  tags: string[]
+  group: string
 }
+
+export interface ParsedPack {
+  name: string
+  prompts: ParsedPrompt[]
+}
+
+/** Result of `diagnosePack`: a discriminated union, so `packs` needs no `!` */
+export type PackDiagnosis =
+  | { ok: true; packs: ParsedPack[] }
+  | { ok: false; code: "empty" | "not-json" | "malformed" | "wrong-shape"; message: string }
 
 interface PromptlineCore {
   tokenize(text: string): TokenPart[]
@@ -85,12 +97,15 @@ interface PromptlineCore {
   /** Title split into code-point runs marked hit/miss from UTF-16 match indices */
   highlightSegments(title: string, indices: number[] | null): { text: string; hit: boolean }[]
   parseQuery(raw: string): ParsedQuery
-  matchesFilters(snippet: Snippet, query: ParsedQuery): boolean
-  TAG_COLORS: string[]
+  matchesFilters(snippet: Pick<Snippet, "tags" | "pack" | "group">, query: Pick<ParsedQuery, "tags" | "packs" | "groups">): boolean
+  TAG_COLORS: Record<string, string>
   tagColor(tag: string): string
   stripFences(raw: string): string
-  parsePacks(raw: string): unknown
+  /** Throws on garbage; prefer `diagnosePack` for user-facing errors */
+  parsePacks(raw: string): ParsedPack[]
   diagnosePack(raw: string): PackDiagnosis
+  /** Where a new prompt goes: last used → default → first unlocked → "Unsorted" */
+  defaultPackFor(lastPack: string | null, names: string[], isLocked: (name: string) => boolean, defaultPack: string): string
   /** Whether pinning `ids` fits under `max`, counting only newly pinned rows */
   pinPlan(snippets: Pick<Snippet, "id" | "pinned">[], ids: Iterable<string>, max: number): { ok: boolean; already: number; toPin: number; room: number }
   /** Shareable pack JSON; group only when set, never personal state */

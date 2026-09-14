@@ -1,8 +1,7 @@
 import { createContext, useContext } from "react"
 import type { PackMeta, Snippet, SnippetEdit } from "@/lib/core"
 
-export const DEFAULT_PACK = "My prompts"
-export const MAX_PINS = 5
+export { DEFAULT_PACK, MAX_PINS } from "@/lib/library"
 
 export interface Prefs {
   theme: string // "light" | "dark" (legacy "sand"/"sundown" map to dark)
@@ -63,5 +62,9 @@ export interface ManagerApi {
   pendingFlush: { current: (() => Promise<void>) | null }
 }
 
-export const ManagerCtx = createContext<ManagerApi>(null!)
-export const useManager = () => useContext(ManagerCtx)
+export const ManagerCtx = createContext<ManagerApi | null>(null)
+export const useManager = (): ManagerApi => {
+  const api = useContext(ManagerCtx)
+  if (!api) throw new Error("useManager must be used inside <ManagerCtx.Provider>")
+  return api
+}

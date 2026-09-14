@@ -12,6 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
+import { TOKEN_CHIP } from "@/lib/library"
 import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
@@ -125,20 +126,16 @@ function TokenPreview({
       {C.tokenize(text).map((part, i) => {
         if (part.type === "text") return <span key={i}>{part.value}</span>
         let label: string
-        let cls: string
+        const cls = TOKEN_CHIP[part.type]
         if (part.type === "bad") {
           label = `${part.name} — not a param (lowercase letters/_ only)`
-          cls = "bg-destructive/15 text-destructive"
         } else if (part.type === "config") {
           const v = (configValues[part.name] || "").replace(/\s+/g, " ")
           label = v ? (v.length > 40 ? v.slice(0, 40) + "…" : v) : `${part.name} — config (unset)`
-          cls = "bg-fuchsia-500/15 text-fuchsia-500"
         } else if (part.type === "builtin") {
           label = part.name
-          cls = "bg-cyan-500/15 text-cyan-500"
         } else {
           label = `${part.name} — fill-in`
-          cls = "bg-amber-500/15 text-amber-500"
         }
         return (
           <span key={i} className={cn("rounded-sm px-1 text-xs font-semibold", cls)}>

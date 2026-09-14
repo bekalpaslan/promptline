@@ -198,7 +198,8 @@ export function Sidebar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag, over, grouped, m.snippets, orderBy])
 
-  const handleRowClick = (e: React.MouseEvent | React.KeyboardEvent, id: string) => {
+  // Mouse and keyboard events both carry the modifier flags this reads
+  const handleRowClick = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }, id: string) => {
     // A completed drag still fires a click on release — swallow it
     if (suppressClick.current) {
       suppressClick.current = false
@@ -207,12 +208,12 @@ export function Sidebar() {
     m.showSettings(false)
     let sel: Set<string>
     let anchor: string | null = m.selectionAnchor
-    if ((e as React.MouseEvent).ctrlKey || (e as React.MouseEvent).metaKey) {
+    if (e.ctrlKey || e.metaKey) {
       sel = new Set(m.selection)
       if (sel.has(id)) sel.delete(id)
       else sel.add(id)
       anchor = id
-    } else if ((e as React.MouseEvent).shiftKey && m.selectionAnchor) {
+    } else if (e.shiftKey && m.selectionAnchor) {
       const ids = visibleIdsRef.current
       const a = ids.indexOf(m.selectionAnchor)
       const b = ids.indexOf(id)

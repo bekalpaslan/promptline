@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 0 | 10 | 2 | 12 |
+| TODO | 0 | 0 | 8 | 2 | 10 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 13 | 2 | 6 | 27 |
+| DONE | 6 | 13 | 4 | 6 | 29 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -448,7 +448,7 @@ virtualization. Manual (dev build, 32 visible rows): a `MutationObserver`
 on the list saw exactly 2 rows change on ArrowDown; hover after the 250 ms
 keyboard-suppression window selects the hovered row and opens the preview;
 the tag pill sets `#debug `; ArrowRight opens the preview card; Enter and
-Ctrl+Enter unchanged (M3 checks). Commit: see commit list (M5).
+Ctrl+Enter unchanged (M3 checks). Commit: `055d067`.
 
 ### M6. Popup clamps to the monitor bounds, not the work area
 **Status:** DONE
@@ -593,7 +593,7 @@ form-values path is exercised again in M3's paste check.
 ## Low
 
 ### L1. Logic duplicated between popup and manager
-**Status:** TODO
+**Status:** DONE
 - `DEFAULT_PACK`, `MAX_PINS`: `popup/App.tsx:20,29` and `manager/state.ts:107-108`.
 - `packNames` / `isLocked`: `popup/App.tsx:210-221` and `manager/App.tsx:53-68`.
 - "which pack does a new prompt go to" (`lastPack`, locked fallback):
@@ -608,6 +608,17 @@ form-values path is exercised again in M3's paste check.
 **Fix:** a `src/lib/library.ts` holding `DEFAULT_PACK`, `MAX_PINS`,
 `packNames(meta, snippets)`, `isLocked`, `defaultPackFor(...)`, `packToJson`,
 and the `Config` type; both windows import it.
+**Resolution:** `src/lib/library.ts` holds `DEFAULT_PACK`, `MAX_PINS`,
+`packNames`, `isLockedIn`, `defaultPackFor`, the `Config` type and the
+`TOKEN_CHIP` class set; `state.ts` re-exports the constants. The "which pack
+gets a new prompt" rule is one pure core function `defaultPackFor` (last
+used → default → first unlocked → "Unsorted"), tested; the manager used to
+jump straight to "Unsorted" when the default pack was locked, now it prefers
+an existing unlocked pack like the popup did — a change only when "My
+prompts" is locked. `packToJson` and `deletePack` were unified in M1 / H1 /
+UM2. Manual: popup Ctrl+N and manager "New prompt" both default to the
+last-used pack ("Desktop"); typecheck is the safety net for the rest.
+Commit: see commit list (L1).
 
 ### L2. Dead code and stray dev aids
 **Status:** DONE
@@ -635,7 +646,7 @@ attaches its listener. Capability description now names Promptline. The
 removed files. Commit: `f3454bd`.
 
 ### L3. TypeScript strictness gaps in the bridge
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/lib/core.ts`.
 - `PackDiagnosis` is `{ok: boolean; message?; packs?}`, forcing `diag.packs!`
   at `ImportCuration.tsx:469,480` and `GenerateDialog.tsx:260`. A
@@ -651,6 +662,15 @@ removed files. Commit: `f3454bd`.
   `{ctrlKey, metaKey, shiftKey}` pick type is honest.
 - `noUncheckedIndexedAccess` is off; enabling it would flag `visible[sel]`
   reads that are already guarded, at the cost of a few `?.`.
+**Resolution:** `PackDiagnosis` is a discriminated union (`ok: true, packs`
+| `ok: false, code, message`) and the three `diag.packs!` are gone;
+`TAG_COLORS` is `Record<string, string>`; `parsePacks` returns
+`ParsedPack[]`; `matchesFilters` takes a `Pick` of `tags/pack/group`;
+`ManagerCtx` is `ManagerApi | null` and `useManager` throws outside the
+provider; `handleRowClick` takes `{ctrlKey, metaKey, shiftKey}` with no
+casts. `noUncheckedIndexedAccess` left off (declined: it would add `?.` to
+already-guarded reads for no defect found). Commit: see commit list (L3,
+same commit as L1).
 
 ### L4. Match highlighting can misalign on non-BMP titles
 **Status:** DONE
@@ -663,7 +683,7 @@ into code-point runs marked hit/miss from the UTF-16 indices (a surrogate
 pair counts as hit if either unit is); `HighlightedTitle` renders those
 runs. Test: `🚀 Root cause` with query `root` underlines exactly `Root`.
 Manual: a temp prompt titled `🚀 Root cause L4` searched with `root` showed
-the underlined run `Root`. Commit: see commit list (L4, same commit as M5).
+the underlined run `Root`. Commit: `055d067`.
 
 ### L5. Search ergonomics (design notes, not defects)
 **Status:** TODO
@@ -1386,7 +1406,7 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
    `popup/App.tsx:129-149` into `core.rankSnippets(query, snippets)` and test
    that a title subsequence beats a tag contiguous match and that pins lead
    with no query.
-7. [ ] `defaultPackFor(lastPack, names, isLocked)` once extracted (L1).
+7. [x] `defaultPackFor(lastPack, names, isLocked)` once extracted (L1).
 8. [x] `packToJson` includes `group` only when set (M1).
 9. [x] Undo restoration helper (H1) once extracted: delete then undo yields the
    original array with no duplicate ids.
@@ -1443,7 +1463,8 @@ passed at its commit and the manual check performed.
 | UH4 | ✓ | ✓ 37/37 | ✓ 18/18 | by reading (needs an unwritable packs dir) | `33ebab9` |
 | UM16 | ✓ | ✓ 37/37 | ✓ 18/18 | label | `2e1eadd` |
 | M12 + D3 | ✓ | ✓ 37/37 | ✓ 18/18 | edit, quit 100 ms later → process exits, edit on disk | `79be540` |
-| M5 + L4 | ✓ | ✓ 41/41 | ✓ 18/18 | ArrowDown touches 2 of 32 rows; hover/pill/preview unchanged; emoji underline aligned | (M5 commit) |
+| M5 + L4 | ✓ | ✓ 41/41 | ✓ 18/18 | ArrowDown touches 2 of 32 rows; hover/pill/preview unchanged; emoji underline aligned | `055d067` |
+| L1 + L3 | ✓ | ✓ 42/42 | ✓ 18/18 | popup Ctrl+N and manager New prompt default to the last-used pack | (L1 commit) |
 
 ## Commit list
 
@@ -1480,6 +1501,7 @@ passed at its commit and the manual check performed.
 | `2e1eadd` | UM16 | Settings: "Sync from file" is an import, so call it one |
 | `292dfb4` | — | REVIEW.md: verification notes for the manager batch; regenerated capability schema |
 | `79be540` | M12, D3 | Tray Quit flushes a pending autosave before exiting |
+| `055d067` | M5, L4 | Popup: memoized rows, ranking in core, emoji-safe highlighting |
 
 ## Remaining risks and deliberate exclusions
 

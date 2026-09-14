@@ -6,7 +6,8 @@ import { RiCloseLine } from "@remixicon/react"
 import { Toaster } from "@/components/ui/sonner"
 import { C, isStoreError, type Library, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
-import { DEFAULT_PACK, ManagerCtx, type DeleteOpts, type ManagerApi, type Prefs } from "./state"
+import { ManagerCtx, type DeleteOpts, type ManagerApi, type Prefs } from "./state"
+import { type Config, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 import { say, sayErr, sayPersistent, sayUndo } from "./status"
 import { Sidebar } from "./Sidebar"
 import { Editor } from "./Editor"
@@ -17,16 +18,6 @@ import { GenerateDialog } from "./GenerateDialog"
 interface Notice {
   kind: string
   message: string
-}
-
-interface Config {
-  hotkey: string
-  packs?: PackMeta[]
-  theme?: string
-  density?: string
-  scale?: string
-  font?: string
-  popupSeen?: boolean
 }
 
 export function App() {
@@ -125,20 +116,10 @@ export function App() {
     return removed.length
   }, [persist, persistPacks])
 
-  const isLocked = useCallback(
-    (name: string) => !!packMeta.find((p) => p.name === name)?.locked,
-    [packMeta]
-  )
+  const isLocked = useCallback((name: string) => isLockedIn(packMeta, name), [packMeta])
 
   const packNames = useCallback(
-    (extra?: string) => {
-      const names = new Set([
-        ...packMeta.map((p) => p.name),
-        ...snippets.map((s) => s.pack || DEFAULT_PACK),
-      ])
-      if (extra) names.add(extra)
-      return [...names].sort((a, b) => a.localeCompare(b))
-    },
+    (extra?: string) => packNamesOf(packMeta, snippets, { extra }),
     [packMeta, snippets]
   )
 
@@ -161,15 +142,8 @@ export function App() {
   const newPrompt = useCallback(async (into?: { pack: string; group?: string }) => {
     setSettingsOpen(false)
     // Default to the pack the user last saved a prompt into, not a fixed pack
-    const last = localStorage.getItem("lastPack")
-    const pack =
-      into?.pack && !isLocked(into.pack)
-        ? into.pack
-        : last && packNames().includes(last) && !isLocked(last)
-          ? last
-          : isLocked(DEFAULT_PACK)
-            ? "Unsorted"
-            : DEFAULT_PACK
+    // (one rule with the popup: library.ts)
+    const pack = into?.pack && !isLocked(into.pack) ? into.pack : defaultPackFor(packMeta, snippets)
     const s: Snippet = {
       id: crypto.randomUUID(),
       title: "New prompt",
@@ -191,7 +165,7 @@ export function App() {
     setSelectionState(new Set([s.id]))
     setSelectionAnchor(s.id)
     setActiveId(s.id)
-  }, [isLocked, packNames, applyLibrary])
+  }, [isLocked, packMeta, snippets, applyLibrary])
 
   const addPack = useCallback(
     async (name: string) => {

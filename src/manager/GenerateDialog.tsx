@@ -257,7 +257,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         try {
           const raw = await invoke<string>("read_pack_file", { path: agentFilePath })
           const diag = C.diagnosePack(raw)
-          if (diag.ok && diag.packs!.some((p) => p.prompts.length > 0)) {
+          if (diag.ok && diag.packs.some((p) => p.prompts.length > 0)) {
             setWatching(false)
             setImportRaw(raw)
             say("Claude wrote the pack — review it below")

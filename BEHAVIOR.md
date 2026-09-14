@@ -101,6 +101,12 @@ A pack is just a name. It has no independent existence — `packNames()` is the
 union of declared `PackMeta` and every `snippet.pack` in the library, so naming
 a pack on a prompt conjures it. Imports and moves create packs this way.
 
+**Where a new prompt goes** is one rule for both windows (`defaultPackFor`
+in `ui/core.js`): the pack that last received a prompt if it still exists and
+is unlocked, else the default pack if unlocked, else the first unlocked pack,
+else a fresh "Unsorted". Both windows used to have their own version and they
+disagreed once "My prompts" was locked.
+
 **A group is the same kind of thing one level down**: `snippet.group`, a
 label scoped to its pack, empty meaning ungrouped. It has no metadata, no lock,
 no file. Renaming a group rewrites the label on every prompt that carries it,

@@ -280,6 +280,19 @@ test('fmtHotkey capitalizes parts', () => {
   assert.equal(core.fmtHotkey('alt+space'), 'Alt+Space');
 });
 
+// ---- default pack --------------------------------------------------------------------
+
+test('defaultPackFor: last used, else default, else first unlocked, else Unsorted (L1)', () => {
+  const locked = (set) => (p) => set.includes(p);
+  const names = ['A', 'My prompts', 'Z'];
+  assert.equal(core.defaultPackFor('Z', names, locked([]), 'My prompts'), 'Z');
+  assert.equal(core.defaultPackFor('Z', names, locked(['Z']), 'My prompts'), 'My prompts');
+  assert.equal(core.defaultPackFor('gone', names, locked([]), 'My prompts'), 'My prompts');
+  assert.equal(core.defaultPackFor(null, names, locked(['My prompts']), 'My prompts'), 'A');
+  assert.equal(core.defaultPackFor(null, names, locked(names), 'My prompts'), 'Unsorted');
+  assert.equal(core.defaultPackFor(null, [], locked([]), 'My prompts'), 'My prompts');
+});
+
 // ---- pins ---------------------------------------------------------------------------
 
 test('pinPlan counts only newly pinned rows against the limit (UH5)', () => {

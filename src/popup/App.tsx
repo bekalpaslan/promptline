@@ -15,9 +15,9 @@ import {
 } from "@remixicon/react"
 import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
 import { applyPrefs, isCompact } from "@/lib/prefs"
+import { type Config, DEFAULT_PACK, MAX_PINS, TOKEN_CHIP, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 import { cn } from "@/lib/utils"
 
-const MAX_PINS = 5
 // Command-palette kit accent (focus border) — same in both themes
 const FOCUS_BORDER = "#00a6f4"
 
@@ -29,7 +29,6 @@ type CreateState = { title: string; pack: string; group: string; prefilled: stri
 // error (a failed paste or save) or a confirmation (copied, saved)
 type Notice = { text: string; kind: "error" | "info" }
 
-const DEFAULT_PACK = "My prompts"
 
 // 16px bordered square, the kit's shortcut-label idiom
 function Kbd({ children }: { children: React.ReactNode }) {
@@ -62,13 +61,7 @@ function Tokens({ text }: { text: string }) {
         return (
           <span
             key={i}
-            className={cn(
-              "rounded-sm px-1 text-xs font-semibold",
-              part.type === "builtin" && "bg-cyan-500/15 text-cyan-500",
-              part.type === "field" && "bg-amber-500/15 text-amber-500",
-              part.type === "config" && "bg-fuchsia-500/15 text-fuchsia-500",
-              part.type === "bad" && "bg-destructive/15 text-destructive"
-            )}
+            className={cn("rounded-sm px-1 text-xs font-semibold", TOKEN_CHIP[part.type])}
           >
             {label}
           </span>
@@ -285,18 +278,8 @@ export function App() {
     if (sel >= visible.length && visible.length > 0) setSel(visible.length - 1)
   }, [sel, visible.length])
 
-  const packNames = useMemo(() => {
-    const names = new Set([
-      ...packMeta.map((p) => p.name),
-      ...snippets.map((s) => s.pack || DEFAULT_PACK),
-      DEFAULT_PACK,
-    ])
-    return [...names].sort((a, b) => a.localeCompare(b))
-  }, [packMeta, snippets])
-  const isLocked = useCallback(
-    (name: string) => !!packMeta.find((p) => p.name === name)?.locked,
-    [packMeta]
-  )
+  const packNames = useMemo(() => packNamesOf(packMeta, snippets, { always: true }), [packMeta, snippets])
+  const isLocked = useCallback((name: string) => isLockedIn(packMeta, name), [packMeta])
 
   const hidePreview = useCallback(() => {
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
@@ -336,14 +319,8 @@ export function App() {
     hidePreview()
     closePanel()
     const firstLine = clip.trim().split(/\r?\n/)[0] ?? ""
-    // Prefer the pack that last received a prompt (shared with the manager)
-    const usable = (p: string | null) => !!p && packNames.includes(p!) && !isLocked(p!)
-    const last = localStorage.getItem("lastPack")
-    const pack = usable(last)
-      ? last!
-      : usable(DEFAULT_PACK)
-        ? DEFAULT_PACK
-        : packNames.find((p) => !isLocked(p)) ?? DEFAULT_PACK
+    // Prefer the pack that last received a prompt (one rule with the manager)
+    const pack = defaultPackFor(packMeta, snippets)
     createEscArmed.current = false
     setCreate({
       title: firstLine.slice(0, 40) || "New prompt",
@@ -351,7 +328,7 @@ export function App() {
       group: "",
       prefilled: firstLine.slice(0, 40) || "New prompt",
     })
-  }, [clip, packNames, isLocked, hidePreview, closePanel])
+  }, [clip, packMeta, snippets, hidePreview, closePanel])
 
   const saveCreate = useCallback(async () => {
     if (!create) return
@@ -506,7 +483,7 @@ export function App() {
       const [lib, clipboard, config] = await Promise.all([
         invoke<Library>("get_snippets"),
         invoke<string>("get_clipboard_text"),
-        invoke<{ packs?: PackMeta[] }>("get_config"),
+        invoke<Config>("get_config"),
       ])
       setSnippets(lib.snippets)
       setClip(clipboard)
