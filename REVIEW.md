@@ -10,7 +10,12 @@ fixed and verified by the checks listed in the resolution.
 Scope: everything in the working tree at `73e680d` plus the (now committed, see
 `7265cf5`) groups work (`>group` filter, group headers, `packs/generated/`,
 `SizeDebug`). Line numbers in the findings refer to the working tree at review
-time; they drift as fixes land.
+time; they drift as fixes land. A second, UI-only pass (usability, visual
+consistency, accessibility, interaction states, copy) was merged in on the
+same day as the `U`-prefixed findings; its line numbers were taken after
+`e437876` and are therefore ~20 lower in `Sidebar.tsx`, 9 lower in
+`Editor.tsx`, 5 lower in `Settings.tsx` and 15 higher in `manager/App.tsx`
+than the code findings' numbers.
 
 Baseline before any change: `npm run typecheck` clean, `npm test` 29/29,
 `npm run test:rust` 7/7. Versions agree at 0.2.4 across `package.json`,
@@ -42,19 +47,41 @@ app.
 
 ## Progress summary
 
+Code findings (H, M, L):
+
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 4 | 13 | 12 | 6 | 35 |
+| TODO | 4 | 13 | 12 | 7 | 36 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
 | DONE | 2 | 0 | 0 | 1 | 3 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
-| **Total** | **6** | **13** | **12** | **7** | **38** |
+| **Total** | **6** | **13** | **12** | **8** | **39** |
+
+UI findings (UH, UM, UL — see "UI findings" below; UL9 is a keep-list, not
+a task):
+
+| Status | High | Medium | Low | Total |
+|---|---|---|---|---|
+| TODO | 13 | 23 | 8 | 44 |
+| IN PROGRESS | 0 | 0 | 0 | 0 |
+| BLOCKED | 0 | 0 | 0 | 0 |
+| DONE | 0 | 0 | 0 | 0 |
+| DECLINED | 0 | 0 | 0 | 0 |
+| **Total** | **13** | **23** | **8** | **44** |
 
 Implementation order: critical data integrity (H1, H3, H6) → high correctness
 and security (H2, H4, H5, M9) → quick wins (M6, M7, M8, M1, M2, M11+L11, M10,
 L2) → medium (M3, M4, M5, M12, M13, L1+L3, L9) → low documentation, structure
 and release hygiene (L4–L8, L10, L12, D5, D6).
+
+UI order, interleaved where a code fix touches the same lines: silent
+failures and wrong guards (M3 with its manager half, UH4, UH5, L7, UM2) →
+popup trust (UH1, UH2, UH3 with H5, UM3, UM22) → one pass over `index.css`
+and the primitives (UH10, UH12, UH13, UM14, UM20; most of the visual list
+collapses into this) → semantics and keyboard (UH6–UH9, UH11, UM11, UM13,
+UM15, with UL6 adopting `Input`/`Label`/`Kbd`) → flows and copy (UM1, UM8,
+UM9, UM10, UM21, remaining UM/UL).
 
 ---
 
@@ -242,7 +269,8 @@ keystrokes go nowhere (arrows still work because that handler is on
 `document`). Same after Ctrl+N then Enter.
 **Fix:** an effect keyed on `form`/`create` returning to null that focuses
 `inputRef`; delete the synchronous focus call.
-**Evidence:** by reading; verify in the app.
+**Evidence:** by reading; verify in the app. Independently confirmed by the
+UI pass (rated High there: focus lands on `body`, no caret explains why).
 
 ### M3. The popup has no error surface; failed pastes and saves are silent
 **Status:** TODO
@@ -258,6 +286,10 @@ autosave fail silently while the UI keeps showing the unsaved text.
 one-line error strip. Manager: `persist` catches, calls `sayErr`, and
 re-fetches so the UI reflects disk. Rust: in `paste_snippet`, write the
 clipboard before hiding the popup so an error can return to a visible window.
+UI pass (rated High): the popup mounts no `Toaster`, so there is no channel
+even if an error were raised; in `saveCreate` a rejection leaves the create
+view sitting there with no message. The error strip can reuse the
+`panelNote` slot (`popup/App.tsx:110`) but see UM22 for its placement.
 
 ### M4. Every autosave rewrites every pack file
 **Status:** TODO
@@ -348,7 +380,10 @@ else uses it.
 **Failure:** type, then Quit from the tray within 600 ms: the last edit never
 reaches disk. Also true for Windows shutdown.
 **Fix:** flush on `beforeunload`/`pagehide` in the editor, or a Rust
-`flush-and-quit` handshake. See D3.
+`flush-and-quit` handshake. See D3. UI pass: there is also no
+"Saving…/Saved" caption or dirty marker anywhere, so the user has no signal
+that it is safe to close; add a two-state caption near the title driven by
+`saveTimer`.
 
 ### M13. `submitForm` mutates an object that lives in React state
 **Status:** TODO
@@ -438,35 +473,43 @@ to nothing with no hint in list mode (the form preview already says
 **Where:** `popup/App.tsx:241-281`. Saving with `clip === ""` yields a
 "New prompt" with no body, which the manager's startup GC
 (`manager/App.tsx:166`) later deletes silently.
-**Fix:** disable Save when the clipboard is empty.
+**Fix:** disable Save when the clipboard is empty, with inline text "Copy
+something first — the clipboard is the prompt body"; and give popup-created
+drafts a non-sentinel title (e.g. "Untitled prompt") so the GC can never
+claim them. The Save button is always enabled today (`popup/App.tsx:549`).
+UI review rated this Medium: the loss is silent and delayed.
 
 ### L8. Agent generate path creates the pack before anything is written
 **Status:** TODO
 **Where:** `GenerateDialog.tsx:233-238`. "Create file & copy instructions"
 with a topic persists a new empty `PackMeta`; cancelling leaves an empty pack
 in the sidebar. Consistent with "a pack is just a name"; worth a note in the
-dialog or a cleanup on cancel while the pack is still empty.
+dialog or a cleanup on cancel while the pack is still empty. The
+no-stop/no-timeout half of the same flow is UM1; fix the two together
+(create the pack on successful import).
 
 ### L9. Accessibility gaps
 **Status:** TODO
-- Popup list: no `role="listbox"` / `role="option"`, no `aria-selected`, no
-  `aria-activedescendant` on the search input (`popup/App.tsx:693-701,627-639`).
-- Tag pills are `span`s with `onClick` (`:652-665`); not focusable.
-- Action panel items are `div`s (`:797-811`); should be `menuitem`s or
-  `button`s.
-- Create/form `<label>`s have no `htmlFor` (`:490,508,529,570`).
-- Sidebar pack/group headers have `tabIndex` but no `role="button"` or
-  `aria-expanded`.
-- Dialogs (Base UI) and `ImportCuration` rows (`role="checkbox"`) are correct.
+Superseded in detail by the UI findings; this item closes when they do.
+- Popup list semantics → UH6 (rated High there).
+- Tag pills, action panel, preview card, DeleteBadge, sidebar headers → UM13.
+- Create/form and manager labels → UM11.
+- Context menus, Settings rows, popup headers, drag → UH7, UH8, UH9, UH11.
+- Focus rings, contrast, live region, reduced motion, hit targets → UH10,
+  UH13, UM14, UM15.
+- Dialogs (Base UI) and `ImportCuration` rows (`role="checkbox"`) are correct,
+  though the inner `<Checkbox>` needs `aria-hidden` (UM20).
 
 ### L10. Theme and visual consistency
 **Status:** TODO
+Superseded in detail by the UI findings; this item closes when they do.
 - `--sidebar-*` and `--chart-*` tokens are defined in `index.css` but unused.
-- Hard-coded `#00a6f4` focus border (`popup/App.tsx:22`) and Claude orange
-  `#d97757` (`Settings.tsx:329,415`) bypass the token system; fine as brand
-  colors, worth a comment.
-- Dark-mode `--border` is 10 % white; popup rows in dark are barely outlined.
-  Cosmetic.
+- `#00a6f4` focus border → UH10 (not a brand colour; it bypasses `--ring` and
+  is one of four focus systems). Claude orange `#d97757` → UL5 (deliberate,
+  comment it).
+- Dark-mode `--border` at 10 % white → UM20 (rows lose their edges; the
+  segmented controls invert outright, UH12).
+- Placeholder-kind chips and tag hues fail contrast in light → UH13.
 
 ### L11. Docs drift
 **Status:** TODO
@@ -498,6 +541,494 @@ dialog or a cleanup on cancel while the pack is still empty.
 
 ---
 
+## UI findings (second pass, 2026-09-14)
+
+Produced by four independent lens reviewers (usability / Nielsen, visual and
+design system, accessibility and keyboard, interaction states and copy) and
+two cross-verifiers that re-checked every finding against the working tree,
+merged duplicates and re-rated severity. IDs are prefixed `U` so they never
+collide with the code findings above. Where a UI finding overlaps a code
+finding, the code finding was amended in place and no `U` item was created
+(M2, M3, M12, L7, L8 gained detail; L9 and L10 now point here). Line numbers
+are from the working tree at verification time.
+
+Dropped after verification: the undo-duplicates finding (already fixed, H1);
+a "keyboard trap" claim on the hotkey field (Escape exits and is documented at
+`Settings.tsx:136-139`); a ctx-menu "runs off-screen" claim (clamped at
+`ctx-menu.tsx:64-81`); a `var(--primary)` token claim (it is the real
+property).
+
+Three patterns account for most of the High list: nothing in the popup can
+report an error and the manager persists optimistically (M3); every menu,
+listbox and disclosure is hand-rolled from `div`s while the shadcn primitives
+sit unimported (D4); colour is set by literal value in four places and each
+fails in the theme it was not tuned for (UH10, UH12, UH13).
+
+### UH1. Hotkey recorder commits on the first keystroke and registers Shift+Tab
+**Status:** TODO
+**Where:** `src/manager/Settings.tsx:49-83, 113-128`.
+**What:** recording starts on focus (:122) and the first valid combo is
+registered immediately (:76); no Apply, Cancel or Reset. `e.preventDefault()`
+runs before any branch (:51), so Tab yields combo `"tab"` and an error toast,
+and Shift+Tab yields `shift+tab`, which passes the modifier check.
+**Failure:** Tab through Settings with the hotkey field in the path: the
+global hotkey is now Shift+Tab. Escape does exit, so this is not a trap, but
+the field has no label or `aria-describedby`.
+**Fix:** early-return on Tab/Shift+Tab before `preventDefault`; arm with an
+explicit Record button; show the pending combo with Apply / Cancel / Reset to
+default. Related: H4 (a failed re-register must not drop the old hotkey).
+**Evidence:** by reading; cross-verified.
+
+### UH2. Popup delete is permanent with no undo
+**Status:** TODO
+**Where:** `src/popup/App.tsx:328-333, 343-345, 393`.
+**What:** "Delete" → "Confirm delete?" then the prompt is gone and the panel
+closes. Every manager delete offers 8 s Undo. Number keys 1-9 fire panel
+actions directly (:393).
+**Failure:** a mis-aimed second press on the fast keyboard surface destroys a
+prompt with no recovery path.
+**Fix:** keep the panel open with `Deleted "<title>" — press U to undo` for a
+few seconds, or route the delete through the manager's `deleteWithUndo`. See
+D8.
+**Evidence:** by reading; cross-verified.
+
+### UH3. An empty fill-in field pastes an empty hole, silently
+**Status:** TODO
+**Where:** `src/popup/App.tsx:304, 609-614`.
+**What:** `formValues[f] ?? ""`; the button reads "Paste" and is enabled.
+This is the failure BEHAVIOR.md:73-75 builds the config-downgrade rule to
+prevent, permitted at runtime.
+**Fix:** red border on empty fields and a label stating the consequence
+(`Paste with 1 field empty`); keep it enabled, deliberate blanks are
+legitimate. Lands naturally with H5 (`fillFields` in `ui/core.js`).
+**Evidence:** by reading; cross-verified.
+
+### UH4. Pack-file failure produces two contradictory toasts
+**Status:** TODO
+**Where:** `src/manager/App.tsx:139-146`; raw `String(e)` also at
+`App.tsx:168`, `Sidebar.tsx:320`, `Settings.tsx:283, 413`.
+**What:** on `create_pack_file` failure `sayErr(String(e))` runs, then the
+code falls through to `persistPacks` and `say("Pack … created")`.
+**Failure:** a raw Rust error and a green success at once; the user ends with
+an un-backed pack and is told it is fine.
+**Fix:** return after the catch, or say `Pack "X" created, but its file
+couldn't be written — use "Back with a file…" to retry`. Replace every bare
+`String(e)` with a sentence that names the action.
+**Evidence:** by reading; cross-verified.
+
+### UH5. Pin guard rejects legal pins and the message is wrong
+**Status:** TODO
+**Where:** `src/manager/Sidebar.tsx:436-441`.
+**What:** the check is `already + selected.length > MAX_PINS`, counting
+already-pinned rows in the selection as new. `toPin` is computed at :437 and
+never used in the message.
+**Failure:** select 3 rows (2 pinned) with 3 other pins: "Max 5 pins — that
+would make 6", though the result would be 4.
+**Fix:** compare `already + toPin.length`; message
+`Max 5 pins — 3 already pinned, so you can pin 2 more`. One core test.
+**Evidence:** by reading; cross-verified.
+
+### UH6. Popup list is a listbox with no ARIA
+**Status:** TODO
+**Where:** `src/popup/App.tsx:627-639` (rows), `:693` (input), `:733-747`
+(sections).
+**What:** rows are bare `div`s carrying only `data-selected`; the input has no
+`role="combobox"`, `aria-expanded` or `aria-activedescendant`.
+**Failure:** a screen-reader user hears a text field and nothing else on the
+app's primary surface.
+**Fix:** `role="combobox"` + `aria-activedescendant` on the input,
+`role="listbox"` on the list, `role="option" id aria-selected` on rows,
+`role="group" aria-label` on sections.
+**Evidence:** by reading; cross-verified.
+
+### UH7. Context menus cannot be operated from the keyboard
+**Status:** TODO
+**Where:** `src/manager/ctx-menu.tsx:35-39` (`open`), `:122-131` (submenu),
+`:190` (portal); `Sidebar.tsx:468, 663, 696`.
+**What:** `open()` sets state only; the portal lands on `document.body`; no
+focus move, arrow traversal or focus restore. Submenus open on `onMouseEnter`
+only, and every pack entry has `run`, so "Move to → pack → group" is
+mouse-only.
+**Failure:** Shift+F10 opens a menu the user cannot reach; pin, move, tag,
+export, rename, lock, delete are all behind it.
+**Fix:** focus the first item on open; roving Up/Down/Home/End; restore focus
+on close; ArrowRight/Enter opens a submenu, ArrowLeft/Escape returns.
+**Evidence:** by reading; cross-verified.
+
+### UH8. Settings pack rows are tabbable but inert
+**Status:** TODO
+**Where:** `src/manager/Settings.tsx:200-217`.
+**What:** `tabIndex={0}` + `onClick`, no `onKeyDown`, `role` or
+`aria-expanded`.
+**Failure:** Enter/Space do nothing, sealing path / copy / show in folder /
+sync / export / back with a file / delete (:218-315) from keyboard users.
+**Fix:** render as `<button type="button" aria-expanded>`; styling unchanged.
+**Evidence:** by reading; cross-verified.
+
+### UH9. Popup pack headers collapse by mouse only
+**Status:** TODO
+**Where:** `src/popup/App.tsx:735-747, 198, 441-443`.
+**What:** header `div` with `onClick`, no `tabIndex`, role or `aria-expanded`.
+Collapsed packs drop out of `visible`, and Tab is taken by the action panel.
+**Failure:** a mouse-only control gates what the keyboard can reach.
+**Fix:** `<button aria-expanded>`, plus ArrowLeft/ArrowRight on a row to
+collapse/expand its pack.
+**Evidence:** by reading; cross-verified.
+
+### UH10. Focus styling is four systems, and a dozen controls have none
+**Status:** TODO
+**Where:** popup `FOCUS_BORDER = "#00a6f4"` via `--palette-focus`
+(`popup/App.tsx:22, 503-504, 587-588, 689-690`); manager `focus:ring-ring`
+(`Sidebar.tsx:754`, `Editor.tsx:391, 453, 577`, `GenerateDialog.tsx:314`),
+shadcn `focus-visible:ring-ring/30` (`button.tsx:7`), an underline
+(`Editor.tsx:384`), `focus-within` (`Editor.tsx:477`). `outline-none` with no
+replacement: `popup/App.tsx:512, 533`, `ctx-menu.tsx:101`, `Settings.tsx:334`
+and `selectCls` at `:31-32` (three selects), `Editor.tsx:94, 428, 508`,
+`Sidebar.tsx:596, 707, 764`, `ImportCuration.tsx:121`.
+**What:** `index.css:132` sets outline colour only, so `outline-none` kills
+it. Hand-rolled rings use `focus:` while primitives use `focus-visible:`, so
+mouse clicks flash a ring on half the app.
+**Fix:** one `focus-visible:ring-2 ring-ring` utility; delete `FOCUS_BORDER`
+(the "same in both themes" comment at `popup/App.tsx:21` is a code comment,
+not a BEHAVIOR.md decision); never ship `outline-none` without it.
+**Evidence:** by reading; cross-verified.
+
+### UH11. Drag-to-reorder: no keyboard path, no resting affordance, silent regroup
+**Status:** TODO
+**Where:** `src/manager/Sidebar.tsx:627-668` (pointer), `:148-166`
+(`commitReorder`), `:155-160` (group rewrite), `:768` (the only hint).
+**What:** custom order is reachable only by a 180 ms press-and-hold; rows show
+`cursor-pointer` until lifted. `commitReorder` has no key route and no live
+region. Dropping a row among another group's rows rewrites `group` as a side
+effect, with no toast and no undo (the sort-mode change does toast at :164).
+**Fix:** `hover:cursor-grab` + grip glyph; Alt+Up/Down on a focused row and
+"Move up / Move down" in `openRowCtx`; polite live region; toast + undo on a
+cross-group drop.
+**Evidence:** by reading; cross-verified.
+
+### UH12. Segmented controls invert in dark mode and have no state semantics
+**Status:** TODO
+**Where:** `src/manager/Sidebar.tsx:875-908`; `GenerateDialog.tsx:326-344`.
+**What:** track `bg-secondary/80`, active `bg-background` +
+`rgba(28,29,34,0.08)` shadow. Dark `--background` (0.145) is darker than
+`--secondary` (0.274) (`index.css:97, 105`).
+**Failure:** in dark the active segment reads as a hole and the shadow
+vanishes. No `role="radio"` or `aria-pressed`; selection is a class swap.
+**Fix:** explicit active tokens defined in both theme blocks;
+`aria-pressed={active}` at minimum.
+**Evidence:** by reading; cross-verified.
+
+### UH13. Three colour systems fail contrast
+**Status:** TODO
+**Where / What:**
+- Tag hues: eight fixed hexes in `ui/core.js:131-149` tuned for dark, used as
+  text on white at `popup/App.tsx:655`, `Editor.tsx:494`. `#e8b45f` on white
+  is 1.89:1.
+- Placeholder-kind chips: literal `text-amber-500 bg-amber-500/15` etc. at
+  ~10 sites (`popup/App.tsx:64-67, 598-604`; `Editor.tsx:131-141, 317, 569`).
+  Amber 2.16:1, cyan 2.57:1 in light. The fix exists once at
+  `GenerateDialog.tsx:115` (`text-amber-600 dark:text-amber-500`) and was
+  never propagated.
+- `muted-foreground` is 4.73:1 at full; `/50` placeholders (`Editor.tsx:484`,
+  `Sidebar.tsx:801`) are 1.65:1, `/70` (`Sidebar.tsx:572`, real text) 2.23:1,
+  `opacity-70` (`popup/App.tsx:755`) similar. The Editor placeholder is the
+  app's only inline syntax documentation.
+**Fix:** three semantic tokens for placeholder kinds in `:root` and `.dark`;
+two luminance ramps for tag hues (or hue as border only); drop the alpha
+modifiers on muted text.
+**Evidence:** ratios computed from `index.css` values; cross-verified.
+
+### UM1. Agent-mode generate blocks the manager with no stop or timeout
+**Status:** TODO
+**Where:** `src/manager/GenerateDialog.tsx:253-271, 277-280, 402-411`.
+**What:** the modal polls every 2 s with no timeout, elapsed time, stop or
+manual import; the only exit closes the dialog. The pack-before-generation
+half is L8.
+**Fix:** after ~90 s offer "Keep watching / Import from file…"; allow closing
+without losing progress and toast when the file lands.
+**Evidence:** by reading; cross-verified.
+
+### UM2. Pack-delete undo restores prompts but not the pack; empty-pack delete is silent
+**Status:** TODO
+**Where:** `src/manager/App.tsx:54-55`; `Sidebar.tsx:295-299`;
+`Settings.tsx:103-107`.
+**What:** `deleteWithUndo` returns early when nothing was removed, so
+deleting an empty pack drops its lock flag and file path with no toast and no
+undo. For non-empty packs undo brings prompts back but `PackMeta` is gone.
+**Fix:** capture and restore `PackMeta` alongside the prompts; always toast.
+Follow-up to H1.
+**Evidence:** by reading; cross-verified.
+
+### UM3. Copy-only gives no feedback, and the form button says "Paste" while copying
+**Status:** TODO
+**Where:** `src/popup/App.tsx:297-298, 301-315, 613, 476, 339, 446`.
+**What:** Ctrl+Enter / Ctrl+click hide the window with nothing shown;
+`pickedId` highlight lasts 90 ms and `submitForm` never sets it. In copy mode
+the form's button and hint still read "Paste".
+**Fix:** label from `form.paste`; hold the popup ~600 ms with "Copied to
+clipboard".
+**Evidence:** by reading; cross-verified.
+
+### UM4. Popup create gives no confirmation; the new prompt may be invisible
+**Status:** TODO
+**Where:** `src/popup/App.tsx:278-280, 134, 198`.
+**What:** snaps back to the list; `uses:0` sorts last; a collapsed pack hides
+the row entirely.
+**Fix:** expand, scroll to and flash the new row, or "Saved to <pack>" in the
+hint bar.
+**Evidence:** by reading; cross-verified.
+
+### UM5. Pack and group operations exist only behind right-click
+**Status:** TODO
+**Where:** `src/manager/Sidebar.tsx:696-700, 585-589` (context menus),
+`:692, 581` (double-click rename).
+**What:** rename, lock, export, file actions, new group, delete have no
+visible affordance; Settings → Your library covers some but not rename, lock
+or new group.
+**Fix:** a hover-revealed `⋯` on pack and group headers opening the same menu.
+**Evidence:** by reading; cross-verified.
+
+### UM6. Inline renames commit on blur; merge-on-rename has no undo
+**Status:** TODO
+**Where:** `src/manager/Sidebar.tsx:713, 602`; `Editor.tsx:406-413`.
+**What:** a misclick commits the typed text. Group merge on collision is
+deliberate (BEHAVIOR.md:88-90) and does toast, but is irreversible.
+**Fix:** Enter commits, blur cancels (or Confirm/Cancel affordances);
+`sayUndo` on a merging rename.
+**Evidence:** by reading; cross-verified.
+
+### UM7. Ungroup is one click, irreversible, and the toast has no noun
+**Status:** TODO
+**Where:** `src/manager/Sidebar.tsx:272-281`.
+**What:** "Ungrouped 5". Its sibling "Delete group…" gets a dialog and undo.
+**Fix:** `sayUndo("Ungrouped 5 prompts", restore)` with captured labels.
+**Evidence:** by reading; cross-verified.
+
+### UM8. Import curation: no bulk select, hidden pack names, lost input on bad JSON, double-submit
+**Status:** TODO
+**Where:** `src/manager/ImportCuration.tsx:128-160` (rows), `:114, 150-157`
+(pack name), `:55-62` (bad JSON), `:163, 97-98` (Add button).
+**What:** no All/None/Only-new though `dupes` is computed; multi-pack rows
+never show `r.packName`; invalid JSON → toast + `onClose()`, the raw text is
+gone and step 3 of the Generate dialog collapses; "Add N prompts" stays
+enabled during the await, so a second click imports twice.
+**Fix:** bulk buttons; `packName` chip per row; inline error with an editable
+textarea and Retry; `busy` state on the button.
+**Evidence:** by reading; cross-verified.
+
+### UM9. Settings pane has no heading, close control, or Escape
+**Status:** TODO
+**Where:** `src/manager/App.tsx:290`; `Settings.tsx:111`;
+`Sidebar.tsx:899-901`.
+**What:** the editor pane becomes a stack of cards starting at "General"; the
+only cue is the gear tint.
+**Fix:** an `h1` "Settings" with ✕; Escape → `showSettings(false)`.
+**Evidence:** by reading; cross-verified.
+
+### UM10. Empty states: no actions, three treatments, none in the sidebar
+**Status:** TODO
+**Where:** `Editor.tsx:157-171` ("Select or create a prompt", nothing to
+click); `popup/App.tsx:717`; `ImportCuration.tsx:127`; `Sidebar.tsx:841-870`
+renders nothing when empty.
+**Fix:** one `EmptyState` (icon, line, action); the editor's gets "New
+prompt" and "Generate pack with Claude…".
+**Evidence:** by reading; cross-verified.
+
+### UM11. Form controls have no programmatic labels
+**Status:** TODO
+**Where:** `Settings.tsx:25` (`Row` label is a `<span>`) → `:113-183`;
+`Editor.tsx:372, 416, 444, 478, 505, 573`; `GenerateDialog.tsx:296`;
+`popup/App.tsx:490-574` (`<label>` without `htmlFor`); `Sidebar.tsx:748-755`
+filter input and its icon-only toggle `:731-742` (title only).
+**Fix:** `Row` generates an id and renders `<label htmlFor>`; `id`/`htmlFor`
+pairs in the popup; `aria-label` elsewhere.
+**Evidence:** by reading; cross-verified.
+
+### UM12. Tab hijack in the popup strands three controls
+**Status:** TODO
+**Where:** `src/popup/App.tsx:441-443, 702-712, 652-664, 769-779`.
+**What:** deliberate and reasonable, but the clear ✕ and per-row tag chip have
+no key route (the create button has Ctrl+N).
+**Fix:** say so in the hint bar; typed `#tag` already covers the chip.
+**Evidence:** by reading; cross-verified.
+
+### UM13. Non-semantic interactive elements
+**Status:** TODO
+**Where / What:** Sidebar headers `:568-580, 676-691` (Enter/Space work, no
+role or `aria-expanded`); `Editor.tsx:75` `DeleteBadge` claims
+`role="button"` with no `tabIndex` or key handler (mouse-only);
+`popup/App.tsx:652-664` tag chip is a `span`; popup action panel `:801-818`
+has no `role="menu"`/`menuitem` and its Tab-open is unannounced; preview card
+`:781-799` is an unannounced fixed `div`.
+**Fix:** real buttons and roles; `role="tooltip"` + `aria-describedby` for
+the preview (not `dialog`, it never takes focus).
+**Evidence:** by reading; cross-verified.
+
+### UM14. No live region in the popup; no reduced-motion handling
+**Status:** TODO
+**Where:** `src/popup/App.tsx:716-720, 172-200`; no `prefers-reduced-motion`
+anywhere (`dialog.tsx:32, 54`, `tooltip.tsx:51`, `Editor.tsx:78`,
+`Sidebar.tsx:627, 632`, `GenerateDialog.tsx:405` spinner).
+**Fix:** sr-only `role="status"` in `Shell` fed by result count and mode; a
+reduced-motion block in `index.css`.
+**Evidence:** by reading; cross-verified.
+
+### UM15. Hit targets under 24 px
+**Status:** TODO
+**Where:** `Editor.tsx:78` DeleteBadge 14 px; `:57-68` AddPill and `:490-499`
+tag pills ≈20 px; `popup/App.tsx:34` Kbd 16 px reused beside clickable rows
+at `:816`.
+**Fix:** `after:-inset-2` hit area (idiom at `checkbox.tsx:13`); `py-1`.
+**Evidence:** by reading; cross-verified.
+
+### UM16. "Sync from file" does not sync
+**Status:** TODO
+**Where:** `src/manager/Settings.tsx:246-253` → append-only `ImportCuration`.
+**Fix:** relabel "Import from this file…".
+**Evidence:** by reading; cross-verified.
+
+### UM17. Truncated names have no tooltip; import titles cannot shrink
+**Status:** TODO
+**Where:** `Sidebar.tsx:671, 717, 605`; `popup/App.tsx:80, 83-89, 646`
+(`truncate`, no `title`); `ImportCuration.tsx:150` `whitespace-nowrap`
+without `truncate`/`min-w-0`.
+**Fix:** `title=`; `min-w-0 truncate`.
+**Evidence:** by reading; cross-verified.
+
+### UM18. Placeholder syntax help disappears; field names are sanitised silently
+**Status:** TODO
+**Where:** `Editor.tsx:483` (placeholder vanishes on typing), `:184` (Advanced
+collapsed by default); `Editor.tsx:97` sanitises to `[a-z_]` so `step1`
+becomes `{step}`, the rule shown only in the post-hoc chip (:130) and
+inconsistent with tag sanitising at `Sidebar.tsx:502`.
+**Fix:** a one-line legend under Preview; live "will insert {step}" under the
+input.
+**Evidence:** by reading; cross-verified.
+
+### UM19. Toasts cover the editor controls; undo is 8 s only
+**Status:** TODO
+**Where:** `src/manager/App.tsx:294` (`position="top-right"`, over the
+pack/group/delete row at `Editor.tsx:416-468`); `status.ts:5-8`; no
+`closeButton`.
+**Fix:** bottom-right, `closeButton`, longer undo, Ctrl+Z bound to the last
+undo callback. Related: M10.
+**Evidence:** by reading; cross-verified.
+
+### UM20. Design-system drift
+**Status:** TODO
+- Button: `size="sm"` then `h-auto px-2.5 py-1 text-xs` at 11 Settings sites
+  and 3 GenerateDialog sites with a different override; `destructive` variant
+  exists (`button.tsx:18`) but is rebuilt at `Editor.tsx:460-465`,
+  `Settings.tsx:291-295`.
+- Kbd: three treatments (`popup/App.tsx:32-38`, `manager/App.tsx:274`,
+  unused `ui/kbd.tsx`).
+- Radius: popup shell/preview/panel (`:828/791/802`) use `rounded-lg`, the
+  control radius, against the documented scale (`index.css:43-51`); chips
+  split `rounded-sm` vs `rounded-full`.
+- Hover fill: `bg-accent` (ctx-menu, popup) vs `bg-secondary` (Settings,
+  ImportCuration, Sidebar) vs border-only (popup rows, sidebar rows).
+- Icons: lock 3 vs 2.5, chevron 4 vs 3.5, pin 3 vs 3.5; `Settings.tsx:3`
+  imports the filled arrow family; `size-1.75` at :211.
+- Dark mode: popup shadow is hardcoded navy (`:791, 802, 828`) and invisible
+  in dark; rows are `bg-background border-border` on a `bg-background` shell,
+  so with `--border` at 10 % white (`index.css:112`) row edges nearly vanish
+  (was L10's "cosmetic" note).
+- `ImportCuration.tsx:149` inner `<Checkbox>` lacks `aria-hidden`, so rows
+  announce "checkbox" twice.
+**Evidence:** by reading; cross-verified.
+
+### UM21. Terminology and labels
+**Status:** TODO
+- Four names for one feature: "+ New (with Claude)" (`Settings.tsx:327`,
+  beside plain "+ New" at :352), "✦ or generate a pack with Claude…"
+  (`Sidebar.tsx:820`), "Generate a pack with Claude" (`GenerateDialog.tsx:290`),
+  README "Generate pack with Claude". Pick one.
+- "Delete 7…" / "Really delete 7?" (`Sidebar.tsx:538, 540`): no noun.
+- ctx-menu inputs commit on Enter only but placeholders don't say so
+  (`Sidebar.tsx:403, 480, 500`; "tag name" is the only lowercase one) while
+  inline inputs do (`Sidebar.tsx:799`, `Settings.tsx:332`, `Editor.tsx:389`).
+- "Delete (locked)" / "New group (locked)" disabled with no hint how to unlock
+  (`Sidebar.tsx:390, 370`; `Settings.tsx:305-311`); `CtxItem` has no `title`
+  field, so this needs an API addition.
+- "file-backed" / "Back with a file…" (`Settings.tsx:225, 286`) is jargon;
+  suggest "Give this pack a file".
+**Evidence:** by reading; cross-verified.
+
+### UM22. Popup create discards typed work on Escape; `panelNote` replaces the row title
+**Status:** TODO
+**Where:** `src/popup/App.tsx:399, 319, 803`.
+**What:** Escape drops an edited title with no confirm; an error note renders
+in place of `panelFor.title` and only clears on `closePanel`.
+**Fix:** confirm when the title was edited; render the note below the title.
+**Evidence:** by reading; cross-verified.
+
+### UM23. Armed-delete cancellation differs across four controls
+**Status:** TODO
+**Where:** `Settings.tsx:296-303` (no Escape, no timeout, stays armed
+indefinitely); `Editor.tsx:356-360` (3 s, no Escape); ctx-menu Escape closes
+the whole menu; popup Escape closes the panel. None announce the armed state.
+**Fix:** Escape + 3 s timeout everywhere; `aria-live="assertive"` on the label
+change.
+**Evidence:** by reading; cross-verified.
+
+### UL1. List-mode hint bar omits Esc
+**Status:** TODO
+`popup/App.tsx:480` vs `:474/476/478`; the other three variants include it.
+
+### UL2. Search feedback and clear controls
+**Status:** TODO
+"No matches" gives no hint that `#`/`@`/`>` terms are narrowing
+(`popup/App.tsx:716-720`); clear ✕ has no label (`:703-711`); sidebar chip
+reads `filter: "…" ✕` (`Sidebar.tsx:784-790`). Related: L5.
+
+### UL3. Off-scale sizes
+**Status:** TODO
+`text-[13px]` at 10 popup sites and `Sidebar.tsx:627`; nine arbitrary sizes
+incl. the `// matches max-h-55` comment (`popup/App.tsx:784`);
+`disabled:opacity-40` in ctx-menu vs 50 in primitives.
+
+### UL4. Pack select chevron is a data-URI SVG with `#888e98` baked in
+**Status:** TODO
+`Editor.tsx:430`; passes 3:1 in both themes but is the only non-Remix chevron.
+
+### UL5. Brand button colours are hardcoded
+**Status:** TODO
+`Settings.tsx:324, 400-417`; deliberately mirror the vendor's config;
+`text-black` on `#d97757` is 6.7:1. Worth a comment (was in L10).
+
+### UL6. Unused shadcn primitives
+**Status:** TODO
+13 of 18 `src/components/ui/` files are unimported (badge, collapsible,
+command, context-menu, dropdown-menu, input, input-group, kbd, label,
+scroll-area, select, separator, tooltip). Keep the hand-rolled ctx-menu
+(programmatic x/y + inline inputs justify it); adopt `Input`, `Label`, `Kbd`,
+`Separator` while fixing UM11/UM20, delete the rest. Same call as D4 / L2.
+
+### UL7. Landmarks and headings
+**Status:** TODO
+No `h1` in either window; sidebar is a plain `div` not `<aside>`
+(`Sidebar.tsx:727, 730`); popup search has no `role="search"`
+(`popup/App.tsx:688`); `h2` is both `text-2xl font-bold` (`Sidebar.tsx:730`)
+and `text-xs uppercase` (`Settings.tsx:16`).
+
+### UL8. Three identical "Edit" buttons
+**Status:** TODO
+`ParamSection` (`Editor.tsx:37-45`, instantiated :537/:545/:559) with no
+`aria-pressed`; fix with `aria-label={editing ? \`Done editing ${title}\` : \`Edit ${title}\`}`.
+
+### UL9. What the UI does well (keep while fixing)
+The paste loop is keyboard-first with a hint bar that teaches in place and
+hover/keyboard arbitration (`suppressHoverUntil`). Placeholder chips are
+typed and colour-coded, and near-misses like `{File}` surface as "not a
+param". Manager deletes are staged with undo, and the delete-group dialog's
+"To keep the prompts, choose Ungroup instead" is the best line in the app.
+Import is curation-first. The status channel is deliberate (`status.ts`) and
+validation messages explain the constraint. Density is tuned per window, the
+radius scale is collapsed and documented, and `color-scheme` is set on both
+themes.
+
+---
+
 ## Decisions
 
 Resolved with the review's recommendation unless the choice would materially
@@ -512,6 +1043,7 @@ change product behavior, in which case the item is BLOCKED and asked.
 | D5 | Add a minimal ESLint config (`react-hooks`, `typescript-eslint`) so the nine `eslint-disable` comments mean something, or delete the comments? | Recommend add; ~20 lines, and `react-hooks/exhaustive-deps` catches stale closures like H1 | TODO — add |
 | D6 | Split `Editor.tsx` (628), `GenerateDialog.tsx` (434), `Settings.tsx` (428)? Cuts: `Editor` → `ParamsPanel` + `TagStrip`; `GenerateDialog` → `generate-instructions.ts` (pure, testable) + dialog; `Settings` → `HotkeyRecorder` + `LibraryCard` | Pure moves, no behavior change; defer if you prefer the files as they are | TODO — defer until correctness work is done |
 | D7 | Commit the in-progress groups work first (coherent and green), then land the fixes on top? | Recommend yes; small commits on a clean base | DONE — `1f548bc` (gitignore), `7265cf5` (groups work, SizeDebug, window sizes) |
+| D8 | UH2: give the popup its own undo (a timed "Deleted — U to undo" strip, popup-local state) or route popup deletes through the manager so `deleteWithUndo` covers both? | Popup-local is self-contained and works with the manager closed; routing via the manager depends on H6's Rust-side mutations landing first. Recommend popup-local now, revisit after H6 | TODO — popup-local |
 
 ---
 
@@ -587,11 +1119,18 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
 ## UX and accessibility summary
 
 Keyboard flows in the popup are complete for list/panel/form/create except the
-focus return (M2). Manager rows and headers are reachable by Tab and act on
-Enter/Space; context menus need the mouse or the Menu key. Screen-reader
-semantics are the weak spot (L9). The manager toasts most failures but not
-`persist` failures; the popup has no error channel at all (M3). Themes are
-consistent apart from toasts (M10) and a faint dark-mode border (L10).
+focus return (M2), the mouse-only pack headers (UH9) and the controls
+stranded by the Tab hijack (UM12). Manager rows and headers are reachable by
+Tab and act on Enter/Space; context menus open from the Menu key but cannot
+be operated once open (UH7); Settings pack rows are inert (UH8); reorder is
+pointer-only (UH11). Screen-reader semantics are the weak spot (UH6, UM11,
+UM13, UM14). The manager toasts most failures but not `persist` failures; the
+popup has no error channel at all (M3). Focus styling is four systems with a
+dozen unstyled controls (UH10). Themes are consistent apart from toasts
+(M10), the segmented controls that invert in dark (UH12), and three colour
+sets that fail contrast in light (UH13). Feedback gaps cluster in the popup:
+no undo on delete (UH2), no confirmation on copy or create (UM3, UM4), an
+empty fill-in field pastes silently (UH3).
 
 ---
 
