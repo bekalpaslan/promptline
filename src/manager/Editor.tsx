@@ -36,6 +36,9 @@ function ParamSection({
         <span className="font-semibold uppercase tracking-wide">{title}</span>
         <span>· {hint}</span>
         <button
+          type="button"
+          aria-pressed={editing}
+          aria-label={editing ? `Done editing ${title}` : `Edit ${title}`}
           className={cn(
             "ml-auto cursor-pointer font-medium",
             editing ? "text-primary hover:text-foreground" : "text-muted-foreground hover:text-foreground"
@@ -65,7 +68,7 @@ function AddPill({ label, title, onAdd }: { label: string; title: string; onAdd:
         <RiAddLine className="size-3" />
       </span>
       <span className="w-px bg-border" />
-      <span className="flex items-center py-0.5 pl-1.5 pr-2">{label}</span>
+      <span className="flex items-center py-1 pl-1.5 pr-2">{label}</span>
     </button>
   )
 }
@@ -73,17 +76,19 @@ function AddPill({ label, title, onAdd }: { label: string; title: string; onAdd:
 // Delete badge hovering on a pill's corner while its card is in edit mode
 function DeleteBadge({ onDelete }: { onDelete: () => void }) {
   return (
-    <span
-      role="button"
+    <button
+      type="button"
       title="Remove from this prompt"
-      className="absolute -right-1.5 -top-1.5 flex size-3.5 cursor-pointer items-center justify-center rounded-full bg-destructive text-white opacity-80 shadow-sm transition-transform duration-150 animate-in fade-in zoom-in hover:scale-110 hover:opacity-100"
+      aria-label="Remove from this prompt"
+      // 14 px badge, 30 px hit area (the ::after inset idiom from checkbox.tsx)
+      className="absolute -right-1.5 -top-1.5 flex size-3.5 cursor-pointer items-center justify-center rounded-full bg-destructive text-white opacity-80 shadow-sm transition-transform duration-150 animate-in fade-in zoom-in after:absolute after:-inset-2 after:content-[''] hover:scale-110 hover:opacity-100"
       onClick={(e) => {
         e.stopPropagation()
         onDelete()
       }}
     >
       <RiCloseLine className="size-2.5" />
-    </span>
+    </button>
   )
 }
 
@@ -91,6 +96,7 @@ function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name:
   return (
     <input
       placeholder={placeholder}
+      aria-label={placeholder.replace(/^\+ /, "Add ").replace(/…$/, "")}
       spellCheck={false}
       className="w-28 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
       onKeyDown={(e) => {
@@ -356,6 +362,19 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     say(snippet.pinned ? "Unpinned" : "Pinned")
   }
 
+  // Escape disarms the delete button (the 3 s timeout is in doDelete)
+  useEffect(() => {
+    if (!deleteArmed) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setDeleteArmed(false)
+      }
+    }
+    document.addEventListener("keydown", onKey, true)
+    return () => document.removeEventListener("keydown", onKey, true)
+  }, [deleteArmed])
+
   const doDelete = async () => {
     if (!deleteArmed) {
       setDeleteArmed(true)
@@ -383,6 +402,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             scheduleSave()
           }}
           placeholder="Title"
+          aria-label="Title"
           spellCheck={false}
           className="min-w-50 flex-[2] bg-transparent py-1 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--color-primary)]"
         />
@@ -390,6 +410,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           <input
             autoFocus
             placeholder="New pack name — Enter to confirm"
+            aria-label="New pack name"
             spellCheck={false}
             className="min-w-32 flex-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
             onKeyDown={(e) => {
@@ -428,6 +449,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             }}
             // Native select arrows hug the edge; draw our own chevron inset
             // by the tier-1 spacing (6px)
+            aria-label="Pack"
             className="min-w-32 flex-1 cursor-pointer appearance-none rounded-md bg-secondary py-1.5 pl-2 pr-7 text-xs text-foreground outline-none"
             style={{
               backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888e98' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
@@ -452,6 +474,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             scheduleSave()
           }}
           placeholder="Group (optional)"
+          aria-label="Group"
           spellCheck={false}
           className="min-w-28 flex-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
         />
@@ -464,10 +487,13 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           variant="secondary"
           size="sm"
           title="Delete prompt"
+          aria-label={deleteArmed ? "Confirm delete" : "Delete prompt"}
           onClick={() => void doDelete()}
           className={cn("text-destructive hover:bg-destructive/15", deleteArmed && "bg-destructive/15")}
         >
-          {deleteArmed ? `Delete "${(snippet.title || "untitled").slice(0, 24)}"?` : <RiDeleteBinLine className="size-4" />}
+          <span aria-live="assertive">
+            {deleteArmed ? `Delete "${(snippet.title || "untitled").slice(0, 24)}"?` : <RiDeleteBinLine className="size-4" aria-hidden />}
+          </span>
         </Button>
       </div>
 
@@ -482,6 +508,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           ref={textRef}
           value={text}
           onChange={(e) => setTextAnd(e.target.value)}
+          aria-label="Prompt text"
           spellCheck={false}
           placeholder="Prompt text…  Use {clipboard}, {date}, {time}, any {lowercase_word} as a fill-in field, or {{lowercase_word}} as a saved config parameter."
           className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 pt-3 pb-[calc(0.75rem+1lh)] leading-relaxed placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
@@ -493,7 +520,8 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
               <button
                 key={t}
                 title={`Remove tag "${t}"`}
-                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border bg-background/60 px-2 py-0.5 text-xs font-medium"
+                aria-label={`Remove tag ${t}`}
+                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border bg-background/60 px-2 py-1 text-xs font-medium"
                 style={{ color: c, borderColor: c + "55" }}
                 onClick={() => removeTag(t)}
               >
@@ -507,6 +535,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           ))}
           <input
             placeholder="+ tag…"
+            aria-label="Add a tag"
             spellCheck={false}
             className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
             onKeyDown={(e) => {
@@ -577,6 +606,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                           value={configValues[name] || ""}
                           spellCheck={false}
                           placeholder="(unset — will ask as a fill-in field)"
+                          aria-label={`Value for {{${name}}}`}
                           className="flex-1 rounded-md bg-secondary px-3 py-1 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
                           onChange={(e) => {
                             setConfigValues((v) => ({ ...v, [name]: e.target.value }))

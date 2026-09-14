@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { RiArrowDownSFill, RiArrowRightSFill, RiLock2Fill } from "@remixicon/react"
+import { RiArrowDownSFill, RiArrowRightSFill, RiCloseLine, RiLock2Fill } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { C } from "@/lib/core"
@@ -19,10 +19,15 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
   )
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
+// `htmlFor` ties the caption to the row's control, so it is announced as its
+// label; rows whose control brings its own <label> leave it out
+function Row({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
+  const Tag = htmlFor ? "label" : "span"
   return (
     <div className="mb-1.5 flex flex-wrap items-center gap-3 last:mb-0">
-      <span className="min-w-28 text-xs text-muted-foreground">{label}</span>
+      <Tag htmlFor={htmlFor} className="min-w-28 text-xs text-muted-foreground">
+        {label}
+      </Tag>
       {children}
     </div>
   )
@@ -44,6 +49,26 @@ export function Settings() {
   useEffect(() => {
     void invoke<boolean>("get_autostart").then(setAutostart)
   }, [])
+
+  // An armed "Really delete?" disarms on Escape or after 3 s, like the
+  // editor's delete button (UM23)
+  useEffect(() => {
+    if (!deleteArm) return
+    const t = setTimeout(() => setDeleteArm(null), 3000)
+    // Capture phase, and preventDefault: an Escape that disarms must not
+    // also close the Settings pane (App.tsx checks defaultPrevented)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault()
+        setDeleteArm(null)
+      }
+    }
+    document.addEventListener("keydown", onKey, true)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener("keydown", onKey, true)
+    }
+  }, [deleteArm])
 
   // Hotkey recorder: click, press a combination, it applies immediately
   const onHotkeyKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -105,9 +130,23 @@ export function Settings() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+      {/* The pane replaces the editor; say so, and give it a way out */}
+      <div className="flex w-full max-w-160 items-center gap-2 self-center px-1">
+        <h1 className="flex-1 text-base font-semibold">Settings</h1>
+        <button
+          type="button"
+          aria-label="Close settings"
+          title="Close settings (Esc)"
+          className="cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onClick={() => m.showSettings(false)}
+        >
+          <RiCloseLine className="size-4" />
+        </button>
+      </div>
       <Card title="General">
-        <Row label="Global hotkey">
+        <Row label="Global hotkey" htmlFor="setting-hotkey">
           <input
+            id="setting-hotkey"
             readOnly
             value={recording ? recordPreview : C.fmtHotkey(m.hotkey)}
             placeholder={recording ? "press a key combination… (Esc cancels)" : "click, then press a combination…"}
@@ -137,8 +176,9 @@ export function Settings() {
       </Card>
 
       <Card title="Appearance">
-        <Row label="Popup density">
+        <Row label="Popup density" htmlFor="setting-density">
           <select
+            id="setting-density"
             value={m.prefs.density}
             onChange={(e) => {
               void m.savePrefs({ density: e.target.value }).then(() => say("Density updated — applies next popup"))
@@ -149,8 +189,9 @@ export function Settings() {
             <option value="compact">Compact — titles only, twice the rows</option>
           </select>
         </Row>
-        <Row label="Font">
+        <Row label="Font" htmlFor="setting-font">
           <select
+            id="setting-font"
             value={m.prefs.font}
             style={{ fontFamily: fontStack(m.prefs.font) }}
             onChange={(e) => {
@@ -165,8 +206,9 @@ export function Settings() {
             ))}
           </select>
         </Row>
-        <Row label="UI scale">
+        <Row label="UI scale" htmlFor="setting-scale">
           <select
+            id="setting-scale"
             value={m.prefs.scale}
             onChange={(e) => {
               void m.savePrefs({ scale: e.target.value }).then(() => say("UI scale updated"))
@@ -194,9 +236,11 @@ export function Settings() {
             const Chev = isOpen ? RiArrowDownSFill : RiArrowRightSFill
             return (
               <div key={name} className="overflow-hidden rounded-md bg-secondary/60">
-                <div
-                  tabIndex={0}
-                  className="flex cursor-pointer select-none items-center gap-2 px-2.5 py-1.5 text-xs text-foreground hover:bg-secondary"
+                {/* A real disclosure button: Enter/Space work, state is announced */}
+                <button
+                  type="button"
+                  aria-expanded={isOpen}
+                  className="flex w-full cursor-pointer select-none items-center gap-2 px-2.5 py-1.5 text-left text-xs text-foreground hover:bg-secondary"
                   onClick={() => {
                     const next = new Set(expanded)
                     if (next.has(name)) next.delete(name)
@@ -206,12 +250,12 @@ export function Settings() {
                 >
                   <Chev className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="size-1.75 shrink-0 rounded-full" style={{ background: C.tagColor(name) }} />
-                  <span className="min-w-0 flex-1 truncate">{name}</span>
-                  {m.isLocked(name) && <RiLock2Fill className="size-2.5 shrink-0 text-amber-500" />}
+                  <span className="min-w-0 flex-1 truncate" title={name}>{name}</span>
+                  {m.isLocked(name) && <RiLock2Fill className="size-2.5 shrink-0 text-amber-500" aria-label="locked" />}
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {count} prompt{count === 1 ? "" : "s"}
                   </span>
-                </div>
+                </button>
                 {isOpen && (
                   <div className="flex flex-col gap-2 border-t border-border px-2.5 py-2 text-xs text-muted-foreground">
                     <div className="break-all">{meta?.path || "This pack has no file yet"}</div>
@@ -299,13 +343,15 @@ export function Settings() {
                           void deletePack(name)
                         }}
                       >
-                        {m.isLocked(name)
-                          ? "Delete (locked)"
-                          : deleteArm === name
-                            ? count
-                              ? `Really delete ${count} prompts?`
-                              : "Really delete pack?"
-                            : "Delete pack"}
+                        <span aria-live="assertive">
+                          {m.isLocked(name)
+                            ? "Delete (locked)"
+                            : deleteArm === name
+                              ? count
+                                ? `Really delete ${count} prompt${count === 1 ? "" : "s"}?`
+                                : "Really delete pack?"
+                              : "Delete pack"}
+                        </span>
                       </Button>
                     </div>
                   </div>

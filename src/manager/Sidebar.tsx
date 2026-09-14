@@ -569,7 +569,10 @@ export function Sidebar() {
     const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
     return (
       <div
+        role="button"
         tabIndex={0}
+        aria-expanded={!isCollapsed}
+        title={`${group} — Enter toggles, right-click for actions`}
         className={cn(
           "flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em]",
           isCollapsed ? "text-muted-foreground/70 hover:text-foreground" : "text-muted-foreground"
@@ -625,6 +628,9 @@ export function Sidebar() {
         key={s.id}
         role="button"
         tabIndex={0}
+        aria-current={active ? "true" : undefined}
+        aria-pressed={multi || undefined}
+        title={s.title || "(untitled)"}
         data-snip-id={s.id}
         className={cn(
           "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] font-semibold transition-[transform,box-shadow] duration-150",
@@ -680,7 +686,10 @@ export function Sidebar() {
     const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
     return (
       <div
+        role="button"
         tabIndex={0}
+        aria-expanded={!isCollapsed}
+        title={`${name} — Enter toggles, right-click for actions`}
         className={cn(
           "flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-1 py-2 text-sm font-bold",
           isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
@@ -727,12 +736,15 @@ export function Sidebar() {
   }
 
   return (
-    <div className="flex w-[clamp(15rem,28%,20rem)] flex-col border-r border-border">
+    <aside aria-label="Prompts" className="flex w-[clamp(15rem,28%,20rem)] flex-col border-r border-border">
       {/* Title row: page title + view-config toggle + round add button */}
       <div className="flex items-center gap-1.5 p-3">
-        <h2 className="min-w-0 flex-1 truncate text-2xl font-bold">Prompts</h2>
+        <h1 className="min-w-0 flex-1 truncate text-2xl font-bold">Prompts</h1>
         <button
+          type="button"
           title="List view options"
+          aria-label="List view options"
+          aria-expanded={configOpen}
           className={cn(
             "relative flex h-7 cursor-pointer items-center gap-0.5 rounded-md px-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
             configOpen && "bg-secondary text-foreground"
@@ -753,6 +765,7 @@ export function Sidebar() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter prompts…"
+            aria-label="Filter prompts"
             spellCheck={false}
             className="rounded-lg bg-background px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
           />
@@ -786,10 +799,12 @@ export function Sidebar() {
       {/* A hidden active filter must stay visible — chip clears it */}
       {!configOpen && q && (
         <button
+          type="button"
+          aria-label={`Filtering by "${query.trim()}" — clear`}
           className="mx-3 mb-3 flex cursor-pointer items-center gap-1 self-start rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
           onClick={() => setQuery("")}
         >
-          filter: "{query.trim()}" ✕
+          Filtering by "{query.trim()}" — clear ✕
         </button>
       )}
 
@@ -882,6 +897,8 @@ export function Sidebar() {
             return (
               <button
                 key={t}
+                type="button"
+                aria-pressed={active}
                 className={cn(
                   "flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-sm font-semibold capitalize",
                   active
@@ -896,6 +913,9 @@ export function Sidebar() {
             )
           })}
           <button
+            type="button"
+            aria-label="Settings"
+            aria-pressed={m.settingsOpen}
             title={`Settings — popup hotkey: ${C.fmtHotkey(m.hotkey)}`}
             className={cn(
               "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm",
@@ -935,6 +955,6 @@ export function Sidebar() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </aside>
   )
 }

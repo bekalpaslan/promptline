@@ -63,10 +63,10 @@ a task):
 
 | Status | High | Medium | Low | Total |
 |---|---|---|---|---|
-| TODO | 7 | 15 | 6 | 28 |
+| TODO | 6 | 8 | 4 | 18 |
 | IN PROGRESS | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 |
-| DONE | 6 | 7 | 2 | 15 |
+| DONE | 7 | 14 | 4 | 25 |
 | DECLINED | 0 | 1 | 0 | 1 |
 | **Total** | **13** | **23** | **8** | **44** |
 
@@ -702,7 +702,7 @@ to nothing with no hint in list mode (the form preview already says
 whose prompt uses `{clipboard}` carries the tooltip "Clipboard is empty —
 {clipboard} will paste nothing" (rows otherwise show their full title, UM17).
 Verified in the dev build with a cleared clipboard. Commit: see commit list
-(popup a11y).
+(`345d900`).
 
 ### L7. Ctrl+N with an empty clipboard creates an empty prompt
 **Status:** DONE
@@ -719,7 +719,7 @@ something first — the clipboard is the prompt body" and Save is disabled
 (`saveCreate` also refuses); since a saved prompt always has a body, the
 manager's draft GC (title "New prompt" and no text) can never claim one.
 Verified in the dev build with a cleared clipboard. Commit: see commit list
-(popup a11y).
+(`345d900`).
 
 ### L8. Agent generate path creates the pack before anything is written
 **Status:** TODO
@@ -919,7 +919,7 @@ and `aria-activedescendant` pointing at the selected row; the list is
 `role="listbox"`; rows are `role="option"` with stable ids and
 `aria-selected`; pack and group sections are `role="group"` with labels.
 Verified in the dev build: `aria-activedescendant` equals the selected
-row's id, 32 options, 9 groups. Commit: see commit list (popup a11y).
+row's id, 32 options, 9 groups. Commit: `345d900`.
 
 ### UH7. Context menus cannot be operated from the keyboard
 **Status:** TODO
@@ -936,7 +936,7 @@ on close; ArrowRight/Enter opens a submenu, ArrowLeft/Escape returns.
 **Evidence:** by reading; cross-verified.
 
 ### UH8. Settings pack rows are tabbable but inert
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Settings.tsx:200-217`.
 **What:** `tabIndex={0}` + `onClick`, no `onKeyDown`, `role` or
 `aria-expanded`.
@@ -944,6 +944,10 @@ on close; ArrowRight/Enter opens a submenu, ArrowLeft/Escape returns.
 sync / export / back with a file / delete (:218-315) from keyboard users.
 **Fix:** render as `<button type="button" aria-expanded>`; styling unchanged.
 **Evidence:** by reading; cross-verified.
+**Resolution:** the pack rows are `<button aria-expanded>` (styling kept);
+the lock icon has an `aria-label`. Verified in the dev build: a click flips
+`aria-expanded` and reveals the three file actions and Delete. Commit: see
+commit list (manager semantics).
 
 ### UH9. Popup pack headers collapse by mouse only
 **Status:** DONE
@@ -960,7 +964,7 @@ every collapsed pack (collapsed rows leave `visible`, so there is no row to
 expand one from; plain Right stays the preview). Verified in the dev build:
 Left on a Desktop row gives its header `aria-expanded=false`, 34 to 32
 options; Ctrl+Right gives 34 options with every header expanded. Commit:
-see commit list (popup a11y).
+see commit list (`345d900`).
 
 ### UH10. Focus styling is four systems, and a dozen controls have none
 **Status:** TODO
@@ -1126,13 +1130,17 @@ textarea and Retry; `busy` state on the button.
 **Evidence:** by reading; cross-verified.
 
 ### UM9. Settings pane has no heading, close control, or Escape
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/App.tsx:290`; `Settings.tsx:111`;
 `Sidebar.tsx:899-901`.
 **What:** the editor pane becomes a stack of cards starting at "General"; the
 only cue is the gear tint.
 **Fix:** an `h1` "Settings" with ✕; Escape → `showSettings(false)`.
 **Evidence:** by reading; cross-verified.
+**Resolution:** the pane opens with an `h1` "Settings" and a ✕ ("Close
+settings"); Escape outside a text field closes it, unless an armed delete
+takes the key first (UM23). Verified in the dev build. Commit: see commit
+list (manager semantics).
 
 ### UM10. Empty states: no actions, three treatments, none in the sidebar
 **Status:** TODO
@@ -1144,7 +1152,7 @@ prompt" and "Generate pack with Claude…".
 **Evidence:** by reading; cross-verified.
 
 ### UM11. Form controls have no programmatic labels
-**Status:** TODO
+**Status:** DONE
 **Where:** `Settings.tsx:25` (`Row` label is a `<span>`) → `:113-183`;
 `Editor.tsx:372, 416, 444, 478, 505, 573`; `GenerateDialog.tsx:296`;
 `popup/App.tsx:490-574` (`<label>` without `htmlFor`); `Sidebar.tsx:748-755`
@@ -1152,6 +1160,13 @@ filter input and its icon-only toggle `:731-742` (title only).
 **Fix:** `Row` generates an id and renders `<label htmlFor>`; `id`/`htmlFor`
 pairs in the popup; `aria-label` elsewhere.
 **Evidence:** by reading; cross-verified.
+**Resolution:** Settings `Row` renders `<label htmlFor>` for the hotkey,
+density, font and scale controls; the editor's title, pack, group, prompt
+text, tag input, param inputs, config values, new-pack input and tag-remove
+buttons carry `aria-label`s; the Generate topic and the sidebar filter too;
+the popup's form labels got `htmlFor` in UH3. Verified in the dev build
+(four `label[for]`/`id` pairs, five editor labels). Commit: see commit list
+(manager semantics).
 
 ### UM12. Tab hijack in the popup strands three controls
 **Status:** DECLINED
@@ -1167,7 +1182,7 @@ clear ✕ is redundant with Backspace/Escape and the tag chip with a typed
 is the existing hint.
 
 ### UM13. Non-semantic interactive elements
-**Status:** TODO
+**Status:** DONE
 **Where / What:** Sidebar headers `:568-580, 676-691` (Enter/Space work, no
 role or `aria-expanded`); `Editor.tsx:75` `DeleteBadge` claims
 `role="button"` with no `tabIndex` or key handler (mouse-only);
@@ -1177,13 +1192,15 @@ has no `role="menu"`/`menuitem` and its Tab-open is unannounced; preview card
 **Fix:** real buttons and roles; `role="tooltip"` + `aria-describedby` for
 the preview (not `dialog`, it never takes focus).
 **Evidence:** by reading; cross-verified.
-**Progress (popup half):** tag chip is a `<button>` with an `aria-label`;
+**Resolution:** popup — tag chip is a `<button>` with an `aria-label`;
 the action panel is `role="menu"` of `<button role="menuitem">` with
 `aria-current` on the highlighted one and its note is `role="alert"`; the
 preview card is `role="tooltip"` and the row it describes carries
-`aria-describedby`. Verified in the dev build. The sidebar headers and
-`DeleteBadge` are in the manager batch. Commit: see commit list (popup
-a11y).
+`aria-describedby` (`345d900`). Manager — sidebar pack and group headers are
+`role="button"` with `aria-expanded`, rows carry `aria-current` (active) and
+`aria-pressed` (multi-selected); `DeleteBadge` is a `<button>` with a label
+and a 30 px hit area. Verified in the dev build. Commit: see commit list
+(manager semantics).
 
 ### UM14. No live region in the popup; no reduced-motion handling
 **Status:** DONE
@@ -1199,15 +1216,19 @@ prompt, fill-in fields, new prompt); the feedback strip (M3) is a second
 polite live region for errors and confirmations. `index.css` gains a
 `prefers-reduced-motion: reduce` block that zeroes animation and transition
 durations. Verified: status text "32 prompts" in the dev build; the CSS
-block by reading. Commit: see commit list (popup a11y).
+block by reading. Commit: see commit list (`345d900`).
 
 ### UM15. Hit targets under 24 px
-**Status:** TODO
+**Status:** DONE
 **Where:** `Editor.tsx:78` DeleteBadge 14 px; `:57-68` AddPill and `:490-499`
 tag pills ≈20 px; `popup/App.tsx:34` Kbd 16 px reused beside clickable rows
 at `:816`.
 **Fix:** `after:-inset-2` hit area (idiom at `checkbox.tsx:13`); `py-1`.
 **Evidence:** by reading; cross-verified.
+**Resolution:** `DeleteBadge` gets the `after:-inset-2` hit area (14 px
+badge, 30 px target); `AddPill` and the editor's tag pills use `py-1`. The
+popup's `Kbd` beside panel items is decorative (the whole row is the
+button). By reading. Commit: see commit list (manager semantics).
 
 ### UM16. "Sync from file" does not sync
 **Status:** DONE
@@ -1217,15 +1238,16 @@ at `:816`.
 **Resolution:** relabelled. Commit: `2e1eadd`.
 
 ### UM17. Truncated names have no tooltip; import titles cannot shrink
-**Status:** TODO
+**Status:** DONE
 **Where:** `Sidebar.tsx:671, 717, 605`; `popup/App.tsx:80, 83-89, 646`
 (`truncate`, no `title`); `ImportCuration.tsx:150` `whitespace-nowrap`
 without `truncate`/`min-w-0`.
 **Fix:** `title=`; `min-w-0 truncate`.
 **Evidence:** by reading; cross-verified.
-**Progress (popup half):** rows carry `title={s.title}` (or the
-clipboard-empty hint, L6). Sidebar and ImportCuration are in the manager
-batch.
+**Resolution:** popup rows carry `title={s.title}` (or the clipboard-empty
+hint, L6; `345d900`); sidebar rows and headers carry `title`s; Settings
+pack names too; ImportCuration titles are `min-w-0 truncate` with a `title`
+and capped at half the row. Commit: see commit list (manager semantics).
 
 ### UM18. Placeholder syntax help disappears; field names are sanitised silently
 **Status:** TODO
@@ -1238,13 +1260,19 @@ input.
 **Evidence:** by reading; cross-verified.
 
 ### UM19. Toasts cover the editor controls; undo is 8 s only
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/App.tsx:294` (`position="top-right"`, over the
 pack/group/delete row at `Editor.tsx:416-468`); `status.ts:5-8`; no
 `closeButton`.
 **Fix:** bottom-right, `closeButton`, longer undo, Ctrl+Z bound to the last
 undo callback. Related: M10.
 **Evidence:** by reading; cross-verified.
+**Resolution:** toasts render bottom-right; errors and undo toasts have a
+close button; undo lasts 12 s; `status.ts` remembers the Undo on offer and
+`undoLast()` takes it — bound to Ctrl+Z outside text fields. Verified in
+the dev build: toaster `right/bottom`, close button present, Ungroup then
+Ctrl+Z restored the group ("Restored"). Commit: see commit list (manager
+semantics).
 
 ### UM20. Design-system drift
 **Status:** TODO
@@ -1300,13 +1328,22 @@ instead of in its place. Verified: first Esc keeps the create view with the
 strip, second returns to the list. Commit: see commit list (popup feedback).
 
 ### UM23. Armed-delete cancellation differs across four controls
-**Status:** TODO
+**Status:** DONE
 **Where:** `Settings.tsx:296-303` (no Escape, no timeout, stays armed
 indefinitely); `Editor.tsx:356-360` (3 s, no Escape); ctx-menu Escape closes
 the whole menu; popup Escape closes the panel. None announce the armed state.
 **Fix:** Escape + 3 s timeout everywhere; `aria-live="assertive"` on the label
 change.
 **Evidence:** by reading; cross-verified.
+**Resolution:** Settings' armed "Really delete?" now disarms on Escape and
+after 3 s; the editor's disarms on Escape too (it already timed out); both
+labels sit in an `aria-live="assertive"` span and the editor button's
+`aria-label` says "Confirm delete" while armed. The disarm listeners run in
+the capture phase and `preventDefault`, so the same Escape does not also
+close Settings. Context-menu and popup Escapes keep closing their surface,
+which disarms as a side effect. Verified in the dev build: armed → Esc →
+"Delete pack" with Settings still open; a second Esc closes it. Commit: see
+commit list (manager semantics).
 
 ### UL1. List-mode hint bar omits Esc
 **Status:** DONE
@@ -1349,16 +1386,24 @@ scroll-area, select, separator, tooltip). Keep the hand-rolled ctx-menu
 `Separator` while fixing UM11/UM20, delete the rest. Same call as D4 / L2.
 
 ### UL7. Landmarks and headings
-**Status:** TODO
+**Status:** DONE
 No `h1` in either window; sidebar is a plain `div` not `<aside>`
 (`Sidebar.tsx:727, 730`); popup search has no `role="search"`
 (`popup/App.tsx:688`); `h2` is both `text-2xl font-bold` (`Sidebar.tsx:730`)
 and `text-xs uppercase` (`Settings.tsx:16`).
+**Resolution:** the sidebar is an `<aside aria-label="Prompts">` with an
+`h1` ("Prompts"); Settings opens with an `h1` ("Settings") above its `h2`
+cards; the popup's search box is `role="search"`. The `h2` size split
+(sidebar title vs card captions) is resolved by the `h1`s: cards are now
+the only `h2`. Commit: see commit list (manager semantics).
 
 ### UL8. Three identical "Edit" buttons
-**Status:** TODO
+**Status:** DONE
 `ParamSection` (`Editor.tsx:37-45`, instantiated :537/:545/:559) with no
 `aria-pressed`; fix with `aria-label={editing ? \`Done editing ${title}\` : \`Edit ${title}\`}`.
+**Resolution:** done as proposed (`aria-pressed` + the two labels).
+Verified in the dev build ("Done editing Built-ins", pressed=true). Commit:
+see commit list (manager semantics).
 
 ### UL9. What the UI does well (keep while fixing)
 The paste loop is keyboard-first with a hint bar that teaches in place and
@@ -1512,7 +1557,8 @@ passed at its commit and the manual check performed.
 | M12 + D3 | ✓ | ✓ 37/37 | ✓ 18/18 | edit, quit 100 ms later → process exits, edit on disk | `79be540` |
 | M5 + L4 | ✓ | ✓ 41/41 | ✓ 18/18 | ArrowDown touches 2 of 32 rows; hover/pill/preview unchanged; emoji underline aligned | `055d067` |
 | L1 + L3 | ✓ | ✓ 42/42 | ✓ 18/18 | popup Ctrl+N and manager New prompt default to the last-used pack | `65ca6a0` |
-| UH6, UH9, UM14, L6, L7, UL2 (+UM13/UM17 popup half) | ✓ | ✓ 42/42 | ✓ 18/18 | combobox/listbox/option ids; Left/Ctrl+Right collapse/expand; menu and tooltip roles; empty-clipboard states | (popup a11y commit) |
+| UH6, UH9, UM14, L6, L7, UL2 (+UM13/UM17 popup half) | ✓ | ✓ 42/42 | ✓ 18/18 | combobox/listbox/option ids; Left/Ctrl+Right collapse/expand; menu and tooltip roles; empty-clipboard states | `345d900` |
+| UH8, UM9, UM11, UM13, UM15, UM17, UM19, UM23, UL7, UL8 | ✓ | ✓ 42/42 | ✓ 18/18 | Settings h1/close/Esc, labelled rows, pack rows as buttons, armed deletes disarm on Esc, editor labels, badge button, toaster bottom-right, Ctrl+Z undo | (manager semantics commit) |
 
 ## Commit list
 
@@ -1551,6 +1597,7 @@ passed at its commit and the manual check performed.
 | `79be540` | M12, D3 | Tray Quit flushes a pending autosave before exiting |
 | `055d067` | M5, L4 | Popup: memoized rows, ranking in core, emoji-safe highlighting |
 | `65ca6a0` | L1, L3 | One library.ts for what both windows knew separately; honest bridge types |
+| `345d900` | UH6, UH9, UM14, L6, L7, UL2, UM13/UM17 (popup) | Popup: listbox semantics, keyboard pack collapse, honest empty states |
 
 ## Remaining risks and deliberate exclusions
 

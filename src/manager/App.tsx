@@ -8,7 +8,7 @@ import { C, isStoreError, type Library, type PackMeta, type Snippet, type Snippe
 import { applyPrefs } from "@/lib/prefs"
 import { ManagerCtx, type DeleteOpts, type ManagerApi, type Prefs } from "./state"
 import { type Config, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
-import { say, sayErr, sayPersistent, sayUndo } from "./status"
+import { say, sayErr, sayPersistent, sayUndo, undoLast } from "./status"
 import { Sidebar } from "./Sidebar"
 import { Editor } from "./Editor"
 import { Settings } from "./Settings"
@@ -293,6 +293,22 @@ export function App() {
     }
   }, [reloadLibrary])
 
+  // Ctrl+Z outside a text field takes the Undo on offer; Escape leaves Settings
+  useEffect(() => {
+    const typing = (t: EventTarget | null) =>
+      t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "z" && e.ctrlKey && !e.shiftKey && !e.altKey && !typing(e.target)) {
+        if (undoLast()) e.preventDefault()
+      } else if (e.key === "Escape" && !typing(e.target) && !e.defaultPrevented) {
+        // An armed delete takes the Escape first (capture-phase listeners)
+        setSettingsOpen(false)
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [])
+
   const api = useMemo<ManagerApi>(
     () => ({
       snippets,
@@ -355,7 +371,8 @@ export function App() {
         </main>
 
         <GenerateDialog open={genOpen} onOpenChange={setGenOpen} />
-        <Toaster position="top-right" />
+        {/* Bottom-right: top-right sat over the editor's title row */}
+        <Toaster position="bottom-right" />
       </div>
     </ManagerCtx.Provider>
   )

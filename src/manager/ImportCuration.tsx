@@ -147,7 +147,7 @@ export function ImportCuration({
               }}
             >
               <Checkbox checked={r.include} className="pointer-events-none" tabIndex={-1} />
-              <span className="whitespace-nowrap font-semibold text-foreground">{r.title}</span>
+              <span className="min-w-0 max-w-[50%] truncate font-semibold text-foreground" title={r.title}>{r.title}</span>
               {r.group && (
                 <span className="shrink-0 rounded-full bg-secondary px-1.5 text-xs">{r.group}</span>
               )}

@@ -310,6 +310,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               ? "What should the pack be about? e.g. Rust + Tauri development"
               : "Optional — narrow to one area, or leave empty to survey the whole project"
           }
+          aria-label="Topic"
           spellCheck={false}
           className="rounded-lg bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
         />

@@ -856,6 +856,7 @@ export function App() {
     <Shell hint={hint} notice={notice} announce={announce}>
       {/* Search — kit "Active" state: 36px boxed input, 2px focus border */}
       <div
+        role="search"
         className="flex h-8 shrink-0 items-center gap-1 rounded-lg border-2 border-input bg-background py-1.5 pl-2 pr-1.5 focus-within:border-(--palette-focus)"
         style={{ "--palette-focus": FOCUS_BORDER } as React.CSSProperties}
       >
