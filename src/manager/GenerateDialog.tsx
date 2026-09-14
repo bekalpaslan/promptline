@@ -172,6 +172,8 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [copied, setCopied] = useState(false) // step 1 done (either path)
   const [agentFilePath, setAgentFilePath] = useState("")
   const [watching, setWatching] = useState(false)
+  // How long the agent has been watched for, so the wait can be broken
+  const [watchedFor, setWatchedFor] = useState(0)
   const [importRaw, setImportRaw] = useState<string | null>(null)
   const [imported, setImported] = useState(false)
   const topicRef = useRef<HTMLInputElement>(null)
@@ -225,17 +227,17 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const copyAgentInstructions = async () => {
     const t = topic.trim()
     try {
-      let meta = m.packMeta.find((p) => p.name === t)
+      const meta = m.packMeta.find((p) => p.name === t)
       let filePath = meta?.path
       if (!t) {
         // Survey mode: several packs land in one scratch file that backs no pack
         filePath = await invoke<string>("create_generated_file")
-      } else if (!meta) {
-        filePath = await invoke<string>("create_pack_file", { name: t })
-        await m.persistPacks([...m.packMeta, { name: t, locked: false, path: filePath }])
       } else if (!filePath) {
+        // A file for the agent to write into. The pack itself is created on
+        // import (L8): cancelling here leaves a file in packs/ (an orphan,
+        // never swept — BEHAVIOR.md) but no empty pack in the sidebar.
         filePath = await invoke<string>("create_pack_file", { name: t })
-        await m.persistPacks(m.packMeta.map((p) => (p.name === t ? { ...p, path: filePath } : p)))
+        if (meta) await m.persistPacks(m.packMeta.map((p) => (p.name === t ? { ...p, path: filePath } : p)))
       }
       setAgentFilePath(filePath!)
       await invoke("set_clipboard_text", {
@@ -243,9 +245,10 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       })
       setCopied(true)
       setWatching(true)
+      setWatchedFor(0)
       say("Instructions copied — paste them to your agent")
     } catch (e) {
-      sayErr(String(e))
+      sayErr(`Couldn't prepare the pack file: ${e}`)
     }
   }
 
@@ -253,6 +256,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   useEffect(() => {
     if (!watching || !agentFilePath || importRaw !== null) return
     const t = setInterval(() => {
+      setWatchedFor((s) => s + 2)
       void (async () => {
         try {
           const raw = await invoke<string>("read_pack_file", { path: agentFilePath })
@@ -270,12 +274,27 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     return () => clearInterval(t)
   }, [watching, agentFilePath, importRaw])
 
+  // Import the agent's file by hand (after Stop, or when the poll missed it)
+  const importFromFile = async () => {
+    try {
+      setImportRaw(await invoke<string>("read_pack_file", { path: agentFilePath }))
+      setWatching(false)
+    } catch (e) {
+      sayErr(`Couldn't read the pack file: ${e}`)
+    }
+  }
+
   const importReply = async () => {
     setImportRaw(await invoke<string>("get_clipboard_text"))
   }
 
   const close = (v: boolean) => {
-    if (!v) reset()
+    if (!v) {
+      // Closing mid-watch keeps nothing running; the file stays for a manual
+      // import from Settings → the pack's "Import from this file…"
+      if (watching) say("Stopped watching — the file is still there under Settings → Your library")
+      reset()
+    }
     onOpenChange(v)
   }
 
@@ -402,12 +421,35 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               </Step>
               <Step n={2} title="Paste to your agent — the file reloads by itself" done={step2Done} active={copied && !step2Done}>
                 {watching && (
-                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
-                    <RiLoader4Line className="size-4 animate-spin" />
-                    <span className="min-w-0 truncate" title={agentFilePath}>
-                      Watching {agentFilePath} …
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <RiLoader4Line className="size-4 animate-spin" aria-hidden />
+                    <span className="min-w-0 flex-1 truncate" title={agentFilePath} role="status">
+                      Watching {agentFilePath} … {watchedFor >= 60 ? `${Math.floor(watchedFor / 60)} min ${watchedFor % 60} s` : `${watchedFor} s`}
                     </span>
+                    <Button size="sm" variant="secondary" className="h-auto px-2 py-0.5 text-xs" onClick={() => setWatching(false)}>
+                      Stop
+                    </Button>
+                    <Button size="sm" variant="secondary" className="h-auto px-2 py-0.5 text-xs" onClick={() => void importFromFile()}>
+                      Import from file now
+                    </Button>
                   </div>
+                )}
+                {!watching && copied && !step2Done && (
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span>Not watching.</span>
+                    <Button size="sm" variant="secondary" className="h-auto px-2 py-0.5 text-xs" onClick={() => { setWatching(true); setWatchedFor(0) }}>
+                      Keep watching
+                    </Button>
+                    <Button size="sm" variant="secondary" className="h-auto px-2 py-0.5 text-xs" onClick={() => void importFromFile()}>
+                      Import from file…
+                    </Button>
+                  </div>
+                )}
+                {watching && watchedFor >= 90 && (
+                  <p className="mt-1 text-xs text-muted-foreground" role="status">
+                    Still nothing after {Math.floor(watchedFor / 60)} min — agents can take a while; you can also close
+                    this dialog and import the file later from Settings.
+                  </p>
                 )}
               </Step>
               <Step n={3} title="Review & add" done={step3Done} active={step2Done && !step3Done} last>
