@@ -9,6 +9,7 @@ import {
   RiFolderAddLine,
   RiLock2Fill,
   RiMoonClearLine,
+  RiMoreLine,
   RiPushpinFill,
   RiSettings3Line,
   RiSunLine,
@@ -614,7 +615,7 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         title={`${group} — Enter toggles, right-click for actions`}
         className={cn(
-          "flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em]",
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em]",
           isCollapsed ? "text-muted-foreground/70 hover:text-foreground" : "text-muted-foreground"
         )}
         onClick={() => toggleCollapsedGroup(key)}
@@ -657,6 +658,21 @@ export function Sidebar() {
             {group} <span className="font-medium opacity-70">({count})</span>
           </span>
         )}
+        {/* Hover-revealed way into the same menu right-click opens */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Actions for group ${group}`}
+          title="Actions"
+          className="rounded-sm p-0.5 opacity-0 hover:bg-secondary group-hover:opacity-100 focus-visible:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation()
+            const r = e.currentTarget.getBoundingClientRect()
+            openGroupCtx(r.left, r.bottom, pack, group, count)
+          }}
+        >
+          <RiMoreLine className="size-3.5" />
+        </button>
         <Chev className="size-3.5 shrink-0" />
       </div>
     )
@@ -749,7 +765,7 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         title={`${name} — Enter toggles, right-click for actions`}
         className={cn(
-          "flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-1 py-2 text-sm font-bold",
+          "group flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-1 py-2 text-sm font-bold",
           isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
         )}
         onClick={() => toggleCollapsed(name)}
@@ -791,6 +807,20 @@ export function Sidebar() {
             {name} <span className="font-semibold text-muted-foreground">({count})</span>
           </span>
         )}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Actions for pack ${name}`}
+          title="Actions"
+          className="rounded-sm p-0.5 text-muted-foreground opacity-0 hover:bg-secondary hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation()
+            const r = e.currentTarget.getBoundingClientRect()
+            openPackCtx(r.left, r.bottom, name, count)
+          }}
+        >
+          <RiMoreLine className="size-4" />
+        </button>
         {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-amber-500" />}
         <Chev className="size-4 shrink-0 text-muted-foreground" />
       </div>
