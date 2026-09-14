@@ -277,7 +277,24 @@ fn sanitize_pack_filename(name: &str) -> String {
     }
     let s = s.trim_matches('-').to_string();
     let s = s.split('-').filter(|p| !p.is_empty()).collect::<Vec<_>>().join("-");
-    if s.is_empty() { "pack".into() } else { s }
+    if s.is_empty() {
+        return "pack".into();
+    }
+    // "con.json" is the console device on Windows, whatever the extension;
+    // a pack named "Con" would hang or fail every write of its file
+    if is_reserved_device_name(&s) {
+        return format!("{s}-pack");
+    }
+    s
+}
+
+fn is_reserved_device_name(stem: &str) -> bool {
+    let upper = stem.to_ascii_uppercase();
+    matches!(upper.as_str(), "CON" | "PRN" | "AUX" | "NUL")
+        || ((upper.starts_with("COM") || upper.starts_with("LPT"))
+            && upper.len() == 4
+            && upper.as_bytes()[3].is_ascii_digit()
+            && upper.as_bytes()[3] != b'0')
 }
 
 /// Create a pack's .json file and return its absolute path, without touching
@@ -1278,6 +1295,21 @@ mod tests {
         assert_eq!(sanitize_pack_filename("---"), "pack");
         assert_eq!(sanitize_pack_filename("Ünïcode Pack"), "ünïcode-pack");
     }
+
+    #[test]
+    fn reserved_windows_device_names_never_become_pack_filenames() {
+        for name in ["Con", "CON", "nul", "aux", "PRN", "com1", "LPT9"] {
+            let s = sanitize_pack_filename(name);
+            assert!(s.ends_with("-pack"), "{name} -> {s}");
+            assert!(!is_reserved_device_name(&s));
+        }
+        // Not reserved: longer names, COM0, prefixes with more characters
+        assert_eq!(sanitize_pack_filename("Console"), "console");
+        assert_eq!(sanitize_pack_filename("com0"), "com0");
+        assert_eq!(sanitize_pack_filename("com10"), "com10");
+        assert_eq!(sanitize_pack_filename("Con Air"), "con-air");
+    }
+
 
     #[test]
     fn pack_meta_path_defaults_for_older_configs() {

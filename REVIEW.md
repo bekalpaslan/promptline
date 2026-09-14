@@ -418,13 +418,19 @@ on older setups), Import from file: rejected with a misleading message.
 **Fix:** strip a leading BOM in `stripFences`; one test.
 
 ### M8. Reserved Windows device names become pack filenames
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs:143-155` (`sanitize_pack_filename`).
 **What:** "CON", "NUL", "AUX", "PRN", "COM1"…"LPT9" survive sanitization.
 **Failure:** name a pack "Con". `fs::write("con.json")` addresses the console
 device; the write errors or hangs, `ensure_packs_backed` leaves `path` empty,
 and the pack is never file-backed.
 **Fix:** suffix reserved stems with `-pack`; extend the filename test.
+**Resolution:** `sanitize_pack_filename` appends `-pack` when the stem is
+`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9` or `LPT1`–`LPT9` (any case;
+`COM0`, `com10`, `Console`, `Con Air` are not reserved). Test added for the
+reserved set and the near-misses. Manual: `create_pack_file("Con")` in the
+dev build returned `…\packs\con-pack.json` (test file removed afterwards).
+Commit: see commit list (M8).
 
 ### M9. No Content Security Policy
 **Status:** DONE
@@ -1216,7 +1222,7 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
 3. [ ] Rust: `sync_pack_files` skips empty packs and unchanged files (M4);
    `retire_pack_file` numbering on repeated deletes.
 4. [ ] `stripFences` strips a BOM; `diagnosePack` of a BOM file is `ok` (M7).
-5. [ ] `sanitize_pack_filename("CON")` (M8).
+5. [x] `sanitize_pack_filename("CON")` (M8).
 6. [ ] Popup ranking as a pure function: extract the title/tags/body tiering from
    `popup/App.tsx:129-149` into `core.rankSnippets(query, snippets)` and test
    that a title subsequence beats a tag contiguous match and that pins lead
