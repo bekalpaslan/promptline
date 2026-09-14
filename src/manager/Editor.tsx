@@ -278,7 +278,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     setTags((snippet.tags || []).join(", "))
     setPack(snippet.pack || DEFAULT_PACK)
     setGroup(snippet.group || "")
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [snippet.tags, snippet.pack, snippet.group])
 
   // Groups already in use in the chosen pack, for the group field's suggestions

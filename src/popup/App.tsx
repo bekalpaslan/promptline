@@ -244,14 +244,14 @@ export function App() {
       return new Set()
     }
   })
-  const toggleCollapsed = (name: string) => {
+  const toggleCollapsed = useCallback((name: string) => {
     const next = new Set(collapsed)
     if (next.has(name)) next.delete(name)
     else next.add(name)
     setCollapsed(next)
     localStorage.setItem("popupCollapsedPacks", JSON.stringify([...next]))
     setSel(0)
-  }
+  }, [collapsed])
 
   type Section = { name: string; entries: Entry[]; collapsible: boolean; isCollapsed: boolean }
   const { sections, visible } = useMemo(() => {
@@ -624,7 +624,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, hasQuery, collapsed])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, hasQuery, collapsed, toggleCollapsed])
 
   // Stable handlers for the memoized rows: they read the live selection and
   // preview index through refs instead of closing over them
