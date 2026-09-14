@@ -4,7 +4,7 @@ import { listen } from "@tauri-apps/api/event"
 import { SizeDebug } from "@/lib/SizeDebug"
 import { RiCloseLine } from "@remixicon/react"
 import { Toaster } from "@/components/ui/sonner"
-import { C, type PackMeta, type Snippet } from "@/lib/core"
+import { C, isStoreError, type Library, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
 import { DEFAULT_PACK, ManagerCtx, type ManagerApi, type Prefs } from "./state"
 import { say, sayErr, sayPersistent, sayUndo } from "./status"
@@ -44,12 +44,54 @@ export function App() {
   // Latest snippets for callbacks that outlive a render (event listeners)
   const snippetsRef = useRef(snippets)
   snippetsRef.current = snippets
+  // Revision of the library as last read; every full-array save is pinned
+  // to it so a stale copy can never overwrite what the popup wrote
+  const revisionRef = useRef(0)
+
+  const applyLibrary = useCallback((lib: Library) => {
+    snippetsRef.current = lib.snippets
+    revisionRef.current = lib.revision
+    setSnippets(lib.snippets)
+  }, [])
+
+  const reloadLibrary = useCallback(async () => {
+    try {
+      applyLibrary(await invoke<Library>("get_snippets"))
+    } catch (e) {
+      sayErr(`Couldn't reload the library: ${e}`)
+    }
+  }, [applyLibrary])
 
   const persist = useCallback(async (next: Snippet[]) => {
     setSnippets(next)
     snippetsRef.current = next
-    await invoke("save_snippets", { snippets: next })
-  }, [])
+    try {
+      revisionRef.current = await invoke<number>("save_snippets", {
+        snippets: next,
+        baseRevision: revisionRef.current,
+      })
+    } catch (e) {
+      // Whatever happened, the UI must show what is on disk, not the
+      // change that didn't land
+      await reloadLibrary()
+      if (isStoreError(e) && e.kind === "stale") {
+        sayErr("The library changed in the popup meanwhile — reloaded it; please redo that change")
+      } else {
+        sayErr(`Couldn't save: ${isStoreError(e) && e.kind === "failed" ? e.message : e}`)
+      }
+      throw e
+    }
+  }, [reloadLibrary])
+
+  const updateSnippet = useCallback(async (id: string, edit: SnippetEdit) => {
+    try {
+      applyLibrary(await invoke<Library>("update_snippet", { id, edit }))
+    } catch (e) {
+      await reloadLibrary()
+      sayErr(`Couldn't save: ${e}`)
+      throw e
+    }
+  }, [applyLibrary, reloadLibrary])
 
   const persistPacks = useCallback(async (next: PackMeta[]) => {
     setPackMeta(next)
@@ -127,11 +169,16 @@ export function App() {
       fieldValues: {},
       configValues: {},
     }
-    await persist([...snippetsRef.current, s])
+    try {
+      applyLibrary(await invoke<Library>("add_snippet", { snippet: s }))
+    } catch (e) {
+      sayErr(`Couldn't create the prompt: ${e}`)
+      return
+    }
     setSelectionState(new Set([s.id]))
     setSelectionAnchor(s.id)
     setActiveId(s.id)
-  }, [isLocked, packNames, persist])
+  }, [isLocked, packNames, applyLibrary])
 
   const addPack = useCallback(
     async (name: string) => {
@@ -181,13 +228,14 @@ export function App() {
   useEffect(() => {
     void (async () => {
       try {
-        let snips = await invoke<Snippet[]>("get_snippets")
+        const lib = await invoke<Library>("get_snippets")
         // GC abandoned "+ New" drafts (default title, no text, never used)
-        const before = snips.length
-        snips = snips.filter((s) => !(s.title === "New prompt" && !s.text.trim() && !s.uses))
-        if (snips.length !== before) await invoke("save_snippets", { snippets: snips })
-        setSnippets(snips)
-        snippetsRef.current = snips
+        const snips = lib.snippets.filter((s) => !(s.title === "New prompt" && !s.text.trim() && !s.uses))
+        if (snips.length !== lib.snippets.length) {
+          lib.revision = await invoke<number>("save_snippets", { snippets: snips, baseRevision: lib.revision })
+          lib.snippets = snips
+        }
+        applyLibrary(lib)
 
         const config = await invoke<Config>("get_config")
         setHotkeyState(config.hotkey)
@@ -213,7 +261,7 @@ export function App() {
       // file, a refused hotkey) is shown now and stays until dismissed
       for (const n of await invoke<Notice[]>("take_notices").catch(() => [] as Notice[])) sayPersistent(n.message)
     })()
-  }, [])
+  }, [applyLibrary])
 
   // ---- Events from the Rust side ----
   useEffect(() => {
@@ -232,19 +280,14 @@ export function App() {
       })
     })
     // The popup writes too (create-from-clipboard, pins, use counts) — refresh
-    const unChanged = listen("snippets-changed", () => {
-      void invoke<Snippet[]>("get_snippets").then((snips) => {
-        snippetsRef.current = snips
-        setSnippets(snips)
-      })
-    })
+    const unChanged = listen<number>("snippets-changed", () => void reloadLibrary())
     return () => {
       void unEdit.then((f) => f())
       void unNotice.then((f) => f())
       void unFirst.then((f) => f())
       void unChanged.then((f) => f())
     }
-  }, [])
+  }, [reloadLibrary])
 
   const api = useMemo<ManagerApi>(
     () => ({
@@ -259,6 +302,7 @@ export function App() {
       packNames,
       allTags,
       persist,
+      updateSnippet,
       persistPacks,
       deleteWithUndo,
       select,
@@ -271,7 +315,7 @@ export function App() {
       settingsOpen,
       showSettings: setSettingsOpen,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, isLocked, packNames, allTags, persist, persistPacks, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)

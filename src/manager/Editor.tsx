@@ -207,8 +207,9 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       setPack(targetPack)
     }
     const names = C.configNames(cur.text)
-    const next: Snippet = {
-      ...existing,
+    // Only the editor's own fields go to disk; uses/pinned/fieldValues are
+    // merged there from whatever the popup wrote since this render
+    await mgr.updateSnippet(snippet.id, {
       title: cur.title.trim() || "(untitled)",
       tags: cur.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean),
       pack: targetPack,
@@ -217,21 +218,21 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       configValues: Object.fromEntries(
         Object.entries(cur.configValues).filter(([k, v]) => names.includes(k) && v !== "")
       ),
-    }
-    await mgr.persist(mgr.snippets.map((s) => (s.id === snippet.id ? next : s)))
+    })
     // New prompts default to the pack that last received one
     localStorage.setItem("lastPack", targetPack)
   }, [snippet.id])
 
   const scheduleSave = useCallback(() => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
-    saveTimer.current = setTimeout(() => void commit(), 600)
+    // A failed save has already been toasted by updateSnippet
+    saveTimer.current = setTimeout(() => void commit().catch(() => {}), 600)
   }, [commit])
 
   // Flush pending edits when switching prompts / unmounting
   useEffect(() => {
     return () => {
-      if (saveTimer.current) void commit()
+      if (saveTimer.current) void commit().catch(() => {})
     }
   }, [commit])
 

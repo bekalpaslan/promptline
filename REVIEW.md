@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 4 | 13 | 12 | 7 | 36 |
+| TODO | 3 | 12 | 12 | 7 | 34 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 2 | 0 | 0 | 1 | 3 |
+| DONE | 3 | 1 | 0 | 1 | 5 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -190,7 +190,7 @@ tests for the rename path and for "parse failure never overwrites".
   every pack at (0), the manager shows the persistent toast with the path and
   a close button, pack files untouched (they still hold the prompts). Restored
   the backup, relaunched: 34 rows, no toast, no `.tmp` left behind.
-- *Commit:* see commit list (H3).
+- *Commit:* `a025d20`.
 
 ### H4. A hotkey the OS refuses aborts startup; a failed re-register leaves no hotkey
 **Status:** TODO
@@ -225,7 +225,7 @@ with a function replacer; use it from the popup; test the `$` cases.
 **Evidence:** by reading; certain.
 
 ### H6. Popup writes the whole library from a snapshot and can drop a manager edit
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:274-276` (create), `:311-313` (form values),
 `:322-324` (pin), `:329-331` (delete); Rust `lib.rs:384-396` writes whatever
 array it receives.
@@ -242,6 +242,37 @@ edit is gone; the manager re-fetches on `snippets-changed` and shows old text.
 `delete_snippet(id)`. `paste_snippet` already works this way for `uses`. The
 popup then never sends a full array. Rust tests on the merge helpers.
 **Evidence:** by reading.
+**Resolution:**
+- *Implementation (`lib.rs`):* intent-level commands `add_snippet`,
+  `patch_snippet(id, {pinned?, fieldValues?})`, `update_snippet(id, edit)`
+  (the editor's fields only: title, text, tags, pack, group, configValues) and
+  `delete_snippet(id)`, each a read-modify-write on disk under the store lock
+  via `mutate_library`, built on pure `merge_add` / `merge_patch` /
+  `merge_update` / `merge_delete`. Every snippet command returns a `Library
+  {snippets, revision}`; `AppState.revision` is bumped by every write of
+  `snippets.json`. `save_snippets(snippets, base_revision)` refuses a
+  full-array save whose base is behind the file with a typed
+  `StoreError::Stale {revision}` and writes nothing; `snippets-changed` now
+  carries the revision. Popup: create → `add_snippet`, form values / pin →
+  `patch_snippet`, delete → `delete_snippet`; it never sends an array.
+  Manager: `persist` pins the revision it loaded, and on any failure reloads
+  from disk, toasts (a stale rejection says the popup wrote meanwhile and asks
+  to redo the change) and rethrows so success toasts don't fire; the editor's
+  autosave is `updateSnippet`, so it can never revert `uses`, `pinned` or
+  `fieldValues` the popup wrote; `newPrompt` uses `add_snippet`. M13 falls
+  out: `submitForm` no longer mutates the snippet in state.
+- *Tests added (`cargo test`):* `merge_update` keeps popup-owned fields and
+  ignores an unknown id; `merge_patch` changes only what is given;
+  `merge_add` replaces a duplicate id, `merge_delete` reports change;
+  `StoreError` serializes as `{"kind":"stale","revision":N}`.
+- *Manual verification:* dev build. Read the popup's in-memory title ("Test
+  H6b"), edited the title in the manager to "Test H6c" (autosave landed on
+  disk), confirmed the popup still showed "Test H6b", then unpinned from the
+  popup's action panel: disk holds "Test H6c" with `pinned: false`, the popup
+  list refreshed to "Test H6c", the manager row lost its pin icon. Called
+  `save_snippets` from the manager with `baseRevision - 1`: refused with
+  `{"kind":"stale","revision":6}`, nothing written. Test prompt renamed back.
+- *Commit:* see commit list (H6).
 
 ---
 
@@ -386,11 +417,15 @@ that it is safe to close; add a two-state caption near the title driven by
 `saveTimer`.
 
 ### M13. `submitForm` mutates an object that lives in React state
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:310` (`snippet.fieldValues = {...}`).
 **What:** works today because the array is new, but a future `memo`ized row
 comparing `s === prev.s` (M5) would miss the change.
 **Fix:** `{ ...snippet, fieldValues }`; falls out of H6.
+**Resolution:** fixed with H6 — `submitForm` sends `{fieldValues}` to
+`patch_snippet` and replaces the popup's list with the returned library; the
+object in state is never written to. Verified by reading `submitForm`; the
+form-values path is exercised again in M3's paste check.
 
 ---
 
@@ -1112,7 +1147,7 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
 8. [ ] `packToJson` includes `group` only when set (M1).
 9. [x] Undo restoration helper (H1) once extracted: delete then undo yields the
    original array with no duplicate ids.
-10. [ ] Rust: `patch_snippet`/`add_snippet`/`delete_snippet` merge helpers (H6).
+10. [x] Rust: `patch_snippet`/`add_snippet`/`delete_snippet` merge helpers (H6).
 
 ---
 
@@ -1142,7 +1177,8 @@ passed at its commit and the manual check performed.
 | Finding | typecheck | npm test | test:rust | Manual (app) | Commit |
 |---|---|---|---|---|---|
 | H1 | ✓ | ✓ 32/32 | ✓ 7/7 | delete pack / group → Undo, ids unique on screen and on disk | `e437876` |
-| H3 | ✓ | ✓ 32/32 | ✓ 11/11 | truncated snippets.json → quarantined, empty library, persistent toast; backup restored | (H3 commit) |
+| H3 | ✓ | ✓ 32/32 | ✓ 11/11 | truncated snippets.json → quarantined, empty library, persistent toast; backup restored | `a025d20` |
+| H6 + M13 | ✓ | ✓ 32/32 | ✓ 15/15 | stale popup write keeps the manager's edit; stale full-array save refused | (H6 commit) |
 
 ## Commit list
 
@@ -1152,6 +1188,8 @@ passed at its commit and the manual check performed.
 | `7265cf5` | D7 | Groups inside packs, and an agent survey mode for Generate |
 | `996007f` | — | REVIEW.md: turn the review into a findings tracker |
 | `e437876` | H1 | Undo after delete restores from the live library, never a snapshot |
+| `a025d20` | H3 | Write data files atomically and quarantine ones that won't parse |
+| `183835f` | — | REVIEW.md: merge the UI review's findings into the tracker |
 
 ## Remaining risks and deliberate exclusions
 

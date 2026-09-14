@@ -13,7 +13,7 @@ import {
   RiPushpinFill,
   RiSearchLine,
 } from "@remixicon/react"
-import { C, type PackMeta, type Snippet } from "@/lib/core"
+import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
 import { applyPrefs, isCompact } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 
@@ -271,14 +271,20 @@ export function App() {
       fieldValues: {},
       configValues: {},
     }
-    const next = [...snippets, snip]
-    setSnippets(next)
-    await invoke("save_snippets", { snippets: next })
+    // Rust appends on disk; this window never sends the whole library
+    const lib = await invoke<Library>("add_snippet", { snippet: snip })
+    setSnippets(lib.snippets)
     localStorage.setItem("lastPack", create.pack)
     setCreate(null)
     setQuery("")
     inputRef.current?.focus()
-  }, [create, clip, snippets])
+  }, [create, clip])
+
+  // One prompt's pin state or remembered fill-ins, merged on disk
+  const patch = useCallback(async (id: string, patch: SnippetPatch) => {
+    const lib = await invoke<Library>("patch_snippet", { id, patch })
+    setSnippets(lib.snippets)
+  }, [])
 
   const pick = useCallback((snippet: Snippet, paste: boolean) => {
     hidePreview()
@@ -307,30 +313,24 @@ export function App() {
     setForm(null)
     // Remember entered values so next time the form is pre-filled.
     // Sequenced: paste_snippet re-reads the file to bump the use count.
-    snippet.fieldValues = { ...formValues }
-    const next = snippets.map((s) => (s.id === snippet.id ? snippet : s))
-    setSnippets(next)
-    await invoke("save_snippets", { snippets: next })
+    await patch(snippet.id, { fieldValues: { ...formValues } })
     await send(snippet, C.expandBuiltins(text), paste)
-  }, [form, formValues, snippets, send])
+  }, [form, formValues, patch, send])
 
   const togglePin = useCallback(async (s: Snippet) => {
     if (!s.pinned && snippets.filter((x) => x.pinned).length >= MAX_PINS) {
       setPanelNote(`Max ${MAX_PINS} pins — unpin something first`)
       return
     }
-    const next = snippets.map((x) => (x.id === s.id ? { ...x, pinned: !x.pinned } : x))
-    setSnippets(next)
-    await invoke("save_snippets", { snippets: next })
+    await patch(s.id, { pinned: !s.pinned })
     closePanel()
-  }, [snippets, closePanel])
+  }, [snippets, patch, closePanel])
 
   const deleteSnippet = useCallback(async (s: Snippet) => {
-    const next = snippets.filter((x) => x.id !== s.id)
-    setSnippets(next)
-    await invoke("save_snippets", { snippets: next })
+    const lib = await invoke<Library>("delete_snippet", { id: s.id })
+    setSnippets(lib.snippets)
     closePanel()
-  }, [snippets, closePanel])
+  }, [closePanel])
 
   const panelActions = useMemo<PanelAction[]>(() => {
     if (!panelFor) return []
@@ -355,13 +355,13 @@ export function App() {
     setCreate(null)
     hidePreview()
     setPickedId(null)
-    const [snips, clipboard, config] = await Promise.all([
-      invoke<Snippet[]>("get_snippets"),
+    const [lib, clipboard, config] = await Promise.all([
+      invoke<Library>("get_snippets"),
       invoke<string>("get_clipboard_text"),
       invoke<{ packs?: PackMeta[] }>("get_config"),
     ])
     setQuery("")
-    setSnippets(snips)
+    setSnippets(lib.snippets)
     setClip(clipboard)
     setPackMeta(Array.isArray(config.packs) ? config.packs : [])
     setSel(0)

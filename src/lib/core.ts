@@ -17,6 +17,24 @@ export interface Snippet {
   configValues: Record<string, string>
 }
 
+/** What every snippet command returns: the library and the revision it was read at */
+export interface Library {
+  snippets: Snippet[]
+  revision: number
+}
+
+/** The fields the manager's editor owns; see `SnippetEdit` in lib.rs */
+export type SnippetEdit = Pick<Snippet, "title" | "text" | "tags" | "pack" | "group" | "configValues">
+
+/** What the popup changes; see `SnippetPatch` in lib.rs */
+export type SnippetPatch = Partial<Pick<Snippet, "pinned" | "fieldValues">>
+
+/** A refused write, typed; see `StoreError` in lib.rs */
+export type StoreError = { kind: "stale"; revision: number } | { kind: "failed"; message: string }
+
+export const isStoreError = (e: unknown): e is StoreError =>
+  typeof e === "object" && e !== null && "kind" in e
+
 export type TokenPart =
   | { type: "text"; value: string }
   | { type: "builtin" | "field" | "config" | "bad"; name: string; raw: string }

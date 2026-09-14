@@ -25,6 +25,34 @@ struct AppState {
     // two commands can never interleave a load and a save. Locked only at
     // command / event-handler entry points; helpers never lock it.
     store: Mutex<()>,
+    // Bumped on every write of snippets.json. A full-array save carries the
+    // revision it was based on; if the file moved on since, the save is
+    // refused rather than allowed to overwrite what it never saw.
+    revision: Mutex<u64>,
+}
+
+/// The library plus the revision it was read at — what every snippet
+/// command returns, so a window's state and the disk never drift apart.
+#[derive(Serialize)]
+struct Library {
+    snippets: Vec<Snippet>,
+    revision: u64,
+}
+
+/// Why a write was refused, typed so the frontend can tell "someone else
+/// wrote first" from "the disk failed".
+#[derive(Serialize, Debug)]
+#[serde(tag = "kind", rename_all = "kebab-case")]
+enum StoreError {
+    /// The caller's `base_revision` is behind the file; nothing was written
+    Stale { revision: u64 },
+    Failed { message: String },
+}
+
+impl From<String> for StoreError {
+    fn from(message: String) -> Self {
+        StoreError::Failed { message }
+    }
 }
 
 /// A problem the user has to know about; `kind` is stable for the frontend.
@@ -482,7 +510,150 @@ fn load_snippets_from_disk(app: &AppHandle) -> Result<Vec<Snippet>, String> {
 
 fn write_snippets(app: &AppHandle, snippets: &[Snippet]) -> Result<(), String> {
     let json = serde_json::to_string_pretty(snippets).map_err(|e| e.to_string())?;
-    write_atomic(&snippets_path(app), json.as_bytes()).map_err(|e| e.to_string())
+    write_atomic(&snippets_path(app), json.as_bytes()).map_err(|e| e.to_string())?;
+    if let Some(state) = app.try_state::<AppState>() {
+        *state.revision.lock().unwrap() += 1;
+    }
+    Ok(())
+}
+
+fn current_revision(app: &AppHandle) -> u64 {
+    app.try_state::<AppState>().map(|s| *s.revision.lock().unwrap()).unwrap_or(0)
+}
+
+fn library(app: &AppHandle) -> Result<Library, String> {
+    Ok(Library { snippets: load_snippets_from_disk(app)?, revision: current_revision(app) })
+}
+
+// ---- Intent-level edits: read-modify-write on disk, so a window never has
+// to send the whole library from a snapshot that may already be stale. Pure
+// on the array so they are unit-testable.
+
+/// Fields the manager's editor owns. Everything else on a snippet (`uses`,
+/// `pinned`, `fieldValues`) is written by the popup and must survive an edit.
+#[derive(Deserialize, Clone)]
+struct SnippetEdit {
+    title: String,
+    text: String,
+    tags: Vec<String>,
+    pack: String,
+    group: String,
+    #[serde(rename = "configValues")]
+    config_values: HashMap<String, String>,
+}
+
+/// What the popup changes about a snippet: pin state, remembered fill-ins.
+#[derive(Deserialize, Clone, Default)]
+struct SnippetPatch {
+    pinned: Option<bool>,
+    #[serde(rename = "fieldValues")]
+    field_values: Option<HashMap<String, String>>,
+}
+
+/// Append, or replace an existing snippet with the same id (a retried add
+/// must not duplicate).
+fn merge_add(list: &mut Vec<Snippet>, snippet: Snippet) {
+    match list.iter_mut().find(|s| s.id == snippet.id) {
+        Some(existing) => *existing = snippet,
+        None => list.push(snippet),
+    }
+}
+
+fn merge_patch(list: &mut [Snippet], id: &str, patch: SnippetPatch) -> bool {
+    let Some(s) = list.iter_mut().find(|s| s.id == id) else {
+        return false;
+    };
+    if let Some(p) = patch.pinned {
+        s.pinned = p;
+    }
+    if let Some(v) = patch.field_values {
+        s.field_values = v;
+    }
+    true
+}
+
+fn merge_update(list: &mut [Snippet], id: &str, edit: SnippetEdit) -> bool {
+    let Some(s) = list.iter_mut().find(|s| s.id == id) else {
+        return false;
+    };
+    s.title = edit.title;
+    s.text = edit.text;
+    s.tags = edit.tags;
+    s.pack = edit.pack;
+    s.group = edit.group;
+    s.config_values = edit.config_values;
+    true
+}
+
+fn merge_delete(list: &mut Vec<Snippet>, id: &str) -> bool {
+    let before = list.len();
+    list.retain(|s| s.id != id);
+    list.len() != before
+}
+
+/// Load, apply `f`, write if it reports a change, sync pack files, tell the
+/// other window. The store lock is the caller's.
+fn mutate_library(
+    app: &AppHandle,
+    window: &tauri::WebviewWindow,
+    f: impl FnOnce(&mut Vec<Snippet>) -> bool,
+) -> Result<Library, String> {
+    let mut snippets = load_snippets_from_disk(app)?;
+    if f(&mut snippets) {
+        write_snippets(app, &snippets)?;
+        sync_pack_files(app);
+        notify_other_window(app, window);
+    }
+    Ok(Library { snippets, revision: current_revision(app) })
+}
+
+#[tauri::command]
+fn add_snippet(
+    app: AppHandle,
+    state: State<AppState>,
+    window: tauri::WebviewWindow,
+    snippet: Snippet,
+) -> Result<Library, String> {
+    let _guard = state.store.lock().unwrap();
+    mutate_library(&app, &window, |list| {
+        merge_add(list, snippet);
+        true
+    })
+}
+
+#[tauri::command]
+fn patch_snippet(
+    app: AppHandle,
+    state: State<AppState>,
+    window: tauri::WebviewWindow,
+    id: String,
+    patch: SnippetPatch,
+) -> Result<Library, String> {
+    let _guard = state.store.lock().unwrap();
+    mutate_library(&app, &window, |list| merge_patch(list, &id, patch))
+}
+
+#[tauri::command]
+fn update_snippet(
+    app: AppHandle,
+    state: State<AppState>,
+    window: tauri::WebviewWindow,
+    id: String,
+    edit: SnippetEdit,
+) -> Result<Library, String> {
+    let _guard = state.store.lock().unwrap();
+    mutate_library(&app, &window, |list| merge_update(list, &id, edit))
+}
+
+#[tauri::command]
+fn delete_snippet(
+    app: AppHandle,
+    state: State<AppState>,
+    window: tauri::WebviewWindow,
+    id: String,
+) -> Result<Library, String> {
+    let _guard = state.store.lock().unwrap();
+    mutate_library(&app, &window, |list| merge_delete(list, &id))
 }
 
 /// Same policy as `load_snippets_from_disk`: missing is a first run,
@@ -510,32 +681,50 @@ fn load_config_from_disk(app: &AppHandle) -> Result<Config, String> {
 }
 
 #[tauri::command]
-fn get_snippets(app: AppHandle, state: State<AppState>) -> Result<Vec<Snippet>, String> {
+fn get_snippets(app: AppHandle, state: State<AppState>) -> Result<Library, String> {
     let _guard = state.store.lock().unwrap();
-    load_snippets_from_disk(&app)
+    library(&app)
 }
 
-// The manager caches snippets in memory; when another window writes, tell it
+// Each window caches the library in memory; when the other one (or Rust
+// itself) writes, tell the manager so it re-reads before saving over it.
+// The payload is the new revision.
 fn notify_manager_snippets_changed(app: &AppHandle) {
     if let Some(w) = app.get_webview_window("main") {
-        let _ = w.emit("snippets-changed", ());
+        let _ = w.emit("snippets-changed", current_revision(app));
     }
 }
 
+fn notify_other_window(app: &AppHandle, window: &tauri::WebviewWindow) {
+    if window.label() != "main" {
+        notify_manager_snippets_changed(app);
+    }
+}
+
+/// Replace the whole library — the manager's bulk operations (move, tag,
+/// reorder, delete with undo). `base_revision` is the revision the caller
+/// loaded; if the file has moved on since, the save is refused as `Stale`
+/// and nothing is written, so a stale snapshot can never overwrite an edit
+/// it never saw. `None` skips the check (startup GC, migrations).
 #[tauri::command]
 fn save_snippets(
     app: AppHandle,
     state: State<AppState>,
     window: tauri::WebviewWindow,
     snippets: Vec<Snippet>,
-) -> Result<(), String> {
+    base_revision: Option<u64>,
+) -> Result<u64, StoreError> {
     let _guard = state.store.lock().unwrap();
+    let current = current_revision(&app);
+    if let Some(base) = base_revision {
+        if base != current {
+            return Err(StoreError::Stale { revision: current });
+        }
+    }
     write_snippets(&app, &snippets)?;
     sync_pack_files(&app);
-    if window.label() != "main" {
-        notify_manager_snippets_changed(&app);
-    }
-    Ok(())
+    notify_other_window(&app, &window);
+    Ok(current_revision(&app))
 }
 
 #[tauri::command]
@@ -1133,6 +1322,77 @@ mod tests {
         assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
     }
 
+    fn sample(id: &str) -> Snippet {
+        let mut s = snip(id, "tag", "body {goal}");
+        s.id = id.into();
+        s.uses = 7;
+        s.pinned = true;
+        s.field_values.insert("goal".into(), "remembered".into());
+        s.config_values.insert("cfg".into(), "v".into());
+        s
+    }
+
+    #[test]
+    fn merge_update_keeps_what_the_popup_owns() {
+        let mut list = vec![sample("a"), sample("b")];
+        let edit = SnippetEdit {
+            title: "New title".into(),
+            text: "new {goal}".into(),
+            tags: vec!["x".into()],
+            pack: "P".into(),
+            group: "G".into(),
+            config_values: HashMap::from([("cfg".into(), "w".into())]),
+        };
+        assert!(merge_update(&mut list, "a", edit.clone()));
+        assert!(!merge_update(&mut list, "missing", edit));
+        let a = &list[0];
+        assert_eq!(a.title, "New title");
+        assert_eq!(a.pack, "P");
+        assert_eq!(a.group, "G");
+        assert_eq!(a.config_values["cfg"], "w");
+        // Popup-owned state survives a manager edit
+        assert_eq!(a.uses, 7);
+        assert!(a.pinned);
+        assert_eq!(a.field_values["goal"], "remembered");
+        assert_eq!(list[1].title, sample("b").title);
+    }
+
+    #[test]
+    fn merge_patch_changes_only_what_is_given() {
+        let mut list = vec![sample("a")];
+        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(false), field_values: None }));
+        assert!(!list[0].pinned);
+        assert_eq!(list[0].field_values["goal"], "remembered");
+        let vals = HashMap::from([("goal".into(), "next".into())]);
+        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: None, field_values: Some(vals) }));
+        assert!(!list[0].pinned);
+        assert_eq!(list[0].field_values["goal"], "next");
+        assert_eq!(list[0].uses, 7);
+        assert!(!merge_patch(&mut list, "missing", SnippetPatch::default()));
+    }
+
+    #[test]
+    fn merge_add_replaces_a_duplicate_id_and_merge_delete_reports_change() {
+        let mut list = vec![sample("a")];
+        let mut again = sample("a");
+        again.title = "retried".into();
+        merge_add(&mut list, again);
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].title, "retried");
+        merge_add(&mut list, sample("b"));
+        assert_eq!(list.len(), 2);
+        assert!(merge_delete(&mut list, "a"));
+        assert!(!merge_delete(&mut list, "a"));
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id, "b");
+    }
+
+    #[test]
+    fn store_error_serializes_with_a_kind_tag() {
+        let json = serde_json::to_string(&StoreError::Stale { revision: 4 }).unwrap();
+        assert_eq!(json, r#"{"kind":"stale","revision":4}"#);
+    }
+
     #[test]
     fn starter_pack_ids_are_unique_and_tagged() {
         let snippets = default_snippets();
@@ -1164,6 +1424,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             get_snippets,
             save_snippets,
+            add_snippet,
+            patch_snippet,
+            update_snippet,
+            delete_snippet,
             get_config,
             take_notices,
             set_hotkey,

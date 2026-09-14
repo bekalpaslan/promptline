@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react"
-import type { PackMeta, Snippet } from "@/lib/core"
+import type { PackMeta, Snippet, SnippetEdit } from "@/lib/core"
 
 export const DEFAULT_PACK = "My prompts"
 export const MAX_PINS = 5
@@ -21,8 +21,15 @@ export interface ManagerApi {
   isLocked(name: string): boolean
   packNames(extra?: string): string[]
   allTags(): string[]
-  /** Replace the snippet list and persist it (save_snippets). */
+  /**
+   * Replace the snippet list and persist it (save_snippets). Refused if the
+   * library changed on disk since it was loaded (the popup wrote): the
+   * manager then reloads, shows an error, and rejects — the caller's change
+   * was not applied and must be redone.
+   */
   persist(next: Snippet[]): Promise<void>
+  /** Save one prompt's editable fields by id, merged on disk (update_snippet). */
+  updateSnippet(id: string, edit: SnippetEdit): Promise<void>
   /** Replace pack metadata and persist it (save_packs). */
   persistPacks(next: PackMeta[]): Promise<void>
   /**

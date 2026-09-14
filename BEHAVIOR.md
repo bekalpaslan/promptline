@@ -157,7 +157,7 @@ re-fetches:
 
 | Event | Meaning |
 |---|---|
-| `snippets-changed` | Another window wrote the library — re-fetch before saving over it |
+| `snippets-changed` | Another window wrote the library — re-fetch before saving over it; payload is the new revision |
 | `edit-prompt` | Popup asked the manager to open a prompt |
 | `popup-shown` / `first-popup` | Popup opened; the second only ever fires once |
 | `notice` | Rust hit something the user must see (quarantined file); shown until dismissed |
@@ -171,6 +171,20 @@ autosave wrote the duplicates to disk.
 `snippets-changed` exists because the manager used to cache at startup: a prompt
 created in the popup stayed invisible until reload, and the manager's next
 autosave would clobber it with its stale copy.
+
+**Writes are intent-level where they can be, and revision-checked where they
+can't.** The popup never sends the whole library: it creates with
+`add_snippet`, pins and remembers fill-ins with `patch_snippet`, deletes with
+`delete_snippet`, and the editor's autosave is `update_snippet` with only the
+fields the editor owns — each a read-modify-write on disk in Rust, so a
+snapshot that is seconds old can't overwrite what the other window wrote
+meanwhile (`uses`, `pinned`, `fieldValues` are the popup's; title, text, tags,
+pack, group, `configValues` are the editor's). The manager's bulk operations
+(move, tag, reorder, delete with Undo) still replace the array, so
+`save_snippets` carries the revision the manager loaded and Rust refuses it as
+`stale` if the file has moved on; the manager then reloads, tells the user,
+and the change has to be redone. Every snippet command returns the library
+with its revision, and the store lock serialises every read-modify-write.
 
 **Preferences are mirrored into `localStorage`** as well as `config.json`. The
 popup must apply theme, scale and font on first paint — a round-trip to Rust
