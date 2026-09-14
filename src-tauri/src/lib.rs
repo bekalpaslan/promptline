@@ -1147,12 +1147,14 @@ fn show_popup(app: &AppHandle) {
         if let (Ok(Some(monitor)), Ok(size)) =
             (app.monitor_from_point(cursor.x, cursor.y), w.outer_size())
         {
-            let mpos = monitor.position();
-            let msize = monitor.size();
-            let max_x = (mpos.x + msize.width as i32 - size.width as i32) as f64;
-            let max_y = (mpos.y + msize.height as i32 - size.height as i32) as f64;
-            x = x.min(max_x).max(mpos.x as f64);
-            y = y.min(max_y).max(mpos.y as f64);
+            // Clamp to the work area, not the monitor: the taskbar would
+            // otherwise cover the last rows and the hint bar
+            let area = monitor.work_area();
+            let (apos, asize) = (area.position, area.size);
+            let max_x = (apos.x + asize.width as i32 - size.width as i32) as f64;
+            let max_y = (apos.y + asize.height as i32 - size.height as i32) as f64;
+            x = x.min(max_x).max(apos.x as f64);
+            y = y.min(max_y).max(apos.y as f64);
         }
         let _ = w.set_position(PhysicalPosition::new(x, y));
     }

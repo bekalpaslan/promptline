@@ -39,8 +39,9 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    repeat would make the popup its own paste target: Ctrl+V would land on a
    window that has just been hidden. Toggling the popup closed on a repeat is
    a possible follow-up (BACKLOG).
-2. The popup is positioned at the cursor, then clamped to the monitor under the
-   cursor so it can't open half off-screen.
+2. The popup is positioned at the cursor, then clamped to the *work area* of
+   the monitor under the cursor — not its full bounds — so it can't open half
+   off-screen or under the taskbar.
 3. The user picks a prompt. If it needs runtime `{field}` values, the popup
    switches to form mode first, pre-filled from `snippet.fieldValues`.
 4. **`paste_snippet`** hides the popup, reads the current clipboard, expands

@@ -409,13 +409,19 @@ tokenizations plus a 1k-row reconcile. Noticeable at 2-3k; fine today.
 a real library shows the need.
 
 ### M6. Popup clamps to the monitor bounds, not the work area
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs:726-735`.
 **What:** uses `monitor.size()`; tauri 2.11.5 has `Monitor::work_area()`
 (`tauri-2.11.5/src/window/mod.rs:96`).
 **Failure:** hotkey with the cursor near the bottom of the screen: the popup's
 last rows and the hint bar sit under the taskbar.
 **Fix:** clamp against `work_area()`; a few lines.
+**Resolution:** `show_popup` clamps against `monitor.work_area()`
+(position and size) instead of `position()`/`size()`. No automated test
+(needs a monitor). Manual: screen bottom 1440, work-area bottom 1392
+(taskbar); cursor placed at (2520, 1434) and the popup summoned — popup
+bottom 1385, right 2553, i.e. inside the work area. Commit: see commit
+list (M6).
 
 ### M7. A UTF-8 BOM makes a valid pack file "not JSON"
 **Status:** TODO
