@@ -24,7 +24,7 @@ const FOCUS_BORDER = "#00a6f4"
 type Entry = { s: Snippet; indices: number[] | null }
 type FormState = { snippet: Snippet; base: string; fields: string[]; paste: boolean }
 type PanelAction = { label: string; danger?: boolean; run: () => void }
-type CreateState = { title: string; pack: string; group: string }
+type CreateState = { title: string; pack: string; group: string; prefilled: string }
 // One line of feedback above the hint bar: the popup's only channel for an
 // error (a failed paste or save) or a confirmation (copied, saved)
 type Notice = { text: string; kind: "error" | "info" }
@@ -120,6 +120,11 @@ export function App() {
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
   const [create, setCreate] = useState<CreateState | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
+  // The popup's own undo: the last deleted prompt, offered for a few seconds
+  // (D8: popup-local, so it works with the manager closed)
+  const lastDeleted = useRef<{ snippet: Snippet; timer: ReturnType<typeof setTimeout> } | null>(null)
+  // Escape in create mode with an edited title asks once before discarding
+  const createEscArmed = useRef(false)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -270,10 +275,12 @@ export function App() {
       : usable(DEFAULT_PACK)
         ? DEFAULT_PACK
         : packNames.find((p) => !isLocked(p)) ?? DEFAULT_PACK
+    createEscArmed.current = false
     setCreate({
       title: firstLine.slice(0, 40) || "New prompt",
       pack,
       group: "",
+      prefilled: firstLine.slice(0, 40) || "New prompt",
     })
   }, [clip, packNames, isLocked, hidePreview, closePanel])
 
@@ -302,6 +309,9 @@ export function App() {
     localStorage.setItem("lastPack", create.pack)
     setCreate(null)
     setQuery("")
+    // The new prompt sorts last (uses 0) and its pack may be collapsed, so
+    // say where it went rather than hoping the row is visible
+    setNotice({ text: `Saved "${snip.title}" to ${create.pack}${create.group ? ` › ${create.group}` : ""}`, kind: "info" })
   }, [create, clip, fail])
 
   // One prompt's pin state or remembered fill-ins, merged on disk.
@@ -367,7 +377,32 @@ export function App() {
       return
     }
     closePanel()
+    if (lastDeleted.current) clearTimeout(lastDeleted.current.timer)
+    lastDeleted.current = {
+      snippet: s,
+      timer: setTimeout(() => {
+        lastDeleted.current = null
+        setNotice((n) => (n?.text.startsWith("Deleted ") ? null : n))
+      }, 8000),
+    }
+    setNotice({ text: `Deleted "${s.title}" — U to undo`, kind: "info" })
   }, [closePanel, fail])
+
+  // Put the last deleted prompt back, with everything it had (same id, uses,
+  // pins, remembered fill-ins): add_snippet replaces by id
+  const undoDelete = useCallback(async () => {
+    const last = lastDeleted.current
+    if (!last) return
+    clearTimeout(last.timer)
+    lastDeleted.current = null
+    try {
+      const lib = await invoke<Library>("add_snippet", { snippet: last.snippet })
+      setSnippets(lib.snippets)
+      setNotice({ text: `Restored "${last.snippet.title}"`, kind: "info" })
+    } catch (e) {
+      fail("restore", e)
+    }
+  }, [fail])
 
   const panelActions = useMemo<PanelAction[]>(() => {
     if (!panelFor) return []
@@ -391,6 +426,8 @@ export function App() {
     setForm(null)
     setCreate(null)
     setNotice(null)
+    if (lastDeleted.current) clearTimeout(lastDeleted.current.timer)
+    lastDeleted.current = null
     hidePreview()
     setPickedId(null)
     setQuery("")
@@ -449,12 +486,26 @@ export function App() {
       }
       if (e.key === "Escape") {
         if (form) setForm(null)
-        else if (create) setCreate(null)
+        else if (create) {
+          // An edited title is work; ask once before throwing it away
+          if (create.title !== create.prefilled && !createEscArmed.current) {
+            createEscArmed.current = true
+            setNotice({ text: `Press Esc again to discard "${create.title}"`, kind: "info" })
+            return
+          }
+          setCreate(null)
+          setNotice(null)
+        }
         else if (notice?.kind === "error") setNotice(null)
         else void invoke("hide_popup")
         return
       }
       if (form || create) return // form/create views handle their own keys
+      if (e.key.toLowerCase() === "u" && !e.ctrlKey && !e.altKey && !e.metaKey && lastDeleted.current) {
+        e.preventDefault()
+        void undoDelete()
+        return
+      }
       if (e.ctrlKey && /^[1-5]$/.test(e.key)) {
         e.preventDefault()
         const entry = visible[Number(e.key) - 1]
@@ -502,7 +553,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete])
 
   const onItemMouseMove = (i: number, e: React.MouseEvent) => {
     const moved = e.clientX !== lastMouse.current.x || e.clientY !== lastMouse.current.y
@@ -531,7 +582,7 @@ export function App() {
   ) : create ? (
     <><Kbd>↵</Kbd> save <Kbd>Esc</Kbd> back</>
   ) : (
-    <><Kbd>↵</Kbd> paste <Kbd>Ctrl ↵</Kbd> copy <Kbd>Tab</Kbd> actions <Kbd>→</Kbd> preview</>
+    <><Kbd>↵</Kbd> paste <Kbd>Ctrl ↵</Kbd> copy <Kbd>Tab</Kbd> actions <Kbd>→</Kbd> preview <Kbd>Esc</Kbd> close</>
   )
 
   // --- Create-from-clipboard confirmation --------------------------------------
@@ -868,7 +919,8 @@ export function App() {
 
       {panelFor && (
         <div className="fixed inset-x-2 bottom-10 z-20 rounded-lg border border-border bg-popover p-2 shadow-[0px_0px_16px_rgba(18,45,88,0.24)]">
-          <SectionHeader>{panelNote ?? panelFor.title}</SectionHeader>
+          <SectionHeader>{panelFor.title}</SectionHeader>
+          {panelNote && <div className="px-2 pb-1 text-xs text-destructive">{panelNote}</div>}
           {panelActions.map((a, i) => (
             <div
               key={a.label}

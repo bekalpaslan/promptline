@@ -70,6 +70,12 @@ expands the second from the first one's output.
 still be physically holding the hotkey's modifiers, and a stray Shift turns the
 paste into something else entirely.
 
+**The popup has its own undo.** A delete from the action panel offers
+"U to undo" in the feedback strip for a few seconds and puts the prompt
+back through `add_snippet` with its old id, so nothing about it is lost. It
+is popup-local on purpose: the manager may not be open, and a round trip
+through it would depend on its state.
+
 ## Placeholders
 
 Handled in `ui/core.js`, shared by both windows so the popup's preview and the

@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 2 | 11 | 4 | 17 |
+| TODO | 0 | 2 | 11 | 3 | 16 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 11 | 1 | 4 | 22 |
+| DONE | 6 | 11 | 1 | 5 | 23 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -63,11 +63,11 @@ a task):
 
 | Status | High | Medium | Low | Total |
 |---|---|---|---|---|
-| TODO | 12 | 22 | 8 | 42 |
+| TODO | 11 | 19 | 7 | 37 |
 | IN PROGRESS | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 |
-| DONE | 1 | 1 | 0 | 2 |
-| DECLINED | 0 | 0 | 0 | 0 |
+| DONE | 2 | 3 | 1 | 6 |
+| DECLINED | 0 | 1 | 0 | 1 |
 | **Total** | **13** | **23** | **8** | **44** |
 
 Implementation order: critical data integrity (H1, H3, H6) → high correctness
@@ -404,7 +404,7 @@ view sitting there with no message. The error strip can reuse the
   … — Esc to dismiss` with the list still on screen; Esc cleared it and
   focus stayed on the search input; the prompt's use count was unchanged.
   With the clipboard free, Enter pastes as before (H2 check).
-- *Commit:* see commit list (M3).
+- *Commit:* `25d006d`.
 
 ### M4. Every autosave rewrites every pack file
 **Status:** DONE
@@ -760,7 +760,7 @@ default. Related: H4 (a failed re-register must not drop the old hotkey).
 **Evidence:** by reading; cross-verified.
 
 ### UH2. Popup delete is permanent with no undo
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:328-333, 343-345, 393`.
 **What:** "Delete" → "Confirm delete?" then the prompt is gone and the panel
 closes. Every manager delete offers 8 s Undo. Number keys 1-9 fire panel
@@ -771,6 +771,14 @@ prompt with no recovery path.
 few seconds, or route the delete through the manager's `deleteWithUndo`. See
 D8.
 **Evidence:** by reading; cross-verified.
+**Resolution (D8: popup-local):** after a delete the feedback strip reads
+`Deleted "<title>" — U to undo` for 8 s; U (no modifiers, list mode)
+re-adds the exact snippet through `add_snippet` (same id, so uses, pin and
+remembered fill-ins come back) and the strip says `Restored "<title>"`. The
+offer expires with the strip and is cleared on the next summon. Verified in
+the dev build: Tab → 5 → 5 deleted "FB temp" (18 → 17 rows), U restored it
+(18 rows, present on disk with its body). Commit: see commit list (popup
+feedback).
 
 ### UH3. An empty fill-in field pastes an empty hole, silently
 **Status:** DONE
@@ -962,13 +970,16 @@ Verified: Ctrl+Enter on "Test" showed the strip and the clipboard held
 `test`. Commit: see M3.
 
 ### UM4. Popup create gives no confirmation; the new prompt may be invisible
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:278-280, 134, 198`.
 **What:** snaps back to the list; `uses:0` sorts last; a collapsed pack hides
 the row entirely.
 **Fix:** expand, scroll to and flash the new row, or "Saved to <pack>" in the
 hint bar.
 **Evidence:** by reading; cross-verified.
+**Resolution:** the feedback strip says `Saved "<title>" to <pack> › <group>`
+after Ctrl+N → Enter. Verified in the dev build (`Saved "FB temp" to
+Desktop`). Commit: see commit list (popup feedback).
 
 ### UM5. Pack and group operations exist only behind right-click
 **Status:** TODO
@@ -1037,12 +1048,17 @@ pairs in the popup; `aria-label` elsewhere.
 **Evidence:** by reading; cross-verified.
 
 ### UM12. Tab hijack in the popup strands three controls
-**Status:** TODO
+**Status:** DECLINED
 **Where:** `src/popup/App.tsx:441-443, 702-712, 652-664, 769-779`.
 **What:** deliberate and reasonable, but the clear ✕ and per-row tag chip have
 no key route (the create button has Ctrl+N).
 **Fix:** say so in the hint bar; typed `#tag` already covers the chip.
 **Evidence:** by reading; cross-verified.
+**Resolution:** declined as already satisfied: the list-mode hint bar reads
+`Tab actions` (and now `Esc close`), the create button shows `Ctrl N`, the
+clear ✕ is redundant with Backspace/Escape and the tag chip with a typed
+`#tag`. No control is unreachable from the keyboard; the finding's own fix
+is the existing hint.
 
 ### UM13. Non-semantic interactive elements
 **Status:** TODO
@@ -1147,12 +1163,17 @@ undo callback. Related: M10.
 **Evidence:** by reading; cross-verified.
 
 ### UM22. Popup create discards typed work on Escape; `panelNote` replaces the row title
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:399, 319, 803`.
 **What:** Escape drops an edited title with no confirm; an error note renders
 in place of `panelFor.title` and only clears on `closePanel`.
 **Fix:** confirm when the title was edited; render the note below the title.
 **Evidence:** by reading; cross-verified.
+**Resolution:** create mode remembers the prefilled title; Escape with an
+edited title first shows `Press Esc again to discard "<title>"`, the second
+Escape discards. The action panel now renders `panelNote` under the title
+instead of in its place. Verified: first Esc keeps the create view with the
+strip, second returns to the list. Commit: see commit list (popup feedback).
 
 ### UM23. Armed-delete cancellation differs across four controls
 **Status:** TODO
@@ -1164,8 +1185,10 @@ change.
 **Evidence:** by reading; cross-verified.
 
 ### UL1. List-mode hint bar omits Esc
-**Status:** TODO
+**Status:** DONE
 `popup/App.tsx:480` vs `:474/476/478`; the other three variants include it.
+**Resolution:** list-mode hint now ends with `Esc close` (verified in the
+dev build). Commit: see commit list (popup feedback).
 
 ### UL2. Search feedback and clear controls
 **Status:** TODO
@@ -1235,7 +1258,7 @@ change product behavior, in which case the item is BLOCKED and asked.
 | D5 | Add a minimal ESLint config (`react-hooks`, `typescript-eslint`) so the nine `eslint-disable` comments mean something, or delete the comments? | Recommend add; ~20 lines, and `react-hooks/exhaustive-deps` catches stale closures like H1 | TODO — add |
 | D6 | Split `Editor.tsx` (628), `GenerateDialog.tsx` (434), `Settings.tsx` (428)? Cuts: `Editor` → `ParamsPanel` + `TagStrip`; `GenerateDialog` → `generate-instructions.ts` (pure, testable) + dialog; `Settings` → `HotkeyRecorder` + `LibraryCard` | Pure moves, no behavior change; defer if you prefer the files as they are | TODO — defer until correctness work is done |
 | D7 | Commit the in-progress groups work first (coherent and green), then land the fixes on top? | Recommend yes; small commits on a clean base | DONE — `1f548bc` (gitignore), `7265cf5` (groups work, SizeDebug, window sizes) |
-| D8 | UH2: give the popup its own undo (a timed "Deleted — U to undo" strip, popup-local state) or route popup deletes through the manager so `deleteWithUndo` covers both? | Popup-local is self-contained and works with the manager closed; routing via the manager depends on H6's Rust-side mutations landing first. Recommend popup-local now, revisit after H6 | TODO — popup-local |
+| D8 | UH2: give the popup its own undo (a timed "Deleted — U to undo" strip, popup-local state) or route popup deletes through the manager so `deleteWithUndo` covers both? | Popup-local is self-contained and works with the manager closed; routing via the manager depends on H6's Rust-side mutations landing first. Recommend popup-local now, revisit after H6 | DONE — popup-local (`add_snippet` re-adds by id, so nothing is lost) |
 
 ---
 
@@ -1350,7 +1373,8 @@ passed at its commit and the manual check performed.
 | M2 | ✓ | ✓ 36/36 | ✓ 18/18 | Esc from form / create → focus on search input | `1ad4cba` |
 | M10 | ✓ | ✓ 36/36 | ✓ 18/18 | toaster `data-sonner-theme` follows Light/Dark | `195215d` |
 | L2 + D4 | ✓ | ✓ 36/36 | ✓ 18/18 | app reloads and renders with the primitives and deps removed | `f3454bd` |
-| M3 + UM3 | ✓ | ✓ 36/36 | ✓ 18/18 | held clipboard → error strip, popup stays, Esc clears; copy-only → "Copied" strip | (M3 commit) |
+| M3 + UM3 | ✓ | ✓ 36/36 | ✓ 18/18 | held clipboard → error strip, popup stays, Esc clears; copy-only → "Copied" strip | `25d006d` |
+| UH2, UM4, UM22, UL1 (+D8) | ✓ | ✓ 36/36 | ✓ 18/18 | delete → U restores (disk checked); Saved-to strip; Esc-twice on edited title; hint shows Esc | (popup feedback commit) |
 
 ## Commit list
 
@@ -1377,6 +1401,8 @@ passed at its commit and the manual check performed.
 | `1ad4cba` | M2 | Popup: give the search box focus back after form or create mode |
 | `195215d` | M10 | Toasts follow the app's theme, not the OS setting |
 | `f3454bd` | L2, D4 | Remove unused shadcn primitives and cmdk; gate SizeDebug behind DEV |
+| `4fbcb30` | — | REVIEW.md: verification notes and commits for M1, M2, M7, M10, L2 |
+| `25d006d` | M3, UM3 | Popup: a feedback strip for failures, and copy-only confirms |
 
 ## Remaining risks and deliberate exclusions
 
