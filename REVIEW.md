@@ -1114,10 +1114,11 @@ at `:816`.
 **Evidence:** by reading; cross-verified.
 
 ### UM16. "Sync from file" does not sync
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Settings.tsx:246-253` → append-only `ImportCuration`.
 **Fix:** relabel "Import from this file…".
 **Evidence:** by reading; cross-verified.
+**Resolution:** relabelled. Commit: see commit list (UM16).
 
 ### UM17. Truncated names have no tooltip; import titles cannot shrink
 **Status:** TODO

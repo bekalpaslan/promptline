@@ -246,7 +246,7 @@ export function Settings() {
                                 .catch((e) => sayErr(`Couldn't read the pack file: ${e}`))
                             }
                           >
-                            Sync from file
+                            Import from this file…
                           </Button>
                           <Button
                             size="sm"
