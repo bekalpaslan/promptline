@@ -484,11 +484,13 @@ palette on a light `--popover` background.
 else uses it.
 
 ### M11. `paste_snippet` doc comment contradicts BEHAVIOR.md
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs:648-650` says "then restore the previous clipboard".
 **What:** the body and BEHAVIOR.md deliberately do not restore (commit
 `d46212e`). The comment predates that.
 **Fix:** rewrite the comment.
+**Resolution:** comment now says the prompt stays on the clipboard and
+points at the body's note and BEHAVIOR.md. Commit: see commit list (M11).
 
 ### M12. Pending editor autosave is lost on tray Quit
 **Status:** TODO

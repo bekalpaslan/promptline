@@ -1045,9 +1045,10 @@ fn hide_popup(app: AppHandle, state: State<AppState>) {
     }
 }
 
-/// Copy `text` to the clipboard (expanding `{clipboard}` with its current
-/// contents); if `paste` is set, refocus the previously active window, send
-/// Ctrl+V, then restore the previous clipboard. Bumps the snippet's use count.
+/// Copy `text` to the clipboard (expanding `{clipboard}` from its current
+/// contents); if `paste` is set, refocus the previously active window and
+/// send Ctrl+V. The prompt stays on the clipboard afterwards (see the note in
+/// the body and BEHAVIOR.md). Bumps the snippet's use count.
 #[tauri::command]
 fn paste_snippet(
     app: AppHandle,
