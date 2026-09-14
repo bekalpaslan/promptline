@@ -166,7 +166,7 @@ re-fetches:
 | `snippets-changed` | Another window wrote the library — re-fetch before saving over it; payload is the new revision |
 | `edit-prompt` | Popup asked the manager to open a prompt |
 | `popup-shown` / `first-popup` | Popup opened; the second only ever fires once |
-| `notice` | Rust hit something the user must see (quarantined file); shown until dismissed |
+| `notice` | Rust hit something the user must see (quarantined file, refused hotkey); shown until dismissed |
 
 Every delete in the manager goes through one `deleteWithUndo`, and both the
 delete and the Undo read the *live* library, never the array captured by the
@@ -199,6 +199,14 @@ would show a flash of the wrong theme on every summon.
 Migrations run on load in `apply_snippet_migrations` (v2 `category` becomes the
 first tag; packless prompts get a default pack) and via `#[serde(default)]` on
 every field added since. Old data must keep opening.
+
+## The hotkey
+
+A combination the OS refuses at startup — another program owns it — is a
+notice, not a fatal error: the tray and the manager still come up, because
+Settings is the only place the user could fix it. Changing the hotkey
+registers the new combination *before* releasing the old one, so a refusal
+leaves the old one working and the config unchanged.
 
 ## Theming
 

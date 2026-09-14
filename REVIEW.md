@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 2 | 12 | 12 | 6 | 32 |
+| TODO | 1 | 12 | 12 | 6 | 31 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 4 | 1 | 0 | 2 | 7 |
+| DONE | 5 | 1 | 0 | 2 | 8 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -159,7 +159,7 @@ touching `prev_window` (or toggle-hide; see D1). Document in BEHAVIOR.md.
   Enter paste "test" into the target window. The repeat-driven "nothing
   happened" case could not be provoked directly because synthesized key
   events don't autorepeat; the guard is on the path the review confirmed.
-- *Commit:* see commit list (H2).
+- *Commit:* `f82c4d4`.
 
 ### H3. A partial write or unreadable JSON silently replaces the library with the starter pack
 **Status:** DONE
@@ -211,7 +211,7 @@ tests for the rename path and for "parse failure never overwrites".
 - *Commit:* `a025d20`.
 
 ### H4. A hotkey the OS refuses aborts startup; a failed re-register leaves no hotkey
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs:975` (`handle.global_shortcut().register(shortcut)?` inside
 `setup`), `lib.rs:414-415` (`set_hotkey`).
 **What:** in `setup` a registration error propagates and `run()` panics with
@@ -228,6 +228,27 @@ persistent error toast pointing at Settings. (b) register the new shortcut
 first and unregister the old only on success. Rust test for the parse fallback.
 **Evidence:** (a) confirmed: `npm run dev` while another instance held the
 hotkey exited at startup. (b) by reading.
+**Resolution:**
+- *Implementation (`lib.rs`):* (a) `setup` no longer propagates the
+  registration error; it raises a `hotkey-failed` notice naming the
+  combination and pointing at Settings → Global hotkey (shown by the manager
+  as a persistent toast through the H3 notice channel) and startup continues
+  with tray and manager. (b) `set_hotkey` registers the new shortcut first and
+  only then unregisters the old one; on refusal it returns the error with the
+  config untouched, so the UI keeps showing the combination that is actually
+  bound. Re-recording the configured combination after a startup refusal is
+  a retry. `resolve_hotkey` is the pure parse-with-fallback.
+- *Tests added (`cargo test`):* `resolve_hotkey` falls back to the default
+  for garbage and empty strings and keeps a valid combination.
+- *Manual verification:* (a) with one instance owning the hotkey, launched a
+  second one: it started (process alive, manager window up) and logged
+  `hotkey-failed: Couldn't register the hotkey … Another program probably
+  owns it — choose a different combination under Settings → Global hotkey`.
+  (b) a separate process held Ctrl+Alt+Shift+F8; `set_hotkey` to a free
+  combination succeeded, `set_hotkey` to F8 was refused ("HotKey already
+  registered"), `config.json` still held the previous combination, and that
+  combination still summoned the popup.
+- *Commit:* see commit list (H4).
 
 ### H5. Fill-in values containing `$` are mangled
 **Status:** TODO
@@ -1197,7 +1218,8 @@ passed at its commit and the manual check performed.
 | H1 | ✓ | ✓ 32/32 | ✓ 7/7 | delete pack / group → Undo, ids unique on screen and on disk | `e437876` |
 | H3 | ✓ | ✓ 32/32 | ✓ 11/11 | truncated snippets.json → quarantined, empty library, persistent toast; backup restored | `a025d20` |
 | H6 + M13 | ✓ | ✓ 32/32 | ✓ 15/15 | stale popup write keeps the manager's edit; stale full-array save refused | `c725a09` |
-| H2 + D1 | ✓ | ✓ 32/32 | ✓ 15/15 | repeat press keeps popup state; double-tap and single-tap pastes land | (H2 commit) |
+| H2 + D1 | ✓ | ✓ 32/32 | ✓ 15/15 | repeat press keeps popup state; double-tap and single-tap pastes land | `f82c4d4` |
+| H4 | ✓ | ✓ 32/32 | ✓ 16/16 | second instance starts with a notice; taken combination refused, old one keeps working | (H4 commit) |
 
 ## Commit list
 
@@ -1210,6 +1232,7 @@ passed at its commit and the manual check performed.
 | `a025d20` | H3 | Write data files atomically and quarantine ones that won't parse |
 | `183835f` | — | REVIEW.md: merge the UI review's findings into the tracker |
 | `c725a09` | H6, M13 | Snippet edits become intent-level Rust commands with a revision guard |
+| `f82c4d4` | H2, D1 | Ignore the hotkey while the popup is already open |
 
 ## Remaining risks and deliberate exclusions
 

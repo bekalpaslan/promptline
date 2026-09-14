@@ -738,16 +738,37 @@ fn save_config(app: &AppHandle, config: &Config) -> Result<(), String> {
     write_atomic(&config_path(app), json.as_bytes()).map_err(|e| e.to_string())
 }
 
+/// The shortcut a config string stands for; unparseable config falls back to
+/// the default rather than leaving the app without a hotkey.
+fn resolve_hotkey(configured: &str) -> Shortcut {
+    configured
+        .parse()
+        .unwrap_or_else(|_| Config::default().hotkey.parse().unwrap())
+}
+
+/// Change the global hotkey. The new combination is registered *before* the
+/// old one is released: if the OS refuses it (another program owns it), the
+/// old hotkey keeps working and the config is untouched, so the UI keeps
+/// showing what is actually bound.
 #[tauri::command]
 fn set_hotkey(app: AppHandle, state: State<AppState>, hotkey: String) -> Result<(), String> {
     let shortcut: Shortcut = hotkey
         .parse()
         .map_err(|e| format!("Invalid hotkey \"{hotkey}\": {e}"))?;
     let _guard = state.store.lock().unwrap();
-    let gs = app.global_shortcut();
-    gs.unregister_all().map_err(|e| e.to_string())?;
-    gs.register(shortcut).map_err(|e| e.to_string())?;
     let mut config = load_config_from_disk(&app)?;
+    let old = resolve_hotkey(&config.hotkey);
+    let gs = app.global_shortcut();
+    if shortcut != old {
+        gs.register(shortcut).map_err(|e| e.to_string())?;
+        // Best effort: the old one may never have been registered (refused at
+        // startup), in which case there is nothing to release
+        let _ = gs.unregister(old);
+    } else if !gs.is_registered(shortcut) {
+        // Same combination as configured but not bound (refused at startup):
+        // this is a retry
+        gs.register(shortcut).map_err(|e| e.to_string())?;
+    }
     config.hotkey = hotkey;
     save_config(&app, &config)
 }
@@ -1402,6 +1423,15 @@ mod tests {
     }
 
     #[test]
+    fn hotkey_config_falls_back_to_the_default_when_unparseable() {
+        let default: Shortcut = Config::default().hotkey.parse().unwrap();
+        assert_eq!(resolve_hotkey("not a hotkey"), default);
+        assert_eq!(resolve_hotkey(""), default);
+        assert_eq!(resolve_hotkey("ctrl+alt+v"), "ctrl+alt+v".parse::<Shortcut>().unwrap());
+        assert_ne!(resolve_hotkey("ctrl+alt+v"), default);
+    }
+
+    #[test]
     fn store_error_serializes_with_a_kind_tag() {
         let json = serde_json::to_string(&StoreError::Stale { revision: 4 }).unwrap();
         assert_eq!(json, r#"{"kind":"stale","revision":4}"#);
@@ -1469,13 +1499,22 @@ pub fn run() {
             // without waiting for the next save to touch them
             ensure_packs_backed(handle);
 
-            // Register the configured global hotkey (fall back to default on bad config)
+            // Register the configured global hotkey (fall back to default on bad
+            // config). A refusal — another program owns the combination — must
+            // not abort startup: without the tray and the manager the user
+            // could never reach Settings to pick another one.
             let config = load_config_from_disk(handle).unwrap_or_default();
-            let shortcut: Shortcut = config
-                .hotkey
-                .parse()
-                .unwrap_or_else(|_| Config::default().hotkey.parse().unwrap());
-            handle.global_shortcut().register(shortcut)?;
+            let shortcut = resolve_hotkey(&config.hotkey);
+            if let Err(e) = handle.global_shortcut().register(shortcut) {
+                notify(
+                    handle,
+                    "hotkey-failed",
+                    format!(
+                        "Couldn't register the hotkey {} ({e}). Another program probably owns it — choose a different combination under Settings → Global hotkey.",
+                        config.hotkey
+                    ),
+                );
+            }
 
             // Restore the saved popup size (0 = never resized, keep the default)
             if config.popup_width >= 200.0 && config.popup_height >= 200.0 {
