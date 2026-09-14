@@ -28,6 +28,7 @@ import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
+import { EmptyState } from "./EmptyState"
 import { say, sayErr, sayUndo } from "./status"
 
 // "custom" = the snippets array order itself, arranged by drag-and-drop
@@ -950,6 +951,14 @@ export function Sidebar() {
               New pack
             </button>
           </div>
+        )}
+        {/* Nothing at all — not even an empty pack — gets a way in, not a blank */}
+        {m.snippets.length === 0 && m.packNames().length === 0 && (
+          <EmptyState
+            title="No prompts yet"
+            hint="New prompt starts one; New pack groups them"
+            actions={[{ label: "New prompt", onClick: () => void m.newPrompt(), primary: true }]}
+          />
         )}
         {groups ? (
           groups.map(([name, items]) => {

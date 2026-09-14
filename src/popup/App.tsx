@@ -902,7 +902,7 @@ export function App() {
         {filtered.length === 0 && (
           <div className="px-4 py-4 text-center text-xs text-muted-foreground">
             {!snippets.length
-              ? "No prompts yet — left-click the Promptline tray icon to add some"
+              ? "No prompts yet — copy some text and press Ctrl+N to save it as one, or left-click the Promptline tray icon to open the manager"
               : C.parseQuery(query).tags.length || C.parseQuery(query).packs.length || C.parseQuery(query).groups.length
                 ? "No matches — #tag, @pack and >group terms narrow the list; remove one to widen it"
                 : "No matches"}

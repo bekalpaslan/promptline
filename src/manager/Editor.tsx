@@ -6,8 +6,10 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiDeleteBinLine,
+  RiFileTextLine,
 } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
+import { EmptyState } from "./EmptyState"
 import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
@@ -174,18 +176,28 @@ export function Editor() {
   const snippet = m.snippets.find((s) => s.id === m.activeId)
 
   if (!snippet) {
+    if (m.selection.size > 1) {
+      return (
+        <EmptyState
+          title={`${m.selection.size} prompts selected`}
+          hint="Right-click (or press the Menu key) for actions on all of them · click a row to edit one"
+        />
+      )
+    }
     return (
-      <div className="flex flex-1 items-center justify-center p-6 text-center text-sm leading-7 text-muted-foreground">
-        {m.selection.size > 1 ? (
-          <span>
-            <b className="text-foreground">{m.selection.size} prompts selected</b>
-            <br />
-            right-click for actions · click a row to edit one
-          </span>
-        ) : (
-          "Select or create a prompt"
-        )}
-      </div>
+      <EmptyState
+        icon={RiFileTextLine}
+        title={m.snippets.length ? "Select a prompt to edit it" : "No prompts yet"}
+        hint={
+          m.snippets.length
+            ? `Or press ${C.fmtHotkey(m.hotkey)} in any app to paste one`
+            : "Write one, or let Claude draft a pack for a topic — every prompt is reviewed before it is added"
+        }
+        actions={[
+          { label: "New prompt", onClick: () => void m.newPrompt(), primary: true },
+          { label: "Generate pack with Claude…", onClick: () => m.openGenerate() },
+        ]}
+      />
     )
   }
   return <EditorInner snippet={snippet} />
