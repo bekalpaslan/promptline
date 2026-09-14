@@ -141,6 +141,12 @@ re-fetches:
 | `edit-prompt` | Popup asked the manager to open a prompt |
 | `popup-shown` / `first-popup` | Popup opened; the second only ever fires once |
 
+Every delete in the manager goes through one `deleteWithUndo`, and both the
+delete and the Undo read the *live* library, never the array captured by the
+render that started them. An Undo built from a render's snapshot re-added the
+deleted prompts on top of a list that still contained them, and the next
+autosave wrote the duplicates to disk.
+
 `snippets-changed` exists because the manager used to cache at startup: a prompt
 created in the popup stayed invisible until reload, and the manager's next
 autosave would clobber it with its stale copy.

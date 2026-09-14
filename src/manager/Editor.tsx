@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
-import { say, sayErr, sayUndo } from "./status"
+import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
 const SUGGESTED_PARAMS = ["goal", "feature", "task", "error", "file"]
@@ -363,16 +363,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       clearTimeout(saveTimer.current)
       saveTimer.current = null
     }
-    const removed = snippet
-    const at = m.snippets.indexOf(snippet)
-    await m.persist(m.snippets.filter((x) => x.id !== snippet.id))
-    m.setSelection(new Set(), null)
-    m.select(null)
-    sayUndo(`Deleted "${removed.title}"`, () => {
-      const cur = [...mRef.current.snippets]
-      cur.splice(Math.min(at, cur.length), 0, removed)
-      void mRef.current.persist(cur).then(() => say("Restored"))
-    })
+    await m.deleteWithUndo([snippet.id], `Deleted "${snippet.title}"`)
   }
 
   return (

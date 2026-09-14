@@ -25,6 +25,13 @@ export interface ManagerApi {
   persist(next: Snippet[]): Promise<void>
   /** Replace pack metadata and persist it (save_packs). */
   persistPacks(next: PackMeta[]): Promise<void>
+  /**
+   * Remove prompts and offer Undo in the status bar. Both the delete and the
+   * restore read the *latest* library, never a render's snapshot, so Undo
+   * can't duplicate what it puts back. Clears selection/active if they were
+   * among the removed. Resolves with the number removed.
+   */
+  deleteWithUndo(ids: Iterable<string>, label: string): Promise<number>
   select(id: string | null): void
   setSelection(sel: Set<string>, anchor?: string | null): void
   selectionAnchor: string | null

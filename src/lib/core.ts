@@ -34,6 +34,12 @@ export interface ParsedQuery {
   groups: string[]
 }
 
+/** A removed item and the index it sat at, for Undo */
+export interface Removed<T> {
+  item: T
+  index: number
+}
+
 export interface FuzzyResult {
   score: number
   indices: number[]
@@ -61,6 +67,8 @@ interface PromptlineCore {
   stripFences(raw: string): string
   parsePacks(raw: string): unknown
   diagnosePack(raw: string): PackDiagnosis
+  removeByIds<T extends { id: string }>(list: T[], ids: Iterable<string>): { kept: T[]; removed: Removed<T>[] }
+  restoreRemoved<T extends { id: string }>(list: T[], removed: Removed<T>[]): T[]
   fmtHotkey(combo: string): string
 }
 

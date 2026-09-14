@@ -214,3 +214,28 @@ test('fmtHotkey capitalizes parts', () => {
   assert.equal(core.fmtHotkey('ctrl+shift+v'), 'Ctrl+Shift+V');
   assert.equal(core.fmtHotkey('alt+space'), 'Alt+Space');
 });
+
+// ---- delete with undo ------------------------------------------------------------
+
+test('removeByIds then restoreRemoved yields the original array, positions kept', () => {
+  const list = ['a', 'b', 'c', 'd'].map(id => ({ id }));
+  const { kept, removed } = core.removeByIds(list, new Set(['b', 'd']));
+  assert.deepEqual(kept.map(s => s.id), ['a', 'c']);
+  assert.deepEqual(core.restoreRemoved(kept, removed).map(s => s.id), ['a', 'b', 'c', 'd']);
+});
+
+test('restoreRemoved never duplicates ids when given a stale, pre-delete list (H1)', () => {
+  const list = ['a', 'b', 'c'].map(id => ({ id }));
+  const { removed } = core.removeByIds(list, ['b', 'c']);
+  // The bug: Undo ran against the array captured before the delete
+  const out = core.restoreRemoved(list, removed);
+  assert.deepEqual(out.map(s => s.id), ['a', 'b', 'c']);
+  assert.equal(new Set(out.map(s => s.id)).size, out.length);
+});
+
+test('restoreRemoved clamps positions when the list shrank meanwhile', () => {
+  const list = ['a', 'b', 'c', 'd'].map(id => ({ id }));
+  const { removed } = core.removeByIds(list, ['d']);
+  const out = core.restoreRemoved([{ id: 'a' }], removed);
+  assert.deepEqual(out.map(s => s.id), ['a', 'd']);
+});

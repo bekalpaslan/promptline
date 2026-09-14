@@ -7,7 +7,7 @@ import { Toaster } from "@/components/ui/sonner"
 import { C, type PackMeta, type Snippet } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
 import { DEFAULT_PACK, ManagerCtx, type ManagerApi, type Prefs } from "./state"
-import { say, sayErr } from "./status"
+import { say, sayErr, sayUndo } from "./status"
 import { Sidebar } from "./Sidebar"
 import { Editor } from "./Editor"
 import { Settings } from "./Settings"
@@ -49,6 +49,20 @@ export function App() {
     setPackMeta(next)
     await invoke("save_packs", { packs: next })
   }, [])
+
+  const deleteWithUndo = useCallback(async (ids: Iterable<string>, label: string) => {
+    const { kept, removed } = C.removeByIds(snippetsRef.current, ids)
+    if (!removed.length) return 0
+    await persist(kept)
+    const gone = new Set(removed.map((r) => r.item.id))
+    setActiveId((id) => (id && gone.has(id) ? null : id))
+    setSelectionState((sel) => ([...sel].some((id) => gone.has(id)) ? new Set() : sel))
+    setSelectionAnchor((a) => (a && gone.has(a) ? null : a))
+    sayUndo(label, () => {
+      void persist(C.restoreRemoved(snippetsRef.current, removed)).then(() => say("Restored"))
+    })
+    return removed.length
+  }, [persist])
 
   const isLocked = useCallback(
     (name: string) => !!packMeta.find((p) => p.name === name)?.locked,
@@ -231,6 +245,7 @@ export function App() {
       allTags,
       persist,
       persistPacks,
+      deleteWithUndo,
       select,
       setSelection,
       newPrompt,
@@ -241,7 +256,7 @@ export function App() {
       settingsOpen,
       showSettings: setSettingsOpen,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, isLocked, packNames, allTags, persist, persistPacks, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, isLocked, packNames, allTags, persist, persistPacks, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)

@@ -26,7 +26,7 @@ import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
-import { say, sayErr, sayUndo } from "./status"
+import { say, sayErr } from "./status"
 
 // "custom" = the snippets array order itself, arranged by drag-and-drop
 const SORTS: Record<string, (a: Snippet, b: Snippet) => number> = {
@@ -259,15 +259,8 @@ export function Sidebar() {
 
   const deleteGroup = async (pack: string, group: string) => {
     setDeleteGroupAsk(null)
-    const inGroup = (s: Snippet) => (s.pack || DEFAULT_PACK) === pack && s.group === group
-    const removed = m.snippets.filter(inGroup)
-    const kept = m.snippets.filter((s) => !inGroup(s))
-    await m.persist(kept)
-    if (m.activeId && !kept.some((s) => s.id === m.activeId)) m.select(null)
-    m.setSelection(new Set(), null)
-    sayUndo(`Deleted group "${group}" (${removed.length} prompts)`, () => {
-      void m.persist([...m.snippets, ...removed]).then(() => say("Restored"))
-    })
+    const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group === group).map((s) => s.id)
+    await m.deleteWithUndo(ids, `Deleted group "${group}" (${ids.length} prompts)`)
   }
 
   const openGroupCtx = (x: number, y: number, pack: string, group: string, count: number) => {
@@ -297,16 +290,12 @@ export function Sidebar() {
     ])
   }
 
+  // Undo restores the prompts; the pack comes back with them because a pack
+  // is just a name (its file was retired to packs/deleted/, a new one is made)
   const deletePack = async (name: string) => {
-    const removed = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name)
-    const kept = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) !== name)
-    await m.persist(kept)
+    const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).map((s) => s.id)
     await m.persistPacks(m.packMeta.filter((p) => p.name !== name))
-    if (m.activeId && !kept.some((s) => s.id === m.activeId)) m.select(null)
-    m.setSelection(new Set(), null)
-    sayUndo(`Deleted pack "${name}" (${removed.length} prompts)`, () => {
-      void m.persist([...m.snippets, ...removed]).then(() => say("Restored"))
-    })
+    await m.deleteWithUndo(ids, `Deleted pack "${name}" (${ids.length} prompts)`)
   }
 
   // File actions for file-backed packs; non-backed packs get an upgrade action
@@ -549,16 +538,7 @@ export function Sidebar() {
         label: `Delete ${n}…`,
         danger: true,
         confirm: `Really delete ${n}?`,
-        run: () => {
-          const removed = m.snippets.filter((s) => ids.includes(s.id))
-          void m.persist(m.snippets.filter((s) => !ids.includes(s.id))).then(() => {
-            m.setSelection(new Set(), null)
-            if (ids.includes(m.activeId ?? "")) m.select(null)
-            sayUndo(`Deleted ${removed.length} prompts`, () => {
-              void m.persist([...m.snippets, ...removed]).then(() => say("Restored"))
-            })
-          })
-        },
+        run: () => void m.deleteWithUndo(ids, `Deleted ${n} prompts`),
       }
     )
     ctx.open(x, y, items)

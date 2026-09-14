@@ -219,6 +219,34 @@
     }
   }
 
+  // ---- Delete with undo ------------------------------------------------------
+  // Split `list` into what stays and what goes, remembering where each removed
+  // item sat so Undo can put it back in place.
+  function removeByIds(list, ids) {
+    const gone = ids instanceof Set ? ids : new Set(ids);
+    const kept = [], removed = [];
+    list.forEach((item, index) => {
+      if (gone.has(item.id)) removed.push({ item, index });
+      else kept.push(item);
+    });
+    return { kept, removed };
+  }
+
+  // Re-insert removed items at their old positions. Idempotent against a list
+  // that already holds some of them (an Undo built from a stale snapshot must
+  // never duplicate a prompt), and tolerant of a list that has since shrunk.
+  function restoreRemoved(list, removed) {
+    const out = [...list];
+    const present = new Set(out.map(s => s.id));
+    const byIndex = [...removed].sort((a, b) => a.index - b.index);
+    for (const { item, index } of byIndex) {
+      if (present.has(item.id)) continue;
+      out.splice(Math.min(index, out.length), 0, item);
+      present.add(item.id);
+    }
+    return out;
+  }
+
   // ---- Misc -----------------------------------------------------------------
   function fmtHotkey(h) {
     return (h || '')
@@ -245,6 +273,8 @@
     stripFences,
     parsePacks,
     diagnosePack,
+    removeByIds,
+    restoreRemoved,
     fmtHotkey,
   };
 

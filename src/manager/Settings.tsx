@@ -8,7 +8,7 @@ import { FONTS, fontStack } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
 import { ImportCuration } from "./ImportCuration"
-import { say, sayErr, sayUndo } from "./status"
+import { say, sayErr } from "./status"
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -101,14 +101,9 @@ export function Settings() {
   })
 
   const deletePack = async (name: string) => {
-    const removed = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name)
-    await m.persist(m.snippets.filter((s) => (s.pack || DEFAULT_PACK) !== name))
+    const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).map((s) => s.id)
     await m.persistPacks(m.packMeta.filter((p) => p.name !== name))
-    if (m.activeId && removed.some((s) => s.id === m.activeId)) m.select(null)
-    m.setSelection(new Set(), null)
-    sayUndo(`Deleted pack "${name}" (${removed.length} prompts)`, () => {
-      void m.persist([...m.snippets, ...removed]).then(() => say("Restored"))
-    })
+    await m.deleteWithUndo(ids, `Deleted pack "${name}" (${ids.length} prompts)`)
   }
 
   return (

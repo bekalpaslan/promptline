@@ -44,10 +44,10 @@ app.
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 6 | 13 | 12 | 6 | 37 |
+| TODO | 5 | 13 | 12 | 6 | 36 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 0 | 0 | 0 | 1 | 1 |
+| DONE | 1 | 0 | 0 | 1 | 2 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **7** | **38** |
 
@@ -61,7 +61,7 @@ and release hygiene (L4–L8, L10, L12, D5, D6).
 ## High
 
 ### H1. Undo after deleting a pack, a group, or a multi-selection duplicates the prompts
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Sidebar.tsx` `deletePack` (~:308), `deleteGroup`
 (~:269), multi-delete in `openRowCtx` (~:558); `src/manager/Settings.tsx:109-111`.
 **What:** the Undo callback restores with `[...m.snippets, ...removed]`, but
@@ -77,6 +77,25 @@ autosave writes the duplicates to `snippets.json` and the pack file.
 `deleteWithUndo(ids, label)` in `state.ts` fixes all four sites and removes the
 duplication listed in L1.
 **Evidence:** by reading; high confidence.
+**Resolution:**
+- *Implementation:* `ui/core.js` gained `removeByIds(list, ids)` (returns
+  `kept` plus each removed item with its index) and `restoreRemoved(list,
+  removed)` (re-inserts at the old index, clamped, skipping ids already
+  present). The manager API gained `deleteWithUndo(ids, label)` in
+  `src/manager/App.tsx`, which reads `snippetsRef.current` for both the delete
+  and the Undo and clears active/selection if they were removed. All five
+  delete sites use it: Sidebar `deletePack`, `deleteGroup`, multi-select
+  delete; Settings `deletePack`; Editor `doDelete` (which keeps its
+  position-preserving restore through the helper).
+- *Tests added:* `tests/core.test.js` — remove then restore yields the
+  original array with positions kept; restore against the stale pre-delete
+  list (the H1 scenario) produces no duplicate ids; positions clamp when the
+  list shrank.
+- *Manual verification:* dev build, manager window. Deleted the "Desktop" pack
+  from the sidebar context menu (34 → 32 rows), clicked Undo: 34 rows, 34
+  unique ids, "Restored" toast, `snippets.json` holds 34 unique ids and the
+  pack's file was re-created. Same for a group via the delete dialog.
+- *Commit:* see commit list (H1).
 
 ### H2. Holding or double-tapping the hotkey makes the popup its own paste target
 **Status:** TODO
@@ -530,7 +549,7 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
    with no query.
 7. [ ] `defaultPackFor(lastPack, names, isLocked)` once extracted (L1).
 8. [ ] `packToJson` includes `group` only when set (M1).
-9. [ ] Undo restoration helper (H1) once extracted: delete then undo yields the
+9. [x] Undo restoration helper (H1) once extracted: delete then undo yields the
    original array with no duplicate ids.
 10. [ ] Rust: `patch_snippet`/`add_snippet`/`delete_snippet` merge helpers (H6).
 
@@ -554,7 +573,7 @@ passed at its commit and the manual check performed.
 
 | Finding | typecheck | npm test | test:rust | Manual (app) | Commit |
 |---|---|---|---|---|---|
-| (none yet) | | | | | |
+| H1 | ✓ | ✓ 32/32 | ✓ 7/7 | delete pack / group → Undo, ids unique on screen and on disk | (H1 commit) |
 
 ## Commit list
 
