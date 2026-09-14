@@ -103,8 +103,12 @@ name in play a `PackMeta` and a `.json` of its own. Handling it only in
 `addPack` would miss every other route.
 
 **`sync_pack_files`** writes each pack's shareable content — title, tags, text,
-never `uses`/`pinned`/`configValues` — to its file on every save. Pack files are
-a supported interchange surface: an agent can write one and the user imports it.
+group, never `uses`/`pinned`/`configValues` — to its file on every save, but
+only when the bytes would actually change: an autosave touches one prompt,
+and rewriting every pack file each time only fed file watchers (the Generate
+dialog polls its file, editors and sync clients watch the folder). Pack files
+are a supported interchange surface: an agent can write one and the user
+imports it.
 
 Two guards follow from that:
 

@@ -371,29 +371,51 @@ fn sync_pack_files(app: &AppHandle) {
     let Ok(snippets) = load_snippets_from_disk(app) else {
         return;
     };
-    for pm in config.packs.iter().filter(|p| !p.path.is_empty()) {
-        let prompts: Vec<serde_json::Value> = snippets
-            .iter()
-            .filter(|s| s.pack == pm.name)
-            .map(|s| {
-                let mut v = serde_json::json!({ "title": s.title, "tags": s.tags, "text": s.text });
-                if !s.group.is_empty() {
-                    v["group"] = serde_json::Value::String(s.group.clone());
-                }
-                v
-            })
-            .collect();
-        // Never write an empty pack over its file: an agent may have just
-        // written prompts there that haven't been imported yet, and clobbering
-        // that with the library's (still empty) view would destroy them.
-        if prompts.is_empty() {
+    write_pack_files(&config.packs, &snippets);
+}
+
+/// The shareable JSON for one pack, or None when the pack is empty.
+fn pack_file_json(pm: &PackMeta, snippets: &[Snippet]) -> Option<String> {
+    let prompts: Vec<serde_json::Value> = snippets
+        .iter()
+        .filter(|s| s.pack == pm.name)
+        .map(|s| {
+            let mut v = serde_json::json!({ "title": s.title, "tags": s.tags, "text": s.text });
+            if !s.group.is_empty() {
+                v["group"] = serde_json::Value::String(s.group.clone());
+            }
+            v
+        })
+        .collect();
+    // Never write an empty pack over its file: an agent may have just
+    // written prompts there that haven't been imported yet, and clobbering
+    // that with the library's (still empty) view would destroy them.
+    if prompts.is_empty() {
+        return None;
+    }
+    let doc = serde_json::json!({ "name": pm.name, "prompts": prompts });
+    serde_json::to_string_pretty(&doc).ok()
+}
+
+/// Write every file-backed pack whose shareable content differs from what
+/// its file already holds; returns how many files were written. An autosave
+/// touches one prompt, so rewriting every pack file on every save only fed
+/// file watchers (the Generate dialog polls, editors and sync clients watch).
+fn write_pack_files(packs: &[PackMeta], snippets: &[Snippet]) -> usize {
+    let mut written = 0;
+    for pm in packs.iter().filter(|p| !p.path.is_empty()) {
+        let Some(json) = pack_file_json(pm, snippets) else {
+            continue;
+        };
+        let path = Path::new(&pm.path);
+        if fs::read(path).map(|cur| cur == json.as_bytes()).unwrap_or(false) {
             continue;
         }
-        let doc = serde_json::json!({ "name": pm.name, "prompts": prompts });
-        if let Ok(json) = serde_json::to_string_pretty(&doc) {
-            let _ = write_atomic(Path::new(&pm.path), json.as_bytes());
+        if write_atomic(path, json.as_bytes()).is_ok() {
+            written += 1;
         }
     }
+    written
 }
 
 /// One-time migration from the v1 EasyPaste data directory: keep user-created
@@ -1310,6 +1332,35 @@ mod tests {
         assert_eq!(sanitize_pack_filename("Con Air"), "con-air");
     }
 
+    #[test]
+    fn pack_files_are_written_only_when_their_content_changed() {
+        let dir = temp_dir("packsync");
+        let path = dir.join("p.json").to_string_lossy().into_owned();
+        let packs = vec![
+            PackMeta { name: "P".into(), locked: false, path: path.clone() },
+            PackMeta { name: "Empty".into(), locked: false, path: dir.join("empty.json").to_string_lossy().into_owned() },
+            PackMeta { name: "Unbacked".into(), locked: false, path: String::new() },
+        ];
+        let mut a = snip("A", "t", "body");
+        a.pack = "P".into();
+        let mut snippets = vec![a];
+        // First sync writes P; the empty pack never gets a file written
+        assert_eq!(write_pack_files(&packs, &snippets), 1);
+        assert!(!dir.join("empty.json").exists());
+        let first = fs::read_to_string(&path).unwrap();
+        assert!(first.contains("\"title\": \"A\""));
+        // Nothing changed: nothing written
+        assert_eq!(write_pack_files(&packs, &snippets), 0);
+        assert_eq!(fs::read_to_string(&path).unwrap(), first);
+        // A change to a P prompt writes P again (and only P)
+        snippets[0].text = "changed".into();
+        assert_eq!(write_pack_files(&packs, &snippets), 1);
+        assert!(fs::read_to_string(&path).unwrap().contains("changed"));
+        // Personal state never reaches the file
+        snippets[0].uses = 9;
+        snippets[0].pinned = true;
+        assert_eq!(write_pack_files(&packs, &snippets), 0);
+    }
 
     #[test]
     fn pack_meta_path_defaults_for_older_configs() {

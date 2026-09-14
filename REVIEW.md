@@ -375,7 +375,7 @@ view sitting there with no message. The error strip can reuse the
 `panelNote` slot (`popup/App.tsx:110`) but see UM22 for its placement.
 
 ### M4. Every autosave rewrites every pack file
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs:218-248` (`sync_pack_files`), called from `save_snippets`
 and `save_packs`.
 **What:** each save re-serializes all packs and `fs::write`s each file, and
@@ -385,6 +385,15 @@ writes per 600 ms pause. Any file watcher (the Generate dialog polls every
 2 s, editors, sync clients) sees constant churn.
 **Fix:** serialize each pack, compare with the file's current bytes, write only
 on change. Test.
+**Resolution:** `sync_pack_files` now delegates to `write_pack_files(packs,
+snippets)`, which serializes each file-backed, non-empty pack and writes
+(atomically) only when the bytes differ from the file; it returns the number
+written. Test: first sync writes, an identical sync writes nothing, a change
+to one prompt rewrites only its pack, personal state (`uses`, `pinned`) never
+triggers a write, an empty pack never gets a file. Manual: with three pack
+files, editing a Desktop prompt's title twice changed `desktop.json`'s mtime
+each time while `promptline.json` and `my-prompts.json` kept theirs.
+Commit: see commit list (M4).
 
 ### M5. Popup list rendering does redundant work per row and has no memoization
 **Status:** TODO
@@ -1219,8 +1228,9 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
 1. [x] `fillFields` with `$&`/`$$` values (H5), after moving it into core.
 2. [x] Rust: atomic write, and "unreadable file is preserved, never overwritten"
    (H3), via a temp dir and `AppHandle`-free helpers.
-3. [ ] Rust: `sync_pack_files` skips empty packs and unchanged files (M4);
-   `retire_pack_file` numbering on repeated deletes.
+3. [x] Rust: `sync_pack_files` skips empty packs and unchanged files (M4);
+   `retire_pack_file` numbering on repeated deletes — the retire numbering is
+   still untested (needs an `AppHandle`); covered by the H1 manual check.
 4. [ ] `stripFences` strips a BOM; `diagnosePack` of a BOM file is `ok` (M7).
 5. [x] `sanitize_pack_filename("CON")` (M8).
 6. [ ] Popup ranking as a pure function: extract the title/tags/body tiering from
