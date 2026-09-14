@@ -4,6 +4,7 @@ import { listen } from "@tauri-apps/api/event"
 import { SizeDebug } from "@/lib/SizeDebug"
 import { RiCloseLine } from "@remixicon/react"
 import { Toaster } from "@/components/ui/sonner"
+import { Kbd } from "@/components/ui/kbd"
 import { C, isStoreError, type Library, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
 import { ManagerCtx, type DeleteOpts, type ManagerApi, type Prefs } from "./state"
@@ -390,7 +391,7 @@ export function App() {
               <span className="text-green-500">✓ That's it — pick a prompt and it pastes right where you were.</span>
             ) : (
               <span>
-                Press <kbd className="rounded-sm bg-secondary px-1.5 py-0.5 font-semibold text-foreground">{fmtHotkey}</kbd>{" "}
+                Press <Kbd className="h-auto bg-secondary px-1.5 py-0.5 text-xs font-semibold text-foreground">{fmtHotkey}</Kbd>{" "}
                 in any app to open your prompts — try it now
               </span>
             )}

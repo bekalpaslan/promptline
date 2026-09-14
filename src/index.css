@@ -1,5 +1,7 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+/* shadcn's base layer (the CLI package ships it), which is why `shadcn` is a
+   runtime dependency and not only a dev tool */
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/outfit";
 
@@ -9,19 +11,10 @@
     --font-heading: var(--font-sans);
     /* Runtime-switchable: applyPrefs() overrides --app-font from the font pref */
     --font-sans: var(--app-font);
-    --color-sidebar-ring: var(--sidebar-ring);
-    --color-sidebar-border: var(--sidebar-border);
-    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-    --color-sidebar-accent: var(--sidebar-accent);
-    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-    --color-sidebar-primary: var(--sidebar-primary);
-    --color-sidebar-foreground: var(--sidebar-foreground);
+    /* The UI's body size sits between Tailwind's xs and sm; one name, not text-[13px] */
+    --text-ui: 13px;
+    --text-ui--line-height: 1.25rem;
     --color-sidebar: var(--sidebar);
-    --color-chart-5: var(--chart-5);
-    --color-chart-4: var(--chart-4);
-    --color-chart-3: var(--chart-3);
-    --color-chart-2: var(--chart-2);
-    --color-chart-1: var(--chart-1);
     --color-ring: var(--ring);
     --color-input: var(--input);
     --color-border: var(--border);
@@ -76,20 +69,28 @@
     --border: oklch(0.891 0.008 224);
     --input: oklch(0.891 0.008 224);
     --ring: oklch(0.708 0 0);
-    --chart-1: oklch(0.865 0.127 207.078);
-    --chart-2: oklch(0.715 0.143 215.221);
-    --chart-3: oklch(0.609 0.126 221.723);
-    --chart-4: oklch(0.52 0.105 223.128);
-    --chart-5: oklch(0.45 0.085 224.283);
     --radius: 0.625rem;
-    --sidebar: oklch(0.985 0 0);
-    --sidebar-foreground: oklch(0.145 0 0);
-    --sidebar-primary: oklch(0.609 0.126 221.723);
-    --sidebar-primary-foreground: oklch(0.984 0.019 200.873);
-    --sidebar-accent: oklch(0.97 0 0);
-    --sidebar-accent-foreground: oklch(0.205 0 0);
-    --sidebar-border: oklch(0.922 0 0);
-    --sidebar-ring: oklch(0.708 0 0);
+    /* One focus colour for every control in both themes (was the popup's
+       #00a6f4 alone, with three other ring systems elsewhere) */
+    --focus: #00a6f4;
+    /* Placeholder kinds: darker in light so the chip text clears 4.5:1 on
+       white; the 500s in dark. Backgrounds are the same hue at 15 %. */
+    --param-builtin: oklch(0.52 0.12 222);
+    --param-builtin-bg: oklch(0.72 0.14 222 / 15%);
+    --param-field: oklch(0.55 0.14 70);
+    --param-field-bg: oklch(0.79 0.17 75 / 15%);
+    --param-config: oklch(0.52 0.22 322);
+    --param-config-bg: oklch(0.72 0.25 322 / 15%);
+    /* Warnings and pins/locks: amber, one step darker in light */
+    --warn: oklch(0.55 0.15 70);
+    /* Segmented controls: an explicit track and active pair, so the active
+       segment is a raised tile in both themes instead of a hole in dark */
+    --segment-track: oklch(0.955 0.002 286);
+    --segment-active: oklch(1 0 0);
+    --shadow-segment: 0 4px 6px rgba(28, 29, 34, 0.08);
+    /* The popup's floating surfaces */
+    --shadow-pop: 0 0 16px rgba(18, 45, 88, 0.24);
+    --shadow-shell: 0 0 16px rgba(18, 45, 88, 0.12);
 }
 
 .dark {
@@ -109,22 +110,50 @@
     --accent: oklch(0.269 0 0);
     --accent-foreground: oklch(0.985 0 0);
     --destructive: oklch(0.704 0.191 22.216);
-    --border: oklch(1 0 0 / 10%);
+    /* 16 %: at 10 % the popup and sidebar rows lost their edges on the
+       same-coloured shell */
+    --border: oklch(1 0 0 / 16%);
     --input: oklch(1 0 0 / 15%);
     --ring: oklch(0.556 0 0);
-    --chart-1: oklch(0.865 0.127 207.078);
-    --chart-2: oklch(0.715 0.143 215.221);
-    --chart-3: oklch(0.609 0.126 221.723);
-    --chart-4: oklch(0.52 0.105 223.128);
-    --chart-5: oklch(0.45 0.085 224.283);
-    --sidebar: oklch(0.205 0 0);
-    --sidebar-foreground: oklch(0.985 0 0);
-    --sidebar-primary: oklch(0.715 0.143 215.221);
-    --sidebar-primary-foreground: oklch(0.302 0.056 229.695);
-    --sidebar-accent: oklch(0.269 0 0);
-    --sidebar-accent-foreground: oklch(0.985 0 0);
-    --sidebar-border: oklch(1 0 0 / 10%);
-    --sidebar-ring: oklch(0.556 0 0);
+    --param-builtin: oklch(0.79 0.13 222);
+    --param-builtin-bg: oklch(0.72 0.14 222 / 15%);
+    --param-field: oklch(0.83 0.16 80);
+    --param-field-bg: oklch(0.79 0.17 75 / 15%);
+    --param-config: oklch(0.78 0.2 322);
+    --param-config-bg: oklch(0.72 0.25 322 / 15%);
+    --warn: oklch(0.83 0.16 80);
+    --segment-track: oklch(0.22 0.004 286);
+    --segment-active: oklch(0.33 0.006 286);
+    --shadow-segment: 0 4px 6px rgba(0, 0, 0, 0.35);
+    --shadow-pop: 0 0 16px rgba(0, 0, 0, 0.6);
+    --shadow-shell: 0 0 16px rgba(0, 0, 0, 0.45);
+}
+
+/* Tag hues are tuned for dark surfaces (ui/core.js). A pill sets --tag to
+   its hue; as text on a light surface the hue is darkened, as an edge it is
+   carried at 35 %. (A var() inside a :root token would resolve at :root,
+   where --tag is unset, hence utilities on the pill itself.) */
+@utility tag-text {
+  color: color-mix(in oklch, var(--tag), black 40%);
+}
+@utility tag-text-dark {
+  color: var(--tag);
+}
+@utility tag-border {
+  border-color: color-mix(in srgb, var(--tag) 35%, transparent);
+}
+@utility tag-border-dark {
+  border-color: color-mix(in srgb, var(--tag) 45%, transparent);
+}
+
+/* The one focus treatment: a 2 px ring in --focus, only for keyboard focus
+   (focus-visible), so mouse clicks don't flash it. Every outline-none in
+   the app pairs with this. */
+@utility focus-ring {
+  outline: none;
+}
+.focus-ring:focus-visible {
+  box-shadow: 0 0 0 2px var(--focus);
 }
 
 @layer base {

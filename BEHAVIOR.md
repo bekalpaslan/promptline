@@ -266,6 +266,17 @@ leaves the old one working and the config unchanged.
 which is what makes native UI the webview paints itself — scrollbars, `<select>`
 popups, form controls — follow the theme. Tokens alone leave those light.
 
+Three things are tokens on purpose and not literals, because each failed in
+the theme it was not tuned for: the placeholder-kind colours
+(`--param-builtin/-field/-config`, darker in light so chip text clears 4.5:1
+on white), the segmented controls (`--segment-track/-active`, a raised tile in
+dark instead of a hole), and the popup's floating shadows (`--shadow-pop`,
+navy in light, black in dark). Focus is one colour (`--focus`) through one
+utility (`focus-ring`, keyboard focus only). Tag hues stay dark-tuned in
+`ui/core.js`; a pill sets `--tag` and the `tag-text` / `tag-border` utilities
+darken or fade it per theme — a `var(--tag)` inside a `:root` token would
+resolve at `:root`, where `--tag` is unset.
+
 ## Windows-specific code
 
 Confined to the `platform` module in `lib.rs`: `foreground_window`,

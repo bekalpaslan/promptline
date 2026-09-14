@@ -68,7 +68,7 @@ export function ImportCuration({
           aria-label="Pack JSON"
           spellCheck={false}
           rows={6}
-          className="w-full resize-y rounded-sm bg-secondary p-2 font-mono text-xs text-foreground outline-none"
+          className="w-full resize-y rounded-sm bg-secondary p-2 font-mono text-xs text-foreground focus-ring"
         />
         <div className="flex gap-2">
           <Button
@@ -154,7 +154,7 @@ export function ImportCuration({
               value={packName}
               onChange={(e) => setPackName(e.target.value)}
               spellCheck={false}
-              className="w-42 rounded-sm bg-secondary px-2 py-1 text-xs text-foreground outline-none"
+              className="w-42 rounded-sm bg-secondary px-2 py-1 text-xs text-foreground focus-ring"
             />
           </>
         )}

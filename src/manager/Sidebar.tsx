@@ -621,7 +621,7 @@ export function Sidebar() {
         title={`${group} — Enter toggles, right-click for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em]",
-          isCollapsed ? "text-muted-foreground/70 hover:text-foreground" : "text-muted-foreground"
+          isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground"
         )}
         onClick={() => toggleCollapsedGroup(key)}
         onKeyDown={(e) => {
@@ -649,7 +649,7 @@ export function Sidebar() {
             autoFocus
             defaultValue={group}
             spellCheck={false}
-            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.05em] text-foreground outline-none"
+            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.05em] text-foreground focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === "Escape") setRenamingGroup(null)
@@ -660,7 +660,7 @@ export function Sidebar() {
           />
         ) : (
           <span className="min-w-0 flex-1 truncate">
-            {group} <span className="font-medium opacity-70">({count})</span>
+            {group} <span className="font-medium">({count})</span>
           </span>
         )}
         {/* Hover-revealed way into the same menu right-click opens */}
@@ -678,7 +678,7 @@ export function Sidebar() {
         >
           <RiMoreLine className="size-3.5" />
         </button>
-        <Chev className="size-3.5 shrink-0" />
+        <Chev className="size-4 shrink-0" />
       </div>
     )
   }
@@ -699,7 +699,7 @@ export function Sidebar() {
         title={s.title || "(untitled)"}
         data-snip-id={s.id}
         className={cn(
-          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] font-semibold transition-[transform,box-shadow] duration-150",
+          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-ui font-semibold transition-[transform,box-shadow] duration-150",
           active
             ? "bg-accent text-foreground"
             : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
@@ -755,7 +755,7 @@ export function Sidebar() {
       >
         {/* Resting affordance for press-and-hold drag: a grip on hover */}
         <RiDraggable className="-ml-1 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
-        {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-amber-500" />}
+        {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-(--warn)" aria-label="pinned" />}
         <span className="truncate">{s.title || "(untitled)"}</span>
       </div>
     )
@@ -799,7 +799,7 @@ export function Sidebar() {
             autoFocus
             defaultValue={name}
             spellCheck={false}
-            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-sm font-bold text-foreground outline-none"
+            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-sm font-bold text-foreground focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               if (e.key === "Escape") setRenaming(null)
@@ -826,7 +826,7 @@ export function Sidebar() {
         >
           <RiMoreLine className="size-4" />
         </button>
-        {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-amber-500" />}
+        {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
         <Chev className="size-4 shrink-0 text-muted-foreground" />
       </div>
     )
@@ -864,7 +864,7 @@ export function Sidebar() {
             placeholder="Filter prompts…"
             aria-label="Filter prompts"
             spellCheck={false}
-            className="rounded-lg bg-background px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+            className="rounded-lg bg-background px-3 py-1.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
           />
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="whitespace-nowrap">Order by</span>
@@ -874,7 +874,7 @@ export function Sidebar() {
                 setOrderBy(e.target.value)
                 localStorage.setItem("orderBy", e.target.value)
               }}
-              className="min-w-0 flex-1 cursor-pointer truncate rounded-lg bg-background px-2 py-1 text-xs text-foreground outline-none"
+              className="min-w-0 flex-1 cursor-pointer truncate rounded-lg bg-background px-2 py-1 text-xs text-foreground focus-ring"
             >
               <option value="uses">Most used</option>
               <option value="title">Title</option>
@@ -913,7 +913,7 @@ export function Sidebar() {
               autoFocus
               placeholder="Pack name — Enter to create, Esc to cancel"
               spellCheck={false}
-              className="rounded-lg border border-dashed border-primary bg-background px-3.5 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground/50"
+              className="rounded-lg border border-dashed border-primary bg-background px-3.5 py-2 text-sm text-foreground focus-ring placeholder:text-muted-foreground/80"
               onKeyDown={(e) => {
                 if (e.key === "Escape") setNewPackInput(false)
                 if (e.key === "Enter") {
@@ -995,7 +995,7 @@ export function Sidebar() {
 
       {/* Light/Dark segmented mode toggle with the settings gear as a compact segment */}
       <div className="p-3">
-        <div className="flex items-center gap-1 rounded-lg bg-secondary/80 p-1">
+        <div className="flex items-center gap-1 rounded-lg bg-(--segment-track) p-1">
           {(["light", "dark"] as const).map((t) => {
             const Icon = t === "light" ? RiSunLine : RiMoonClearLine
             const active = m.prefs.theme === t
@@ -1007,7 +1007,7 @@ export function Sidebar() {
                 className={cn(
                   "flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-sm font-semibold capitalize",
                   active
-                    ? "bg-background text-foreground shadow-[0px_4px_6px_rgba(28,29,34,0.08)]"
+                    ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)"
                     : "text-muted-foreground"
                 )}
                 onClick={() => void m.savePrefs({ theme: t })}
@@ -1025,7 +1025,7 @@ export function Sidebar() {
             className={cn(
               "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm",
               m.settingsOpen
-                ? "bg-background text-foreground shadow-[0px_4px_6px_rgba(28,29,34,0.08)]"
+                ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)"
                 : "text-muted-foreground hover:text-foreground"
             )}
             onClick={() => m.showSettings(!m.settingsOpen)}

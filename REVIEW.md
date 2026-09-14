@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 0 | 5 | 2 | 7 |
+| TODO | 0 | 0 | 3 | 2 | 5 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 7 | 13 | 7 | 6 | 33 |
+| DONE | 7 | 13 | 9 | 6 | 35 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **7** | **13** | **12** | **8** | **40** |
 
@@ -63,10 +63,10 @@ a task):
 
 | Status | High | Medium | Low | Total |
 |---|---|---|---|---|
-| TODO | 3 | 1 | 4 | 8 |
+| TODO | 0 | 0 | 0 | 0 |
 | IN PROGRESS | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 |
-| DONE | 10 | 21 | 4 | 35 |
+| DONE | 13 | 22 | 8 | 43 |
 | DECLINED | 0 | 1 | 0 | 1 |
 | **Total** | **13** | **23** | **8** | **44** |
 
@@ -359,7 +359,7 @@ round trip intact. Delete the (2-prompt) pack: header gone, config without
 it, 32 rows; Undo: header back, config has Desktop with a fresh
 `desktop.json`, 34 rows, no duplicate entry. The phantom `Desktop2` entry and
 file left by the reproduction were removed from the user's config by hand.
-**Commit:** see commit list (N1).
+**Commit:** `c098b2c`.
 
 ---
 
@@ -773,7 +773,7 @@ config had no "GenTemp" pack and the sidebar no header; the file existed
 (removed afterwards). Commit: `f5cb074`.
 
 ### L9. Accessibility gaps
-**Status:** TODO
+**Status:** DONE
 Superseded in detail by the UI findings; this item closes when they do.
 - Popup list semantics → UH6 (rated High there).
 - Tag pills, action panel, preview card, DeleteBadge, sidebar headers → UM13.
@@ -783,9 +783,12 @@ Superseded in detail by the UI findings; this item closes when they do.
   UH13, UM14, UM15.
 - Dialogs (Base UI) and `ImportCuration` rows (`role="checkbox"`) are correct,
   though the inner `<Checkbox>` needs `aria-hidden` (UM20).
+**Resolution:** every item it points at is done: UH6 (`345d900`), UM13/UM11
+(`23506c7`), UH7 (`d4d7927`), UH8 (`23506c7`), UH9 (`345d900`), UH11
+(`3c0fa88`), UH10/UH13/UM20 (theme commit), UM14/UM15 (`345d900`/`23506c7`).
 
 ### L10. Theme and visual consistency
-**Status:** TODO
+**Status:** DONE
 Superseded in detail by the UI findings; this item closes when they do.
 - `--sidebar-*` and `--chart-*` tokens are defined in `index.css` but unused.
 - `#00a6f4` focus border → UH10 (not a brand colour; it bypasses `--ring` and
@@ -794,6 +797,10 @@ Superseded in detail by the UI findings; this item closes when they do.
 - Dark-mode `--border` at 10 % white → UM20 (rows lose their edges; the
   segmented controls invert outright, UH12).
 - Placeholder-kind chips and tag hues fail contrast in light → UH13.
+**Resolution:** the unused `--sidebar-*` and `--chart-*` tokens are gone from
+`index.css`; the popup's focus colour is the `--focus` token (UH10) and the
+brand colours carry a comment (UL5); dark-mode `--border` is 16 % (UM20).
+Commit: see commit list (theme).
 
 ### L11. Docs drift
 **Status:** TODO
@@ -1029,7 +1036,7 @@ options; Ctrl+Right gives 34 options with every header expanded. Commit:
 see commit list (`345d900`).
 
 ### UH10. Focus styling is four systems, and a dozen controls have none
-**Status:** TODO
+**Status:** DONE
 **Where:** popup `FOCUS_BORDER = "#00a6f4"` via `--palette-focus`
 (`popup/App.tsx:22, 503-504, 587-588, 689-690`); manager `focus:ring-ring`
 (`Sidebar.tsx:754`, `Editor.tsx:391, 453, 577`, `GenerateDialog.tsx:314`),
@@ -1045,6 +1052,16 @@ mouse clicks flash a ring on half the app.
 (the "same in both themes" comment at `popup/App.tsx:21` is a code comment,
 not a BEHAVIOR.md decision); never ship `outline-none` without it.
 **Evidence:** by reading; cross-verified.
+**Resolution:** one `--focus` token (the popup's cyan, both themes) and one
+`focus-ring` utility (`outline: none` plus a 2 px `--focus` box-shadow on
+`:focus-visible` only, so clicks don't flash it). Every `outline-none` in
+the manager became `focus-ring`; the `focus:ring-2 focus:ring-ring` sites
+dropped their mouse-triggered rings; `FOCUS_BORDER` is gone and the popup's
+boxed inputs use `border-(--focus)`; the editor's title keeps its underline
+mark, now in `--focus`, and its prompt card its `focus-within` border, now
+`--focus`. Verified in the dev build: the stylesheet holds `.focus-ring
+{outline: none}` and `.focus-ring:focus-visible {box-shadow: … var(--focus)}`,
+`--focus` resolves to `#00a6f4`. Commit: see commit list (theme).
 
 ### UH11. Drag-to-reorder: no keyboard path, no resting affordance, silent regroup
 **Status:** DONE
@@ -1068,7 +1085,7 @@ Custom; Alt+Up restored it; the menu lists Move up / Move down. Commit:
 `3c0fa88`.
 
 ### UH12. Segmented controls invert in dark mode and have no state semantics
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Sidebar.tsx:875-908`; `GenerateDialog.tsx:326-344`.
 **What:** track `bg-secondary/80`, active `bg-background` +
 `rgba(28,29,34,0.08)` shadow. Dark `--background` (0.145) is darker than
@@ -1078,9 +1095,17 @@ vanishes. No `role="radio"` or `aria-pressed`; selection is a class swap.
 **Fix:** explicit active tokens defined in both theme blocks;
 `aria-pressed={active}` at minimum.
 **Evidence:** by reading; cross-verified.
+**Resolution:** `--segment-track` / `--segment-active` / `--shadow-segment`
+in both theme blocks: in dark the active segment is a lighter tile (0.33)
+on a darker track (0.22) instead of the background colour cut into the
+secondary. The theme toggle carries `aria-pressed` (UM11 batch); the
+Generate path picker is a `radiogroup` of `radio` buttons with
+`aria-checked`. Verified in the dev build: light active `oklch(1 0 0)` on
+`oklch(0.955 …)`, dark active `oklch(0.33 …)` on `oklch(0.22 …)`; screenshots
+of both. Commit: see commit list (theme).
 
 ### UH13. Three colour systems fail contrast
-**Status:** TODO
+**Status:** DONE
 **Where / What:**
 - Tag hues: eight fixed hexes in `ui/core.js:131-149` tuned for dark, used as
   text on white at `popup/App.tsx:655`, `Editor.tsx:494`. `#e8b45f` on white
@@ -1098,6 +1123,17 @@ vanishes. No `role="radio"` or `aria-pressed`; selection is a class swap.
 two luminance ramps for tag hues (or hue as border only); drop the alpha
 modifiers on muted text.
 **Evidence:** ratios computed from `index.css` values; cross-verified.
+**Resolution:** `--param-builtin/-field/-config` (text) and `-bg` tokens per
+theme, used through `TOKEN_CHIP` (library.ts) by the popup, the editor and
+the Generate preview; `--warn` for pins, locks and the fill-in badge; tag
+hues keep their dark-tuned hex in `core.js` but are darkened as text on a
+light surface (`tag-text` utility, `color-mix` with black 40 %) and carried
+as a 35 % / 45 % edge (`tag-border`); the `/50` placeholders are `/80`, the
+`/70` and `opacity-70` real text is full. Measured in the dev build (canvas
+sRGB, WCAG): light on white — builtin 5.12, field 4.98, config 6.25, warn
+4.99, tag `debug` 8.83, muted 4.74; dark on the shell — builtin 10.63, field
+11.54, config 9.05, warn 11.54, tag 6.95, muted 7.66. Commit: see commit list
+(theme).
 
 ### UM1. Agent-mode generate blocks the manager with no stop or timeout
 **Status:** DONE
@@ -1379,7 +1415,7 @@ Ctrl+Z restored the group ("Restored"). Commit: see commit list (manager
 semantics).
 
 ### UM20. Design-system drift
-**Status:** TODO
+**Status:** DONE
 - Button: `size="sm"` then `h-auto px-2.5 py-1 text-xs` at 11 Settings sites
   and 3 GenerateDialog sites with a different override; `destructive` variant
   exists (`button.tsx:18`) but is rebuilt at `Editor.tsx:460-465`,
@@ -1400,6 +1436,18 @@ semantics).
 - `ImportCuration.tsx:149` inner `<Checkbox>` lacks `aria-hidden`, so rows
   announce "checkbox" twice.
 **Evidence:** by reading; cross-verified.
+**Resolution:** `Button` gains a `compact` size for the manager's text-button
+idiom and the fourteen override sites use it (`variant="destructive"` where
+the classes rebuilt it); one `Kbd` (`ui/kbd.tsx`) renders the popup's
+shortcut chips and the first-run banner; the popup's shell, preview and
+panel use the card radius (`rounded-xl`); the popup's floating shadows are
+`--shadow-pop` / `--shadow-shell` tokens per theme (black in dark, where the
+navy was invisible); dark `--border` is 16 % so rows keep their edges; lock
+and pin icons are `size-3`, chevrons `size-4`, Settings uses the line arrow
+family and a `size-2` dot; the inner import checkbox is `aria-hidden`. Hover
+fills stay two idioms on purpose: `bg-accent` for menus and popup rows,
+`bg-secondary` for the manager's flat rows — the same split as the primitives.
+Commit: see commit list (theme).
 
 ### UM21. Terminology and labels
 **Status:** DONE
@@ -1473,27 +1521,41 @@ manager batch (UM21). Verified in the dev build. Commit: see commit list
 (popup a11y).
 
 ### UL3. Off-scale sizes
-**Status:** TODO
+**Status:** DONE
 `text-[13px]` at 10 popup sites and `Sidebar.tsx:627`; nine arbitrary sizes
 incl. the `// matches max-h-55` comment (`popup/App.tsx:784`);
 `disabled:opacity-40` in ctx-menu vs 50 in primitives.
+**Resolution:** `--text-ui: 13px` in the theme gives `text-ui`, used at every
+former `text-[13px]`; ctx-menu disabled items use 50 like the primitives.
+The remaining arbitrary sizes are layout (`max-h-55`, `min-w-19`) and stay.
+Commit: see commit list (theme).
 
 ### UL4. Pack select chevron is a data-URI SVG with `#888e98` baked in
-**Status:** TODO
+**Status:** DONE
 `Editor.tsx:430`; passes 3:1 in both themes but is the only non-Remix chevron.
+**Resolution:** a `RiArrowDownSLine` overlay in `text-muted-foreground`
+replaces the data URI (`img-src data:` stays in the CSP; nothing else needs
+it today). Commit: see commit list (theme).
 
 ### UL5. Brand button colours are hardcoded
-**Status:** TODO
+**Status:** DONE
 `Settings.tsx:324, 400-417`; deliberately mirror the vendor's config;
 `text-black` on `#d97757` is 6.7:1. Worth a comment (was in L10).
+**Resolution:** commented at both sites (Claude's brand orange on the
+generate button; Buy Me a Coffee's own palette on the support button, with
+the 6.7:1 note). Commit: see commit list (theme).
 
 ### UL6. Unused shadcn primitives
-**Status:** TODO
+**Status:** DONE
 13 of 18 `src/components/ui/` files are unimported (badge, collapsible,
 command, context-menu, dropdown-menu, input, input-group, kbd, label,
 scroll-area, select, separator, tooltip). Keep the hand-rolled ctx-menu
 (programmatic x/y + inline inputs justify it); adopt `Input`, `Label`, `Kbd`,
 `Separator` while fixing UM11/UM20, delete the rest. Same call as D4 / L2.
+**Resolution:** nine deleted in L2; `Kbd` and `Label` adopted (popup
+shortcut chips, first-run banner, Settings row captions); `Input` and
+`Separator` found no site in UM11/UM20 and are deleted too. The hand-rolled
+ctx-menu stays, now keyboard-complete (UH7). Commit: see commit list (theme).
 
 ### UL7. Landmarks and headings
 **Status:** DONE
@@ -1679,7 +1741,8 @@ passed at its commit and the manual check performed.
 | UM10 | ✓ | ✓ 42/42 | ✓ 18/18 | editor empty state offers New prompt / Generate | `4af5367` |
 | UM8 | ✓ | ✓ 42/42 | ✓ 18/18 | bad JSON inline + Retry; All/None; multi-pack chips | `92c0847` |
 | UM1 + L8 | ✓ | ✓ 42/42 | ✓ 18/18 | Stop / Keep watching / import; no pack before import | `f5cb074` |
-| N1 | ✓ | ✓ 42/42 | ✓ 19/19 | rename round trip keeps one pack; delete + undo of a non-empty pack | (N1 commit) |
+| N1 | ✓ | ✓ 42/42 | ✓ 19/19 | rename round trip keeps one pack; delete + undo of a non-empty pack | `c098b2c` |
+| UH10, UH12, UH13, UM20, L10, UL3–UL6, L9 | ✓ | ✓ 42/42 | ✓ 19/19 | focus rule present; token contrast measured both themes; segmented tiles; light/dark screenshots of both windows | (theme commit) |
 
 ## Commit list
 
@@ -1731,6 +1794,7 @@ passed at its commit and the manual check performed.
 | `4af5367` | UM10 | One EmptyState with actions for the editor, sidebar and popup |
 | `92c0847` | UM8 | Import curation: bulk select, pack names per row, editable bad JSON, no double add |
 | `f5cb074` | UM1, L8 | Generate (agent): a stop, a clock, manual import, and no pack until import |
+| `c098b2c` | N1 | Rename a pack in one Rust step; delete prompts before metadata |
 
 ## Remaining risks and deliberate exclusions
 

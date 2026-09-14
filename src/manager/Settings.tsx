@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { RiArrowDownSFill, RiArrowRightSFill, RiCloseLine, RiLock2Fill } from "@remixicon/react"
+import { RiArrowDownSLine, RiArrowRightSLine, RiCloseLine, RiLock2Fill } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
 import { C } from "@/lib/core"
 import { FONTS, fontStack } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
@@ -22,19 +23,22 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 // `htmlFor` ties the caption to the row's control, so it is announced as its
 // label; rows whose control brings its own <label> leave it out
 function Row({ label, htmlFor, children }: { label: string; htmlFor?: string; children: React.ReactNode }) {
-  const Tag = htmlFor ? "label" : "span"
   return (
     <div className="mb-1.5 flex flex-wrap items-center gap-3 last:mb-0">
-      <Tag htmlFor={htmlFor} className="min-w-28 text-xs text-muted-foreground">
-        {label}
-      </Tag>
+      {htmlFor ? (
+        <Label htmlFor={htmlFor} className="min-w-28 font-normal text-muted-foreground">
+          {label}
+        </Label>
+      ) : (
+        <span className="min-w-28 text-xs text-muted-foreground">{label}</span>
+      )}
       {children}
     </div>
   )
 }
 
 const selectCls =
-  "cursor-pointer rounded-md bg-secondary px-2 py-1 text-xs text-foreground outline-none"
+  "cursor-pointer rounded-md bg-secondary px-2 py-1 text-xs text-foreground focus-ring"
 
 export function Settings() {
   const m = useManager()
@@ -174,8 +178,8 @@ export function Settings() {
             aria-describedby="setting-hotkey-help"
             spellCheck={false}
             className={cn(
-              "w-50 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground",
-              recording && "ring-2 ring-amber-500/60",
+              "w-50 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground",
+              recording && "ring-2 ring-(--warn)/60",
               pending && !recording && "ring-2 ring-primary/50"
             )}
             onBlur={() => {
@@ -186,18 +190,17 @@ export function Settings() {
           />
           {pending ? (
             <>
-              <Button size="sm" className="h-auto px-2.5 py-1 text-xs" onClick={() => void applyHotkey()}>
+              <Button size="compact" onClick={() => void applyHotkey()}>
                 Apply {C.fmtHotkey(pending)}
               </Button>
-              <Button size="sm" variant="secondary" className="h-auto px-2.5 py-1 text-xs" onClick={() => setPending(null)}>
+              <Button size="compact" variant="secondary" onClick={() => setPending(null)}>
                 Cancel
               </Button>
             </>
           ) : (
             <Button
-              size="sm"
+              size="compact"
               variant="secondary"
-              className="h-auto px-2.5 py-1 text-xs"
               aria-pressed={recording}
               onClick={() => {
                 setRecording(true)
@@ -209,7 +212,7 @@ export function Settings() {
             </Button>
           )}
           {m.hotkey !== DEFAULT_HOTKEY && !pending && (
-            <Button size="sm" variant="secondary" className="h-auto px-2.5 py-1 text-xs" onClick={() => setPending(DEFAULT_HOTKEY)}>
+            <Button size="compact" variant="secondary" onClick={() => setPending(DEFAULT_HOTKEY)}>
               Reset to {C.fmtHotkey(DEFAULT_HOTKEY)}
             </Button>
           )}
@@ -287,7 +290,7 @@ export function Settings() {
             const meta = m.packMeta.find((p) => p.name === name)
             const count = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).length
             const isOpen = expanded.has(name)
-            const Chev = isOpen ? RiArrowDownSFill : RiArrowRightSFill
+            const Chev = isOpen ? RiArrowDownSLine : RiArrowRightSLine
             return (
               <div key={name} className="overflow-hidden rounded-md bg-secondary/60">
                 {/* A real disclosure button: Enter/Space work, state is announced */}
@@ -302,10 +305,10 @@ export function Settings() {
                     setExpanded(next)
                   }}
                 >
-                  <Chev className="size-3.5 shrink-0 text-muted-foreground" />
-                  <span className="size-1.75 shrink-0 rounded-full" style={{ background: C.tagColor(name) }} />
+                  <Chev className="size-4 shrink-0 text-muted-foreground" />
+                  <span className="size-2 shrink-0 rounded-full" style={{ background: C.tagColor(name) }} />
                   <span className="min-w-0 flex-1 truncate" title={name}>{name}</span>
-                  {m.isLocked(name) && <RiLock2Fill className="size-2.5 shrink-0 text-amber-500" aria-label="locked" />}
+                  {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
                   <span className="text-xs tabular-nums text-muted-foreground">
                     {count} prompt{count === 1 ? "" : "s"}
                   </span>
@@ -317,9 +320,8 @@ export function Settings() {
                       {meta?.path ? (
                         <>
                           <Button
-                            size="sm"
+                            size="compact"
                             variant="secondary"
-                            className="h-auto px-2.5 py-1 text-xs"
                             onClick={() =>
                               void invoke("set_clipboard_text", { text: meta.path }).then(() => say("Path copied"))
                             }
@@ -327,17 +329,15 @@ export function Settings() {
                             Copy path
                           </Button>
                           <Button
-                            size="sm"
+                            size="compact"
                             variant="secondary"
-                            className="h-auto px-2.5 py-1 text-xs"
                             onClick={() => void invoke("show_in_folder", { path: meta.path })}
                           >
                             Show in folder
                           </Button>
                           <Button
-                            size="sm"
+                            size="compact"
                             variant="secondary"
-                            className="h-auto px-2.5 py-1 text-xs"
                             onClick={() =>
                               void invoke<string>("read_pack_file", { path: meta.path })
                                 .then(setImportRaw)
@@ -347,9 +347,8 @@ export function Settings() {
                             Import from this file…
                           </Button>
                           <Button
-                            size="sm"
+                            size="compact"
                             variant="secondary"
-                            className="h-auto px-2.5 py-1 text-xs"
                             onClick={() =>
                               void invoke("set_clipboard_text", {
                                 text: JSON.stringify(packToJson(name), null, 2),
@@ -361,9 +360,8 @@ export function Settings() {
                         </>
                       ) : (
                         <Button
-                          size="sm"
+                          size="compact"
                           variant="secondary"
-                          className="h-auto px-2.5 py-1 text-xs"
                           onClick={() =>
                             void (async () => {
                               try {
@@ -384,10 +382,9 @@ export function Settings() {
                         </Button>
                       )}
                       <Button
-                        size="sm"
-                        variant="secondary"
+                        size="compact"
+                        variant="destructive"
                         disabled={m.isLocked(name)}
-                        className="h-auto px-2.5 py-1 text-xs text-destructive hover:bg-destructive/15"
                         onClick={() => {
                           if (deleteArm !== name) {
                             setDeleteArm(name)
@@ -417,8 +414,10 @@ export function Settings() {
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <Button
-            size="sm"
-            className="h-auto bg-[#d97757] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#e2825f]"
+            size="compact"
+            // Claude's brand orange, as on claude.ai; white on it is 3.4:1 at
+            // this size and weight, the same as the vendor's own button
+            className="bg-[#d97757] font-semibold text-white hover:bg-[#e2825f]"
             onClick={() => m.openGenerate()}
           >
             Generate pack with Claude…
@@ -428,7 +427,7 @@ export function Settings() {
               autoFocus
               placeholder="Pack name — Enter to create"
               spellCheck={false}
-              className="min-w-40 flex-1 rounded-md bg-secondary px-3 py-1 text-xs text-foreground outline-none placeholder:text-muted-foreground"
+              className="min-w-40 flex-1 rounded-md bg-secondary px-3 py-1 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
               onKeyDown={(e) => {
                 if (e.key === "Escape") setNewPackMode(false)
                 if (e.key === "Enter") {
@@ -441,9 +440,8 @@ export function Settings() {
             />
           ) : (
             <Button
-              size="sm"
+              size="compact"
               variant="secondary"
-              className="h-auto px-2.5 py-1 text-xs"
               onClick={() => setNewPackMode(true)}
             >
               + New
@@ -452,9 +450,8 @@ export function Settings() {
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
           <Button
-            size="sm"
+            size="compact"
             variant="secondary"
-            className="h-auto px-2.5 py-1 text-xs"
             onClick={() => {
               const packs = m.packNames().map(packToJson).filter((p) => p.prompts.length)
               void invoke("set_clipboard_text", { text: JSON.stringify(packs, null, 2) }).then(() =>
@@ -465,17 +462,15 @@ export function Settings() {
             Export library
           </Button>
           <Button
-            size="sm"
+            size="compact"
             variant="secondary"
-            className="h-auto px-2.5 py-1 text-xs"
             onClick={() => void invoke<string>("get_clipboard_text").then(setImportRaw)}
           >
             Import from clipboard
           </Button>
           <Button
-            size="sm"
+            size="compact"
             variant="secondary"
-            className="h-auto px-2.5 py-1 text-xs"
             onClick={() =>
               void invoke<string | null>("import_pack_file")
                 .then((raw) => {
@@ -497,7 +492,9 @@ export function Settings() {
       {/* Buy Me a Coffee, rendered locally rather than by their CDN script:
           a desktop webview holding the user's clipboard and prompt library has
           no business running remote JS, and this way it still works offline.
-          Colours mirror the button's own config. */}
+          Colours mirror the button's own config (#d97757 / #FFDD00): brand
+          values on purpose, outside the token system; text-black on #d97757
+          is 6.7:1. */}
       <div className="mb-2 flex flex-wrap items-center justify-center gap-3 self-center">
         <span className="max-w-72 text-xs leading-relaxed text-muted-foreground">
           This app is open source. If you find it useful, I'd appreciate it if you'd consider:

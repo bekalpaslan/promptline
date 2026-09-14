@@ -17,9 +17,8 @@ import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from 
 import { applyPrefs, isCompact } from "@/lib/prefs"
 import { type Config, DEFAULT_PACK, MAX_PINS, TOKEN_CHIP, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 import { cn } from "@/lib/utils"
+import { Kbd as UiKbd } from "@/components/ui/kbd"
 
-// Command-palette kit accent (focus border) — same in both themes
-const FOCUS_BORDER = "#00a6f4"
 
 type Entry = { s: Snippet; indices: number[] | null }
 type FormState = { snippet: Snippet; base: string; fields: string[]; paste: boolean }
@@ -30,12 +29,12 @@ type CreateState = { title: string; pack: string; group: string; prefilled: stri
 type Notice = { text: string; kind: "error" | "info" }
 
 
-// 16px bordered square, the kit's shortcut-label idiom
+// The shared Kbd in the kit's 16px bordered-square idiom
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-sm border border-border bg-background px-0.5 text-xs text-muted-foreground">
+    <UiKbd className="h-4 min-w-4 shrink-0 rounded-sm border border-border bg-background px-0.5 text-xs font-normal text-muted-foreground">
       {children}
-    </span>
+    </UiKbd>
   )
 }
 
@@ -139,7 +138,7 @@ const Row = memo(function Row({
       title={usesClip ? "Clipboard is empty — {clipboard} will paste nothing" : s.title}
       data-selected={selected}
       className={cn(
-        "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-[13px] font-semibold",
+        "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-ui font-semibold",
         compact ? "py-1" : "py-1.5",
         selected ? "bg-accent text-foreground" : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
         picked && "bg-primary/20"
@@ -148,7 +147,7 @@ const Row = memo(function Row({
       onMouseMove={(e) => onMove(index, e)}
       onMouseLeave={onLeave}
     >
-      <Icon className={cn("size-3.5 shrink-0", s.pinned ? "text-amber-500" : "opacity-70")} />
+      <Icon className={cn("size-3.5 shrink-0", s.pinned ? "text-(--warn)" : "opacity-70")} aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         <span className="flex min-w-0 items-center">
           <HighlightedTitle title={s.title} indices={indices} />
@@ -164,8 +163,8 @@ const Row = memo(function Row({
             key={tag}
             type="button"
             tabIndex={-1}
-            className="flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs"
-            style={{ color: c, borderColor: c + "55" }}
+            className="flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs tag-text tag-border dark:tag-text-dark dark:tag-border-dark"
+            style={{ "--tag": c } as React.CSSProperties}
             title={`Filter by #${tag}`}
             aria-label={`Filter by #${tag}`}
             onClick={(e) => {
@@ -179,7 +178,7 @@ const Row = memo(function Row({
       })}
       {inputs.length > 0 && (
         <span
-          className="flex h-4 shrink-0 items-center rounded-sm border border-amber-500/40 px-1 text-xs tabular-nums text-amber-500"
+          className="flex h-4 shrink-0 items-center rounded-sm border border-(--warn)/40 px-1 text-xs tabular-nums text-(--warn)"
           title={`Asks for ${inputs.length} value${inputs.length === 1 ? "" : "s"} before pasting: ${inputs.join(", ")}`}
         >
           {"{"}{inputs.length}{"}"}
@@ -696,8 +695,7 @@ export function App() {
                   void saveCreate()
                 }
               }}
-              className="w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-[13px] text-foreground outline-none focus:border-(--palette-focus)"
-              style={{ "--palette-focus": FOCUS_BORDER } as React.CSSProperties}
+              className="w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-ui text-foreground outline-none focus:border-(--focus)"
             />
           </div>
           <div className="px-1">
@@ -705,7 +703,7 @@ export function App() {
             <select
               value={create.pack}
               onChange={(e) => setCreate((c) => c && { ...c, pack: e.target.value, group: "" })}
-              className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-1.5 text-[13px] text-foreground outline-none"
+              className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-1.5 text-ui text-foreground focus-ring"
             >
               {packNames.map((p) => (
                 <option key={p} value={p} disabled={isLocked(p)}>
@@ -726,7 +724,7 @@ export function App() {
                 <select
                   value={create.group}
                   onChange={(e) => setCreate((c) => c && { ...c, group: e.target.value })}
-                  className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-1.5 text-[13px] text-foreground outline-none"
+                  className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-1.5 text-ui text-foreground focus-ring"
                 >
                   <option value="">No group</option>
                   {gs.map((g) => (
@@ -750,7 +748,7 @@ export function App() {
           <button
             onClick={() => void saveCreate()}
             disabled={!clip}
-            className="h-8 cursor-pointer rounded-lg bg-primary text-[13px] font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
+            className="h-8 cursor-pointer rounded-lg bg-primary text-ui font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
           >
             Save prompt
           </button>
@@ -798,10 +796,9 @@ export function App() {
                     }
                   }}
                   className={cn(
-                    "min-h-8 w-full resize-none rounded-lg border-2 bg-background px-2 py-1.5 text-[13px] text-foreground outline-none placeholder:text-muted-foreground focus:border-(--palette-focus)",
+                    "min-h-8 w-full resize-none rounded-lg border-2 bg-background px-2 py-1.5 text-ui text-foreground outline-none placeholder:text-muted-foreground focus:border-(--focus)",
                     empty ? "border-destructive/60" : "border-input"
                   )}
-                  style={{ "--palette-focus": FOCUS_BORDER } as React.CSSProperties}
                 />
               </div>
             )
@@ -811,20 +808,20 @@ export function App() {
             {C.tokenize(C.expandBuiltins(form.base)).map((part, i) => {
               if (part.type === "text") return <span key={i}>{part.value}</span>
               if (part.type === "field" && formValues[part.name]) {
-                return <span key={i} className="rounded-sm bg-amber-500/15 px-0.5 text-foreground">{formValues[part.name]}</span>
+                return <span key={i} className="rounded-sm bg-(--param-field-bg) px-0.5 text-foreground">{formValues[part.name]}</span>
               }
               if (part.type === "builtin" && part.name === "clipboard") {
-                return <span key={i} className="rounded-sm bg-cyan-500/15 px-0.5 text-foreground">{clip || "(clipboard is empty)"}</span>
+                return <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground">{clip || "(clipboard is empty)"}</span>
               }
               if (part.type === "field") {
-                return <span key={i} className="rounded-sm bg-amber-500/15 px-1 text-xs font-semibold text-amber-500">{part.name}</span>
+                return <span key={i} className={cn("rounded-sm px-1 text-xs font-semibold", TOKEN_CHIP.field)}>{part.name}</span>
               }
               return <span key={i}>{part.raw}</span>
             })}
           </div>
           <button
             onClick={(e) => void submitForm(e.ctrlKey)}
-            className="h-8 cursor-pointer rounded-lg bg-primary text-[13px] font-medium text-primary-foreground hover:bg-primary/90"
+            className="h-8 cursor-pointer rounded-lg bg-primary text-ui font-medium text-primary-foreground hover:bg-primary/90"
           >
             {submitLabel}
           </button>
@@ -857,8 +854,7 @@ export function App() {
       {/* Search — kit "Active" state: 36px boxed input, 2px focus border */}
       <div
         role="search"
-        className="flex h-8 shrink-0 items-center gap-1 rounded-lg border-2 border-input bg-background py-1.5 pl-2 pr-1.5 focus-within:border-(--palette-focus)"
-        style={{ "--palette-focus": FOCUS_BORDER } as React.CSSProperties}
+        className="flex h-8 shrink-0 items-center gap-1 rounded-lg border-2 border-input bg-background py-1.5 pl-2 pr-1.5 focus-within:border-(--focus)"
       >
         <RiSearchLine className="size-4 shrink-0 text-muted-foreground" />
         <input
@@ -874,7 +870,7 @@ export function App() {
           aria-expanded={visible.length > 0}
           aria-controls="popup-list"
           aria-activedescendant={visible[sel] ? `row-${visible[sel].s.id}` : undefined}
-          className="min-w-0 flex-1 bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
+          className="min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground"
         />
         {query && (
           <button
@@ -950,7 +946,7 @@ export function App() {
                     <div key={g} className="flex flex-col gap-1.5 pl-2.5" role="group" aria-label={g}>
                       <div className="flex select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
                         <span className="min-w-0 flex-1 truncate">
-                          {g} <span className="font-medium opacity-70">({es.length})</span>
+                          {g} <span className="font-medium">({es.length})</span>
                         </span>
                       </div>
                       {rows(es)}
@@ -969,7 +965,7 @@ export function App() {
         className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-t border-border px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground"
       >
         <RiAddLine className="size-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-left text-[13px]">New prompt from clipboard…</span>
+        <span className="min-w-0 flex-1 truncate text-left text-ui">New prompt from clipboard…</span>
         <span className="flex shrink-0 gap-1">
           <Kbd>Ctrl</Kbd>
           <Kbd>N</Kbd>
@@ -988,7 +984,7 @@ export function App() {
           <div
             id="popup-preview"
             role="tooltip"
-            className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-lg border border-border bg-popover p-2 text-xs leading-relaxed text-muted-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.24)]"
+            className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-xs leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
             style={{ left, top, width }}
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
             onMouseLeave={onItemMouseLeave}
@@ -1002,7 +998,7 @@ export function App() {
         <div
           role="menu"
           aria-label={`Actions for ${panelFor.title}`}
-          className="fixed inset-x-2 bottom-10 z-20 rounded-lg border border-border bg-popover p-2 shadow-[0px_0px_16px_rgba(18,45,88,0.24)]"
+          className="fixed inset-x-2 bottom-10 z-20 rounded-xl border border-border bg-popover p-2 shadow-(--shadow-pop)"
         >
           <SectionHeader>{panelFor.title}</SectionHeader>
           {panelNote && <div role="alert" className="px-2 pb-1 text-xs text-destructive">{panelNote}</div>}
@@ -1014,7 +1010,7 @@ export function App() {
               tabIndex={-1}
               aria-current={i === panelSel || undefined}
               className={cn(
-                "flex h-[30px] w-full cursor-pointer select-none items-center justify-between rounded-lg px-2 text-[13px]",
+                "flex h-[30px] w-full cursor-pointer select-none items-center justify-between rounded-lg px-2 text-ui",
                 i === panelSel && "bg-accent",
                 a.danger && "text-destructive"
               )}
@@ -1045,7 +1041,7 @@ function Shell({
   announce: string
 }) {
   return (
-    <div className="flex h-dvh flex-col gap-2.5 overflow-hidden rounded-lg border border-border bg-background p-2.5 text-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.12)]">
+    <div className="flex h-dvh flex-col gap-2.5 overflow-hidden rounded-xl border border-border bg-background p-2.5 text-foreground shadow-(--shadow-shell)">
       {import.meta.env.DEV && <SizeDebug />}
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
       {children}

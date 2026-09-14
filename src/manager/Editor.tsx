@@ -110,7 +110,7 @@ function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name:
         placeholder={placeholder}
         aria-label={placeholder.replace(/^\+ /, "Add ").replace(/…$/, "")}
         spellCheck={false}
-        className="w-28 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
+        className="w-28 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
         onChange={(e) => setRaw(e.target.value)}
         onKeyDown={(e) => {
           if (e.key !== "Enter") return
@@ -351,7 +351,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         title={`{${name}} is in the prompt — Edit to remove`}
         className={cn(
           "relative select-none rounded-sm border border-transparent px-2.5 py-0.5 text-xs font-medium",
-          isBuiltin ? "bg-cyan-500/15 text-cyan-500" : "bg-amber-500/15 text-amber-500"
+          isBuiltin ? TOKEN_CHIP.builtin : TOKEN_CHIP.field
         )}
       >
         {`{${name}}`}
@@ -432,7 +432,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           placeholder="Title"
           aria-label="Title"
           spellCheck={false}
-          className="min-w-50 flex-[2] bg-transparent py-1 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--color-primary)]"
+          className="min-w-50 flex-[2] bg-transparent py-1 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
         />
         {newPackMode ? (
           <input
@@ -440,7 +440,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             placeholder="New pack name — Enter to confirm"
             aria-label="New pack name"
             spellCheck={false}
-            className="min-w-32 flex-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+            className="min-w-32 flex-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault()
@@ -459,33 +459,31 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             onBlur={() => setNewPackMode(false)}
           />
         ) : (
-          <select
-            value={pack}
-            onChange={(e) => {
-              if (e.target.value === "__new__") {
-                setNewPackMode(true)
-                return
-              }
-              setPack(e.target.value)
-              scheduleSave()
-            }}
-            // Native select arrows hug the edge; draw our own chevron inset
-            // by the tier-1 spacing (6px)
-            aria-label="Pack"
-            className="min-w-32 flex-1 cursor-pointer appearance-none rounded-md bg-secondary py-1.5 pl-2 pr-7 text-xs text-foreground outline-none"
-            style={{
-              backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23888e98' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E")`,
-              backgroundRepeat: "no-repeat",
-              backgroundPosition: "right 6px center",
-            }}
-          >
-            {m.packNames(pack).map((p) => (
-              <option key={p} value={p} disabled={m.isLocked(p) && p !== pack}>
-                {m.isLocked(p) ? `🔒 ${p}` : p}
-              </option>
-            ))}
-            <option value="__new__">＋ New pack…</option>
-          </select>
+          <span className="relative min-w-32 flex-1">
+            <select
+              value={pack}
+              onChange={(e) => {
+                if (e.target.value === "__new__") {
+                  setNewPackMode(true)
+                  return
+                }
+                setPack(e.target.value)
+                scheduleSave()
+              }}
+              // Native select arrows hug the edge; the app's own chevron sits
+              // inset by the tier-1 spacing (6px) and takes the theme's colour
+              aria-label="Pack"
+              className="w-full cursor-pointer appearance-none rounded-md bg-secondary py-1.5 pl-2 pr-7 text-xs text-foreground focus-ring"
+            >
+              {m.packNames(pack).map((p) => (
+                <option key={p} value={p} disabled={m.isLocked(p) && p !== pack}>
+                  {m.isLocked(p) ? `🔒 ${p}` : p}
+                </option>
+              ))}
+              <option value="__new__">＋ New pack…</option>
+            </select>
+            <RiArrowDownSLine className="pointer-events-none absolute right-1.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
+          </span>
         )}
         {/* Group within the pack — a label, so free text with the pack's existing groups as suggestions */}
         <input
@@ -498,7 +496,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           placeholder="Group (optional)"
           aria-label="Group"
           spellCheck={false}
-          className="min-w-28 flex-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+          className="min-w-28 flex-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
         />
         <datalist id={`groups-${snippet.id}`}>
           {packGroups.map((g) => (
@@ -525,7 +523,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           (1lh bottom padding keeps one line free), capped at 10 lines. */}
       <div className="flex flex-col gap-3 rounded-xl bg-card p-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt</span>
-        <div className="-mx-3 -mb-3 flex flex-col overflow-hidden rounded-b-xl border border-transparent bg-secondary/50 focus-within:border-ring">
+        <div className="-mx-3 -mb-3 flex flex-col overflow-hidden rounded-b-xl border border-transparent bg-secondary/50 focus-within:border-(--focus)">
         <Textarea
           ref={textRef}
           value={text}
@@ -533,7 +531,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           aria-label="Prompt text"
           spellCheck={false}
           placeholder="Prompt text…  Use {clipboard}, {date}, {time}, any {lowercase_word} as a fill-in field, or {{lowercase_word}} as a saved config parameter."
-          className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 pt-3 pb-[calc(0.75rem+1lh)] leading-relaxed placeholder:text-muted-foreground/50 focus-visible:ring-0 dark:bg-transparent"
+          className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 pt-3 pb-[calc(0.75rem+1lh)] leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
         />
         <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2">
           {tagList.map((t) => {
@@ -543,8 +541,8 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                 key={t}
                 title={`Remove tag "${t}"`}
                 aria-label={`Remove tag ${t}`}
-                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border bg-background/60 px-2 py-1 text-xs font-medium"
-                style={{ color: c, borderColor: c + "55" }}
+                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border bg-background/60 px-2 py-1 text-xs font-medium tag-text tag-border dark:tag-text-dark dark:tag-border-dark"
+                style={{ "--tag": c } as React.CSSProperties}
                 onClick={() => removeTag(t)}
               >
                 <RiCheckLine className="size-3" />
@@ -559,7 +557,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             placeholder="+ tag…"
             aria-label="Add a tag"
             spellCheck={false}
-            className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground outline-none placeholder:text-muted-foreground"
+            className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
             onKeyDown={(e) => {
               if (e.key !== "Enter") return
               const name = e.currentTarget.value.trim().toLowerCase().replace(/,/g, "")
@@ -620,7 +618,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                   <div className="flex flex-col gap-1.5">
                     {configNames.map((name) => (
                       <div key={name} className="flex items-center gap-3">
-                        <span className="relative min-w-32 text-left text-xs font-semibold text-fuchsia-500">
+                        <span className="relative min-w-32 text-left text-xs font-semibold text-(--param-config)">
                           {`{{${name}}}`}
                           {editing && <DeleteBadge onDelete={() => removeParam(name)} />}
                         </span>
@@ -629,7 +627,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                           spellCheck={false}
                           placeholder="(unset — will ask as a fill-in field)"
                           aria-label={`Value for {{${name}}}`}
-                          className="flex-1 rounded-md bg-secondary px-3 py-1 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+                          className="flex-1 rounded-md bg-secondary px-3 py-1 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
                           onChange={(e) => {
                             setConfigValues((v) => ({ ...v, [name]: e.target.value }))
                             scheduleSave()
@@ -667,7 +665,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           variant="secondary"
           size="sm"
           onClick={() => void togglePin()}
-          className={cn("min-w-19", snippet.pinned && "bg-amber-500/15 text-amber-500 hover:bg-amber-500/25")}
+          className={cn("min-w-19", snippet.pinned && "bg-(--warn)/15 text-(--warn) hover:bg-(--warn)/25")}
         >
           {snippet.pinned ? "Unpin" : "Pin"}
         </Button>

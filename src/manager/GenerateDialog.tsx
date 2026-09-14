@@ -112,7 +112,7 @@ function InstructionPreview({ segments }: { segments: Segment[] }) {
             key={i}
             className={cn(
               "rounded-sm px-1 font-semibold",
-              s.kind === "topic" ? "bg-amber-500/15 text-amber-600 dark:text-amber-500" : "bg-cyan-500/15 text-cyan-600 dark:text-cyan-500"
+              s.kind === "topic" ? "bg-(--param-field-bg) text-(--param-field)" : "bg-(--param-builtin-bg) text-(--param-builtin)"
             )}
           >
             {s.chip}
@@ -331,7 +331,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           }
           aria-label="Topic"
           spellCheck={false}
-          className="rounded-lg bg-secondary px-3 py-2 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:ring-2 focus:ring-ring"
+          className="rounded-lg bg-secondary px-3 py-2 text-sm text-foreground focus-ring placeholder:text-muted-foreground"
         />
 
         {path === "agent" && !topic.trim() && (
@@ -343,7 +343,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         )}
 
         {/* Path picker — segmented, same idiom as the theme toggle */}
-        <div className="flex rounded-lg bg-secondary/80 p-1">
+        <div className="flex rounded-lg bg-(--segment-track) p-1" role="radiogroup" aria-label="How Claude receives the instruction">
           {(
             [
               ["chat", "Chat Claude — copy & paste"],
@@ -352,9 +352,12 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           ).map(([p, label]) => (
             <button
               key={p}
+              type="button"
+              role="radio"
+              aria-checked={path === p}
               className={cn(
-                "h-8 flex-1 cursor-pointer rounded-sm text-xs font-semibold",
-                path === p ? "bg-background text-foreground shadow-[0px_4px_6px_rgba(28,29,34,0.08)]" : "text-muted-foreground"
+                "h-8 flex-1 cursor-pointer rounded-sm text-xs font-semibold focus-ring",
+                path === p ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)" : "text-muted-foreground"
               )}
               onClick={() => switchPath(p)}
             >
@@ -376,7 +379,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           {path === "chat" ? (
             <>
               <Step n={1} title="Copy the prompt for Claude" done={copied} active={!copied}>
-                <Button size="sm" className="mt-1.5 h-auto px-3 py-1.5 text-xs" onClick={() => void copyChatPrompt()}>
+                <Button size="sm" className="mt-1.5" onClick={() => void copyChatPrompt()}>
                   {copied ? "Copy again" : "Copy prompt"}
                 </Button>
               </Step>
@@ -387,7 +390,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 <Button
                   size="sm"
                   variant={copied ? "default" : "secondary"}
-                  className="mt-1.5 h-auto px-3 py-1.5 text-xs"
+                  className="mt-1.5"
                   onClick={() => void importReply()}
                 >
                   Import reply from clipboard
@@ -415,7 +418,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                     ? "Creates a file-backed pack; the instruction contains its path so the agent writes it directly — no clipboard round-trip."
                     : "Creates a scratch file; the agent writes the project's pack into it and you review it on import."}
                 </p>
-                <Button size="sm" className="mt-1.5 h-auto px-3 py-1.5 text-xs" onClick={() => void copyAgentInstructions()}>
+                <Button size="sm" className="mt-1.5" onClick={() => void copyAgentInstructions()}>
                   {copied ? "Copy again" : "Create file & copy instructions"}
                 </Button>
               </Step>
@@ -426,10 +429,10 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                     <span className="min-w-0 flex-1 truncate" title={agentFilePath} role="status">
                       Watching {agentFilePath} … {watchedFor >= 60 ? `${Math.floor(watchedFor / 60)} min ${watchedFor % 60} s` : `${watchedFor} s`}
                     </span>
-                    <Button size="sm" variant="secondary" className="h-auto px-2 py-0.5 text-xs" onClick={() => setWatching(false)}>
+                    <Button size="xs" variant="secondary" onClick={() => setWatching(false)}>
                       Stop
                     </Button>
-                    <Button size="sm" variant="secondary" className="h-auto px-2 py-0.5 text-xs" onClick={() => void importFromFile()}>
+                    <Button size="xs" variant="secondary" onClick={() => void importFromFile()}>
                       Import from file now
                     </Button>
                   </div>
@@ -437,10 +440,10 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 {!watching && copied && !step2Done && (
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <span>Not watching.</span>
-                    <Button size="sm" variant="secondary" className="h-auto px-2 py-0.5 text-xs" onClick={() => { setWatching(true); setWatchedFor(0) }}>
+                    <Button size="xs" variant="secondary" onClick={() => { setWatching(true); setWatchedFor(0) }}>
                       Keep watching
                     </Button>
-                    <Button size="sm" variant="secondary" className="h-auto px-2 py-0.5 text-xs" onClick={() => void importFromFile()}>
+                    <Button size="xs" variant="secondary" onClick={() => void importFromFile()}>
                       Import from file…
                     </Button>
                   </div>
