@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 7 | 12 | 5 | 24 |
+| TODO | 0 | 3 | 11 | 4 | 18 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 6 | 0 | 3 | 15 |
+| DONE | 6 | 10 | 1 | 4 | 21 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -344,7 +344,7 @@ tested) and all three sites call it: Settings export pack / export library,
 Sidebar export pack, Sidebar export selection. Test: group present only when
 set; uses/pinned/fieldValues/configValues never exported; missing tags
 become `[]`. Manual: Settings → Export library in the dev build copies JSON
-whose Desktop prompts carry `"group": "as"`. Commit: see commit list (M1).
+whose Desktop prompts carry `"group": "as"` (2 packs, 34 prompts). Commit: `eb80c42`.
 
 ### M2. Keyboard focus is lost when leaving form or create mode
 **Status:** DONE
@@ -361,8 +361,9 @@ keystrokes go nowhere (arrows still work because that handler is on
 **Resolution:** an effect tracks `form`/`create` and focuses the search
 input on the transition back to the list; the synchronous
 `inputRef.current?.focus()` in `saveCreate` is gone. No automated test
-(DOM focus). Manual: see the resolution's verification note below (filled
-in after the dev-build check). Commit: see commit list (M2).
+(DOM focus). Manual (dev build, popup): picked a `{goal}` prompt → focus in
+the form textarea; Escape → focus on the search input. Ctrl+N → focus in the
+create title input; Escape → focus on the search input. Commit: `1ad4cba`.
 **Evidence:** by reading; verify in the app. Independently confirmed by the
 UI pass (rated High there: focus lands on `body`, no caret explains why).
 
@@ -445,7 +446,7 @@ on older setups), Import from file: rejected with a misleading message.
 de-fencing. Tests: `stripFences` drops the BOM; `diagnosePack` of a BOM
 file is `ok`; `parsePacks` handles BOM plus fences. Manual: covered by the
 pure test (the import path calls `diagnosePack` on the file's text
-unchanged). Commit: see commit list (M7).
+unchanged). Commit: `e1681c1`.
 
 ### M8. Reserved Windows device names become pack filenames
 **Status:** DONE
@@ -506,8 +507,9 @@ else uses it.
 **Resolution:** `sonner.tsx` derives the theme from the `.dark` class on
 `<html>` through a `MutationObserver` (`useAppTheme`), so it follows the
 Light/Dark toggle exactly; `next-themes` removed from `package.json`. No
-automated test (DOM). Manual: see verification note below. Commit: see
-commit list (M10).
+automated test (DOM). Manual (dev build, manager): with a toast up, the
+toaster's `data-sonner-theme` is `light` after clicking Light and `dark`
+after clicking Dark; light-mode toast screenshot checked. Commit: `195215d`.
 
 ### M11. `paste_snippet` doc comment contradicts BEHAVIOR.md
 **Status:** DONE
@@ -585,7 +587,7 @@ and the `Config` type; both windows import it.
 `import.meta.env.DEV` at both sites, so production neither renders it nor
 attaches its listener. Capability description now names Promptline. The
 `eslint-disable` comments are D5's. Typecheck proves nothing imports the
-removed files. Commit: see commit list (L2).
+removed files. Commit: `f3454bd`.
 
 ### L3. TypeScript strictness gaps in the bridge
 **Status:** TODO
@@ -1318,6 +1320,11 @@ passed at its commit and the manual check performed.
 | M4 | ✓ | ✓ 34/34 | ✓ 18/18 | title edit rewrites only `desktop.json` | `26fb8f2` |
 | M11 | ✓ | ✓ 34/34 | ✓ 18/18 | comment only | `17766a9` |
 | M6 | ✓ | ✓ 34/34 | ✓ 18/18 | cursor at (2520,1434): popup bottom 1385 ≤ work area 1392 | `418bf92` |
+| M7 | ✓ | ✓ 35/35 | ✓ 18/18 | pure test (BOM file diagnoses ok) | `e1681c1` |
+| M1 | ✓ | ✓ 36/36 | ✓ 18/18 | Settings → Export library carries `group` | `eb80c42` |
+| M2 | ✓ | ✓ 36/36 | ✓ 18/18 | Esc from form / create → focus on search input | `1ad4cba` |
+| M10 | ✓ | ✓ 36/36 | ✓ 18/18 | toaster `data-sonner-theme` follows Light/Dark | `195215d` |
+| L2 + D4 | ✓ | ✓ 36/36 | ✓ 18/18 | app reloads and renders with the primitives and deps removed | `f3454bd` |
 
 ## Commit list
 
@@ -1338,6 +1345,12 @@ passed at its commit and the manual check performed.
 | `26fb8f2` | M4 | Write a pack file only when its content changed |
 | `17766a9` | M11 | Fix the paste_snippet doc comment |
 | `418bf92` | M6 | Clamp the popup to the work area, not the monitor |
+| `eac8f50` | — | REVIEW.md: record commits for M4, M6, M8, M11 |
+| `e1681c1` | M7 | Accept pack files that start with a UTF-8 BOM |
+| `eb80c42` | M1 | One packToJson for every export, so groups survive Settings |
+| `1ad4cba` | M2 | Popup: give the search box focus back after form or create mode |
+| `195215d` | M10 | Toasts follow the app's theme, not the OS setting |
+| `f3454bd` | L2, D4 | Remove unused shadcn primitives and cmdk; gate SizeDebug behind DEV |
 
 ## Remaining risks and deliberate exclusions
 
