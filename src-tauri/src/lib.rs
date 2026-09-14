@@ -857,6 +857,54 @@ fn retire_pack_file(app: &AppHandle, path: &str) {
     let _ = fs::rename(&src, &dest);
 }
 
+/// Rename a pack on its metadata and on every prompt in one step. Done in
+/// two frontend writes, `ensure_packs_backed` ran in between and saw prompts
+/// still carrying the old name (or already carrying the new one) and
+/// conjured a second pack for it.
+fn rename_pack_in(config: &mut Config, snippets: &mut [Snippet], from: &str, to: &str) -> Result<(), String> {
+    if from == to {
+        return Ok(());
+    }
+    if to.trim().is_empty() {
+        return Err("A pack needs a name".into());
+    }
+    if config.packs.iter().any(|p| p.name == to) || snippets.iter().any(|s| s.pack == to) {
+        return Err(format!("Pack \"{to}\" already exists"));
+    }
+    let mut renamed = false;
+    for p in config.packs.iter_mut().filter(|p| p.name == from) {
+        p.name = to.to_string();
+        renamed = true;
+    }
+    if !renamed {
+        // A pack that existed only as a name on prompts: give it metadata now
+        config.packs.push(PackMeta { name: to.to_string(), locked: false, path: String::new() });
+    }
+    for s in snippets.iter_mut().filter(|s| s.pack == from) {
+        s.pack = to.to_string();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn rename_pack(
+    app: AppHandle,
+    state: State<AppState>,
+    window: tauri::WebviewWindow,
+    from: String,
+    to: String,
+) -> Result<Library, String> {
+    let _guard = state.store.lock().unwrap();
+    let mut config = load_config_from_disk(&app)?;
+    let mut snippets = load_snippets_from_disk(&app)?;
+    rename_pack_in(&mut config, &mut snippets, &from, &to)?;
+    save_config(&app, &config)?;
+    write_snippets(&app, &snippets)?;
+    sync_pack_files(&app);
+    notify_other_window(&app, &window);
+    Ok(Library { snippets, revision: current_revision(&app) })
+}
+
 /// Create a fresh file-backed pack file and return its absolute path.
 #[tauri::command]
 fn create_pack_file(app: AppHandle, name: String) -> Result<String, String> {
@@ -1561,6 +1609,35 @@ mod tests {
     }
 
     #[test]
+    fn rename_pack_moves_metadata_and_prompts_together() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta { name: "Old".into(), locked: true, path: "C:\\old.json".into() });
+        config.packs.push(PackMeta { name: "Other".into(), locked: false, path: String::new() });
+        let mut snippets = vec![sample("a"), sample("b"), sample("c")];
+        snippets[0].pack = "Old".into();
+        snippets[1].pack = "Old".into();
+        snippets[2].pack = "Other".into();
+        rename_pack_in(&mut config, &mut snippets, "Old", "New").unwrap();
+        // One entry, same file, lock kept; every prompt follows
+        assert_eq!(config.packs.iter().filter(|p| p.name == "New").count(), 1);
+        assert!(!config.packs.iter().any(|p| p.name == "Old"));
+        let new = config.packs.iter().find(|p| p.name == "New").unwrap();
+        assert!(new.locked);
+        assert_eq!(new.path, "C:\\old.json");
+        assert_eq!(snippets.iter().filter(|s| s.pack == "New").count(), 2);
+        assert_eq!(snippets[2].pack, "Other");
+        // Collisions and empties are refused, nothing touched
+        assert!(rename_pack_in(&mut config, &mut snippets, "New", "Other").is_err());
+        assert!(rename_pack_in(&mut config, &mut snippets, "New", "  ").is_err());
+        assert_eq!(snippets.iter().filter(|s| s.pack == "New").count(), 2);
+        // A pack that was only a name on prompts gets metadata when renamed
+        snippets[2].pack = "Nameless".into();
+        rename_pack_in(&mut config, &mut snippets, "Nameless", "Named").unwrap();
+        assert!(config.packs.iter().any(|p| p.name == "Named" && p.path.is_empty()));
+        assert_eq!(snippets[2].pack, "Named");
+    }
+
+    #[test]
     fn store_error_serializes_with_a_kind_tag() {
         let json = serde_json::to_string(&StoreError::Stale { revision: 4 }).unwrap();
         assert_eq!(json, r#"{"kind":"stale","revision":4}"#);
@@ -1605,6 +1682,7 @@ pub fn run() {
             take_notices,
             set_hotkey,
             save_packs,
+            rename_pack,
             save_prefs,
             import_pack_file,
             create_pack_file,

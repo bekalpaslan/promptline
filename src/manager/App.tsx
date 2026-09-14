@@ -55,6 +55,18 @@ export function App() {
     }
   }, [applyLibrary])
 
+  // Rust reconciles pack metadata on every save (`ensure_packs_backed` gives
+  // any pack a prompt names an entry and a file), so after any write the
+  // manager re-reads it rather than trusting its own copy
+  const refreshPacks = useCallback(async () => {
+    try {
+      const config = await invoke<Config>("get_config")
+      setPackMeta(Array.isArray(config.packs) ? config.packs : [])
+    } catch {
+      // the next write will try again
+    }
+  }, [])
+
   const persist = useCallback(async (next: Snippet[]) => {
     setSnippets(next)
     snippetsRef.current = next
@@ -63,6 +75,7 @@ export function App() {
         snippets: next,
         baseRevision: revisionRef.current,
       })
+      await refreshPacks()
     } catch (e) {
       // Whatever happened, the UI must show what is on disk, not the
       // change that didn't land
@@ -74,22 +87,38 @@ export function App() {
       }
       throw e
     }
-  }, [reloadLibrary])
+  }, [reloadLibrary, refreshPacks])
 
   const updateSnippet = useCallback(async (id: string, edit: SnippetEdit) => {
     try {
       applyLibrary(await invoke<Library>("update_snippet", { id, edit }))
+      await refreshPacks()
     } catch (e) {
       await reloadLibrary()
       sayErr(`Couldn't save: ${e}`)
       throw e
     }
-  }, [applyLibrary, reloadLibrary])
+  }, [applyLibrary, reloadLibrary, refreshPacks])
 
   const persistPacks = useCallback(async (next: PackMeta[]) => {
     setPackMeta(next)
-    await invoke("save_packs", { packs: next })
-  }, [])
+    try {
+      await invoke("save_packs", { packs: next })
+    } finally {
+      await refreshPacks()
+    }
+  }, [refreshPacks])
+
+  const renamePack = useCallback(async (from: string, to: string) => {
+    try {
+      applyLibrary(await invoke<Library>("rename_pack", { from, to }))
+    } catch (e) {
+      sayErr(`Couldn't rename the pack: ${e}`)
+      throw e
+    } finally {
+      await refreshPacks()
+    }
+  }, [applyLibrary, refreshPacks])
 
   // Latest pack metadata for the same reason
   const packMetaRef = useRef(packMeta)
@@ -106,10 +135,18 @@ export function App() {
     sayUndo(label, () => {
       void (async () => {
         if (removed.length) await persist(C.restoreRemoved(snippetsRef.current, removed))
-        // The pack's file was retired to packs/deleted/; an empty path makes
-        // ensure_packs_backed give it a fresh one
-        if (opts?.pack && !packMetaRef.current.some((p) => p.name === opts.pack!.name))
-          await persistPacks([...packMetaRef.current, { ...opts.pack, path: "" }])
+        // Restoring prompts makes Rust conjure the pack again (with a fresh
+        // file, the old one being in packs/deleted/) but without its lock;
+        // put the saved metadata back on whichever entry exists now
+        if (opts?.pack) {
+          const pack = opts.pack
+          const cur = packMetaRef.current
+          await persistPacks(
+            cur.some((p) => p.name === pack.name)
+              ? cur.map((p) => (p.name === pack.name ? { ...p, locked: pack.locked } : p))
+              : [...cur, { ...pack, path: "" }]
+          )
+        }
         say("Restored")
       })()
     })
@@ -158,6 +195,7 @@ export function App() {
     }
     try {
       applyLibrary(await invoke<Library>("add_snippet", { snippet: s }))
+      await refreshPacks()
     } catch (e) {
       sayErr(`Couldn't create the prompt: ${e}`)
       return
@@ -165,7 +203,7 @@ export function App() {
     setSelectionState(new Set([s.id]))
     setSelectionAnchor(s.id)
     setActiveId(s.id)
-  }, [isLocked, packMeta, snippets, applyLibrary])
+  }, [isLocked, packMeta, snippets, applyLibrary, refreshPacks])
 
   const addPack = useCallback(
     async (name: string) => {
@@ -324,6 +362,7 @@ export function App() {
       persist,
       updateSnippet,
       persistPacks,
+      renamePack,
       deleteWithUndo,
       select,
       setSelection,
@@ -336,7 +375,7 @@ export function App() {
       showSettings: setSettingsOpen,
       pendingFlush,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)

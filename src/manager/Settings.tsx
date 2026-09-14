@@ -143,8 +143,9 @@ export function Settings() {
   const deletePack = async (name: string) => {
     const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).map((s) => s.id)
     const pack = m.packMeta.find((p) => p.name === name) ?? { name, locked: false }
-    await m.persistPacks(m.packMeta.filter((p) => p.name !== name))
+    // Prompts first, then metadata (see Sidebar.deletePack)
     await m.deleteWithUndo(ids, `Deleted pack "${name}" (${ids.length} prompt${ids.length === 1 ? "" : "s"})`, { pack })
+    await m.persistPacks(m.packMeta.filter((p) => p.name !== name))
   }
 
   return (

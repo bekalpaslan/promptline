@@ -116,6 +116,14 @@ the status bar offers Undo afterwards. Pack files carry the label as an
 optional `"group"` on each prompt; older files and libraries load with it
 empty.
 
+**Pack operations that touch metadata and prompts happen in one Rust step
+or in a fixed order.** `ensure_packs_backed` runs inside every save, so a
+rename done as two frontend writes let it see prompts still carrying the old
+name and conjure a second pack; `rename_pack` renames both at once. A delete
+removes the prompts first and the metadata second, for the same reason. And
+because the reconciler can add metadata on any write, the manager re-reads
+pack metadata after every write rather than trusting its own copy.
+
 That is why file backing is reconciled rather than handled at creation.
 **`ensure_packs_backed`** runs at startup and before every sync, giving every
 name in play a `PackMeta` and a `.json` of its own. Handling it only in

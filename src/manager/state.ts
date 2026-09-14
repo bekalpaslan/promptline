@@ -37,6 +37,8 @@ export interface ManagerApi {
   updateSnippet(id: string, edit: SnippetEdit): Promise<void>
   /** Replace pack metadata and persist it (save_packs). */
   persistPacks(next: PackMeta[]): Promise<void>
+  /** Rename a pack on its metadata and every prompt, atomically in Rust (rename_pack). */
+  renamePack(from: string, to: string): Promise<void>
   /**
    * Remove prompts and offer Undo in the status bar. Both the delete and the
    * restore read the *latest* library, never a render's snapshot, so Undo

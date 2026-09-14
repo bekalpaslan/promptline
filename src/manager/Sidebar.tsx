@@ -257,6 +257,8 @@ export function Sidebar() {
   }
 
   // ---- Pack operations (sidebar-first) ----
+  // One Rust step: metadata and prompts together, or the reconciler in
+  // between conjures a second pack under one of the two names
   const renamePack = async (name: string, next: string) => {
     setRenaming(null)
     if (!next || next === name) return
@@ -264,10 +266,7 @@ export function Sidebar() {
       sayErr(`Pack "${next}" already exists`)
       return
     }
-    const nextMeta = m.packMeta.map((p) => (p.name === name ? { ...p, name: next } : p))
-    await m.persistPacks(nextMeta)
-    await m.persist(m.snippets.map((s) => ((s.pack || DEFAULT_PACK) === name ? { ...s, pack: next } : s)))
-    say(`Renamed to "${next}"`)
+    await m.renamePack(name, next).then(() => say(`Renamed to "${next}"`), () => {})
   }
 
   const packToJson = (name: string) =>
@@ -333,8 +332,10 @@ export function Sidebar() {
   const deletePack = async (name: string) => {
     const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).map((s) => s.id)
     const pack = m.packMeta.find((p) => p.name === name) ?? { name, locked: false }
-    await m.persistPacks(m.packMeta.filter((p) => p.name !== name))
+    // Prompts first: while any prompt still names the pack, the reconciler
+    // would put its metadata straight back
     await m.deleteWithUndo(ids, `Deleted pack "${name}" (${ids.length} prompt${ids.length === 1 ? "" : "s"})`, { pack })
+    await m.persistPacks(m.packMeta.filter((p) => p.name !== name))
   }
 
   // File actions for file-backed packs; non-backed packs get an upgrade action

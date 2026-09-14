@@ -51,22 +51,22 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 0 | 6 | 2 | 8 |
+| TODO | 0 | 0 | 5 | 2 | 7 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 13 | 6 | 6 | 31 |
+| DONE | 7 | 13 | 7 | 6 | 33 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
-| **Total** | **6** | **13** | **12** | **8** | **39** |
+| **Total** | **7** | **13** | **12** | **8** | **40** |
 
 UI findings (UH, UM, UL — see "UI findings" below; UL9 is a keep-list, not
 a task):
 
 | Status | High | Medium | Low | Total |
 |---|---|---|---|---|
-| TODO | 4 | 8 | 4 | 16 |
+| TODO | 3 | 1 | 4 | 8 |
 | IN PROGRESS | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 |
-| DONE | 9 | 14 | 4 | 27 |
+| DONE | 10 | 21 | 4 | 35 |
 | DECLINED | 0 | 1 | 0 | 1 |
 | **Total** | **13** | **23** | **8** | **44** |
 
@@ -325,6 +325,41 @@ popup then never sends a full array. Rust tests on the merge helpers.
   `save_snippets` from the manager with `baseRevision - 1`: refused with
   `{"kind":"stale","revision":6}`, nothing written. Test prompt renamed back.
 - *Commit:* `c725a09`.
+
+### N1. Renaming or deleting a pack in two frontend writes let the reconciler conjure a second pack
+**Status:** DONE
+**Where:** `src/manager/Sidebar.tsx` `renamePack` / `deletePack`,
+`src/manager/Settings.tsx` `deletePack`, `lib.rs` `ensure_packs_backed`
+(runs inside every `save_packs` and `save_snippets`).
+**What:** (found while verifying UM6.) Renaming was `persistPacks` (metadata
+under the new name) followed by `persist` (prompts under the new name). The
+reconciler ran inside the first write, saw prompts still carrying the old
+name, and created a fresh `PackMeta` and file for it — so after a rename the
+config held both names, and renaming back produced a second file
+(`desktop2.json`) and a duplicate. Deleting a non-empty pack had the same
+window once H1 put `persistPacks` before the prompt delete: the reconciler
+re-created the pack from its surviving prompts and the "deleted" pack stayed
+in the sidebar, empty. The manager also never re-read pack metadata after a
+write, so anything the reconciler added was invisible to it until restart.
+**Failure:** rename "Desktop" → "Desktop2" → "Desktop": `config.json` lists
+Desktop, Desktop2 and a new `desktop2.json` (reproduced in the dev build).
+Delete a pack with prompts: its header remains with (0).
+**Fix:** `rename_pack(from, to)` in Rust renames metadata and prompts in one
+store-locked step (pure `rename_pack_in`, tested: one entry keeps its file and
+lock, every prompt follows, collisions and empty names refused, a name-only
+pack gets metadata); deletes remove the prompts first and the metadata
+second; the manager re-reads pack metadata (`refreshPacks`) after every
+write, so reconciler-made entries are always in its copy; the pack-delete
+Undo puts the saved lock flag on whichever entry exists after the prompts
+are restored instead of adding a second one.
+**Tests added (`cargo test`):** `rename_pack_moves_metadata_and_prompts_together`.
+**Manual verification:** dev build. Rename Desktop → Desktop2 → Desktop: one
+entry throughout, same `desktop.json`, both prompts follow. Lock → Unlock
+round trip intact. Delete the (2-prompt) pack: header gone, config without
+it, 32 rows; Undo: header back, config has Desktop with a fresh
+`desktop.json`, 34 rows, no duplicate entry. The phantom `Desktop2` entry and
+file left by the reproduction were removed from the user's config by hand.
+**Commit:** see commit list (N1).
 
 ---
 
@@ -722,13 +757,20 @@ Verified in the dev build with a cleared clipboard. Commit: see commit list
 (`345d900`).
 
 ### L8. Agent generate path creates the pack before anything is written
-**Status:** TODO
+**Status:** DONE
 **Where:** `GenerateDialog.tsx:233-238`. "Create file & copy instructions"
 with a topic persists a new empty `PackMeta`; cancelling leaves an empty pack
 in the sidebar. Consistent with "a pack is just a name"; worth a note in the
 dialog or a cleanup on cancel while the pack is still empty. The
 no-stop/no-timeout half of the same flow is UM1; fix the two together
 (create the pack on successful import).
+**Resolution:** step 1 creates only the file for the agent to write into;
+the pack comes into being when its prompts are imported (a pack is just a
+name). Cancelling leaves an orphan file in `packs/`, which is never swept
+(BEHAVIOR.md) — a deliberate trade against a phantom pack in the sidebar.
+Verified in the dev build: after "Create file & copy instructions" the
+config had no "GenTemp" pack and the sidebar no header; the file existed
+(removed afterwards). Commit: `f5cb074`.
 
 ### L9. Accessibility gaps
 **Status:** TODO
@@ -1005,7 +1047,7 @@ not a BEHAVIOR.md decision); never ship `outline-none` without it.
 **Evidence:** by reading; cross-verified.
 
 ### UH11. Drag-to-reorder: no keyboard path, no resting affordance, silent regroup
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Sidebar.tsx:627-668` (pointer), `:148-166`
 (`commitReorder`), `:155-160` (group rewrite), `:768` (the only hint).
 **What:** custom order is reachable only by a 180 ms press-and-hold; rows show
@@ -1016,6 +1058,14 @@ effect, with no toast and no undo (the sort-mode change does toast at :164).
 "Move up / Move down" in `openRowCtx`; polite live region; toast + undo on a
 cross-group drop.
 **Evidence:** by reading; cross-verified.
+**Resolution:** rows show a grip icon and a grab cursor on hover; Alt+Up /
+Alt+Down on a focused row swaps it with its neighbour in the same pack (and
+"Move up" / "Move down" sit in the single-row menu); a polite live region in
+the sidebar announces the move; a drop that changes the group toasts `Moved
+"…" into group "…"` with Undo. Verified in the dev build: Alt+Down moved
+"Test" below "a" with status `Moved "Test" down` and the sort switched to
+Custom; Alt+Up restored it; the menu lists Move up / Move down. Commit:
+`3c0fa88`.
 
 ### UH12. Segmented controls invert in dark mode and have no state semantics
 **Status:** TODO
@@ -1050,7 +1100,7 @@ modifiers on muted text.
 **Evidence:** ratios computed from `index.css` values; cross-verified.
 
 ### UM1. Agent-mode generate blocks the manager with no stop or timeout
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/GenerateDialog.tsx:253-271, 277-280, 402-411`.
 **What:** the modal polls every 2 s with no timeout, elapsed time, stop or
 manual import; the only exit closes the dialog. The pack-before-generation
@@ -1058,6 +1108,12 @@ half is L8.
 **Fix:** after ~90 s offer "Keep watching / Import from file…"; allow closing
 without losing progress and toast when the file lands.
 **Evidence:** by reading; cross-verified.
+**Resolution:** the watch shows its elapsed time with Stop and "Import from
+file now"; stopped, it offers Keep watching / Import from file…; after 90 s
+a note says agents take a while and the file can be imported later from
+Settings; closing while watching toasts that the file is kept (Settings →
+the pack's "Import from this file…"). Verified in the dev build (Stop,
+Keep watching, Escape → toast). Commit: `f5cb074`.
 
 ### UM2. Pack-delete undo restores prompts but not the pack; empty-pack delete is silent
 **Status:** DONE
@@ -1107,7 +1163,7 @@ after Ctrl+N → Enter. Verified in the dev build (`Saved "FB temp" to
 Desktop`). Commit: see commit list (popup feedback).
 
 ### UM5. Pack and group operations exist only behind right-click
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Sidebar.tsx:696-700, 585-589` (context menus),
 `:692, 581` (double-click rename).
 **What:** rename, lock, export, file actions, new group, delete have no
@@ -1115,15 +1171,26 @@ visible affordance; Settings → Your library covers some but not rename, lock
 or new group.
 **Fix:** a hover-revealed `⋯` on pack and group headers opening the same menu.
 **Evidence:** by reading; cross-verified.
+**Resolution:** pack and group headers get a hover- and focus-revealed
+"Actions" button (`RiMoreLine`) that opens the same menu anchored to itself.
+Verified in the dev build: the button exists and opens the pack menu on
+"Rename". Commit: `98eb887`.
 
 ### UM6. Inline renames commit on blur; merge-on-rename has no undo
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Sidebar.tsx:713, 602`; `Editor.tsx:406-413`.
 **What:** a misclick commits the typed text. Group merge on collision is
 deliberate (BEHAVIOR.md:88-90) and does toast, but is irreversible.
 **Fix:** Enter commits, blur cancels (or Confirm/Cancel affordances);
 `sayUndo` on a merging rename.
 **Evidence:** by reading; cross-verified.
+**Resolution:** pack and group rename fields and the editor's new-pack field
+commit on Enter and cancel on blur; renaming a group onto an existing one
+still merges (BEHAVIOR.md) but toasts `Merged "a" into "b"` with Undo that
+puts the label back on exactly the prompts that carried it. Verified in the
+dev build: typing "Desktop RENAMED" then leaving the field left the header
+at "Desktop (2)" and the config untouched; Enter renamed (and exposed N1).
+Commit: `e5c201b`.
 
 ### UM7. Ungroup is one click, irreversible, and the toast has no noun
 **Status:** DONE
@@ -1138,7 +1205,7 @@ back on exactly those prompts. Manual (dev build): Ungroup on "as" → toast
 header back. Commit: `aed6f92`.
 
 ### UM8. Import curation: no bulk select, hidden pack names, lost input on bad JSON, double-submit
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/ImportCuration.tsx:128-160` (rows), `:114, 150-157`
 (pack name), `:55-62` (bad JSON), `:163, 97-98` (Add button).
 **What:** no All/None/Only-new though `dupes` is computed; multi-pack rows
@@ -1148,6 +1215,15 @@ enabled during the await, so a second click imports twice.
 **Fix:** bulk buttons; `packName` chip per row; inline error with an editable
 textarea and Retry; `busy` state on the button.
 **Evidence:** by reading; cross-verified.
+**Resolution:** All / None / Only new buttons; a pack chip per row when the
+source holds several packs; invalid JSON stays in an editable textarea with
+the diagnosis and a Retry button (nothing is thrown away, the dialog stays
+open); the Add button is disabled while saving ("Adding…") and a failed save
+keeps the list; the decorative inner checkbox is `aria-hidden`; the "as
+pack" caption is a label. Verified in the dev build: malformed JSON → inline
+alert with the text kept, fixing it and Retry → one row with All/None; None
+→ "Add 0 prompts" disabled; a two-pack source → chips PackA, PackB. Commit:
+`92c0847`.
 
 ### UM9. Settings pane has no heading, close control, or Escape
 **Status:** DONE
@@ -1162,13 +1238,19 @@ settings"); Escape outside a text field closes it, unless an armed delete
 takes the key first (UM23). Verified in the dev build. Commit: `23506c7`.
 
 ### UM10. Empty states: no actions, three treatments, none in the sidebar
-**Status:** TODO
+**Status:** DONE
 **Where:** `Editor.tsx:157-171` ("Select or create a prompt", nothing to
 click); `popup/App.tsx:717`; `ImportCuration.tsx:127`; `Sidebar.tsx:841-870`
 renders nothing when empty.
 **Fix:** one `EmptyState` (icon, line, action); the editor's gets "New
 prompt" and "Generate pack with Claude…".
 **Evidence:** by reading; cross-verified.
+**Resolution:** `src/manager/EmptyState.tsx` (icon, title, hint, actions).
+The editor's empty state offers New prompt and Generate pack with Claude…
+and, once prompts exist, names the hotkey; the multi-selection state uses
+it too; an empty sidebar (no prompts, no packs) offers New prompt; the
+popup's empty message says how to save the clipboard as a prompt. Verified
+in the dev build (both editor actions present). Commit: `4af5367`.
 
 ### UM11. Form controls have no programmatic labels
 **Status:** DONE
@@ -1267,7 +1349,7 @@ pack names too; ImportCuration titles are `min-w-0 truncate` with a `title`
 and capped at half the row. Commit: `23506c7`.
 
 ### UM18. Placeholder syntax help disappears; field names are sanitised silently
-**Status:** TODO
+**Status:** DONE
 **Where:** `Editor.tsx:483` (placeholder vanishes on typing), `:184` (Advanced
 collapsed by default); `Editor.tsx:97` sanitises to `[a-z_]` so `step1`
 becomes `{step}`, the rule shown only in the post-hoc chip (:130) and
@@ -1275,6 +1357,11 @@ inconsistent with tag sanitising at `Sidebar.tsx:502`.
 **Fix:** a one-line legend under Preview; live "will insert {step}" under the
 input.
 **Evidence:** by reading; cross-verified.
+**Resolution:** a one-line legend above the preview names the three
+built-ins, fill-in fields, config parameters and the lowercase rule; the
+"+ field…" / "+ config…" inputs show `will insert {step}` (or "lowercase
+letters and _ only") as soon as the typed name would be folded. Verified in
+the dev build (typing "Step 1" → `will insert {step}`). Commit: `f33cbf3`.
 
 ### UM19. Toasts cover the editor controls; undo is 8 s only
 **Status:** DONE
@@ -1315,7 +1402,7 @@ semantics).
 **Evidence:** by reading; cross-verified.
 
 ### UM21. Terminology and labels
-**Status:** TODO
+**Status:** DONE
 - Four names for one feature: "+ New (with Claude)" (`Settings.tsx:327`,
   beside plain "+ New" at :352), "✦ or generate a pack with Claude…"
   (`Sidebar.tsx:820`), "Generate a pack with Claude" (`GenerateDialog.tsx:290`),
@@ -1330,6 +1417,13 @@ semantics).
 - "file-backed" / "Back with a file…" (`Settings.tsx:225, 286`) is jargon;
   suggest "Give this pack a file".
 **Evidence:** by reading; cross-verified.
+**Resolution:** one name — "Generate pack with Claude…" — in Settings, the
+sidebar and the dialog title (README already used it); delete items say
+`Delete N prompts…` / `Really delete N prompts?`; every menu input says what
+Enter does; `CtxItem` gained `hint`, and disabled "(locked)" items explain
+how to unlock; "Give this pack a file…" replaced "Back with a file…" in UH4;
+the sidebar chip reads `Filtering by "…" — clear` (UL2). Verified in the dev
+build. Commit: `25edca0`.
 
 ### UM22. Popup create discards typed work on Escape; `panelNote` replaces the row title
 **Status:** DONE
@@ -1577,6 +1671,15 @@ passed at its commit and the manual check performed.
 | UH8, UM9, UM11, UM13, UM15, UM17, UM19, UM23, UL7, UL8 | ✓ | ✓ 42/42 | ✓ 18/18 | Settings h1/close/Esc, labelled rows, pack rows as buttons, armed deletes disarm on Esc, editor labels, badge button, toaster bottom-right, Ctrl+Z undo | `23506c7` |
 | UH7 | ✓ | ✓ 42/42 | ✓ 18/18 | Menu key opens; arrows rove; submenu Right/Left; Esc returns focus | `d4d7927` |
 | UH1 | ✓ | ✓ 42/42 | ✓ 18/18 | Record → pending → Apply/Cancel; Tab passes; Reset offered | `082041b` |
+| UH11 | ✓ | ✓ 42/42 | ✓ 18/18 | Alt+Down/Up reorder with announcement; grip; menu items | `3c0fa88` |
+| UM6 | ✓ | ✓ 42/42 | ✓ 18/18 | blur cancels a rename; Enter commits | `e5c201b` |
+| UM5 | ✓ | ✓ 42/42 | ✓ 18/18 | header actions button opens the menu | `98eb887` |
+| UM21 | ✓ | ✓ 42/42 | ✓ 18/18 | labels checked in Settings and menus | `25edca0` |
+| UM18 | ✓ | ✓ 42/42 | ✓ 18/18 | legend present; "Step 1" → will insert {step} | `f33cbf3` |
+| UM10 | ✓ | ✓ 42/42 | ✓ 18/18 | editor empty state offers New prompt / Generate | `4af5367` |
+| UM8 | ✓ | ✓ 42/42 | ✓ 18/18 | bad JSON inline + Retry; All/None; multi-pack chips | `92c0847` |
+| UM1 + L8 | ✓ | ✓ 42/42 | ✓ 18/18 | Stop / Keep watching / import; no pack before import | `f5cb074` |
+| N1 | ✓ | ✓ 42/42 | ✓ 19/19 | rename round trip keeps one pack; delete + undo of a non-empty pack | (N1 commit) |
 
 ## Commit list
 
@@ -1619,6 +1722,15 @@ passed at its commit and the manual check performed.
 | `23506c7` | UH8, UM9, UM11, UM13, UM15, UM17, UM19, UM23, UL7, UL8 | Manager: real semantics, labelled controls, consistent armed deletes |
 | `d4d7927` | UH7 | Context menus work from the keyboard |
 | `082041b` | UH1 | Settings: the hotkey recorder records, then asks before applying |
+| `42cfb32` | — | REVIEW.md: record UH7 and UH1, and the manager semantics commit |
+| `3c0fa88` | UH11 | Sidebar: a keyboard path for reordering, a grip on hover, undo for a regroup |
+| `e5c201b` | UM6 | Inline renames commit on Enter only, and a merge can be undone |
+| `98eb887` | UM5 | Sidebar: a hover-revealed menu button on pack and group headers |
+| `25edca0` | UM21 | One name for the Claude generator, nouns in delete labels, hints on locked items |
+| `f33cbf3` | UM18 | Editor: placeholder syntax stays visible, and param names show their fold |
+| `4af5367` | UM10 | One EmptyState with actions for the editor, sidebar and popup |
+| `92c0847` | UM8 | Import curation: bulk select, pack names per row, editable bad JSON, no double add |
+| `f5cb074` | UM1, L8 | Generate (agent): a stop, a clock, manual import, and no pack until import |
 
 ## Remaining risks and deliberate exclusions
 
