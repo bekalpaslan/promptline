@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { RiArrowDownSFill, RiArrowRightSFill, RiCloseLine, RiLock2Fill } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
@@ -38,8 +38,12 @@ const selectCls =
 
 export function Settings() {
   const m = useManager()
+  // Hotkey recorder: Record arms the field, a combination becomes `pending`,
+  // and only Apply registers it — nothing happens on the first keystroke
   const [recording, setRecording] = useState(false)
   const [recordPreview, setRecordPreview] = useState("")
+  const [pending, setPending] = useState<string | null>(null)
+  const hotkeyRef = useRef<HTMLInputElement>(null)
   const [autostart, setAutostart] = useState(false)
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [newPackMode, setNewPackMode] = useState(false)
@@ -70,11 +74,17 @@ export function Settings() {
     }
   }, [deleteArm])
 
-  // Hotkey recorder: click, press a combination, it applies immediately
-  const onHotkeyKeyDown = async (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const DEFAULT_HOTKEY = "ctrl+shift+v"
+
+  const onHotkeyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!recording) return
+    // Tab must keep moving focus: swallowing it registered Shift+Tab as the
+    // hotkey and trapped keyboard users in the field
+    if (e.key === "Tab") return
     e.preventDefault()
     if (e.key === "Escape") {
+      setRecording(false)
+      setRecordPreview("")
       e.currentTarget.blur()
       return
     }
@@ -96,14 +106,23 @@ export function Settings() {
       sayErr("Add a modifier (Ctrl/Alt/Shift) — bare keys would fire while typing")
       return
     }
-    const input = e.currentTarget
+    // Recorded, not applied: Apply registers it, Cancel drops it
+    setPending(combo)
+    setRecording(false)
+    setRecordPreview("")
+    e.currentTarget.blur()
+  }
+
+  const applyHotkey = async () => {
+    if (!pending) return
     try {
-      await invoke("set_hotkey", { hotkey: combo })
-      m.setHotkey(combo)
-      input.blur()
-      say(`Hotkey set to ${C.fmtHotkey(combo)}`)
+      await invoke("set_hotkey", { hotkey: pending })
+      m.setHotkey(pending)
+      say(`Hotkey set to ${C.fmtHotkey(pending)}`)
+      setPending(null)
     } catch {
-      sayErr(`Couldn't register ${C.fmtHotkey(combo)} — try another combination`)
+      // The old hotkey is still registered (H4); keep the pending one for another try
+      sayErr(`Couldn't register ${C.fmtHotkey(pending)} — another program may own it; try a different combination`)
     }
   }
 
@@ -147,21 +166,55 @@ export function Settings() {
         <Row label="Global hotkey" htmlFor="setting-hotkey">
           <input
             id="setting-hotkey"
+            ref={hotkeyRef}
             readOnly
-            value={recording ? recordPreview : C.fmtHotkey(m.hotkey)}
-            placeholder={recording ? "press a key combination… (Esc cancels)" : "click, then press a combination…"}
+            value={recording ? recordPreview : pending ? C.fmtHotkey(pending) : C.fmtHotkey(m.hotkey)}
+            placeholder={recording ? "press a combination… (Esc cancels)" : ""}
+            aria-describedby="setting-hotkey-help"
             spellCheck={false}
             className={cn(
-              "w-50 cursor-pointer rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground",
-              recording && "ring-2 ring-amber-500/60"
+              "w-50 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground outline-none placeholder:text-muted-foreground",
+              recording && "ring-2 ring-amber-500/60",
+              pending && !recording && "ring-2 ring-primary/50"
             )}
-            onFocus={() => {
-              setRecording(true)
+            onBlur={() => {
+              setRecording(false)
               setRecordPreview("")
             }}
-            onBlur={() => setRecording(false)}
-            onKeyDown={(e) => void onHotkeyKeyDown(e)}
+            onKeyDown={onHotkeyKeyDown}
           />
+          {pending ? (
+            <>
+              <Button size="sm" className="h-auto px-2.5 py-1 text-xs" onClick={() => void applyHotkey()}>
+                Apply {C.fmtHotkey(pending)}
+              </Button>
+              <Button size="sm" variant="secondary" className="h-auto px-2.5 py-1 text-xs" onClick={() => setPending(null)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="h-auto px-2.5 py-1 text-xs"
+              aria-pressed={recording}
+              onClick={() => {
+                setRecording(true)
+                setRecordPreview("")
+                hotkeyRef.current?.focus()
+              }}
+            >
+              {recording ? "Recording…" : "Record"}
+            </Button>
+          )}
+          {m.hotkey !== DEFAULT_HOTKEY && !pending && (
+            <Button size="sm" variant="secondary" className="h-auto px-2.5 py-1 text-xs" onClick={() => setPending(DEFAULT_HOTKEY)}>
+              Reset to {C.fmtHotkey(DEFAULT_HOTKEY)}
+            </Button>
+          )}
+          <span role="status" className="sr-only">
+            {recording ? "Recording a hotkey — press a combination, Escape cancels" : pending ? `Recorded ${C.fmtHotkey(pending)} — apply or cancel` : ""}
+          </span>
         </Row>
         <Row label="Startup">
           <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
@@ -169,9 +222,9 @@ export function Settings() {
             Start with Windows
           </label>
         </Row>
-        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-          Click the hotkey field and press a combination to record it (Esc cancels). The default Ctrl+Shift+V
-          shadows "paste without formatting" in browsers — pick Ctrl+Alt+V if you use that.
+        <p id="setting-hotkey-help" className="mt-3 text-xs leading-relaxed text-muted-foreground">
+          Click Record, press a combination, then Apply (Esc cancels). The default Ctrl+Shift+V shadows "paste
+          without formatting" in browsers — pick Ctrl+Alt+V if you use that.
         </p>
       </Card>
 
