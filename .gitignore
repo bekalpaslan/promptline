@@ -1,4 +1,7 @@
 node_modules/
 src-tauri/target/
 dist/
-.actionflows/state/
+.actionflows/
+
+# Aperant data directory
+.auto-claude/
