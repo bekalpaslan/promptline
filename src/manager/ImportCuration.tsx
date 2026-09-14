@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { C, type Snippet } from "@/lib/core"
@@ -19,7 +19,7 @@ interface Row {
 // excluded) before anything lands in the library. Shared by Settings → library
 // imports and the Generate-with-Claude dialog.
 export function ImportCuration({
-  raw,
+  raw: initialRaw,
   defaultName,
   onClose,
   onImported,
@@ -31,45 +31,75 @@ export function ImportCuration({
   onImported?: () => void
 }) {
   const m = useManager()
+  // Bad JSON is shown inline with the text kept editable, not toasted away:
+  // the user pasted it, and the fix is often one stray character
+  const [draft, setDraft] = useState(initialRaw)
+  const [raw, setRaw] = useState(initialRaw)
   const diag = useMemo(() => C.diagnosePack(raw), [raw])
   const singlePack = diag.ok && diag.packs.length === 1
+  const multiPack = diag.ok && diag.packs.length > 1
+  const [busy, setBusy] = useState(false)
   const [packName, setPackName] = useState(() => {
     if (!diag.ok || !singlePack) return ""
     const name = diag.packs[0].name
     return name === "Imported" && defaultName ? defaultName : name
   })
-  const [rows, setRows] = useState<Row[]>(() => {
-    if (!diag.ok) return []
+  const rowsFor = (d: typeof diag): Row[] => {
+    if (!d.ok) return []
     const isDupe = (p: { title: string; text: string }) =>
       m.snippets.some((s) => s.title === p.title && s.text === p.text)
     const out: Row[] = []
-    for (const pk of diag.packs)
+    for (const pk of d.packs)
       for (const p of pk.prompts) {
         const dupe = isDupe(p)
         out.push({ packName: pk.name, ...p, dupe, include: !dupe })
       }
     return out
-  })
+  }
+  const [rows, setRows] = useState<Row[]>(() => rowsFor(diag))
 
-  // Invalid pack JSON: report and dismiss — but never setState during render
-  useEffect(() => {
-    if (!diag.ok) {
-      sayErr(`Can't import: ${diag.message}`)
-      onClose()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [diag])
-  if (!diag.ok) return null
+  if (!diag.ok) {
+    return (
+      <div className="mt-3 flex flex-col gap-2 rounded-md bg-secondary/60 p-3 text-xs text-muted-foreground">
+        <div role="alert" className="text-destructive">Can't import: {diag.message}</div>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          aria-label="Pack JSON"
+          spellCheck={false}
+          rows={6}
+          className="w-full resize-y rounded-sm bg-secondary p-2 font-mono text-xs text-foreground outline-none"
+        />
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            onClick={() => {
+              setRaw(draft)
+              setRows(rowsFor(C.diagnosePack(draft)))
+            }}
+          >
+            Retry
+          </Button>
+          <Button size="sm" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   const included = rows.filter((r) => r.include).length
   const dupes = rows.filter((r) => r.dupe).length
+  const setAll = (pred: (r: Row) => boolean) => setRows((rs) => rs.map((r) => ({ ...r, include: pred(r) })))
 
   const confirm = async () => {
+    if (busy) return
     const target = (name: string) => (singlePack ? packName.trim() || name : name)
     if (singlePack && m.isLocked(packName.trim())) {
       sayErr(`Pack "${packName.trim()}" is locked — pick another name`)
       return
     }
+    setBusy(true)
     let added = 0
     let skippedLocked = 0
     const next: Snippet[] = [...m.snippets]
@@ -94,13 +124,18 @@ export function ImportCuration({
       })
       added++
     }
-    await m.persist(next)
+    try {
+      await m.persist(next)
+    } catch {
+      setBusy(false) // persist already toasted; the list stays for a retry
+      return
+    }
     onClose()
     onImported?.()
     say(
       skippedLocked
-        ? `Imported ${added} prompts (${skippedLocked} skipped — locked pack)`
-        : `Imported ${added} prompts`
+        ? `Imported ${added} prompt${added === 1 ? "" : "s"} (${skippedLocked} skipped — locked pack)`
+        : `Imported ${added} prompt${added === 1 ? "" : "s"}`
     )
   }
 
@@ -113,8 +148,9 @@ export function ImportCuration({
         </span>
         {singlePack && (
           <>
-            <span>as pack:</span>
+            <label htmlFor="import-pack-name">as pack:</label>
             <input
+              id="import-pack-name"
               value={packName}
               onChange={(e) => setPackName(e.target.value)}
               spellCheck={false}
@@ -122,6 +158,20 @@ export function ImportCuration({
             />
           </>
         )}
+        {/* Bulk selection: `dupes` was computed but never offered */}
+        <span className="ml-auto flex gap-1">
+          <button type="button" className="cursor-pointer rounded-sm px-1.5 py-0.5 hover:bg-secondary hover:text-foreground" onClick={() => setAll(() => true)}>
+            All
+          </button>
+          <button type="button" className="cursor-pointer rounded-sm px-1.5 py-0.5 hover:bg-secondary hover:text-foreground" onClick={() => setAll(() => false)}>
+            None
+          </button>
+          {dupes > 0 && (
+            <button type="button" className="cursor-pointer rounded-sm px-1.5 py-0.5 hover:bg-secondary hover:text-foreground" onClick={() => setAll((r) => !r.dupe)}>
+              Only new
+            </button>
+          )}
+        </span>
       </div>
       <div className="overflow-y-auto p-1 px-2">
         {rows.length === 0 && <div className="px-2 py-2">No usable prompts found in the pack.</div>}
@@ -146,8 +196,13 @@ export function ImportCuration({
                 }
               }}
             >
-              <Checkbox checked={r.include} className="pointer-events-none" tabIndex={-1} />
+              <Checkbox checked={r.include} className="pointer-events-none" tabIndex={-1} aria-hidden />
               <span className="min-w-0 max-w-[50%] truncate font-semibold text-foreground" title={r.title}>{r.title}</span>
+              {multiPack && (
+                <span className="shrink-0 rounded-full bg-primary/15 px-1.5 text-xs text-foreground" title="Pack">
+                  {r.packName}
+                </span>
+              )}
               {r.group && (
                 <span className="shrink-0 rounded-full bg-secondary px-1.5 text-xs">{r.group}</span>
               )}
@@ -160,8 +215,8 @@ export function ImportCuration({
         })}
       </div>
       <div className="flex items-center gap-2 border-t border-border px-3 py-2">
-        <Button size="sm" disabled={included === 0} onClick={() => void confirm()}>
-          Add {included} prompt{included === 1 ? "" : "s"}
+        <Button size="sm" disabled={included === 0 || busy} onClick={() => void confirm()}>
+          {busy ? "Adding…" : `Add ${included} prompt${included === 1 ? "" : "s"}`}
         </Button>
         <Button size="sm" variant="secondary" onClick={onClose}>
           Cancel
