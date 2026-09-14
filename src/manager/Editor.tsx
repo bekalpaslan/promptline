@@ -427,14 +427,8 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
               }
               if (e.key === "Escape") setNewPackMode(false)
             }}
-            onBlur={(e) => {
-              const name = e.target.value.trim()
-              setNewPackMode(false)
-              if (name && !m.isLocked(name)) {
-                setPack(name)
-                scheduleSave()
-              }
-            }}
+            // Enter confirms; leaving the field cancels (the select comes back)
+            onBlur={() => setNewPackMode(false)}
           />
         ) : (
           <select

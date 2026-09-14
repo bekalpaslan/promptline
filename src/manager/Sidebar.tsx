@@ -276,10 +276,15 @@ export function Sidebar() {
     setRenamingGroup(null)
     if (!next || next === group) return
     const merging = m.snippets.some((s) => (s.pack || DEFAULT_PACK) === pack && s.group === next)
-    await m.persist(
-      m.snippets.map((s) => ((s.pack || DEFAULT_PACK) === pack && s.group === group ? { ...s, group: next } : s))
-    )
-    say(merging ? `Merged into "${next}"` : `Renamed to "${next}"`)
+    const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group === group).map((s) => s.id)
+    await m.persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group: next } : s)))
+    if (merging) {
+      // Merging is deliberate (BEHAVIOR.md) but the two groups can't be
+      // told apart afterwards, so offer to split them again
+      sayUndo(`Merged "${group}" into "${next}"`, () => {
+        void m.persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group } : s))).then(() => say("Restored"))
+      })
+    } else say(`Renamed to "${next}"`)
   }
 
   const deleteGroup = async (pack: string, group: string) => {
@@ -644,7 +649,8 @@ export function Sidebar() {
               if (e.key === "Escape") setRenamingGroup(null)
               if (e.key === "Enter") void renameGroup(pack, group, e.currentTarget.value.trim())
             }}
-            onBlur={(e) => void renameGroup(pack, group, e.target.value.trim())}
+            // Enter commits, leaving the field cancels: a misclick must not rename
+            onBlur={() => setRenamingGroup(null)}
           />
         ) : (
           <span className="min-w-0 flex-1 truncate">
@@ -778,7 +784,7 @@ export function Sidebar() {
               if (e.key === "Escape") setRenaming(null)
               if (e.key === "Enter") void renamePack(name, e.currentTarget.value.trim())
             }}
-            onBlur={(e) => void renamePack(name, e.target.value.trim())}
+            onBlur={() => setRenaming(null)}
           />
         ) : (
           <span className="min-w-0 flex-1 truncate">
