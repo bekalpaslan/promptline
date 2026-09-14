@@ -26,7 +26,7 @@ import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
-import { say, sayErr } from "./status"
+import { say, sayErr, sayUndo } from "./status"
 
 // "custom" = the snippets array order itself, arranged by drag-and-drop
 const SORTS: Record<string, (a: Snippet, b: Snippet) => number> = {
@@ -267,13 +267,19 @@ export function Sidebar() {
         kind: "item",
         label: "Ungroup prompts",
         run: () => {
+          // A label is cheap to put back: remember which prompts carried it
+          const ids = m.snippets
+            .filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group === group)
+            .map((s) => s.id)
           void m
-            .persist(
-              m.snippets.map((s) =>
-                (s.pack || DEFAULT_PACK) === pack && s.group === group ? { ...s, group: "" } : s
-              )
+            .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group: "" } : s)))
+            .then(() =>
+              sayUndo(`Ungrouped ${count} prompt${count === 1 ? "" : "s"} from "${group}"`, () => {
+                void m
+                  .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group } : s)))
+                  .then(() => say("Restored"))
+              })
             )
-            .then(() => say(`Ungrouped ${count}`))
         },
       },
       { kind: "sep" },

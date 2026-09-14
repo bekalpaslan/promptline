@@ -1013,11 +1013,15 @@ deliberate (BEHAVIOR.md:88-90) and does toast, but is irreversible.
 **Evidence:** by reading; cross-verified.
 
 ### UM7. Ungroup is one click, irreversible, and the toast has no noun
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Sidebar.tsx:272-281`.
 **What:** "Ungrouped 5". Its sibling "Delete group…" gets a dialog and undo.
 **Fix:** `sayUndo("Ungrouped 5 prompts", restore)` with captured labels.
 **Evidence:** by reading; cross-verified.
+**Resolution:** Ungroup remembers the ids that carried the label and
+toasts `Ungrouped N prompts from "<group>"` with Undo, which puts the label
+back on exactly those prompts. Manual: see verification note. Commit: see
+commit list (UM7).
 
 ### UM8. Import curation: no bulk select, hidden pack names, lost input on bad JSON, double-submit
 **Status:** TODO
