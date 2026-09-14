@@ -51,10 +51,10 @@ Code findings (H, M, L):
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 3 | 11 | 4 | 18 |
+| TODO | 0 | 2 | 11 | 4 | 17 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 | 0 |
-| DONE | 6 | 10 | 1 | 4 | 21 |
+| DONE | 6 | 11 | 1 | 4 | 22 |
 | DECLINED | 0 | 0 | 0 | 0 | 0 |
 | **Total** | **6** | **13** | **12** | **8** | **39** |
 
@@ -63,10 +63,10 @@ a task):
 
 | Status | High | Medium | Low | Total |
 |---|---|---|---|---|
-| TODO | 12 | 23 | 8 | 43 |
+| TODO | 12 | 22 | 8 | 42 |
 | IN PROGRESS | 0 | 0 | 0 | 0 |
 | BLOCKED | 0 | 0 | 0 | 0 |
-| DONE | 1 | 0 | 0 | 1 |
+| DONE | 1 | 1 | 0 | 2 |
 | DECLINED | 0 | 0 | 0 | 0 |
 | **Total** | **13** | **23** | **8** | **44** |
 
@@ -368,7 +368,7 @@ create title input; Escape → focus on the search input. Commit: `1ad4cba`.
 UI pass (rated High there: focus lands on `body`, no caret explains why).
 
 ### M3. The popup has no error surface; failed pastes and saves are silent
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:236-238` (`send`), `:298`, `:276`, `:313`,
 `:324`, `:331`; manager `App.tsx:42-46` (`persist` does not catch) and every
 `void m.persist(...)` in `Sidebar.tsx`.
@@ -385,6 +385,26 @@ UI pass (rated High): the popup mounts no `Toaster`, so there is no channel
 even if an error were raised; in `saveCreate` a rejection leaves the create
 view sitting there with no message. The error strip can reuse the
 `panelNote` slot (`popup/App.tsx:110`) but see UM22 for its placement.
+**Resolution:**
+- *Implementation:* popup — a `notice` state rendered by `Shell` as a strip
+  above the hint bar (`role="status"`, `aria-live="polite"`): errors say
+  "Couldn't paste/copy/save/delete/load the library: <reason> — Esc to
+  dismiss" and stay until Esc or the next summon; `send`, `saveCreate`,
+  `patch`, `deleteSnippet` and `reload` all catch. Manager — done in H6
+  (`persist` and `updateSnippet` catch, toast, reload from disk and rethrow).
+  Rust — `paste_snippet` writes the clipboard *before* persisting the size
+  and hiding the popup, with messages naming the step ("Couldn't open/write
+  to the clipboard: …"); on failure nothing is hidden and `uses` is not
+  bumped. Done with UM3 (copy-only feedback), which shares the strip.
+- *Tests added:* none automated (needs the clipboard and a window).
+- *Manual verification:* dev build. A helper process held the clipboard
+  open with a real owner window (arboard then fails: "The native clipboard is
+  not accessible due to being held by another party"); pressing Enter on a
+  prompt showed the strip `Couldn't paste: Couldn't write to the clipboard:
+  … — Esc to dismiss` with the list still on screen; Esc cleared it and
+  focus stayed on the search input; the prompt's use count was unchanged.
+  With the clipboard free, Enter pastes as before (H2 check).
+- *Commit:* see commit list (M3).
 
 ### M4. Every autosave rewrites every pack file
 **Status:** DONE
@@ -927,7 +947,7 @@ Follow-up to H1.
 **Evidence:** by reading; cross-verified.
 
 ### UM3. Copy-only gives no feedback, and the form button says "Paste" while copying
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx:297-298, 301-315, 613, 476, 339, 446`.
 **What:** Ctrl+Enter / Ctrl+click hide the window with nothing shown;
 `pickedId` highlight lasts 90 ms and `submitForm` never sets it. In copy mode
@@ -935,6 +955,11 @@ the form's button and hint still read "Paste".
 **Fix:** label from `form.paste`; hold the popup ~600 ms with "Copied to
 clipboard".
 **Evidence:** by reading; cross-verified.
+**Resolution:** the form button reads Paste/Copy from `form.paste` (done in
+H5/UH3); for copy-only, Rust no longer hides the popup — the popup shows
+"Copied to clipboard" in the feedback strip and hides itself after 600 ms.
+Verified: Ctrl+Enter on "Test" showed the strip and the clipboard held
+`test`. Commit: see M3.
 
 ### UM4. Popup create gives no confirmation; the new prompt may be invisible
 **Status:** TODO
@@ -1325,6 +1350,7 @@ passed at its commit and the manual check performed.
 | M2 | ✓ | ✓ 36/36 | ✓ 18/18 | Esc from form / create → focus on search input | `1ad4cba` |
 | M10 | ✓ | ✓ 36/36 | ✓ 18/18 | toaster `data-sonner-theme` follows Light/Dark | `195215d` |
 | L2 + D4 | ✓ | ✓ 36/36 | ✓ 18/18 | app reloads and renders with the primitives and deps removed | `f3454bd` |
+| M3 + UM3 | ✓ | ✓ 36/36 | ✓ 18/18 | held clipboard → error strip, popup stays, Esc clears; copy-only → "Copied" strip | (M3 commit) |
 
 ## Commit list
 

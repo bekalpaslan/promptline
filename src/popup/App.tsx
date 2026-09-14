@@ -25,6 +25,9 @@ type Entry = { s: Snippet; indices: number[] | null }
 type FormState = { snippet: Snippet; base: string; fields: string[]; paste: boolean }
 type PanelAction = { label: string; danger?: boolean; run: () => void }
 type CreateState = { title: string; pack: string; group: string }
+// One line of feedback above the hint bar: the popup's only channel for an
+// error (a failed paste or save) or a confirmation (copied, saved)
+type Notice = { text: string; kind: "error" | "info" }
 
 const DEFAULT_PACK = "My prompts"
 
@@ -116,6 +119,7 @@ export function App() {
   const [compact, setCompact] = useState(isCompact())
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
   const [create, setCreate] = useState<CreateState | null>(null)
+  const [notice, setNotice] = useState<Notice | null>(null)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
@@ -233,9 +237,25 @@ export function App() {
     setPanelSel(0)
   }, [])
 
-  const send = useCallback(async (snippet: Snippet, text: string, paste: boolean) => {
-    await invoke("paste_snippet", { text, paste, id: snippet.id })
+  const fail = useCallback((what: string, e: unknown) => {
+    setNotice({ text: `Couldn't ${what}: ${e instanceof Error ? e.message : String(e)}`, kind: "error" })
   }, [])
+
+  const send = useCallback(async (snippet: Snippet, text: string, paste: boolean) => {
+    try {
+      await invoke("paste_snippet", { text, paste, id: snippet.id })
+    } catch (e) {
+      // Rust writes the clipboard before hiding, so on failure the popup is
+      // still on screen to show this
+      fail(paste ? "paste" : "copy", e)
+      return
+    }
+    if (!paste) {
+      // Copy-only: Rust leaves the popup up; confirm, then hide
+      setNotice({ text: "Copied to clipboard", kind: "info" })
+      setTimeout(() => void invoke("hide_popup"), 600)
+    }
+  }, [fail])
 
   // --- Create prompt from clipboard -------------------------------------------
   const openCreate = useCallback(() => {
@@ -272,18 +292,30 @@ export function App() {
       configValues: {},
     }
     // Rust appends on disk; this window never sends the whole library
-    const lib = await invoke<Library>("add_snippet", { snippet: snip })
-    setSnippets(lib.snippets)
+    try {
+      const lib = await invoke<Library>("add_snippet", { snippet: snip })
+      setSnippets(lib.snippets)
+    } catch (e) {
+      fail("save the prompt", e)
+      return
+    }
     localStorage.setItem("lastPack", create.pack)
     setCreate(null)
     setQuery("")
-  }, [create, clip])
+  }, [create, clip, fail])
 
-  // One prompt's pin state or remembered fill-ins, merged on disk
-  const patch = useCallback(async (id: string, patch: SnippetPatch) => {
-    const lib = await invoke<Library>("patch_snippet", { id, patch })
-    setSnippets(lib.snippets)
-  }, [])
+  // One prompt's pin state or remembered fill-ins, merged on disk.
+  // Resolves false when the write failed (already reported).
+  const patch = useCallback(async (id: string, patch: SnippetPatch): Promise<boolean> => {
+    try {
+      const lib = await invoke<Library>("patch_snippet", { id, patch })
+      setSnippets(lib.snippets)
+      return true
+    } catch (e) {
+      fail("save", e)
+      return false
+    }
+  }, [fail])
 
   const pick = useCallback((snippet: Snippet, paste: boolean) => {
     hidePreview()
@@ -312,7 +344,8 @@ export function App() {
     const paste = forceCopy ? false : form.paste
     setForm(null)
     // Remember entered values so next time the form is pre-filled.
-    // Sequenced: paste_snippet re-reads the file to bump the use count.
+    // Sequenced: paste_snippet re-reads the file to bump the use count. A
+    // failed save is reported but must not stop the paste.
     await patch(snippet.id, { fieldValues: { ...formValues } })
     await send(snippet, C.expandBuiltins(text), paste)
   }, [form, formValues, patch, send])
@@ -322,15 +355,19 @@ export function App() {
       setPanelNote(`Max ${MAX_PINS} pins — unpin something first`)
       return
     }
-    await patch(s.id, { pinned: !s.pinned })
-    closePanel()
+    if (await patch(s.id, { pinned: !s.pinned })) closePanel()
   }, [snippets, patch, closePanel])
 
   const deleteSnippet = useCallback(async (s: Snippet) => {
-    const lib = await invoke<Library>("delete_snippet", { id: s.id })
-    setSnippets(lib.snippets)
+    try {
+      const lib = await invoke<Library>("delete_snippet", { id: s.id })
+      setSnippets(lib.snippets)
+    } catch (e) {
+      fail("delete", e)
+      return
+    }
     closePanel()
-  }, [closePanel])
+  }, [closePanel, fail])
 
   const panelActions = useMemo<PanelAction[]>(() => {
     if (!panelFor) return []
@@ -353,20 +390,25 @@ export function App() {
     closePanel()
     setForm(null)
     setCreate(null)
+    setNotice(null)
     hidePreview()
     setPickedId(null)
-    const [lib, clipboard, config] = await Promise.all([
-      invoke<Library>("get_snippets"),
-      invoke<string>("get_clipboard_text"),
-      invoke<{ packs?: PackMeta[] }>("get_config"),
-    ])
     setQuery("")
-    setSnippets(lib.snippets)
-    setClip(clipboard)
-    setPackMeta(Array.isArray(config.packs) ? config.packs : [])
     setSel(0)
     inputRef.current?.focus()
-  }, [closePanel, hidePreview])
+    try {
+      const [lib, clipboard, config] = await Promise.all([
+        invoke<Library>("get_snippets"),
+        invoke<string>("get_clipboard_text"),
+        invoke<{ packs?: PackMeta[] }>("get_config"),
+      ])
+      setSnippets(lib.snippets)
+      setClip(clipboard)
+      setPackMeta(Array.isArray(config.packs) ? config.packs : [])
+    } catch (e) {
+      fail("load the library", e)
+    }
+  }, [closePanel, hidePreview, fail])
 
   useEffect(() => {
     const un = listen("popup-shown", () => void reload())
@@ -408,6 +450,7 @@ export function App() {
       if (e.key === "Escape") {
         if (form) setForm(null)
         else if (create) setCreate(null)
+        else if (notice?.kind === "error") setNotice(null)
         else void invoke("hide_popup")
         return
       }
@@ -459,7 +502,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview])
 
   const onItemMouseMove = (i: number, e: React.MouseEvent) => {
     const moved = e.clientX !== lastMouse.current.x || e.clientY !== lastMouse.current.y
@@ -494,7 +537,7 @@ export function App() {
   // --- Create-from-clipboard confirmation --------------------------------------
   if (create) {
     return (
-      <Shell hint={hint}>
+      <Shell hint={hint} notice={notice}>
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-1">
           <SectionHeader>New prompt from clipboard</SectionHeader>
           <div className="px-1">
@@ -578,7 +621,7 @@ export function App() {
     const submitLabel =
       emptyCount === 0 ? verb : `${verb} with ${emptyCount} field${emptyCount === 1 ? "" : "s"} empty`
     return (
-      <Shell hint={hint}>
+      <Shell hint={hint} notice={notice}>
         <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-1">
           <SectionHeader>{form.snippet.title}</SectionHeader>
           {form.fields.map((f, i) => {
@@ -708,7 +751,7 @@ export function App() {
   }
 
   return (
-    <Shell hint={hint}>
+    <Shell hint={hint} notice={notice}>
       {/* Search — kit "Active" state: 36px boxed input, 2px focus border */}
       <div
         className="flex h-8 shrink-0 items-center gap-1 rounded-lg border-2 border-input bg-background py-1.5 pl-2 pr-1.5 focus-within:border-(--palette-focus)"
@@ -848,11 +891,26 @@ export function App() {
 }
 
 // Window chrome — the kit palette card: 12px radius, 8px padding, soft shadow
-function Shell({ children, hint }: { children: React.ReactNode; hint: React.ReactNode }) {
+function Shell({ children, hint, notice }: { children: React.ReactNode; hint: React.ReactNode; notice: Notice | null }) {
   return (
     <div className="flex h-dvh flex-col gap-2.5 overflow-hidden rounded-lg border border-border bg-background p-2.5 text-foreground shadow-[0px_0px_16px_rgba(18,45,88,0.12)]">
       {import.meta.env.DEV && <SizeDebug />}
       {children}
+      {/* Feedback strip: errors stay until Esc or the next summon, confirmations
+          go with the popup. A live region, so it is announced. */}
+      <div role="status" aria-live="polite" className="shrink-0 empty:hidden">
+        {notice && (
+          <div
+            className={cn(
+              "truncate rounded-md px-2 py-1 text-xs",
+              notice.kind === "error" ? "bg-destructive/15 text-destructive" : "bg-primary/15 text-foreground"
+            )}
+            title={notice.text}
+          >
+            {notice.kind === "error" ? `${notice.text} — Esc to dismiss` : notice.text}
+          </div>
+        )}
+      </div>
       <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-1 pt-2.5 text-xs text-muted-foreground">
         {hint}
       </div>

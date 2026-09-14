@@ -1058,10 +1058,6 @@ fn paste_snippet(
     id: Option<String>,
 ) -> Result<(), String> {
     let _guard = state.store.lock().unwrap();
-    persist_popup_size(&app);
-    if let Some(w) = app.get_webview_window("popup") {
-        let _ = w.hide();
-    }
     let prev_window = *state.prev_window.lock().unwrap();
     let prev_clipboard = arboard::Clipboard::new()
         .ok()
@@ -1073,9 +1069,24 @@ fn paste_snippet(
         text
     };
 
-    let mut clipboard = arboard::Clipboard::new().map_err(|e| e.to_string())?;
-    clipboard.set_text(text).map_err(|e| e.to_string())?;
+    // The clipboard is written *before* the popup is hidden: if the write
+    // fails (another program holding the clipboard open), the error returns
+    // to a window that is still on screen and can show it.
+    let mut clipboard =
+        arboard::Clipboard::new().map_err(|e| format!("Couldn't open the clipboard: {e}"))?;
+    clipboard
+        .set_text(text)
+        .map_err(|e| format!("Couldn't write to the clipboard: {e}"))?;
     drop(clipboard);
+
+    persist_popup_size(&app);
+    // Copy-only leaves the popup up for a moment so it can confirm the copy;
+    // the popup hides itself afterwards
+    if paste {
+        if let Some(w) = app.get_webview_window("popup") {
+            let _ = w.hide();
+        }
+    }
 
     if let Some(id) = id {
         let mut snippets = load_snippets_from_disk(&app)?;

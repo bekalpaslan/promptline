@@ -44,8 +44,14 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    off-screen or under the taskbar.
 3. The user picks a prompt. If it needs runtime `{field}` values, the popup
    switches to form mode first, pre-filled from `snippet.fieldValues`.
-4. **`paste_snippet`** hides the popup, reads the current clipboard, expands
-   `{clipboard}` from it, writes the result to the clipboard, and bumps `uses`.
+4. **`paste_snippet`** reads the current clipboard, expands `{clipboard}`
+   from it, writes the result to the clipboard, and only then hides the popup
+   and bumps `uses`. The clipboard write comes first because it is the step
+   that can fail (another program holding the clipboard open), and an error
+   has to return to a window that is still on screen: the popup shows it in
+   its feedback strip and nothing else happens. Copy-only (Ctrl+Enter) leaves
+   the popup up for a moment to say "Copied to clipboard"; the popup hides
+   itself afterwards.
 5. A detached thread waits 80 ms, calls `SetForegroundWindow` on the remembered
    window, waits another 80 ms, and sends Ctrl+V via `SendInput`.
 
