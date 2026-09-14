@@ -812,7 +812,7 @@ couldn't be written — use "Back with a file…" to retry`. Replace every bare
 **Evidence:** by reading; cross-verified.
 
 ### UH5. Pin guard rejects legal pins and the message is wrong
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Sidebar.tsx:436-441`.
 **What:** the check is `already + selected.length > MAX_PINS`, counting
 already-pinned rows in the selection as new. `toPin` is computed at :437 and
@@ -822,6 +822,12 @@ would make 6", though the result would be 4.
 **Fix:** compare `already + toPin.length`; message
 `Max 5 pins — 3 already pinned, so you can pin 2 more`. One core test.
 **Evidence:** by reading; cross-verified.
+**Resolution:** `pinPlan(snippets, ids, max)` in `ui/core.js` counts only
+rows that would newly be pinned (already-pinned rows in the selection take
+no slot) and returns `already`, `toPin`, `room`; the sidebar's Pin action
+uses it and says `Max 5 pins — N already pinned, so you can pin M more`.
+Test covers the review's scenario. Manual: see verification note. Commit:
+see commit list (UH5).
 
 ### UH6. Popup list is a listbox with no ARIA
 **Status:** TODO

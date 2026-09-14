@@ -429,15 +429,17 @@ export function Sidebar() {
               .then(() => say(n === 1 ? "Unpinned" : `Unpinned ${n}`))
             return
           }
-          const already = m.snippets.filter((s) => s.pinned && !ids.includes(s.id)).length
-          const toPin = selected.filter((s) => !s.pinned).length
-          if (already + selected.length > MAX_PINS) {
-            sayErr(`Max ${MAX_PINS} pins — that would make ${already + selected.length}`)
+          // Rows in the selection that are already pinned take no new slot
+          const plan = C.pinPlan(m.snippets, ids, MAX_PINS)
+          if (!plan.ok) {
+            sayErr(
+              `Max ${MAX_PINS} pins — ${plan.already} already pinned, so you can pin ${plan.room === 0 ? "no" : plan.room} more`
+            )
             return
           }
           void m
             .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, pinned: true } : s)))
-            .then(() => say(toPin === 1 ? "Pinned" : `Pinned ${toPin}`))
+            .then(() => say(plan.toPin === 1 ? "Pinned" : `Pinned ${plan.toPin}`))
         },
       },
       { kind: "header", text: "Move to" },

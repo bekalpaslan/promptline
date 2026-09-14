@@ -236,6 +236,22 @@ test('fmtHotkey capitalizes parts', () => {
   assert.equal(core.fmtHotkey('alt+space'), 'Alt+Space');
 });
 
+// ---- pins ---------------------------------------------------------------------------
+
+test('pinPlan counts only newly pinned rows against the limit (UH5)', () => {
+  const lib = [
+    { id: 'a', pinned: true }, { id: 'b', pinned: true }, { id: 'c', pinned: true },
+    { id: 'd', pinned: true }, { id: 'e', pinned: false }, { id: 'f', pinned: false }, { id: 'g', pinned: false },
+  ];
+  // 3 pinned outside; selection has 1 pinned + 1 unpinned: result would be 5, fine
+  assert.deepEqual(core.pinPlan(lib, ['d', 'e'], 5), { ok: true, already: 4, toPin: 1, room: 1 });
+  // Two new pins with 4 already: over by one
+  assert.deepEqual(core.pinPlan(lib, ['e', 'f'], 5), { ok: false, already: 4, toPin: 2, room: 1 });
+  // All selected already pinned: nothing new, always ok
+  assert.equal(core.pinPlan(lib, ['a', 'b'], 5).ok, true);
+  assert.equal(core.pinPlan(lib, ['e', 'f', 'g'], 5).room, 1);
+});
+
 // ---- pack export ------------------------------------------------------------------
 
 test('packToJson keeps title/tags/text, adds group only when set, drops personal state (M1)', () => {

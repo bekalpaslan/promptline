@@ -230,6 +230,22 @@
     }
   }
 
+  // ---- Pins -----------------------------------------------------------------------
+  // Whether pinning `ids` fits under `max`, counting only what would newly
+  // be pinned: rows in the selection that are already pinned take no new
+  // slot. Returns the numbers the message needs.
+  function pinPlan(snippets, ids, max) {
+    const sel = ids instanceof Set ? ids : new Set(ids);
+    let pinnedOutside = 0, pinnedInside = 0, toPin = 0;
+    for (const s of snippets) {
+      if (sel.has(s.id)) { if (s.pinned) pinnedInside++; else toPin++; }
+      else if (s.pinned) pinnedOutside++;
+    }
+    const already = pinnedOutside + pinnedInside;
+    const room = Math.max(0, max - already);
+    return { ok: toPin <= room, already, toPin, room };
+  }
+
   // ---- Pack export --------------------------------------------------------------
   // The shareable form of prompts: title, tags, text, and group only when set.
   // Never uses/pinned/fieldValues/configValues — those are personal state.
@@ -297,6 +313,7 @@
     stripFences,
     parsePacks,
     diagnosePack,
+    pinPlan,
     packToJson,
     removeByIds,
     restoreRemoved,
