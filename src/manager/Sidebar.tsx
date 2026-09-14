@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core"
 import {
   RiArrowDownSLine,
   RiArrowRightSLine,
+  RiDraggable,
   RiEqualizerLine,
   RiFileAddLine,
   RiFolderAddLine,
@@ -86,6 +87,8 @@ export function Sidebar() {
   // Drag-to-reorder: a short press-and-hold lifts the row (so the gesture is
   // discoverable), then moving it slides an insertion mark between rows.
   const [drag, setDrag] = useState<{ id: string; pack: string } | null>(null)
+  // What a screen reader hears after a keyboard move
+  const [announce, setAnnounce] = useState("")
   const [over, setOver] = useState<{ id: string; after: boolean } | null>(null)
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const downPos = useRef<{ x: number; y: number } | null>(null)
@@ -154,15 +157,40 @@ export function Sidebar() {
     if (to === -1) return
     // Dropping among another group's rows moves the prompt into that group
     const target = all[to]
-    const moved = grouped && target.group !== item.group ? { ...item, group: target.group } : item
+    const regrouped = grouped && target.group !== item.group
+    const moved = regrouped ? { ...item, group: target.group } : item
     if (after) to += 1
     all.splice(to, 0, moved)
+    const before = m.snippets
     await m.persist(all)
+    if (regrouped) {
+      // A drop among another group's rows changes the label as a side
+      // effect; say so, and make it reversible
+      sayUndo(
+        target.group ? `Moved "${item.title}" into group "${target.group}"` : `Moved "${item.title}" out of its group`,
+        () => void m.persist(before).then(() => say("Restored"))
+      )
+    }
     if (orderBy !== "custom") {
       setOrderBy("custom")
       localStorage.setItem("orderBy", "custom")
       say('Sorting is now "Custom" — switch back under list view options')
     }
+  }
+
+  // Keyboard reorder: swap with the neighbouring row of the same pack
+  const moveRow = (id: string, dir: -1 | 1) => {
+    const ids = visibleIdsRef.current
+    const at = ids.indexOf(id)
+    if (at === -1) return
+    const me = m.snippets.find((s) => s.id === id)
+    const neighbor = ids[at + dir]
+    const other = neighbor ? m.snippets.find((s) => s.id === neighbor) : undefined
+    if (!me || !other || (grouped && (other.pack || DEFAULT_PACK) !== (me.pack || DEFAULT_PACK))) {
+      setAnnounce(`"${me?.title ?? ""}" is already at the ${dir < 0 ? "top" : "bottom"}`)
+      return
+    }
+    void commitReorder(id, neighbor, dir > 0).then(() => setAnnounce(`Moved "${me.title}" ${dir < 0 ? "up" : "down"}`))
   }
 
   // While a drag is live, track the row under the pointer and commit on release
@@ -427,6 +455,13 @@ export function Sidebar() {
         kind: "header",
         text: n === 1 ? m.snippets.find((s) => s.id === ids[0])?.title || "1 prompt" : `${n} prompts`,
       },
+      // The keyboard's drag: one row at a time
+      ...(n === 1
+        ? ([
+            { kind: "item", label: "Move up", hint: "Alt+Up on the row", run: () => moveRow(ids[0], -1) },
+            { kind: "item", label: "Move down", hint: "Alt+Down on the row", run: () => moveRow(ids[0], 1) },
+          ] as CtxItem[])
+        : []),
       {
         kind: "item",
         label: allPinned ? (n === 1 ? "Unpin" : `Unpin ${n}`) : n === 1 ? "Pin" : `Pin ${n}`,
@@ -637,12 +672,12 @@ export function Sidebar() {
         title={s.title || "(untitled)"}
         data-snip-id={s.id}
         className={cn(
-          "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] font-semibold transition-[transform,box-shadow] duration-150",
+          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-[13px] font-semibold transition-[transform,box-shadow] duration-150",
           active
             ? "bg-accent text-foreground"
             : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
           multi && "outline outline-1 -outline-offset-1 outline-primary",
-          lifted && "z-10 scale-[1.02] cursor-grabbing shadow-lg ring-1 ring-ring/40",
+          lifted ? "z-10 scale-[1.02] cursor-grabbing shadow-lg ring-1 ring-ring/40" : "hover:cursor-grab",
           mark !== null &&
             (mark ? "shadow-[0_3px_0_0_var(--primary)]" : "shadow-[0_-3px_0_0_var(--primary)]")
         )}
@@ -671,6 +706,10 @@ export function Sidebar() {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
             handleRowClick(e, s.id)
+          } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+            // The keyboard's drag
+            e.preventDefault()
+            moveRow(s.id, e.key === "ArrowUp" ? -1 : 1)
           } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
             // The keyboard's right-click: menu at the row, not at the pointer
             e.preventDefault()
@@ -687,6 +726,8 @@ export function Sidebar() {
           openRowCtx(e.clientX, e.clientY, ids)
         }}
       >
+        {/* Resting affordance for press-and-hold drag: a grip on hover */}
+        <RiDraggable className="-ml-1 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
         {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-amber-500" />}
         <span className="truncate">{s.title || "(untitled)"}</span>
       </div>
@@ -945,6 +986,7 @@ export function Sidebar() {
         </div>
       </div>
       {ctx.element}
+      <div role="status" aria-live="polite" className="sr-only">{announce}</div>
 
       {/* Deleting a group deletes its prompts — a real dialog, not an armed menu item */}
       <Dialog open={deleteGroupAsk !== null} onOpenChange={(v) => !v && setDeleteGroupAsk(null)}>
