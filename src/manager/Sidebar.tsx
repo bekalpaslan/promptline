@@ -239,12 +239,8 @@ export function Sidebar() {
     say(`Renamed to "${next}"`)
   }
 
-  const packToJson = (name: string) => ({
-    name,
-    prompts: m.snippets
-      .filter((s) => (s.pack || DEFAULT_PACK) === name)
-      .map(({ title, text, tags, group }) => (group ? { title, text, tags, group } : { title, text, tags })),
-  })
+  const packToJson = (name: string) =>
+    C.packToJson(name, m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name))
 
   // ---- Group operations: a group is a label, so these rewrite the prompts that carry it ----
   const renameGroup = async (pack: string, group: string, next: string) => {
@@ -520,13 +516,10 @@ export function Sidebar() {
         kind: "item",
         label: "Export selection",
         run: () => {
-          const pack = {
-            name: "Selection",
-            prompts: ids
-              .map((id) => m.snippets.find((s) => s.id === id))
-              .filter((s): s is Snippet => !!s)
-              .map(({ title, text, tags, group }) => (group ? { title, text, tags, group } : { title, text, tags })),
-          }
+          const pack = C.packToJson(
+            "Selection",
+            ids.map((id) => m.snippets.find((s) => s.id === id)).filter((s): s is Snippet => !!s)
+          )
           void invoke("set_clipboard_text", { text: JSON.stringify(pack, null, 2) }).then(() =>
             say(`Copied ${n} prompts to clipboard`)
           )

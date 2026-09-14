@@ -87,6 +87,8 @@ interface PromptlineCore {
   stripFences(raw: string): string
   parsePacks(raw: string): unknown
   diagnosePack(raw: string): PackDiagnosis
+  /** Shareable pack JSON; group only when set, never personal state */
+  packToJson(name: string, prompts: Pick<Snippet, "title" | "text" | "tags" | "group">[]): { name: string; prompts: { title: string; text: string; tags: string[]; group?: string }[] }
   removeByIds<T extends { id: string }>(list: T[], ids: Iterable<string>): { kept: T[]; removed: Removed<T>[] }
   restoreRemoved<T extends { id: string }>(list: T[], removed: Removed<T>[]): T[]
   fmtHotkey(combo: string): string

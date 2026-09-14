@@ -236,6 +236,25 @@ test('fmtHotkey capitalizes parts', () => {
   assert.equal(core.fmtHotkey('alt+space'), 'Alt+Space');
 });
 
+// ---- pack export ------------------------------------------------------------------
+
+test('packToJson keeps title/tags/text, adds group only when set, drops personal state (M1)', () => {
+  const out = core.packToJson('P', [
+    { id: '1', title: 'A', text: 'x', tags: ['t'], group: 'G', uses: 5, pinned: true, fieldValues: { a: 'b' }, configValues: { c: 'd' } },
+    { id: '2', title: 'B', text: 'y', tags: [], group: '', uses: 0, pinned: false },
+    { id: '3', title: 'C', text: 'z' },
+  ]);
+  assert.deepEqual(out, {
+    name: 'P',
+    prompts: [
+      { title: 'A', text: 'x', tags: ['t'], group: 'G' },
+      { title: 'B', text: 'y', tags: [] },
+      { title: 'C', text: 'z', tags: [] },
+    ],
+  });
+  assert.ok(!('group' in out.prompts[1]));
+});
+
 // ---- delete with undo ------------------------------------------------------------
 
 test('removeByIds then restoreRemoved yields the original array, positions kept', () => {

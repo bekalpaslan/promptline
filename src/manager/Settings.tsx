@@ -93,12 +93,8 @@ export function Settings() {
     }
   }
 
-  const packToJson = (name: string) => ({
-    name,
-    prompts: m.snippets
-      .filter((s) => (s.pack || DEFAULT_PACK) === name)
-      .map(({ title, text, tags }) => ({ title, text, tags })),
-  })
+  const packToJson = (name: string) =>
+    C.packToJson(name, m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name))
 
   const deletePack = async (name: string) => {
     const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).map((s) => s.id)

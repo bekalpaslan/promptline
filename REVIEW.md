@@ -331,7 +331,7 @@ popup then never sends a full array. Rust tests on the merge helpers.
 ## Medium
 
 ### M1. Settings "Export pack" and "Export library" drop `group`
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Settings.tsx:96-101` vs `Sidebar.tsx` `packToJson`
 (~:243).
 **What:** two `packToJson` implementations; the Settings one predates groups.
@@ -339,6 +339,12 @@ popup then never sends a full array. Rust tests on the merge helpers.
 The sidebar's export keeps them.
 **Fix:** one `packToJson` in `src/lib/`, used by both (and by "Export
 selection", a third inline copy).
+**Resolution:** `packToJson(name, prompts)` lives in `ui/core.js` (pure,
+tested) and all three sites call it: Settings export pack / export library,
+Sidebar export pack, Sidebar export selection. Test: group present only when
+set; uses/pinned/fieldValues/configValues never exported; missing tags
+become `[]`. Manual: Settings → Export library in the dev build copies JSON
+whose Desktop prompts carry `"group": "as"`. Commit: see commit list (M1).
 
 ### M2. Keyboard focus is lost when leaving form or create mode
 **Status:** TODO
@@ -1250,7 +1256,7 @@ legacy, fences, junk, group), diagnosePack (all four codes), fmtHotkey.
    that a title subsequence beats a tag contiguous match and that pins lead
    with no query.
 7. [ ] `defaultPackFor(lastPack, names, isLocked)` once extracted (L1).
-8. [ ] `packToJson` includes `group` only when set (M1).
+8. [x] `packToJson` includes `group` only when set (M1).
 9. [x] Undo restoration helper (H1) once extracted: delete then undo yields the
    original array with no duplicate ids.
 10. [x] Rust: `patch_snippet`/`add_snippet`/`delete_snippet` merge helpers (H6).

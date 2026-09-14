@@ -230,6 +230,18 @@
     }
   }
 
+  // ---- Pack export --------------------------------------------------------------
+  // The shareable form of prompts: title, tags, text, and group only when set.
+  // Never uses/pinned/fieldValues/configValues — those are personal state.
+  // The one place both windows' exports come from, so none can drift.
+  function packToJson(name, prompts) {
+    return {
+      name,
+      prompts: prompts.map(({ title, text, tags, group }) =>
+        group ? { title, text, tags: tags || [], group } : { title, text, tags: tags || [] }),
+    };
+  }
+
   // ---- Delete with undo ------------------------------------------------------
   // Split `list` into what stays and what goes, remembering where each removed
   // item sat so Undo can put it back in place.
@@ -285,6 +297,7 @@
     stripFences,
     parsePacks,
     diagnosePack,
+    packToJson,
     removeByIds,
     restoreRemoved,
     fmtHotkey,
