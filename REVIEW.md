@@ -493,7 +493,7 @@ inline styles. Verify both windows in dev and in a release build. See D2.
 - *Commit:* `0a803aa`.
 
 ### M10. Toasts follow the OS theme, not the app theme
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/components/ui/sonner.tsx:8` (`useTheme()` from `next-themes`
 with no `ThemeProvider` mounted anywhere).
 **What:** `theme` resolves to "system", so Sonner reads
@@ -503,6 +503,11 @@ palette on a light `--popover` background.
 **Fix:** derive the theme from `document.documentElement.classList` (a
 `MutationObserver`, or pass `m.prefs.theme` down). Drop `next-themes`; nothing
 else uses it.
+**Resolution:** `sonner.tsx` derives the theme from the `.dark` class on
+`<html>` through a `MutationObserver` (`useAppTheme`), so it follows the
+Light/Dark toggle exactly; `next-themes` removed from `package.json`. No
+automated test (DOM). Manual: see verification note below. Commit: see
+commit list (M10).
 
 ### M11. `paste_snippet` doc comment contradicts BEHAVIOR.md
 **Status:** DONE

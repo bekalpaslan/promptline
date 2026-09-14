@@ -1,15 +1,26 @@
-"use client"
-
-import { useTheme } from "next-themes"
+import { useEffect, useState } from "react"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 import { RiCheckboxCircleLine, RiInformationLine, RiErrorWarningLine, RiCloseCircleLine, RiLoaderLine } from "@remixicon/react"
 
+// The app's theme is the `.dark` class on <html> (applyPrefs), not the OS
+// setting; following prefers-color-scheme drew dark toasts on a light app.
+function useAppTheme(): "light" | "dark" {
+  const read = () => (document.documentElement.classList.contains("dark") ? "dark" : "light")
+  const [theme, setTheme] = useState<"light" | "dark">(read)
+  useEffect(() => {
+    const obs = new MutationObserver(() => setTheme(read()))
+    obs.observe(document.documentElement, { attributes: true, attributeFilter: ["class"] })
+    return () => obs.disconnect()
+  }, [])
+  return theme
+}
+
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
+  const theme = useAppTheme()
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={theme}
       className="toaster group"
       icons={{
         success: (
