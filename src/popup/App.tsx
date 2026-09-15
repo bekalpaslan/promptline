@@ -905,13 +905,17 @@ export function App() {
           </div>
         )}
         {sections.map((sec) => {
-          // Rows split like the sidebar: the ungrouped run, then one block per group
-          const ungrouped = sec.entries.filter((e) => !e.s.group)
+          // Rows split like the sidebar: the ungrouped run, then one block per
+          // group. A search is drawn flat in rank order so the drawn order
+          // matches `visible` (highlight, arrows, Ctrl+1..5).
+          const ungrouped = hasQuery ? sec.entries : sec.entries.filter((e) => !e.s.group)
           const groups = new Map<string, Entry[]>()
-          for (const e of sec.entries) {
-            if (!e.s.group) continue
-            if (!groups.has(e.s.group)) groups.set(e.s.group, [])
-            groups.get(e.s.group)!.push(e)
+          if (!hasQuery) {
+            for (const e of sec.entries) {
+              if (!e.s.group) continue
+              if (!groups.has(e.s.group)) groups.set(e.s.group, [])
+              groups.get(e.s.group)!.push(e)
+            }
           }
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!))
           const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
