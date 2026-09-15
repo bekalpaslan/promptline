@@ -14,6 +14,16 @@ Copy an error / stack trace / diff, hit the hotkey, pick **"Root cause first"**
 — your template pastes with the clipboard contents already inserted where
 `{clipboard}` was. One gesture turns raw error text into a well-formed prompt.
 
+## Install
+
+Windows only for now. `npm run build` produces two installers under
+`src-tauri/target/release/bundle/`: an NSIS setup exe (`nsis/`) and an MSI
+(`msi/`). Either works; the setup exe is smaller.
+
+The installers are not code-signed yet, so SmartScreen shows "Windows protected
+your PC" on first run — choose **More info → Run anyway**. Signing is on the
+list; it needs a certificate, not a code change.
+
 ## Placeholders
 
 | Token | Expands to |
@@ -41,7 +51,12 @@ them, plus config values and a live preview. Invisible until you want it.
   collapsible pack sections with a sub-header per group; searching flattens
   them into one ranked list
 - **Ctrl+N** turns whatever you just copied into a new prompt without leaving
-  the popup — name pre-filled from the first line, pick its pack, confirm
+  the popup — name pre-filled from the first line, pick its pack, confirm.
+  Esc with an edited title asks once before discarding
+- Deleting from the action panel offers **Undo**; copy-only confirms, and any
+  failure shows in a feedback strip instead of vanishing
+- The whole popup is keyboard-operable and screen-reader labelled (a real
+  listbox, announced results, collapsible pack sections from the keyboard)
 - **Drag the window edge** to resize; the size is remembered
 - The prompt stays on your clipboard after pasting — if the app you came from
   had no text field focused, the keystroke lands nowhere, so click into one and
@@ -49,11 +64,15 @@ them, plus config values and a live preview. Invisible until you want it.
 
 ## The manager (left-click the tray icon)
 
-- **Autosaves** — no Save button, no lost drafts; deletes are two-click with Undo
-- Sidebar groups by **pack** (collapsible); right-click a pack header to
-  rename / lock / export / delete it; right-click prompts for multi-select
-  actions (move to pack or group, add tag, pin/unpin, export, delete) —
-  Ctrl/Shift+click to select several
+- **Autosaves** — no Save button, no lost drafts; Quit from the tray waits for
+  a pending save. Deletes are two-click, and **Undo** covers a deleted prompt,
+  a deleted pack (the pack comes back, not just its prompts), an ungroup, a
+  regroup, and a merge
+- Sidebar groups by **pack** (collapsible); each pack and group header has a
+  menu button on hover (right-click works too) to rename / lock / export /
+  delete it; right-click prompts for multi-select actions (move to pack or
+  group, add tag, pin/unpin, export, delete) — Ctrl/Shift+click to select
+  several. Inline renames commit on Enter only
 - **Groups** sit inside a pack: one pack per project, a group per practice
   (debugging, review, docs…). Right-click a pack header → **New group** to
   start one with a fresh prompt; set a prompt's group in the editor or from
@@ -61,19 +80,26 @@ them, plus config values and a live preview. Invisible until you want it.
   Right-click a group header to rename it, ungroup its prompts, or delete
   the group — deleting removes its prompts after a confirmation dialog
 - **Locked packs** (🔒) refuse new prompts and can't be deleted until unlocked
-- Two **empty-slot cards** at the top of the list create a new prompt or a new
-  pack; **Generate pack with Claude** takes a topic, hands you an instruction to
-  paste into Claude, and imports its reply — every prompt is reviewed in a
-  checklist before anything is added. With a coding agent, leave the topic
-  empty and it surveys the project it runs in, writing one pack per daily
-  practice
+- **New prompt** and **New pack** buttons sit above the list; **Generate pack
+  with Claude** takes a topic, hands you an instruction to paste into Claude,
+  and imports its reply — every prompt is reviewed in a checklist (bulk
+  select, per-row pack names, and malformed JSON is editable in place) before
+  anything is added. With a coding agent, leave the topic empty and it surveys
+  the project it runs in, writing one pack per daily practice; the dialog
+  watches for the agent's file with an elapsed clock and a Stop button, and
+  no pack exists until you import
 - Sort by uses, title, or **Custom** — press and hold a row to lift it, then
-  drag to arrange your own order
+  drag to arrange your own order; **Alt+Up / Alt+Down** moves the selected row
+  from the keyboard
+- Every control is reachable from the keyboard, including context menus, and
+  labelled for screen readers
 - **Light / Dark** toggle sits at the bottom of the sidebar, next to the
   settings gear
-- **Settings** (⚙): record a hotkey by pressing it, autostart, popup density,
-  UI font (Outfit / system / serif / mono), UI scale (90–125%), and
-  library export/import
+- **Settings** (⚙): record a hotkey by pressing it, then **Apply** it;
+  autostart; popup density; UI font (Outfit / system / serif / mono); UI
+  scale (90–125%); and **Your library** — export the whole library or import
+  from the clipboard or a file, plus per-pack rows to import from, export,
+  or create that pack's file
 
 ## Data
 
@@ -102,7 +128,11 @@ npm run build      # produce installer (src-tauri/target/release/bundle)
 npm run ui:build   # typecheck + build the frontend only
 npm test           # JS core tests (node --test)
 npm run test:rust  # Rust unit tests (cargo test)
+npm run lint       # ESLint over the frontend
 ```
+
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, and both test suites on
+every push. See [Install](#install) for the unsigned-installer caveat.
 
 The frontend is a two-entry Vite app (`index.html` → manager window,
 `popup.html` → popup window) under `src/`. Shared pure logic lives in
