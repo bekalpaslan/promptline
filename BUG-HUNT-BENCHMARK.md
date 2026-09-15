@@ -117,12 +117,12 @@ human says the runs are over):
    > candidate description, end with "DONE".
 
    Give each contestant its own copy of the clean clone, never a worktree of
-   the development repository. The template lives at
-   `C:/Users/alpas/IdeaProjects/easypaste-bench/template` (see "Clean clone"
-   below); copy it to `easypaste-bench/<contestant>` with
-   `robocopy template <contestant> /MIR /NFL /NDL /NJH /NJS` and point the
-   contestant at that path in its prompt. The copy carries `node_modules`, so
-   tests run without `npm ci`. Run contestants in parallel.
+   the development repository. Build the template once as described under
+   "Clean clone" below, in a directory outside the development repository;
+   copy it once per contestant (`cp -r template <contestant>`, or `robocopy
+   template <contestant> /MIR` on Windows) and point the contestant at that
+   path in its prompt. The copy carries `node_modules`, so tests run without
+   `npm ci`. Run contestants in parallel.
 
    Isolation rules, learned from runs A–C:
    - The clone has one branch and no untracked files, so nothing about the
@@ -200,22 +200,21 @@ or predict a contestant's result before its message arrives.
 
 ## Clean clone
 
-Contestants run from a single-branch clone of the benchmark commit, made with
-a real transport so that unreachable objects (such as the fix branch's
-commits) are not carried over:
+Contestants run from a single-branch clone of the benchmark tag, made with
+a real transport so that unreachable objects (such as fix commits on other
+branches) are not carried over. `$REPO` is the development repository, a
+local path or a remote URL; `$BENCH` is any directory outside it.
 
 ```sh
-git tag bench-1 b36d67e                       # label the edition
-git clone --no-local --single-branch --branch master \
-  C:/Users/alpas/IdeaProjects/easypaste \
-  C:/Users/alpas/IdeaProjects/easypaste-bench/template
-cd C:/Users/alpas/IdeaProjects/easypaste-bench/template
+git -C "$REPO" tag bench-1 b36d67e            # label the edition (once)
+git clone --no-local --single-branch --branch master "$REPO" "$BENCH/template"
+cd "$BENCH/template"
 git checkout --detach bench-1
 git remote remove origin                      # no fetch path back to the dev repo
 npm ci
 ```
 
-Per contestant: `robocopy template <name> /MIR`. Delete the copies when the
-run ends. When the benchmark moves to a new edition, merge the fix branch,
+Per contestant: `cp -r "$BENCH/template" "$BENCH/<name>"` (or `robocopy`
+with `/MIR` on Windows). Delete the copies when the run ends. When the benchmark moves to a new edition, merge the fix branch,
 pick a new target from the open list in `BUG-HUNT-FINDINGS.md`, tag the new
 commit `bench-2`, and rebuild the template.
