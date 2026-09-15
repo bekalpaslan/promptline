@@ -79,7 +79,8 @@ them, plus config values and a live preview. Invisible until you want it.
   the right-click menu; dragging a prompt into another group moves it there.
   Right-click a group header to rename it, ungroup its prompts, or delete
   the group — deleting removes its prompts after a confirmation dialog
-- **Locked packs** (🔒) refuse new prompts and can't be deleted until unlocked
+- **Locked packs** (🔒) refuse new prompts and can't be deleted, nor can their
+  groups, until unlocked
 - **New prompt** and **New pack** buttons sit above the list; **Generate pack
   with Claude** takes a topic, hands you an instruction to paste into Claude,
   and imports its reply — every prompt is reviewed in a checklist (bulk

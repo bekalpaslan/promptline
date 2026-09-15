@@ -295,6 +295,9 @@ export function Sidebar() {
   }
 
   const openGroupCtx = (x: number, y: number, pack: string, group: string, count: number) => {
+    // A group has no lock of its own, but deleting it deletes prompts, so it
+    // honours the pack's lock like "Delete pack…" does
+    const locked = m.isLocked(pack)
     ctx.open(x, y, [
       { kind: "header", text: `${pack} › ${group}` },
       { kind: "item", label: "Rename group", run: () => setRenamingGroup(groupKey(pack, group)) },
@@ -320,8 +323,10 @@ export function Sidebar() {
       { kind: "sep" },
       {
         kind: "item",
-        label: "Delete group…",
+        label: locked ? "Delete (locked)" : "Delete group…",
         danger: true,
+        disabled: locked,
+        hint: locked ? "Unlock the pack first (its header menu → Unlock)" : undefined,
         run: () => setDeleteGroupAsk({ pack, group, count }),
       },
     ])
