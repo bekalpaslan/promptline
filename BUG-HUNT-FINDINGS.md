@@ -363,7 +363,11 @@ side is by design, and copying while the popup holds focus is an unusual path
 closes it first). Fix shape, if wanted: re-read the clipboard on window focus
 or right before rendering the preview.
 
-Status: open, not fixed (repository frozen for the benchmark).
+Status: fixed after the bench-2 runs, on the preview side (paste-time
+expansion stays as documented). The popup re-reads the clipboard when a
+fill-in form for a `{clipboard}` prompt opens and after any copy or cut event
+inside the popup, which is the realistic way the clipboard changes while it
+is open, since the popup hides on blur.
 
 ## 12. A sidebar "Move to" during the editor's 600 ms autosave window is reverted by the autosave
 

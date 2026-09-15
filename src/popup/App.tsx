@@ -418,6 +418,23 @@ export function App() {
     }
   }, [fail])
 
+  // `{clipboard}` expands at paste time (BEHAVIOR.md), so the "Will paste"
+  // preview must show the clipboard as it is now, not as it was when the
+  // popup opened: a Ctrl+C inside a fill-in field changes it.
+  const refreshClip = useCallback(() => {
+    void invoke<string>("get_clipboard_text").then(setClip).catch(() => {})
+  }, [])
+  useEffect(() => {
+    // The clipboard is written after the event fires, hence the tick
+    const on = () => setTimeout(refreshClip, 50)
+    document.addEventListener("copy", on)
+    document.addEventListener("cut", on)
+    return () => {
+      document.removeEventListener("copy", on)
+      document.removeEventListener("cut", on)
+    }
+  }, [refreshClip])
+
   const pick = useCallback((snippet: Snippet, paste: boolean) => {
     hidePreview()
     closePanel()
@@ -430,11 +447,12 @@ export function App() {
       for (const f of fields) initial[f] = (snippet.fieldValues || {})[f] || ""
       setFormValues(initial)
       setForm({ snippet, base, fields, paste })
+      if (base.includes("{clipboard}")) refreshClip()
       return
     }
     setPickedId(snippet.id)
     setTimeout(() => send(snippet, C.expandBuiltins(base), paste), 90)
-  }, [hidePreview, closePanel, send])
+  }, [hidePreview, closePanel, send, refreshClip])
 
   const submitForm = useCallback(async (forceCopy: boolean) => {
     if (!form) return
