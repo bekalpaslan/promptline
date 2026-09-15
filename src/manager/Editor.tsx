@@ -221,6 +221,10 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const latest = useRef({ title, tags, pack, group, text, configValues })
   latest.current = { title, tags, pack, group, text, configValues }
+  // Fields the user has edited since the last save. The sidebar can change
+  // tags/pack/group underneath the editor (move-to, add-tag); those land
+  // unless the user has a pending edit of that same field.
+  const dirty = useRef(new Set<"tags" | "pack" | "group">())
   const mRef = useRef(m)
   mRef.current = m
 
@@ -230,6 +234,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     const cur = latest.current
     const mgr = mRef.current
     mgr.pendingFlush.current = null
+    dirty.current.clear()
     const existing = mgr.snippets.find((s) => s.id === snippet.id)
     if (!existing) return
     let targetPack = cur.pack.trim() || existing.pack || DEFAULT_PACK
@@ -272,13 +277,31 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     }
   }, [commit])
 
-  // External changes (move-to-pack, add-tag via context menu) refresh the fields
+  // External changes (move-to-pack, add-tag via context menu) refresh the
+  // fields the user isn't mid-edit on. Skipping the whole refresh while a save
+  // was pending let the save write the stale pack back, undoing the move.
   useEffect(() => {
-    if (saveTimer.current) return // don't clobber in-flight edits
-    setTags((snippet.tags || []).join(", "))
-    setPack(snippet.pack || DEFAULT_PACK)
-    setGroup(snippet.group || "")
+    const d = dirty.current
+    if (!d.has("tags")) setTags((snippet.tags || []).join(", "))
+    if (!d.has("pack")) setPack(snippet.pack || DEFAULT_PACK)
+    if (!d.has("group")) setGroup(snippet.group || "")
   }, [snippet.tags, snippet.pack, snippet.group])
+
+  const editTags = (next: string) => {
+    dirty.current.add("tags")
+    setTags(next)
+    scheduleSave()
+  }
+  const editPack = (next: string) => {
+    dirty.current.add("pack")
+    setPack(next)
+    scheduleSave()
+  }
+  const editGroup = (next: string) => {
+    dirty.current.add("group")
+    setGroup(next)
+    scheduleSave()
+  }
 
   // Groups already in use in the chosen pack, for the group field's suggestions
   const packGroups = useMemo(() => {
@@ -363,12 +386,10 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const tagList = tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
   const addTag = (t: string) => {
     if (tagList.includes(t)) return
-    setTags([...tagList, t].join(", "))
-    scheduleSave()
+    editTags([...tagList, t].join(", "))
   }
   const removeTag = (t: string) => {
-    setTags(tagList.filter((x) => x !== t).join(", "))
-    scheduleSave()
+    editTags(tagList.filter((x) => x !== t).join(", "))
   }
   const tagSuggestions = m.allTags().filter((t) => !tagList.includes(t)).slice(0, 12)
 
@@ -446,8 +467,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                 const name = e.currentTarget.value.trim()
                 setNewPackMode(false)
                 if (name && !m.isLocked(name)) {
-                  setPack(name)
-                  scheduleSave()
+                  editPack(name)
                 } else if (name && m.isLocked(name)) {
                   sayErr(`Pack "${name}" is locked`)
                 }
@@ -466,8 +486,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                   setNewPackMode(true)
                   return
                 }
-                setPack(e.target.value)
-                scheduleSave()
+                editPack(e.target.value)
               }}
               // Native select arrows hug the edge; the app's own chevron sits
               // inset by the tier-1 spacing (6px) and takes the theme's colour
@@ -489,8 +508,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           value={group}
           list={`groups-${snippet.id}`}
           onChange={(e) => {
-            setGroup(e.target.value)
-            scheduleSave()
+            editGroup(e.target.value)
           }}
           placeholder="Group (optional)"
           aria-label="Group"

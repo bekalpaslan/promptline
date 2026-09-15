@@ -375,7 +375,11 @@ fires during a pending save, update only the changed field(s) (pack/group) in
 `latest.current` and state instead of skipping the whole refresh, or exclude
 pack/group from the commit unless the editor itself changed them.
 
-Status: open, not fixed (repository frozen for the benchmark).
+Status: fixed after the bench-2 runs. `src/manager/Editor.tsx` keeps a set of
+fields the user has edited since the last save; the external-change effect
+now refreshes every field not in that set instead of skipping wholesale while
+a save is pending, so a sidebar move (or add-tag) lands and the pending save
+writes the moved-to pack. The same path also covered "Add tag…" mid-save.
 
 ---
 
