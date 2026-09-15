@@ -974,7 +974,18 @@ export function App() {
               {/* Pack title, as in the sidebar: a disclosure button (← / Ctrl+→
                   from a row do the same); Pinned / Results are plain headings */}
               {sec.collapsible ? (
-                <button type="button" tabIndex={-1} aria-expanded={!sec.isCollapsed} className={headerClass} onClick={() => toggleCollapsed(sec.name)}>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-expanded={!sec.isCollapsed}
+                  className={headerClass}
+                  onClick={() => {
+                    toggleCollapsed(sec.name)
+                    // A mouse click focuses the button even at tabIndex -1;
+                    // typing must keep landing in the search box
+                    inputRef.current?.focus()
+                  }}
+                >
                   {headerBody}
                 </button>
               ) : (

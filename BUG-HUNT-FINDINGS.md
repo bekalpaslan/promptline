@@ -245,7 +245,9 @@ returns focus to the search input. Fix shape: `onMouseDown={(e) =>
 e.preventDefault()}` on the header button, or refocus the search box inside
 `toggleCollapsed`.
 
-**Status:** open, not fixed.
+**Status:** fixed after the bench-2 runs: the header's `onClick` refocuses the
+search input after toggling, the same pattern as the tag pill and the Clear
+button.
 
 ---
 
