@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { SizeDebug } from "@/lib/SizeDebug"
@@ -27,6 +27,9 @@ type CreateState = { title: string; pack: string; group: string; prefilled: stri
 // One line of feedback above the hint bar: the popup's only channel for an
 // error (a failed paste or save) or a confirmation (copied, saved)
 type Notice = { text: string; kind: "error" | "info" }
+
+// Tag pills shown on a row before the rest fold into a "+N" overflow pill
+const MAX_ROW_TAGS = 3
 
 
 // The shared Kbd in the kit's 16px bordered-square idiom
@@ -109,9 +112,12 @@ const Row = memo(function Row({
   onTag,
   previewed,
   clipEmpty,
+  slot,
 }: {
   entry: Entry
   index: number
+  /** Ctrl+digit slot (1..5) this row answers to, if any */
+  slot?: number
   selected: boolean
   picked: boolean
   compact: boolean
@@ -135,7 +141,10 @@ const Row = memo(function Row({
       role="option"
       aria-selected={selected}
       aria-describedby={previewed ? "popup-preview" : undefined}
-      title={usesClip ? "Clipboard is empty — {clipboard} will paste nothing" : s.title}
+      aria-label={s.title}
+      // No name tooltip: it would sit on top of the preview card the same
+      // hover opens. Only the empty-clipboard warning is worth a title.
+      title={usesClip ? "Clipboard is empty — {clipboard} will paste nothing" : undefined}
       data-selected={selected}
       className={cn(
         "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-ui font-semibold",
@@ -156,7 +165,8 @@ const Row = memo(function Row({
           <span className="truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
         )}
       </div>
-      {tags.slice(0, 1).map((tag) => {
+      {/* Up to three pills keep the row single-line; the rest fold into +N */}
+      {tags.slice(0, MAX_ROW_TAGS).map((tag) => {
         const c = C.tagColor(tag)
         return (
           <button
@@ -176,6 +186,14 @@ const Row = memo(function Row({
           </button>
         )
       })}
+      {tags.length > MAX_ROW_TAGS && (
+        <span
+          className="flex h-4 shrink-0 items-center whitespace-nowrap rounded-sm border border-border px-1 text-xs tabular-nums text-muted-foreground"
+          title={tags.slice(MAX_ROW_TAGS).map((t) => `#${t}`).join(", ")}
+        >
+          +{tags.length - MAX_ROW_TAGS}
+        </span>
+      )}
       {inputs.length > 0 && (
         <span
           className="flex h-4 shrink-0 items-center rounded-sm border border-(--warn)/40 px-1 text-xs tabular-nums text-(--warn)"
@@ -184,10 +202,10 @@ const Row = memo(function Row({
           {"{"}{inputs.length}{"}"}
         </span>
       )}
-      {index < 5 && (
+      {slot && (
         <span className="flex shrink-0 gap-1">
           <Kbd>Ctrl</Kbd>
-          <Kbd>{index + 1}</Kbd>
+          <Kbd>{slot}</Kbd>
         </span>
       )}
     </div>
@@ -210,6 +228,10 @@ export function App() {
   // Where the preview card anchors its top-left corner: the cursor on hover,
   // the selected row on keyboard →
   const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null)
+  // The card's measured height, so a short card near the bottom is clamped by
+  // what it takes up rather than by its max; null until the card is measured
+  const previewCardRef = useRef<HTMLDivElement>(null)
+  const [previewH, setPreviewH] = useState<number | null>(null)
   const [compact, setCompact] = useState(isCompact())
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
   const [create, setCreate] = useState<CreateState | null>(null)
@@ -284,8 +306,17 @@ export function App() {
     return { sections, visible }
   }, [filtered, hasQuery, collapsed])
 
-  // Row index within `visible`, for selection/ordinals
+  // Row index within `visible`, for selection
   const rowIndex = useMemo(() => new Map(visible.map((e, i) => [e.s.id, i])), [visible])
+  // Ctrl+1..5 slots: the five highest-ranked entries (pins first, then by
+  // use, or the top search results) that are on screen, wherever the pack
+  // layout draws them. Collapsed packs' entries take no slot. One mapping
+  // feeds both the row badge and the Ctrl+digit handler.
+  const slotEntries = useMemo(() => {
+    const shown = new Set(visible.map((e) => e.s.id))
+    return filtered.filter((e) => shown.has(e.s.id)).slice(0, 5)
+  }, [filtered, visible])
+  const slotOf = useMemo(() => new Map(slotEntries.map((e, i) => [e.s.id, i + 1])), [slotEntries])
 
   // Collapsing can strand the selection past the end
   useEffect(() => {
@@ -568,7 +599,7 @@ export function App() {
       }
       if (e.ctrlKey && /^[1-5]$/.test(e.key)) {
         e.preventDefault()
-        const entry = visible[Number(e.key) - 1]
+        const entry = slotEntries[Number(e.key) - 1]
         if (entry) pick(entry.s, true)
         return
       }
@@ -624,7 +655,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, hasQuery, collapsed, toggleCollapsed])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, hasQuery, collapsed, toggleCollapsed])
 
   // Stable handlers for the memoized rows: they read the live selection and
   // preview index through refs instead of closing over them
@@ -650,6 +681,11 @@ export function App() {
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
     hideTimer.current = setTimeout(() => setPreviewIdx(null), 150)
   }, [])
+  // Measure the card once it is in the DOM, before paint, so the clamp below
+  // uses its real height; a new card starts from the max-height fallback
+  useLayoutEffect(() => {
+    setPreviewH(previewIdx === null ? null : previewCardRef.current?.offsetHeight ?? null)
+  }, [previewIdx, previewPos])
   const onTagClick = useCallback((tag: string) => {
     setQuery(`#${tag} `)
     inputRef.current?.focus()
@@ -846,6 +882,7 @@ export function App() {
       onTag={onTagClick}
       previewed={previewIdx === i}
       clipEmpty={!clip}
+      slot={slotOf.get(entry.s.id)}
     />
   )
 
@@ -905,13 +942,17 @@ export function App() {
           </div>
         )}
         {sections.map((sec) => {
-          // Rows split like the sidebar: the ungrouped run, then one block per group
-          const ungrouped = sec.entries.filter((e) => !e.s.group)
+          // Rows split like the sidebar: the ungrouped run, then one block per
+          // group. A search is drawn flat in rank order so the drawn order
+          // matches `visible` (highlight, arrows).
+          const ungrouped = hasQuery ? sec.entries : sec.entries.filter((e) => !e.s.group)
           const groups = new Map<string, Entry[]>()
-          for (const e of sec.entries) {
-            if (!e.s.group) continue
-            if (!groups.has(e.s.group)) groups.set(e.s.group, [])
-            groups.get(e.s.group)!.push(e)
+          if (!hasQuery) {
+            for (const e of sec.entries) {
+              if (!e.s.group) continue
+              if (!groups.has(e.s.group)) groups.set(e.s.group, [])
+              groups.get(e.s.group)!.push(e)
+            }
           }
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!))
           const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
@@ -976,12 +1017,14 @@ export function App() {
         // Corner-anchored to the trigger point, clamped inside the window
         const pad = 8
         const maxH = 220 // matches max-h-55
+        const height = Math.min(previewH ?? maxH, maxH)
         const width = Math.min(320, window.innerWidth - pad * 2)
         const pos = previewPos ?? { x: 16, y: 56 }
         const left = Math.max(pad, Math.min(pos.x, window.innerWidth - width - pad))
-        const top = Math.max(pad, Math.min(pos.y, window.innerHeight - maxH - pad))
+        const top = Math.max(pad, Math.min(pos.y, window.innerHeight - height - pad))
         return (
           <div
+            ref={previewCardRef}
             id="popup-preview"
             role="tooltip"
             className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-xs leading-relaxed text-muted-foreground shadow-(--shadow-pop)"

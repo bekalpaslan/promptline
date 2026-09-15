@@ -177,6 +177,9 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const [importRaw, setImportRaw] = useState<string | null>(null)
   const [imported, setImported] = useState(false)
   const topicRef = useRef<HTMLInputElement>(null)
+  // The file content whose review was cancelled: watching resumes, but the
+  // same content must not reopen the list two seconds later
+  const dismissedRaw = useRef<string | null>(null)
 
   const tags = m.allTags().slice(0, 12).join(", ") || "debug, review, plan"
   const rules = packInstructionRules(tags)
@@ -189,6 +192,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     setAgentFilePath("")
     setWatching(false)
     setImportRaw(null)
+    dismissedRaw.current = null
     setImported(false)
   }
 
@@ -240,6 +244,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         if (meta) await m.persistPacks(m.packMeta.map((p) => (p.name === t ? { ...p, path: filePath } : p)))
       }
       setAgentFilePath(filePath!)
+      dismissedRaw.current = null
       await invoke("set_clipboard_text", {
         text: segmentsToText(agentInstruction(rules, t, filePath!)),
       })
@@ -260,6 +265,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       void (async () => {
         try {
           const raw = await invoke<string>("read_pack_file", { path: agentFilePath })
+          if (raw === dismissedRaw.current) return
           const diag = C.diagnosePack(raw)
           if (diag.ok && diag.packs.some((p) => p.prompts.length > 0)) {
             setWatching(false)
@@ -461,6 +467,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                     raw={importRaw}
                     defaultName={topic.trim()}
                     onClose={() => {
+                      dismissedRaw.current = importRaw
                       setImportRaw(null)
                       setWatching(true) // resume watching if they cancel — the agent may rewrite
                     }}

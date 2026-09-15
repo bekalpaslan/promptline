@@ -652,6 +652,8 @@ export function Sidebar() {
             className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.05em] text-foreground focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
+              // The header above toggles on Enter / Space; typing must not reach it
+              e.stopPropagation()
               if (e.key === "Escape") setRenamingGroup(null)
               if (e.key === "Enter") void renameGroup(pack, group, e.currentTarget.value.trim())
             }}
@@ -802,6 +804,7 @@ export function Sidebar() {
             className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-sm font-bold text-foreground focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
+              e.stopPropagation()
               if (e.key === "Escape") setRenaming(null)
               if (e.key === "Enter") void renamePack(name, e.currentTarget.value.trim())
             }}
