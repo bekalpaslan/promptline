@@ -308,8 +308,7 @@ fn new_pack_file(app: &AppHandle, name: &str) -> Result<String, String> {
         path = dir.join(format!("{base}-{i}.json"));
         i += 1;
     }
-    let doc = serde_json::json!({ "name": name, "prompts": [] });
-    let json = serde_json::to_string_pretty(&doc).map_err(|e| e.to_string())?;
+    let json = pack_doc_json(name, Vec::new()).map_err(|e| e.to_string())?;
     write_atomic(&path, json.as_bytes()).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().into_owned())
 }
@@ -393,8 +392,32 @@ fn pack_file_json(pm: &PackMeta, snippets: &[Snippet]) -> Option<String> {
     if prompts.is_empty() {
         return None;
     }
-    let doc = serde_json::json!({ "name": pm.name, "prompts": prompts });
-    serde_json::to_string_pretty(&doc).ok()
+    pack_doc_json(&pm.name, prompts).ok()
+}
+
+fn pack_doc_json(name: &str, prompts: Vec<serde_json::Value>) -> serde_json::Result<String> {
+    serde_json::to_string_pretty(&serde_json::json!({ "name": name, "prompts": prompts }))
+}
+
+/// True when a pack file holds nothing but the manager's own abandoned
+/// "+ New" drafts (default title, empty body). That is content the library
+/// wrote itself and has since swept, never an agent's work, so it is the one
+/// empty-pack case that is safe to write over.
+fn pack_file_holds_only_drafts(path: &Path) -> bool {
+    let Ok(text) = fs::read_to_string(path) else {
+        return false;
+    };
+    let Ok(doc) = serde_json::from_str::<serde_json::Value>(&text) else {
+        return false;
+    };
+    let Some(prompts) = doc.get("prompts").and_then(|p| p.as_array()) else {
+        return false;
+    };
+    !prompts.is_empty()
+        && prompts.iter().all(|p| {
+            p.get("title").and_then(|t| t.as_str()) == Some("New prompt")
+                && p.get("text").and_then(|t| t.as_str()).is_none_or(|t| t.trim().is_empty())
+        })
 }
 
 /// Write every file-backed pack whose shareable content differs from what
@@ -404,10 +427,20 @@ fn pack_file_json(pm: &PackMeta, snippets: &[Snippet]) -> Option<String> {
 fn write_pack_files(packs: &[PackMeta], snippets: &[Snippet]) -> usize {
     let mut written = 0;
     for pm in packs.iter().filter(|p| !p.path.is_empty()) {
-        let Some(json) = pack_file_json(pm, snippets) else {
-            continue;
-        };
         let path = Path::new(&pm.path);
+        let json = match pack_file_json(pm, snippets) {
+            Some(json) => json,
+            // The pack is empty in the library. Leave the file alone (see
+            // pack_file_json) unless all it holds is swept drafts, which
+            // would otherwise linger there for good.
+            None => match pack_file_holds_only_drafts(path) {
+                true => match pack_doc_json(&pm.name, Vec::new()) {
+                    Ok(json) => json,
+                    Err(_) => continue,
+                },
+                false => continue,
+            },
+        };
         if fs::read(path).map(|cur| cur == json.as_bytes()).unwrap_or(false) {
             continue;
         }
@@ -1454,6 +1487,30 @@ mod tests {
         snippets[0].uses = 9;
         snippets[0].pinned = true;
         assert_eq!(write_pack_files(&packs, &snippets), 0);
+    }
+
+    #[test]
+    fn a_pack_file_left_holding_only_swept_drafts_is_emptied() {
+        let dir = temp_dir("packdrafts");
+        let path = dir.join("d.json").to_string_lossy().into_owned();
+        let packs = vec![PackMeta { name: "D".into(), locked: false, path: path.clone() }];
+        let mut draft = snip("New prompt", "", "");
+        draft.pack = "D".into();
+        draft.tags.clear();
+        assert_eq!(write_pack_files(&packs, &[draft]), 1);
+        assert!(fs::read_to_string(&path).unwrap().contains("New prompt"));
+        // The manager's sweep removed the draft: the file follows
+        assert_eq!(write_pack_files(&packs, &[]), 1);
+        let after: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(after["prompts"].as_array().unwrap().len(), 0);
+        assert_eq!(write_pack_files(&packs, &[]), 0);
+        // But a file with real content (an agent's, or a user-emptied pack)
+        // is still never overwritten by an empty library view
+        let mut real = snip("Real", "t", "body");
+        real.pack = "D".into();
+        assert_eq!(write_pack_files(&packs, &[real]), 1);
+        assert_eq!(write_pack_files(&packs, &[]), 0);
+        assert!(fs::read_to_string(&path).unwrap().contains("Real"));
     }
 
     #[test]

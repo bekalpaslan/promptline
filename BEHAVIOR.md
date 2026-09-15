@@ -142,7 +142,9 @@ Two guards follow from that:
 - **An empty pack never overwrites its file.** The library's view of a pack is
   empty both when the user emptied it and when an agent has just written prompts
   that haven't been imported yet. The two are indistinguishable here, and only
-  one of them is safe to act on.
+  one of them is safe to act on. The one exception is a file holding nothing but
+  the manager's own swept "New prompt" drafts: that is the library's earlier
+  output, not an agent's, and it is emptied so the draft doesn't linger.
 - **Deleting a pack moves its file to `packs/deleted/`** instead of unlinking
   it, for the same reason. `save_packs` compares by *path*, not name — renaming
   a pack drops its old name while keeping the same file, and a name comparison

@@ -297,7 +297,17 @@ guard (`26fb8f2`) blocks the cleanup was not verified in this session; Opus
 saw the stale entry in the real profile's `my-prompts.json`. Needs a look at
 `sync_pack_files` in `src-tauri/src/lib.rs`.
 
-**Status:** open, unverified.
+Verified after the bench-2 runs: the sweep calls `save_snippets`, which syncs
+pack files, but `pack_file_json` returns `None` for a pack with no prompts
+(the documented empty-pack guard), so a file whose only prompt was the draft
+is never rewritten. A pack that still has other prompts is rewritten and the
+draft leaves the file, so the lingering case is exactly "the draft was alone".
+
+**Status:** fixed after the bench-2 runs: `write_pack_files` now writes an
+empty pack document when the library's pack is empty and the file holds
+nothing but "New prompt" drafts with empty bodies, which is the library's own
+earlier output rather than an agent's. Any other file content is still left
+alone. Covered by a Rust test.
 
 ---
 
