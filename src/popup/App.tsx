@@ -135,7 +135,10 @@ const Row = memo(function Row({
       role="option"
       aria-selected={selected}
       aria-describedby={previewed ? "popup-preview" : undefined}
-      title={usesClip ? "Clipboard is empty — {clipboard} will paste nothing" : s.title}
+      aria-label={s.title}
+      // No name tooltip: it would sit on top of the preview card the same
+      // hover opens. Only the empty-clipboard warning is worth a title.
+      title={usesClip ? "Clipboard is empty — {clipboard} will paste nothing" : undefined}
       data-selected={selected}
       className={cn(
         "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-ui font-semibold",
