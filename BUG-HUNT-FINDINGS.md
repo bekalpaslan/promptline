@@ -272,7 +272,9 @@ remains. Fix shape: never split the Pinned section by group (it is a
 cross-pack list, so group labels mean little there), or apply `byGroup` to
 `pinned` too.
 
-**Status:** open, not fixed (not on the fix branch).
+**Status:** fixed after the bench-2 runs: the render loop in
+`src/popup/App.tsx` now splits by group only for collapsible (pack) sections,
+so Pinned is drawn flat in pinned order like Results, matching `visible`.
 
 ---
 

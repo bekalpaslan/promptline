@@ -942,12 +942,14 @@ export function App() {
           </div>
         )}
         {sections.map((sec) => {
-          // Rows split like the sidebar: the ungrouped run, then one block per
-          // group. A search is drawn flat in rank order so the drawn order
-          // matches `visible` (highlight, arrows).
-          const ungrouped = hasQuery ? sec.entries : sec.entries.filter((e) => !e.s.group)
+          // A pack's rows split like the sidebar: the ungrouped run, then one
+          // block per group. Pinned and Results are cross-pack lists in rank
+          // order, drawn flat so the drawn order matches `visible` (highlight,
+          // arrows, Ctrl+digits); a group label means little there anyway.
+          const flat = !sec.collapsible
+          const ungrouped = flat ? sec.entries : sec.entries.filter((e) => !e.s.group)
           const groups = new Map<string, Entry[]>()
-          if (!hasQuery) {
+          if (!flat) {
             for (const e of sec.entries) {
               if (!e.s.group) continue
               if (!groups.has(e.s.group)) groups.set(e.s.group, [])
