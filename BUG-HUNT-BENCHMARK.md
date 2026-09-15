@@ -96,15 +96,21 @@ human says the runs are over):
 > list, or any other row element (icon, {n} badge, Ctrl digit, preview card).
 > "Browse list only" is narrower than the truth but still Yes.
 >
-> (This target was used for runs A–C on commit b36d67e and is now fixed on
-> branch fix/bug-hunt. Pick a new one for future runs.)
+> This is the fixed target of the benchmark, for every edition and every
+> run. It is unfixed at the benchmark commit `523fc43`; the fix exists only
+> on later commits of the development repository, which contestants never
+> see. Do not pick a different target.
 
 **Setup.**
 
-1. Confirm the working tree is at the agreed commit. Note its hash.
+1. The benchmark commit is `523fc4385fa8fbb2dd9b99df5ec2d269fba72a2c`
+   (`523fc43`, tag `bench-2`). Confirm the tag exists and points there. The
+   development checkout itself may be on any commit; contestants never run
+   in it.
 2. Ensure `BUG-HUNT-FINDINGS.md` exists with a header naming that commit and a
    "Candidates reported by agents" section. It may already hold entries from
-   earlier runs. It must not mention the target bug.
+   earlier runs, including the unredacted target. That is fine: the file is
+   not part of the benchmark commit, so no contestant clone contains it.
 3. For each contestant model the human names, spawn one agent with the
    contestant prompt from `BUG-HUNT-BENCHMARK.md`, verbatim, plus this
    mechanics paragraph appended:
@@ -203,18 +209,20 @@ or predict a contestant's result before its message arrives.
 Contestants run from a single-branch clone of the benchmark tag, made with
 a real transport so that unreachable objects (such as fix commits on other
 branches) are not carried over. `$REPO` is the development repository, a
-local path or a remote URL; `$BENCH` is any directory outside it.
+local path or a remote URL; `$BENCH` is any directory outside it. The
+current edition is `bench-2` at `523fc4385fa8fbb2dd9b99df5ec2d269fba72a2c`
+(`bench-1` was `b36d67e`, used for runs A–C).
 
 ```sh
-git -C "$REPO" tag bench-1 b36d67e            # label the edition (once)
+git -C "$REPO" tag bench-2 523fc4385fa8fbb2dd9b99df5ec2d269fba72a2c   # label the edition (once)
 git clone --no-local --single-branch --branch master "$REPO" "$BENCH/template"
 cd "$BENCH/template"
-git checkout --detach bench-1
+git checkout --detach bench-2
 git remote remove origin                      # no fetch path back to the dev repo
 npm ci
 ```
 
 Per contestant: `cp -r "$BENCH/template" "$BENCH/<name>"` (or `robocopy`
-with `/MIR` on Windows). Delete the copies when the run ends. When the benchmark moves to a new edition, merge the fix branch,
-pick a new target from the open list in `BUG-HUNT-FINDINGS.md`, tag the new
-commit `bench-2`, and rebuild the template.
+with `/MIR` on Windows). Delete the copies when the run ends. The target
+bug does not change between editions; a new edition only means a new
+benchmark commit, tagged `bench-3` and so on, with the template rebuilt.

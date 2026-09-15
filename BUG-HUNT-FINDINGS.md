@@ -5,9 +5,11 @@ One entry per candidate. `Verdict` is the human's answer to the description;
 `Code check` is a separate confirmation of whether the described behaviour and
 stated cause hold up in the source, independent of whether it was the target bug.
 
-Commit under test: `b36d67e` (plus uncommitted README and benchmark files).
-Fixes for candidates 1–6 and the target are on branch `fix/bug-hunt`
-(`8cae48f`…`28448bc`, seven commits); candidates 7–9 are not on it.
+Commit under test: `523fc4385fa8fbb2dd9b99df5ec2d269fba72a2c` (`523fc43`, tag `bench-2`),
+the current edition. Runs A–C used `b36d67e` (`bench-1`, plus uncommitted README and
+benchmark files). Fixes for candidates 1–6 and the target were made on branch
+`fix/bug-hunt` (`8cae48f`…`28448bc`, seven commits), merged to master after
+`523fc43`; candidates 7–9 are not fixed. The target is unfixed at `523fc43`.
 
 ---
 
@@ -28,8 +30,10 @@ the React popup rewrite (`7edf181`, July 12 2026) and survived the
 memoized-rows refactor (`055d067`). The tag buttons are `shrink-0`, so nothing
 else in the row prevents more pills.
 
-**Status:** fixed on branch `fix/bug-hunt` in `b1bf5a3` (up to three pills
-plus a "+N" overflow pill whose title lists the rest).
+**Status:** unfixed at `523fc43` (bench-2); fixed on branch `fix/bug-hunt`
+in `b1bf5a3` (up to three pills plus a "+N" overflow pill whose title lists
+the rest), merged to master after the benchmark commit. Re-checked at
+`523fc43` for bench-2: `src/popup/App.tsx:159` still reads `tags.slice(0, 1)`.
 
 ---
 
@@ -293,6 +297,88 @@ saw the stale entry in the real profile's `my-prompts.json`. Needs a look at
 
 ---
 
+## 10. Locking a pack does not stop "Delete group…" inside it
+
+Reporter: Sonnet (bench-2 run), message 1. Verdict: **No** (not the target).
+
+**Trigger.** In the manager, lock a pack from its header menu, then right-click
+a group header inside that pack and choose "Delete group…".
+
+**Symptom.** The confirmation dialog opens and deleting removes every prompt in
+the group, although the pack is locked. "Delete pack…" and "New group…" on the
+same pack's header menu are greyed out while locked.
+
+**Stated cause.** The group context menu has no lock check.
+
+**Code check.** Confirmed. `src/manager/Sidebar.tsx:320-325` builds the group
+menu's "Delete group…" item with no `m.isLocked(pack)` test, and the dialog at
+`Sidebar.tsx:1041-1063` calls `deleteGroup` unconditionally; the pack menu at
+`Sidebar.tsx:410-434` disables "New group…" and "Delete pack…" when locked.
+"Rename group" and "Ungroup prompts" are likewise unguarded. README says locked
+packs "refuse new prompts and can't be deleted", so whether group deletion
+should be covered is a design gap rather than a stated contract, but the
+asymmetry is real. Fix shape: pass `locked` into the group menu and disable
+"Delete group…" (and probably "Ungroup prompts") with the same hint.
+
+Status: fixed after the bench-2 runs (uncommitted at time of writing):
+`openGroupCtx` in `src/manager/Sidebar.tsx` now disables "Delete group…" in a
+locked pack with the same hint shape as "Delete pack…". Rename and Ungroup
+stay enabled since they delete nothing.
+
+## 11. Fill-in form's "Will paste" preview shows the clipboard as of popup open, not paste time
+
+Reporter: Sonnet (bench-2 run), message 2. Verdict: **No** (not the target).
+
+**Trigger.** A prompt combines `{clipboard}` with a `{field}`, so the popup
+opens its fill-in form. While the form is open, put different text on the
+clipboard, then submit.
+
+**Symptom.** The "Will paste" preview kept the clipboard text read when the
+popup opened; the pasted result uses the newer clipboard content.
+
+**Stated cause.** Preview renders from state captured on open; the Rust side
+reads the clipboard again at paste time.
+
+**Code check.** Confirmed as behaviour, doubtful as a bug. `src/popup/App.tsx:497-503`
+reads `get_clipboard_text` once on open into `clip`; the preview at
+`App.tsx:813-814` substitutes `clip`; `src-tauri/src/lib.rs:1110-1118`
+re-reads the clipboard in `paste_snippet`. BEHAVIOR.md line 86 documents
+`{clipboard}` as expanded "at paste time, from the environment", so the paste
+side is by design, and copying while the popup holds focus is an unusual path
+(the popup hides on blur, so changing the clipboard from another app normally
+closes it first). Fix shape, if wanted: re-read the clipboard on window focus
+or right before rendering the preview.
+
+Status: open, not fixed (repository frozen for the benchmark).
+
+## 12. A sidebar "Move to" during the editor's 600 ms autosave window is reverted by the autosave
+
+Reporter: Sonnet (bench-2 run), message 3. Verdict: **No** (not the target).
+
+**Trigger.** With a prompt open in the manager editor, type an edit, and within
+the autosave debounce use the sidebar's right-click "Move to" on that same
+prompt to move it to another pack or group.
+
+**Symptom.** The "Moved" toast appears, then the debounced autosave writes the
+editor's stale pack/group back, undoing the move silently.
+
+**Stated cause.** The editor's external-change effect refuses to refresh its
+fields while a save is pending, and the pending commit writes those fields.
+
+**Code check.** Confirmed as a narrow race. `src/manager/Editor.tsx:275-281`
+returns early from the refresh effect when `saveTimer.current` is set, so
+`pack`/`group` state keeps the pre-move values; `Editor.tsx:229-256` then
+commits `cur.pack` and `cur.group` through `updateSnippet`. The window is the
+600 ms debounce at `Editor.tsx:258-264`, so it needs a right-click and menu
+pick inside 600 ms of the last keystroke. Fix shape: when the external effect
+fires during a pending save, update only the changed field(s) (pack/group) in
+`latest.current` and state instead of skipping the whole refresh, or exclude
+pack/group from the commit unless the editor itself changed them.
+
+Status: open, not fixed (repository frozen for the benchmark).
+
+---
+
 # Runs
 
 | Run | Contestant | X | Valid | Notes |
@@ -300,6 +386,8 @@ saw the stale entry in the real profile's `my-prompts.json`. Needs a look at
 | A | external agent (relayed by the human) | 10 | mostly | three either/or questions answered non-strictly |
 | B | Sonnet | 17 | yes | strict answers throughout |
 | C | Opus | 3 | no | read the findings file, captured the human's screen; see below |
+| D | Sonnet (bench-2, `523fc43`) | 19 | yes | three cold candidates first, then a linear walk; strict answers |
+| E | Opus (bench-2, `523fc43`) | 10 | yes | pure bisection, no candidates until the last message |
 
 ## Run A: external agent (relayed by the human) — X = 10
 
@@ -399,3 +487,88 @@ limits (or the app must run in a clean profile in a session the contestant
 owns); untracked files in the main checkout are visible to anything not in a
 worktree.
 
+## Run D: Sonnet (bench-2) — X = 19
+
+Clean clone of `523fc43` in its own directory (no worktree, no findings file,
+fix commits pruned from the clone's object store). Strict answers throughout.
+
+| # | Agent message (condensed) | Answer |
+|---|---|---|
+| 1 | Candidate: locking a pack doesn't disable "Delete group…" inside it (manager) | No (filed as 10) |
+| 2 | Candidate: fill-in form "Will paste" preview shows the clipboard as of popup open; paste uses newer text | No (filed as 11) |
+| 3 | Candidate: sidebar "Move to" during the editor's pending autosave is reverted by the autosave | No (filed as 12) |
+| 4 | Is it in the popup rather than the manager? | Yes |
+| 5 | Does it involve the paste/copy action, rather than browsing, pinning, creating, deleting? | No |
+| 6 | Does it involve searching, filtering, or browsing the list? | Yes |
+| 7 | Specifically when typing a search query, as opposed to browsing the unfiltered list? | Partially |
+| 8 | Does it involve the `#tag` / `@pack` / `>group` filter syntax specifically? | No |
+| 9 | Does it happen when clicking a tag pill on a row? | Partially |
+| 10 | Do pinned prompts lose their top priority once you type a search? | No |
+| 11 | Is the core symptom a prompt failing to appear in the results at all? | No |
+| 12 | Does it involve the collapsible pack/group sections? | No |
+| 13 | Is it about how results are grouped or labelled under headings? | No |
+| 14 | Is it about the search input box itself rather than the results list? | No |
+| 15 | Are prompts in the wrong order in the list? | No |
+| 16 | Does it involve the preview card? | No |
+| 17 | Is a row element (tag pill, icon, badge) wrong or missing, rather than which prompts appear or their order? | Yes |
+| 18 | Is it about the tag pill on a row, not an icon or badge? | Yes |
+| 19 | Candidate: a row only ever shows one tag pill even when the prompt has several, so the other tags are not visible anywhere in the list | **Yes** |
+
+After confirmation it sent "DONE" only (not counted).
+
+Strategy: three cold candidates before any question, all in the manager,
+costing three points against a target that a single "popup or manager?"
+would have excluded. Once it switched to questions it bisected sensibly for
+three messages (popup, not paste, list) and then walked list features one at
+a time, mostly drawing No. The Partially at message 7 (search-only) told it
+the bug shows in both modes and it did not use that; the Partially at
+message 9 already named the tag pill and sat unused until message 17. The
+last three messages (row element, pill, one-pill-only) are the same shape
+Opus used, so the nine-point gap is entirely in the middle of the run. No
+root cause offered.
+
+## Run E: Opus (bench-2) — X = 10
+
+Same clone setup as Run D. Strict answers throughout. This run replaces the
+contaminated Run C as Opus's comparable score.
+
+| # | Agent message (condensed) | Answer |
+|---|---|---|
+| 1 | Is it in the popup window rather than the manager? | Yes |
+| 2 | Does triggering need the mouse rather than keyboard alone? | No |
+| 3 | Can it be triggered with only the basic flow (summon, type, arrows, Enter), no Tab or other popup command? | Yes |
+| 4 | Does it show before Enter, in what the popup displays, rather than in the paste? | Yes |
+| 5 | Must you type in the search box to see it? | No |
+| 6 | Is the symptom wrong order or wrong keyboard selection, as opposed to something missing, mislabelled, or drawn wrong? | No |
+| 7 | Is something expected simply absent from the popup, rather than present but shown incorrectly? | Yes |
+| 8 | Is the missing thing a whole prompt or section, rather than a row detail such as an icon, tag pill, count, or badge? | No |
+| 9 | Is the missing detail a prompt's tags, expected as coloured pills on the row but not shown? | Yes |
+| 10 | Candidate: each popup row shows at most one tag pill; with two or more tags only the first is drawn and the rest are missing; browse and search alike | **Yes** |
+
+After confirmation it sent "DONE" with a summary (not counted). Its own
+recount says eight messages; the true count is ten (it dropped two). Its
+stated cause, `tags.slice(0, 1)` at `src/popup/App.tsx:159`, is correct. Its
+summary also listed five other suspected bugs; they were never sent as
+candidates, so they are not filed.
+
+Strategy: no cold guesses. Pure bisection from the first message: window,
+input modality, basic flow, display versus paste, search dependence, order
+versus content, absent versus misdrawn, whole item versus row detail, tags,
+then the description. It sent a candidate only when the space was a single
+point. Messages 2 and 3 (mouse, basic flow) were the lowest-yield questions;
+nothing else was wasted and it drew no Partially.
+
+## Bench-2 comparison
+
+| Contestant | X | Cold candidates | Partially answers | Root cause |
+|---|---|---|---|---|
+| Opus | 10 | 0 | 0 | correct, offered after confirmation |
+| Sonnet | 19 | 3 | 2 | not offered |
+
+Both contestants converged on the same final three-step shape (row element,
+tag pill, one pill only). The difference is entirely before that: Opus
+started splitting the space at message 1 and never guessed; Sonnet spent
+three messages on manager-side candidates, then enumerated list features
+linearly and did not act on a Partially that already named the pill. Opus's
+10 matches Run A's external agent exactly; Sonnet's 19 is two worse than its
+bench-1 run (17), with the same pattern of a wasted opening candidate.
