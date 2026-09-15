@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { SizeDebug } from "@/lib/SizeDebug"
@@ -210,6 +210,10 @@ export function App() {
   // Where the preview card anchors its top-left corner: the cursor on hover,
   // the selected row on keyboard →
   const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null)
+  // The card's measured height, so a short card near the bottom is clamped by
+  // what it takes up rather than by its max; null until the card is measured
+  const previewCardRef = useRef<HTMLDivElement>(null)
+  const [previewH, setPreviewH] = useState<number | null>(null)
   const [compact, setCompact] = useState(isCompact())
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
   const [create, setCreate] = useState<CreateState | null>(null)
@@ -650,6 +654,11 @@ export function App() {
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
     hideTimer.current = setTimeout(() => setPreviewIdx(null), 150)
   }, [])
+  // Measure the card once it is in the DOM, before paint, so the clamp below
+  // uses its real height; a new card starts from the max-height fallback
+  useLayoutEffect(() => {
+    setPreviewH(previewIdx === null ? null : previewCardRef.current?.offsetHeight ?? null)
+  }, [previewIdx, previewPos])
   const onTagClick = useCallback((tag: string) => {
     setQuery(`#${tag} `)
     inputRef.current?.focus()
@@ -980,12 +989,14 @@ export function App() {
         // Corner-anchored to the trigger point, clamped inside the window
         const pad = 8
         const maxH = 220 // matches max-h-55
+        const height = Math.min(previewH ?? maxH, maxH)
         const width = Math.min(320, window.innerWidth - pad * 2)
         const pos = previewPos ?? { x: 16, y: 56 }
         const left = Math.max(pad, Math.min(pos.x, window.innerWidth - width - pad))
-        const top = Math.max(pad, Math.min(pos.y, window.innerHeight - maxH - pad))
+        const top = Math.max(pad, Math.min(pos.y, window.innerHeight - height - pad))
         return (
           <div
+            ref={previewCardRef}
             id="popup-preview"
             role="tooltip"
             className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-xs leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
