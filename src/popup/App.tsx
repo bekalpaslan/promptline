@@ -112,9 +112,12 @@ const Row = memo(function Row({
   onTag,
   previewed,
   clipEmpty,
+  slot,
 }: {
   entry: Entry
   index: number
+  /** Ctrl+digit slot (1..5) this row answers to, if any */
+  slot?: number
   selected: boolean
   picked: boolean
   compact: boolean
@@ -199,10 +202,10 @@ const Row = memo(function Row({
           {"{"}{inputs.length}{"}"}
         </span>
       )}
-      {index < 5 && (
+      {slot && (
         <span className="flex shrink-0 gap-1">
           <Kbd>Ctrl</Kbd>
-          <Kbd>{index + 1}</Kbd>
+          <Kbd>{slot}</Kbd>
         </span>
       )}
     </div>
@@ -303,8 +306,17 @@ export function App() {
     return { sections, visible }
   }, [filtered, hasQuery, collapsed])
 
-  // Row index within `visible`, for selection/ordinals
+  // Row index within `visible`, for selection
   const rowIndex = useMemo(() => new Map(visible.map((e, i) => [e.s.id, i])), [visible])
+  // Ctrl+1..5 slots: the five highest-ranked entries (pins first, then by
+  // use, or the top search results) that are on screen, wherever the pack
+  // layout draws them. Collapsed packs' entries take no slot. One mapping
+  // feeds both the row badge and the Ctrl+digit handler.
+  const slotEntries = useMemo(() => {
+    const shown = new Set(visible.map((e) => e.s.id))
+    return filtered.filter((e) => shown.has(e.s.id)).slice(0, 5)
+  }, [filtered, visible])
+  const slotOf = useMemo(() => new Map(slotEntries.map((e, i) => [e.s.id, i + 1])), [slotEntries])
 
   // Collapsing can strand the selection past the end
   useEffect(() => {
@@ -587,7 +599,7 @@ export function App() {
       }
       if (e.ctrlKey && /^[1-5]$/.test(e.key)) {
         e.preventDefault()
-        const entry = visible[Number(e.key) - 1]
+        const entry = slotEntries[Number(e.key) - 1]
         if (entry) pick(entry.s, true)
         return
       }
@@ -643,7 +655,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, hasQuery, collapsed, toggleCollapsed])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, hasQuery, collapsed, toggleCollapsed])
 
   // Stable handlers for the memoized rows: they read the live selection and
   // preview index through refs instead of closing over them
@@ -870,6 +882,7 @@ export function App() {
       onTag={onTagClick}
       previewed={previewIdx === i}
       clipEmpty={!clip}
+      slot={slotOf.get(entry.s.id)}
     />
   )
 
@@ -931,7 +944,7 @@ export function App() {
         {sections.map((sec) => {
           // Rows split like the sidebar: the ungrouped run, then one block per
           // group. A search is drawn flat in rank order so the drawn order
-          // matches `visible` (highlight, arrows, Ctrl+1..5).
+          // matches `visible` (highlight, arrows).
           const ungrouped = hasQuery ? sec.entries : sec.entries.filter((e) => !e.s.group)
           const groups = new Map<string, Entry[]>()
           if (!hasQuery) {
