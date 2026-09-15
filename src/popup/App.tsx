@@ -28,6 +28,9 @@ type CreateState = { title: string; pack: string; group: string; prefilled: stri
 // error (a failed paste or save) or a confirmation (copied, saved)
 type Notice = { text: string; kind: "error" | "info" }
 
+// Tag pills shown on a row before the rest fold into a "+N" overflow pill
+const MAX_ROW_TAGS = 3
+
 
 // The shared Kbd in the kit's 16px bordered-square idiom
 function Kbd({ children }: { children: React.ReactNode }) {
@@ -159,7 +162,8 @@ const Row = memo(function Row({
           <span className="truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
         )}
       </div>
-      {tags.slice(0, 1).map((tag) => {
+      {/* Up to three pills keep the row single-line; the rest fold into +N */}
+      {tags.slice(0, MAX_ROW_TAGS).map((tag) => {
         const c = C.tagColor(tag)
         return (
           <button
@@ -179,6 +183,14 @@ const Row = memo(function Row({
           </button>
         )
       })}
+      {tags.length > MAX_ROW_TAGS && (
+        <span
+          className="flex h-4 shrink-0 items-center whitespace-nowrap rounded-sm border border-border px-1 text-xs tabular-nums text-muted-foreground"
+          title={tags.slice(MAX_ROW_TAGS).map((t) => `#${t}`).join(", ")}
+        >
+          +{tags.length - MAX_ROW_TAGS}
+        </span>
+      )}
       {inputs.length > 0 && (
         <span
           className="flex h-4 shrink-0 items-center rounded-sm border border-(--warn)/40 px-1 text-xs tabular-nums text-(--warn)"
