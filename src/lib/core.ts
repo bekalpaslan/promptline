@@ -94,6 +94,8 @@ interface PromptlineCore {
   fillFields(text: string, values: Record<string, string>): string
   expandBuiltins(text: string): string
   fuzzyScore(query: string, target: string): FuzzyResult | null
+  /** How well a prompt body answers a query: contiguous, or every word a word-prefix. Lower is better; null is no match. */
+  bodyScore(query: string, text: string): { score: number } | null
   /** An untouched "+ New" draft: the manager's to finish, never the popup's to paste */
   isEmptyDraft(snippet: Pick<Snippet, "title" | "text" | "uses">): boolean
   /** The popup's list order: filters, then pins/uses or title>tag>body fuzzy tiers */

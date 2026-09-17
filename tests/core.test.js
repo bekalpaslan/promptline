@@ -166,6 +166,28 @@ test('rankSnippets: a title subsequence beats a contiguous tag match beats a bod
   assert.equal(r[1].indices, null);
 });
 
+test('body matches must hold the query, not merely its letters in order (BH3-M)', () => {
+  // "please look at the notes" has p-l-a-n in order: the old subsequence
+  // fallback let nearly every prompt through the body tier
+  assert.equal(core.bodyScore('plan', 'please look at the notes'), null);
+  assert.deepEqual(core.bodyScore('plan', 'plan the work'), { score: 0 });
+  assert.deepEqual(core.bodyScore('plan', 'write a planning doc'), { score: 8 });
+  // A multi-word query may be spread out, but each word starts a word
+  assert.ok(core.bodyScore('fix bug', 'the bug is here, please fix it'));
+  assert.equal(core.bodyScore('fix bug', 'the bugle is debugged'), null);
+  assert.deepEqual(core.bodyScore('', 'anything'), { score: 0 });
+
+  const lib = [
+    { id: 'loose', title: 'Nothing', text: 'please look at the notes', tags: [], uses: 99 },
+    { id: 'body', title: 'Nothing here', text: 'plan the work', tags: [], uses: 0 },
+    { id: 'title', title: 'Plan first', text: '', tags: [], uses: 0 },
+  ];
+  // Title still beats body, and the loose one drops out of the list entirely
+  assert.deepEqual(core.rankSnippets('plan', lib).map(e => e.s.id), ['title', 'body']);
+  // Titles and tags keep fuzzy subsequence matching
+  assert.deepEqual(core.rankSnippets('pf', lib).map(e => e.s.id), ['title']);
+});
+
 test('rankSnippets honours #tag / @pack / >group filters', () => {
   const lib = [
     { id: 'a', title: 'A', text: '', tags: ['debug'], pack: 'P', group: 'g' },

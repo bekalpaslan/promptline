@@ -110,6 +110,40 @@
     return { score: 1000 + gaps, indices }; // subsequence ranks below contiguous
   }
 
+  // Body matching is deliberately stricter than title and tag matching: a
+  // short query is a subsequence of almost any paragraph, so subsequence
+  // matching over bodies let nearly every prompt through and search stopped
+  // narrowing the list. A body qualifies when it contains the query outright
+  // (which also covers a word prefix — `plan` in "planning"), or, for a
+  // multi-word query, when every word starts a word in it. Lower is better,
+  // like fuzzyScore; null is no match.
+  function bodyScore(query, text) {
+    const q = (query || '').toLowerCase(), t = (text || '').toLowerCase();
+    if (!q) return { score: 0 };
+    const idx = t.indexOf(q);
+    if (idx >= 0) return { score: idx };
+    const words = q.split(/\s+/).filter(Boolean);
+    if (words.length < 2) return null;
+    let worst = 0;
+    for (const w of words) {
+      const at = wordStartIndex(t, w);
+      if (at < 0) return null;
+      worst = Math.max(worst, at);
+    }
+    return { score: worst };
+  }
+
+  // Where `word` starts a word in `text` (already lowercased), or -1
+  function wordStartIndex(text, word) {
+    let from = 0;
+    for (;;) {
+      const at = text.indexOf(word, from);
+      if (at < 0) return -1;
+      if (at === 0 || !/[a-z0-9_]/.test(text[at - 1])) return at;
+      from = at + 1;
+    }
+  }
+
   // ---- Drafts ---------------------------------------------------------------
   // The manager's "+ New" creates a real prompt so the editor has something
   // to autosave into: the default title, an empty body, never used. It is the
@@ -126,7 +160,8 @@
   // in pin order (oldest pin first — a pin is a fixed Ctrl+digit slot, so use
   // counts must never move it), then the rest by most used, then title. With
   // text: title matches rank above tag matches above body matches, each tier
-  // by fuzzy score, ties by uses.
+  // by score, ties by uses. Titles and tags match fuzzily (subsequence);
+  // bodies have to hold the query itself (see bodyScore).
   // Returns [{s, indices}] where indices are title-highlight positions
   // (UTF-16 offsets into the title; null for tag/body matches).
   function rankSnippets(rawQuery, snippets) {
@@ -149,7 +184,7 @@
         if (title) return { s, score: title.score, indices: title.indices };
         const tag = fuzzyScore(q.text, (s.tags || []).join(' '));
         if (tag) return { s, score: 3000 + tag.score, indices: null };
-        const body = fuzzyScore(q.text, s.text);
+        const body = bodyScore(q.text, s.text);
         if (body) return { s, score: 5000 + body.score, indices: null };
         return null;
       })
@@ -391,6 +426,7 @@
     fillFields,
     expandBuiltins,
     fuzzyScore,
+    bodyScore,
     isEmptyDraft,
     rankSnippets,
     highlightSegments,

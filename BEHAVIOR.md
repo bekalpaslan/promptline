@@ -70,6 +70,14 @@ expands the second from the first one's output.
 still be physically holding the hotkey's modifiers, and a stray Shift turns the
 paste into something else entirely.
 
+**Search matches titles and tags fuzzily, bodies strictly.** `rankSnippets`
+ranks title matches above tag matches above body matches, and the first two
+accept a subsequence (`rvw` finds "Review"). The body tier does not: a
+four-letter query is a subsequence of almost any paragraph, so that fallback
+matched nearly every prompt and search stopped narrowing anything. A body has
+to contain the query (`bodyScore`), or, for a multi-word query, start a word
+with each of its words.
+
 **The popup has its own undo.** A delete from the action panel offers
 "U or Ctrl+Z to undo" in the feedback strip for a few seconds and puts the
 prompt back through `add_snippet` with its old id, so nothing about it is
