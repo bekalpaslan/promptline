@@ -151,7 +151,14 @@ Two guards follow from that:
   would retire a live pack.
 
 Orphans are never swept automatically. A file in `packs/` that no pack claims
-may be one an agent just dropped there for importing.
+may be one an agent just dropped there for importing. **Backing a pack adopts
+such a file when it declares that very pack's name** (`pack_file_slot`): the
+Generate dialog creates a pack's file before the pack exists, so an import that
+conjures the pack used to find `<name>.json` taken and back the pack with
+`<name>-2.json`, leaving the agent's file orphaned beside it. An adopted file is
+never written over on adoption — it may still hold prompts the library has not
+imported. A file claimed by another pack, or one that isn't a readable pack
+document, is never taken.
 
 **`packs/generated/`** holds scratch files for the Generate dialog's survey mode
 (agent path, empty topic). An agent writes the project's pack into one, with a

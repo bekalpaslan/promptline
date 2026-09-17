@@ -312,17 +312,53 @@ fn is_reserved_device_name(stem: &str) -> bool {
 /// Create a pack's .json file and return its absolute path, without touching
 /// any file that already exists.
 fn new_pack_file(app: &AppHandle, name: &str) -> Result<String, String> {
-    let dir = packs_dir(app);
+    let claimed = claimed_pack_paths(app);
+    let (path, adopted) = pack_file_slot(&packs_dir(app), name, &claimed);
+    // An adopted file already holds this pack's document, and may hold prompts
+    // an agent wrote that are not in the library yet: never write over it
+    if !adopted {
+        let json = pack_doc_json(name, Vec::new()).map_err(|e| e.to_string())?;
+        write_atomic(&path, json.as_bytes()).map_err(|e| e.to_string())?;
+    }
+    Ok(path.to_string_lossy().into_owned())
+}
+
+/// Every file some pack's metadata already points at.
+fn claimed_pack_paths(app: &AppHandle) -> Vec<String> {
+    load_config_from_disk(app)
+        .map(|c| c.packs.iter().filter(|p| !p.path.is_empty()).map(|p| p.path.clone()).collect())
+        .unwrap_or_default()
+}
+
+/// The file that backs a pack named `name`, and whether it was already there.
+///
+/// An existing file in the `<base>.json`, `<base>-2.json`, … series that holds
+/// a document for this very pack and backs no other pack is adopted. The
+/// Generate dialog creates a pack's file *before* the pack exists — the agent
+/// writes into it and the pack is conjured by the import — so without this the
+/// import's `ensure_packs_backed` would step over the agent's file and back
+/// the pack with `<base>-2.json`, leaving the real content orphaned.
+/// Anything else gets the first free name in the series.
+fn pack_file_slot(dir: &Path, name: &str, claimed: &[String]) -> (PathBuf, bool) {
     let base = sanitize_pack_filename(name);
     let mut path = dir.join(format!("{base}.json"));
     let mut i = 2;
     while path.exists() {
+        let free = !claimed.iter().any(|c| Path::new(c) == path);
+        if free && pack_file_name(&path).as_deref() == Some(name) {
+            return (path, true);
+        }
         path = dir.join(format!("{base}-{i}.json"));
         i += 1;
     }
-    let json = pack_doc_json(name, Vec::new()).map_err(|e| e.to_string())?;
-    write_atomic(&path, json.as_bytes()).map_err(|e| e.to_string())?;
-    Ok(path.to_string_lossy().into_owned())
+    (path, false)
+}
+
+/// The pack name a file declares, or None if it isn't a readable pack document.
+fn pack_file_name(path: &Path) -> Option<String> {
+    let text = fs::read_to_string(path).ok()?;
+    let doc: serde_json::Value = serde_json::from_str(&text).ok()?;
+    doc.get("name")?.as_str().map(|s| s.to_owned())
 }
 
 // Give every pack that exists a PackMeta and a file of its own, whatever route
@@ -1477,6 +1513,34 @@ mod tests {
         assert_eq!(sanitize_pack_filename("com0"), "com0");
         assert_eq!(sanitize_pack_filename("com10"), "com10");
         assert_eq!(sanitize_pack_filename("Con Air"), "con-air");
+    }
+
+    #[test]
+    fn backing_a_pack_adopts_the_file_an_agent_already_wrote_for_it() {
+        let dir = temp_dir("packadopt");
+        // The Generate dialog's file for pack "Agent Pack", filled by the agent
+        let agent_file = dir.join("agent-pack.json");
+        fs::write(&agent_file, pack_doc_json("Agent Pack", vec![serde_json::json!({
+            "title": "A", "tags": ["t"], "text": "body"
+        })]).unwrap()).unwrap();
+        // The import conjures the pack; backing it must land on that same file
+        let (path, adopted) = pack_file_slot(&dir, "Agent Pack", &[]);
+        assert!(adopted);
+        assert_eq!(path, agent_file);
+        // Once a pack claims it, the next same-named pack file gets its own name
+        let claimed = vec![agent_file.to_string_lossy().into_owned()];
+        let (path, adopted) = pack_file_slot(&dir, "Agent Pack", &claimed);
+        assert!(!adopted);
+        assert_eq!(path, dir.join("agent-pack-2.json"));
+        // A file of another pack's, or one that isn't a pack document, is never taken
+        fs::write(dir.join("other.json"), pack_doc_json("Other", Vec::new()).unwrap()).unwrap();
+        assert_eq!(pack_file_slot(&dir, "Other pack", &[]).0, dir.join("other-pack.json"));
+        fs::write(dir.join("junk.json"), b"not json").unwrap();
+        let (path, adopted) = pack_file_slot(&dir, "Junk", &[]);
+        assert!(!adopted);
+        assert_eq!(path, dir.join("junk-2.json"));
+        // Nothing there at all: the plain name
+        assert_eq!(pack_file_slot(&dir, "Fresh", &[]), (dir.join("fresh.json"), false));
     }
 
     #[test]
