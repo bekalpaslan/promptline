@@ -10,6 +10,7 @@ import {
   RiCloseLine,
   RiEdit2Line,
   RiFileTextLine,
+  RiFilterLine,
   RiPushpinFill,
   RiSearchLine,
 } from "@remixicon/react"
@@ -846,8 +847,8 @@ export function App() {
   useLayoutEffect(() => {
     setPreviewH(previewIdx === null ? null : previewCardRef.current?.offsetHeight ?? null)
   }, [previewIdx, previewPos])
-  // A pill toggles its filter term: first click adds it to the query,
-  // second click removes it again, other terms stay put
+  // A pill or header funnel toggles its filter term: first click adds it to
+  // the query, second click removes it again, other terms stay put
   const toggleFilter = useCallback((prefix: "#" | "@" | ">", name: string) => {
     setQuery((q) => {
       const term = C.filterTerm(prefix, name.toLowerCase())
@@ -859,7 +860,30 @@ export function App() {
     inputRef.current?.focus()
   }, [])
   const onTagClick = useCallback((tag: string) => toggleFilter("#", tag), [toggleFilter])
-  const activeTags = useMemo(() => C.parseQuery(query).tags, [query])
+  const parsed = useMemo(() => C.parseQuery(query), [query])
+  const activeTags = parsed.tags
+  const packActive = (name: string) => parsed.packs.includes(name.toLowerCase())
+  const groupActive = (name: string) => parsed.groups.includes(name.toLowerCase())
+  // Funnel at the right of a pack / group header: shown on hover, or always
+  // while its filter is on
+  const funnel = (prefix: "@" | ">", name: string, active: boolean) => (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-pressed={active}
+      title={active ? `Clear ${prefix}${name} filter` : `Filter by ${prefix}${name}`}
+      aria-label={active ? `Clear ${prefix}${name} filter` : `Filter by ${prefix}${name}`}
+      className={cn(
+        "flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md",
+        active
+          ? "bg-(--focus)/20 text-(--focus)"
+          : "text-muted-foreground opacity-0 hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-hover/hdr:opacity-100"
+      )}
+      onClick={() => toggleFilter(prefix, name)}
+    >
+      <RiFilterLine className="size-3.5" />
+    </button>
+  )
 
   // --- Hint bar (kit kbd-chip idiom) -------------------------------------------
   const hint = panelFor ? (
@@ -1148,8 +1172,9 @@ export function App() {
           }
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!))
           const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+          const filtered = sec.collapsible && packActive(sec.name)
           const headerClass = cn(
-            "flex w-full select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-base font-semibold",
+            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-base font-semibold",
             sec.collapsible && "cursor-pointer",
             sec.isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
           )
@@ -1166,20 +1191,23 @@ export function App() {
               {/* Pack title, as in the sidebar: a disclosure button (← / Ctrl+→
                   from a row do the same); Pinned / Results are plain headings */}
               {sec.collapsible ? (
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  aria-expanded={!sec.isCollapsed}
-                  className={headerClass}
-                  onClick={() => {
-                    toggleCollapsed(sec.name)
-                    // A mouse click focuses the button even at tabIndex -1;
-                    // typing must keep landing in the search box
-                    inputRef.current?.focus()
-                  }}
-                >
-                  {headerBody}
-                </button>
+                <div className={cn("group/hdr flex items-center rounded-md pr-0.5", filtered && "bg-(--focus)/10")}>
+                  <button
+                    type="button"
+                    tabIndex={-1}
+                    aria-expanded={!sec.isCollapsed}
+                    className={headerClass}
+                    onClick={() => {
+                      toggleCollapsed(sec.name)
+                      // A mouse click focuses the button even at tabIndex -1;
+                      // typing must keep landing in the search box
+                      inputRef.current?.focus()
+                    }}
+                  >
+                    {headerBody}
+                  </button>
+                  {funnel("@", sec.name, filtered)}
+                </div>
               ) : (
                 <div className={headerClass}>{headerBody}</div>
               )}
@@ -1190,26 +1218,30 @@ export function App() {
                     const key = groupKey(sec.name, g)
                     const gc = collapsedGroups.has(key)
                     const GChev = gc ? RiArrowRightSLine : RiArrowDownSLine
+                    const gf = groupActive(g)
                     return (
                       <div key={g} className="flex flex-col gap-1.5 pl-2.5" role="group" aria-label={g}>
-                        <button
-                          type="button"
-                          tabIndex={-1}
-                          aria-expanded={!gc}
-                          className={cn(
-                            "flex w-full cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-left text-xs font-semibold uppercase tracking-[0.06em]",
-                            gc ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
-                          )}
-                          onClick={() => {
-                            toggleCollapsedGroup(key)
-                            inputRef.current?.focus()
-                          }}
-                        >
-                          <span className="min-w-0 flex-1 truncate">
-                            {g} <span className="font-medium">({es.length})</span>
-                          </span>
-                          <GChev className="size-4 shrink-0" />
-                        </button>
+                        <div className={cn("group/hdr flex items-center rounded-md pr-0.5", gf && "bg-(--focus)/10")}>
+                          <button
+                            type="button"
+                            tabIndex={-1}
+                            aria-expanded={!gc}
+                            className={cn(
+                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-left text-xs font-semibold uppercase tracking-[0.06em]",
+                              gc ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
+                            )}
+                            onClick={() => {
+                              toggleCollapsedGroup(key)
+                              inputRef.current?.focus()
+                            }}
+                          >
+                            <span className="min-w-0 flex-1 truncate">
+                              {g} <span className="font-medium">({es.length})</span>
+                            </span>
+                            <GChev className="size-4 shrink-0" />
+                          </button>
+                          {funnel(">", g, gf)}
+                        </div>
                         {!gc && rows(es)}
                       </div>
                     )
