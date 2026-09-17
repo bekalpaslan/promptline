@@ -121,7 +121,7 @@ const segmentsToText = (segs: Segment[]) =>
 // Live render of exactly what Claude will receive — the editor-preview idiom
 function InstructionPreview({ segments }: { segments: Segment[] }) {
   return (
-    <div className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2.5 text-xs leading-relaxed text-muted-foreground">
+    <div className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2.5 text-ui leading-relaxed text-muted-foreground">
       {segments.map((s, i) =>
         typeof s === "string" ? (
           <span key={i}>{s}</span>
@@ -355,7 +355,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           }
           aria-label="Topic"
           spellCheck={false}
-          className="rounded-lg bg-secondary px-3 py-2 text-sm text-foreground focus-ring placeholder:text-muted-foreground"
+          className="rounded-lg bg-secondary px-3 py-2 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
         />
 
         {path === "agent" && !topic.trim() && (
@@ -380,7 +380,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               role="radio"
               aria-checked={path === p}
               className={cn(
-                "h-8 flex-1 cursor-pointer rounded-sm text-xs font-semibold focus-ring",
+                "h-8 flex-1 cursor-pointer rounded-sm text-ui font-semibold focus-ring",
                 path === p ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)" : "text-muted-foreground"
               )}
               onClick={() => switchPath(p)}
@@ -391,8 +391,8 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         </div>
 
         {/* What Claude will receive, rendered live */}
-        <div>
-          <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div className="module">
+          <div className="mb-1 section-title">
             What Claude gets
           </div>
           <InstructionPreview segments={segments} />

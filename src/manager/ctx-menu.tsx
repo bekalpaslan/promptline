@@ -145,7 +145,7 @@ export function useCtxMenu() {
           type="text"
           placeholder={it.placeholder}
           spellCheck={false}
-          className="w-full rounded-sm bg-secondary px-2 py-1 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
+          className="w-full rounded-sm bg-secondary px-2 py-1 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -170,7 +170,7 @@ export function useCtxMenu() {
           disabled={it.disabled}
           title={it.hint}
           className={cn(
-            "flex w-full cursor-pointer items-center justify-between gap-3 whitespace-nowrap rounded-sm px-2 py-1 text-left text-xs text-foreground hover:bg-accent focus-visible:bg-accent focus-ring disabled:cursor-default disabled:opacity-50",
+            "flex w-full cursor-pointer items-center justify-between gap-3 whitespace-nowrap rounded-sm px-2 py-1 text-left text-ui text-foreground hover:bg-accent focus-visible:bg-accent focus-ring disabled:cursor-default disabled:opacity-50",
             onSub && sub?.index === i && "bg-accent"
           )}
           onMouseEnter={(e) => onSub?.(i, e.currentTarget)}
@@ -198,7 +198,7 @@ export function useCtxMenu() {
         disabled={it.disabled}
         title={it.hint}
         className={cn(
-          "block w-full cursor-pointer whitespace-nowrap rounded-sm px-2 py-1 text-left text-xs text-foreground hover:bg-accent focus-visible:bg-accent focus-ring disabled:cursor-default disabled:opacity-50",
+          "block w-full cursor-pointer whitespace-nowrap rounded-sm px-2 py-1 text-left text-ui text-foreground hover:bg-accent focus-visible:bg-accent focus-ring disabled:cursor-default disabled:opacity-50",
           it.danger && "text-destructive"
         )}
         onMouseEnter={() => {

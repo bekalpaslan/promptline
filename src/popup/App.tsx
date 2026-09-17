@@ -57,7 +57,7 @@ function Hint({ k, children }: { k: React.ReactNode; children: React.ReactNode }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-2 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+    <div className="px-2 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
       {children}
     </div>
   )
@@ -939,7 +939,7 @@ export function App() {
             )
           })()}
           <SectionHeader>Prompt body — current clipboard</SectionHeader>
-          <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-xs leading-relaxed text-muted-foreground">
+          <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-ui leading-relaxed text-muted-foreground">
             {clip || "(clipboard is empty)"}
           </div>
           {/* The clipboard is the body: with nothing copied there is nothing
@@ -1011,7 +1011,7 @@ export function App() {
             )
           })}
           <SectionHeader>Will paste</SectionHeader>
-          <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-xs leading-relaxed text-muted-foreground">
+          <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-ui leading-relaxed text-muted-foreground">
             {C.tokenize(C.expandBuiltins(form.base)).map((part, i) => {
               if (part.type === "text") return <span key={i}>{part.value}</span>
               if (part.type === "field" && formValues[part.name]) {
@@ -1104,7 +1104,7 @@ export function App() {
         onScroll={hidePreview}
       >
         {filtered.length === 0 && (
-          <div className="px-4 py-4 text-center text-xs text-muted-foreground">
+          <div className="px-4 py-4 text-center text-ui text-muted-foreground">
             {!snippets.length
               ? "No prompts yet — copy some text and press Ctrl+N to save it as one, or left-click the Promptline tray icon to open the manager"
               : C.parseQuery(query).tags.length || C.parseQuery(query).packs.length || C.parseQuery(query).groups.length
@@ -1130,9 +1130,9 @@ export function App() {
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!))
           const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
           const headerClass = cn(
-            "flex w-full select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em]",
+            "flex w-full select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-base font-semibold",
             sec.collapsible && "cursor-pointer",
-            sec.isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
+            sec.isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
           )
           const headerBody = (
             <>
@@ -1179,7 +1179,7 @@ export function App() {
                           aria-expanded={!gc}
                           className={cn(
                             "flex w-full cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-left text-xs font-semibold uppercase tracking-[0.06em]",
-                            gc ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground"
+                            gc ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
                           )}
                           onClick={() => {
                             toggleCollapsedGroup(key)
@@ -1229,7 +1229,7 @@ export function App() {
             ref={previewCardRef}
             id="popup-preview"
             role="tooltip"
-            className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-xs leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
+            className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-ui leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
             style={{ left, top, width }}
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
             onMouseLeave={onItemMouseLeave}
@@ -1296,7 +1296,7 @@ function Shell({
         {notice && (
           <div
             className={cn(
-              "truncate rounded-md px-2 py-1 text-xs",
+              "truncate rounded-md px-2 py-1 text-ui",
               notice.kind === "error" ? "bg-destructive/15 text-destructive" : "bg-primary/15 text-foreground"
             )}
             title={notice.text}

@@ -91,6 +91,12 @@
     --param-config: #9a2a8c;
     --param-config-bg: #f9e6f5;
     --warn: #b4530a;
+    /* Module titles (Prompt, Preview, Settings cards): the one place the
+       accent hue names a section rather than a state */
+    --heading: #0b6f9e;
+    /* Pack titles: one step deeper than module and group titles */
+    --heading-strong: #085a80;
+    --module-border: color-mix(in srgb, var(--heading) 35%, transparent);
     --success: #2b7a3b;
     --segment-track: #f5f6f8;
     --segment-active: #ffffff;
@@ -131,6 +137,9 @@
     --param-config: #ea8fdc;
     --param-config-bg: #3b1e37;
     --warn: #f5a54b;
+    --heading: #63c8f2;
+    --heading-strong: #3fb2e6;
+    --module-border: color-mix(in srgb, var(--heading) 40%, transparent);
     --success: #7bd389;
     --segment-track: #101214;
     --segment-active: #22272c;
@@ -159,6 +168,20 @@
 /* The one focus treatment: a 2 px ring in --focus, only for keyboard focus
    (focus-visible), so mouse clicks don't flash it. Every outline-none in
    the app pairs with this. */
+@utility section-title {
+  font-size: var(--text-sm);
+  line-height: var(--text-sm--line-height);
+  font-weight: 600;
+  color: var(--heading);
+}
+
+@utility module {
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--module-border);
+  background-color: var(--card);
+  padding: calc(var(--spacing) * 3);
+}
+
 @utility focus-ring {
   outline: none;
 }

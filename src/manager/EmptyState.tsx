@@ -19,7 +19,7 @@ export function EmptyState({
       {Icon && <Icon className="size-8 opacity-40" />}
       <div>
         <div className="font-semibold text-foreground">{title}</div>
-        {hint && <div className="mt-1 text-xs leading-relaxed">{hint}</div>}
+        {hint && <div className="mt-1 text-ui leading-relaxed">{hint}</div>}
       </div>
       {actions.length > 0 && (
         <div className="flex flex-wrap justify-center gap-2">

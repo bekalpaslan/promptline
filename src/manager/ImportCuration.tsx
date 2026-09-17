@@ -60,7 +60,7 @@ export function ImportCuration({
 
   if (!diag.ok) {
     return (
-      <div className="mt-3 flex flex-col gap-2 rounded-md bg-secondary/60 p-3 text-xs text-muted-foreground">
+      <div className="mt-3 flex flex-col gap-2 rounded-md bg-secondary/60 p-3 text-ui text-muted-foreground">
         <div role="alert" className="text-destructive">Can't import: {diag.message}</div>
         <textarea
           value={draft}
@@ -68,7 +68,7 @@ export function ImportCuration({
           aria-label="Pack JSON"
           spellCheck={false}
           rows={6}
-          className="w-full resize-y rounded-sm bg-secondary p-2 font-mono text-xs text-foreground focus-ring"
+          className="w-full resize-y rounded-sm bg-secondary p-2 font-mono text-ui text-foreground focus-ring"
         />
         <div className="flex gap-2">
           <Button
@@ -141,7 +141,7 @@ export function ImportCuration({
   }
 
   return (
-    <div className="mt-3 flex max-h-75 flex-col rounded-md bg-secondary/60 text-xs text-muted-foreground">
+    <div className="mt-3 flex max-h-75 flex-col rounded-md bg-secondary/60 text-ui text-muted-foreground">
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <span>
           {rows.length} prompts
@@ -155,7 +155,7 @@ export function ImportCuration({
               value={packName}
               onChange={(e) => setPackName(e.target.value)}
               spellCheck={false}
-              className="w-42 rounded-sm bg-secondary px-2 py-1 text-xs text-foreground focus-ring"
+              className="w-42 rounded-sm bg-secondary px-2 py-1 text-ui text-foreground focus-ring"
             />
           </>
         )}

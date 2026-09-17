@@ -36,9 +36,9 @@ function ParamSection({
 }) {
   const [editing, setEditing] = useState(false)
   return (
-    <div className="flex flex-col gap-3 rounded-xl bg-secondary/50 p-3">
+    <div className="module flex flex-col gap-3 bg-secondary/50">
       <span className="flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground">
-        <span className="font-semibold uppercase tracking-wide">{title}</span>
+        <span className="section-title">{title}</span>
         <span>· {hint}</span>
         <button
           type="button"
@@ -66,7 +66,7 @@ function AddPill({ label, title, onAdd }: { label: string; title: string; onAdd:
     <button
       tabIndex={0}
       title={title}
-      className="flex shrink-0 cursor-pointer select-none overflow-hidden rounded-sm border border-transparent bg-secondary text-xs font-medium text-muted-foreground transition-colors hover:border-primary"
+      className="flex shrink-0 cursor-pointer select-none overflow-hidden rounded-sm border border-transparent bg-secondary text-ui font-medium text-muted-foreground transition-colors hover:border-primary"
       onClick={onAdd}
     >
       <span className="flex items-center px-1.5">
@@ -113,7 +113,7 @@ function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name:
         placeholder={placeholder}
         aria-label={placeholder.replace(/^\+ /, "Add ").replace(/…$/, "")}
         spellCheck={false}
-        className="w-28 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
+        className="w-28 rounded-sm bg-secondary px-3 py-0.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
         onChange={(e) => setRaw(e.target.value)}
         onKeyDown={(e) => {
           if (e.key !== "Enter") return
@@ -146,7 +146,7 @@ function TokenPreview({
   return (
     <div
       className={cn(
-        "min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-transparent bg-secondary/50 px-4 pt-3 pb-[calc(0.75rem+1lh)] text-sm leading-relaxed text-muted-foreground md:text-xs/relaxed",
+        "min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-transparent bg-secondary/50 px-4 pt-3 pb-[calc(0.75rem+1lh)] text-sm leading-relaxed text-muted-foreground",
         className
       )}
     >
@@ -470,7 +470,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           placeholder="Title"
           aria-label="Title"
           spellCheck={false}
-          className="min-w-50 flex-[2] bg-transparent py-1 text-[15px] font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
+          className="min-w-50 flex-[2] bg-transparent py-1 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
         />
         {newPackMode ? (
           <input
@@ -478,7 +478,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             placeholder="New pack name — Enter to confirm"
             aria-label="New pack name"
             spellCheck={false}
-            className="min-w-32 flex-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
+            className="min-w-32 flex-1 rounded-md bg-secondary px-3 py-1.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault()
@@ -509,7 +509,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
               // Native select arrows hug the edge; the app's own chevron sits
               // inset by the tier-1 spacing (6px) and takes the theme's colour
               aria-label="Pack"
-              className="w-full cursor-pointer appearance-none rounded-md bg-secondary py-1.5 pl-2 pr-7 text-xs text-foreground focus-ring"
+              className="w-full cursor-pointer appearance-none rounded-md bg-secondary py-1.5 pl-2 pr-7 text-ui text-foreground focus-ring"
             >
               {m.packNames(pack).map((p) => (
                 <option key={p} value={p} disabled={m.isLocked(p) && p !== pack}>
@@ -531,7 +531,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           placeholder="Group (optional)"
           aria-label="Group"
           spellCheck={false}
-          className="min-w-28 flex-1 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
+          className="min-w-28 flex-1 rounded-md bg-secondary px-3 py-1.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
         />
         <datalist id={`groups-${snippet.id}`}>
           {packGroups.map((g) => (
@@ -556,8 +556,8 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           The field (textarea + one-line tag strip) fills the card below the
           header; the textarea is 4 lines by default, grows with content
           (1lh bottom padding keeps one line free), capped at 10 lines. */}
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt</span>
+      <div className="module flex flex-col gap-3">
+        <span className="section-title">Prompt</span>
         <div className="-mx-3 -mb-3 flex flex-col overflow-hidden rounded-b-xl border border-transparent bg-secondary/50 focus-within:border-(--focus)">
         <Textarea
           ref={textRef}
@@ -592,7 +592,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             placeholder="+ tag…"
             aria-label="Add a tag"
             spellCheck={false}
-            className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
+            className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
             onKeyDown={(e) => {
               if (e.key !== "Enter") return
               addTags(e.currentTarget.value)
@@ -605,9 +605,9 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
 
       {/* One containing card: the toggle is its header, the parameter cards
           sit inside it on the tinted background */}
-      <div className="flex flex-col rounded-xl border border-border bg-card p-3">
+      <div className="module flex flex-col">
         <button
-          className="flex cursor-pointer items-center gap-1 self-start text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-primary"
+          className="section-title flex cursor-pointer items-center gap-1 self-start hover:text-primary"
           onClick={() => {
             const next = !advOpen
             setAdvOpen(next)
@@ -661,7 +661,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                           spellCheck={false}
                           placeholder="(unset — will ask as a fill-in field)"
                           aria-label={`Value for {{${name}}}`}
-                          className="flex-1 rounded-md bg-secondary px-3 py-1 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
+                          className="flex-1 rounded-md bg-secondary px-3 py-1 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
                           onChange={(e) => {
                             setConfigValues((v) => ({ ...v, [name]: e.target.value }))
                             scheduleSave()
@@ -682,10 +682,10 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
-        <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview</span>
+      <div className="module flex flex-col gap-3">
+        <span className="section-title">Preview</span>
         {/* The one line of syntax help that doesn't vanish once typing starts */}
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className="text-ui leading-relaxed text-muted-foreground">
           <code>{"{clipboard}"}</code> <code>{"{date}"}</code> <code>{"{time}"}</code> fill themselves ·{" "}
           <code>{"{field}"}</code> asks each time · <code>{"{{config}}"}</code> uses the value saved under
           Advanced options · names are lowercase letters and _ only

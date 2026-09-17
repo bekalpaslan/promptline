@@ -13,8 +13,8 @@ import { say, sayErr } from "./status"
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="w-full max-w-160 self-center rounded-xl border border-border bg-card p-3 text-card-foreground">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
+    <div className="module w-full max-w-160 self-center text-card-foreground">
+      <h2 className="mb-2 section-title">{title}</h2>
       {children}
     </div>
   )
@@ -38,7 +38,7 @@ function Row({ label, htmlFor, children }: { label: string; htmlFor?: string; ch
 }
 
 const selectCls =
-  "cursor-pointer rounded-md bg-secondary px-2 py-1 text-xs text-foreground focus-ring"
+  "cursor-pointer rounded-md bg-secondary px-2 py-1 text-ui text-foreground focus-ring"
 
 export function Settings() {
   const m = useManager()
@@ -178,7 +178,7 @@ export function Settings() {
             aria-describedby="setting-hotkey-help"
             spellCheck={false}
             className={cn(
-              "w-50 rounded-md bg-secondary px-3 py-1.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground",
+              "w-50 rounded-md bg-secondary px-3 py-1.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground",
               recording && "ring-2 ring-(--warn)/60",
               pending && !recording && "ring-2 ring-primary/50"
             )}
@@ -226,7 +226,7 @@ export function Settings() {
             Start with Windows
           </label>
         </Row>
-        <p id="setting-hotkey-help" className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        <p id="setting-hotkey-help" className="mt-3 text-ui leading-relaxed text-muted-foreground">
           Click Record, press a combination, then Apply (Esc cancels). The default Ctrl+Shift+V shadows "paste
           without formatting" in browsers — pick Ctrl+Alt+V if you use that.
         </p>
@@ -278,7 +278,7 @@ export function Settings() {
             <option value="125">125%</option>
           </select>
         </Row>
-        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
           Font and scale apply everywhere immediately (popup on its next open); density applies to the popup
           the next time it opens. Theme switches with the Light/Dark toggle at the bottom of the sidebar.
         </p>
@@ -297,7 +297,7 @@ export function Settings() {
                 <button
                   type="button"
                   aria-expanded={isOpen}
-                  className="flex w-full cursor-pointer select-none items-center gap-2 px-2.5 py-1.5 text-left text-xs text-foreground hover:bg-secondary"
+                  className="flex w-full cursor-pointer select-none items-center gap-2 px-2.5 py-1.5 text-left text-ui text-foreground hover:bg-secondary"
                   onClick={() => {
                     const next = new Set(expanded)
                     if (next.has(name)) next.delete(name)
@@ -314,7 +314,7 @@ export function Settings() {
                   </span>
                 </button>
                 {isOpen && (
-                  <div className="flex flex-col gap-2 border-t border-border px-2.5 py-2 text-xs text-muted-foreground">
+                  <div className="flex flex-col gap-2 border-t border-border px-2.5 py-2 text-ui text-muted-foreground">
                     <div className="break-all">{meta?.path || "This pack has no file yet"}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {meta?.path ? (
@@ -427,7 +427,7 @@ export function Settings() {
               autoFocus
               placeholder="Pack name — Enter to create"
               spellCheck={false}
-              className="min-w-40 flex-1 rounded-md bg-secondary px-3 py-1 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
+              className="min-w-40 flex-1 rounded-md bg-secondary px-3 py-1 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
               onKeyDown={(e) => {
                 if (e.key === "Escape") setNewPackMode(false)
                 if (e.key === "Enter") {
@@ -483,7 +483,7 @@ export function Settings() {
           </Button>
         </div>
         {importRaw !== null && <ImportCuration raw={importRaw} onClose={() => setImportRaw(null)} />}
-        <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
           Click a pack to see its file. Pack files under %APPDATA%\com.promptline.app\packs\ are always current —
           copy one to share or back up. Imports are reviewed prompt-by-prompt before anything is added.
         </p>
@@ -496,11 +496,11 @@ export function Settings() {
           values on purpose, outside the token system; text-black on #d97757
           is 6.7:1. */}
       <div className="mb-2 flex flex-wrap items-center justify-center gap-3 self-center">
-        <span className="max-w-72 text-xs leading-relaxed text-muted-foreground">
+        <span className="max-w-72 text-ui leading-relaxed text-muted-foreground">
           This app is open source. If you find it useful, I'd appreciate it if you'd consider:
         </span>
         <button
-          className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-black px-4 py-2 text-sm font-semibold text-black transition-transform hover:scale-[1.03]"
+          className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-black px-4 py-2 text-ui font-semibold text-black transition-transform hover:scale-[1.03]"
           style={{ background: "#d97757" }}
           onClick={() => {
             void invoke("open_url", { url: "https://buymeacoffee.com/hurryupbob" }).catch((e) =>

@@ -626,7 +626,7 @@ export function Sidebar() {
         title={`${group} — Enter toggles, right-click for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.06em]",
-          isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground"
+          isCollapsed ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
         )}
         onClick={() => toggleCollapsedGroup(key)}
         onKeyDown={(e) => {
@@ -777,8 +777,8 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         title={`${name} — Enter toggles, right-click for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-sm font-semibold",
-          isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
+          "group flex cursor-pointer select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-base font-semibold",
+          isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
         )}
         onClick={() => toggleCollapsed(name)}
         onKeyDown={(e) => {
@@ -806,7 +806,7 @@ export function Sidebar() {
             autoFocus
             defaultValue={name}
             spellCheck={false}
-            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-sm font-semibold text-foreground focus-ring"
+            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-base font-semibold text-(--heading-strong) focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               e.stopPropagation()
@@ -844,7 +844,7 @@ export function Sidebar() {
     <aside aria-label="Prompts" className="flex w-[clamp(15rem,28%,20rem)] flex-col border-r border-border bg-sidebar">
       {/* Title row: page title + view-config toggle + round add button */}
       <div className="flex items-center gap-1.5 p-3">
-        <h1 className="min-w-0 flex-1 truncate text-2xl font-bold">Prompts</h1>
+        <h1 className="min-w-0 flex-1 truncate text-xl font-bold">Prompts</h1>
         <button
           type="button"
           title="List view options"
@@ -872,7 +872,7 @@ export function Sidebar() {
             placeholder="Filter prompts…"
             aria-label="Filter prompts"
             spellCheck={false}
-            className="rounded-lg bg-background px-3 py-1.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
+            className="rounded-lg bg-background px-3 py-1.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
           />
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="whitespace-nowrap">Order by</span>
@@ -882,7 +882,7 @@ export function Sidebar() {
                 setOrderBy(e.target.value)
                 localStorage.setItem("orderBy", e.target.value)
               }}
-              className="min-w-0 flex-1 cursor-pointer truncate rounded-lg bg-background px-2 py-1 text-xs text-foreground focus-ring"
+              className="min-w-0 flex-1 cursor-pointer truncate rounded-lg bg-background px-2 py-1 text-ui text-foreground focus-ring"
             >
               <option value="uses">Most used</option>
               <option value="title">Title</option>
@@ -921,7 +921,7 @@ export function Sidebar() {
               autoFocus
               placeholder="Pack name — Enter to create, Esc to cancel"
               spellCheck={false}
-              className="rounded-lg border border-dashed border-primary bg-background px-3.5 py-2 text-sm text-foreground focus-ring placeholder:text-muted-foreground/80"
+              className="rounded-lg border border-dashed border-primary bg-background px-3.5 py-2 text-ui text-foreground focus-ring placeholder:text-muted-foreground/80"
               onKeyDown={(e) => {
                 if (e.key === "Escape") setNewPackInput(false)
                 if (e.key === "Enter") {
@@ -933,7 +933,7 @@ export function Sidebar() {
               onBlur={() => setNewPackInput(false)}
             />
             <button
-              className="cursor-pointer self-start px-1 text-xs text-muted-foreground hover:text-primary"
+              className="cursor-pointer self-start px-1 text-ui text-muted-foreground hover:text-primary"
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => {
                 setNewPackInput(false)
@@ -946,14 +946,14 @@ export function Sidebar() {
         ) : (
           <div className="mb-3 flex gap-1.5">
             <button
-              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
               onClick={() => void m.newPrompt()}
             >
               <RiFileAddLine className="size-4" />
               New prompt
             </button>
             <button
-              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-xs font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
               onClick={() => setNewPackInput(true)}
             >
               <RiFolderAddLine className="size-4" />
@@ -1013,7 +1013,7 @@ export function Sidebar() {
                 type="button"
                 aria-pressed={active}
                 className={cn(
-                  "flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-sm font-semibold capitalize",
+                  "flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-ui font-semibold capitalize",
                   active
                     ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)"
                     : "text-muted-foreground"

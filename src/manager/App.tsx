@@ -387,7 +387,7 @@ export function App() {
       {import.meta.env.DEV && <SizeDebug />}
       <div className="flex h-dvh flex-col bg-background text-foreground">
         {firstRun !== "hidden" && (
-          <div className="flex items-center gap-2 border-b border-border bg-primary/8 px-4 py-2 text-xs text-primary">
+          <div className="flex items-center gap-2 border-b border-border bg-primary/8 px-4 py-2 text-ui text-primary">
             {firstRun === "done" ? (
               <span className="text-green-500">✓ That's it — pick a prompt and it pastes right where you were.</span>
             ) : (
