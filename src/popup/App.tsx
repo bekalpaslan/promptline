@@ -266,11 +266,15 @@ export function App() {
       return new Set()
     }
   })
-  // Where the selection goes once the list has been rebuilt for the new
-  // collapsed set. `visible` is a memo, so the new row order isn't known here;
-  // the effect below lands the selection as soon as it is. Resetting to 0
-  // instead threw a click on a pack far down the list back to the top.
-  const pendingAnchor = useRef<{ pack: string; expanding: boolean } | null>(null)
+  // Where the selection goes once the list has been rebuilt: a prompt to
+  // follow — pinning, unpinning or restoring one moves its row between
+  // sections — or the pack a collapse toggled. `visible` is a memo, so the
+  // new row order isn't known at the moment of the action; the effect below
+  // lands the selection as soon as it is. A plain index survived neither:
+  // it left the highlight on whatever prompt had taken the old row, and
+  // resetting it to 0 threw a click on a far-down pack back to the top.
+  type PendingSel = { follow: string } | { pack: string; expanding: boolean }
+  const pendingAnchor = useRef<PendingSel | null>(null)
   const toggleCollapsed = useCallback((name: string) => {
     const next = new Set(collapsed)
     const expanding = next.has(name)
@@ -498,6 +502,8 @@ export function App() {
       setPanelNote(`Max ${MAX_PINS} pins — unpin something first`)
       return
     }
+    // The row moves into or out of the Pinned section: the highlight goes with it
+    pendingAnchor.current = { follow: s.id }
     if (await patch(s.id, { pinned: !s.pinned })) closePanel()
   }, [snippets, patch, closePanel])
 
@@ -528,6 +534,8 @@ export function App() {
     if (!last) return
     clearTimeout(last.timer)
     lastDeleted.current = null
+    // Highlight what came back, wherever the ranking puts it
+    pendingAnchor.current = { follow: last.snippet.id }
     try {
       const lib = await invoke<Library>("add_snippet", { snippet: last.snippet })
       setSnippets(lib.snippets)
@@ -608,16 +616,23 @@ export function App() {
     wasInMode.current = inMode
   }, [form, create])
 
-  // A pack was just collapsed or expanded: keep the selection by that pack
-  // rather than at the top of the list. Expanding takes its first row;
-  // collapsing takes the first row below the section, or the last row above
-  // it when the collapsed pack was the last one.
+  // The list was just rebuilt for a pending action: land the selection.
+  // Following a prompt keeps the highlight on it wherever its row went; a
+  // collapse keeps the selection by the toggled pack rather than at the top —
+  // expanding takes its first row, collapsing the first row below the
+  // section, or the last row above it when the pack was the last one.
   useEffect(() => {
     const anchor = pendingAnchor.current
     if (!anchor) return
     pendingAnchor.current = null
     if (!visible.length) {
       setSel(0)
+      return
+    }
+    if ("follow" in anchor) {
+      const i = visible.findIndex((e) => e.s.id === anchor.follow)
+      // Gone from the list (deleted, or filtered out): leave the clamp to it
+      if (i >= 0) setSel(i)
       return
     }
     const packOf = (e: Entry) => e.s.pack || DEFAULT_PACK
