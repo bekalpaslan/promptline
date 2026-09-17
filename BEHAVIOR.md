@@ -241,7 +241,10 @@ order. Ordering them by `uses` like the rest of the list made Ctrl+1..5 slots
 swap as soon as one pin was pasted more often than another, which is the
 opposite of what a pin is for. Legacy pins carry no stamp (0) and sort by
 title among themselves. Every pin path goes through `C.withPin` (manager) or
-`patch_snippet` (popup) so the stamp can't be forgotten.
+`patch_snippet` (popup) so the stamp can't be forgotten. A popup pack heading
+counts every prompt in the pack, its pinned ones included, even though those
+rows are drawn up in the Pinned section — the count answers "how big is this
+pack", the same number the manager's sidebar shows.
 
 **Preferences are mirrored into `localStorage`** as well as `config.json`. The
 popup must apply theme, scale and font on first paint — a round-trip to Rust

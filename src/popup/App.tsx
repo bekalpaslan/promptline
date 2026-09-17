@@ -275,15 +275,25 @@ export function App() {
     setSel(0)
   }, [collapsed])
 
-  type Section = { name: string; entries: Entry[]; collapsible: boolean; isCollapsed: boolean }
+  // `count` is what the heading shows: for a pack, every prompt it holds,
+  // pinned ones included, so the popup agrees with the manager's sidebar even
+  // though the pins are drawn up in the Pinned section.
+  type Section = { name: string; entries: Entry[]; count: number; collapsible: boolean; isCollapsed: boolean }
   const { sections, visible } = useMemo(() => {
     if (hasQuery) {
       const sections: Section[] =
-        filtered.length > 0 ? [{ name: "Results", entries: filtered, collapsible: false, isCollapsed: false }] : []
+        filtered.length > 0
+          ? [{ name: "Results", entries: filtered, count: filtered.length, collapsible: false, isCollapsed: false }]
+          : []
       return { sections, visible: filtered }
     }
     const pinned = filtered.filter((e) => e.s.pinned)
     const rest = filtered.filter((e) => !e.s.pinned)
+    const inPack = new Map<string, number>()
+    for (const e of filtered) {
+      const key = e.s.pack || DEFAULT_PACK
+      inPack.set(key, (inPack.get(key) || 0) + 1)
+    }
     const map = new Map<string, Entry[]>()
     for (const e of rest) {
       const key = e.s.pack || DEFAULT_PACK
@@ -299,9 +309,16 @@ export function App() {
       .sort((a, b) => a[0].localeCompare(b[0]))
       .map(([n, es]) => [n, [...es].sort(byGroup)] as [string, Entry[]])
     const sections: Section[] = []
-    if (pinned.length) sections.push({ name: "Pinned", entries: pinned, collapsible: false, isCollapsed: false })
+    if (pinned.length)
+      sections.push({ name: "Pinned", entries: pinned, count: pinned.length, collapsible: false, isCollapsed: false })
     for (const [name, entries] of packs)
-      sections.push({ name, entries, collapsible: true, isCollapsed: collapsed.has(name) })
+      sections.push({
+        name,
+        entries,
+        count: inPack.get(name) ?? entries.length,
+        collapsible: true,
+        isCollapsed: collapsed.has(name),
+      })
     const visible = [...pinned, ...packs.flatMap(([n, es]) => (collapsed.has(n) ? [] : es))]
     return { sections, visible }
   }, [filtered, hasQuery, collapsed])
@@ -1008,7 +1025,7 @@ export function App() {
           const headerBody = (
             <>
               <span className="min-w-0 flex-1 truncate">
-                {sec.name} <span className="font-semibold text-muted-foreground">({sec.entries.length})</span>
+                {sec.name} <span className="font-semibold text-muted-foreground">({sec.count})</span>
               </span>
               {sec.collapsible && <Chev className="size-4 shrink-0 text-muted-foreground" />}
             </>
