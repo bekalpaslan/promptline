@@ -536,7 +536,7 @@ export function App() {
         setNotice((n) => (n?.text.startsWith("Deleted ") ? null : n))
       }, 8000),
     }
-    setNotice({ text: `Deleted "${s.title}" — U to undo`, kind: "info" })
+    setNotice({ text: `Deleted "${s.title}" — U or Ctrl+Z to undo`, kind: "info" })
   }, [closePanel, fail])
 
   // Put the last deleted prompt back, with everything it had (same id, uses,
@@ -698,7 +698,16 @@ export function App() {
         return
       }
       if (form || create) return // form/create views handle their own keys
-      if (e.key.toLowerCase() === "u" && !e.ctrlKey && !e.altKey && !e.metaKey && lastDeleted.current) {
+      // Undo: Ctrl+Z always, bare "u" only while nothing has been typed. The
+      // search box is where every other key goes, so an unconditional "u"
+      // made a query like "unit tests" impossible to type after a delete.
+      if (
+        lastDeleted.current &&
+        !e.altKey &&
+        !e.metaKey &&
+        ((e.ctrlKey && e.key.toLowerCase() === "z") ||
+          (!e.ctrlKey && e.key.toLowerCase() === "u" && query === ""))
+      ) {
         e.preventDefault()
         void undoDelete()
         return
@@ -761,7 +770,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, hasQuery, collapsed, toggleCollapsed])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, collapsed, toggleCollapsed])
 
   // Stable handlers for the memoized rows: they read the live selection and
   // preview index through refs instead of closing over them
