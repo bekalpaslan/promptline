@@ -17,8 +17,13 @@ import { say, sayErr } from "./status"
 
 type Path = "chat" | "agent"
 
-// Shared schema/rules for both generation modes (clipboard reply, agent-written file)
-function packInstructionRules(tags: string) {
+// Shared schema/rules for both generation modes (clipboard reply, agent-written
+// file). The count and the "group" meaning are the two rules a project survey
+// changes, so they are parameters here rather than contradicted further down.
+type RuleOptions = { count?: string; group?: string }
+function packInstructionRules(tags: string, opts: RuleOptions = {}) {
+  const count = opts.count ?? "5 to 15 prompts, each genuinely reusable (no one-off prompts)."
+  const group = opts.group ?? "Optional group within the pack, e.g. a practice or area — omit for ungrouped"
   return `The pack is a JSON object following exactly this schema:
 
 {
@@ -27,7 +32,7 @@ function packInstructionRules(tags: string) {
     {
       "title": "Short imperative name, unique within the pack (max ~40 chars)",
       "tags": ["one", "to", "three lowercase tags"],
-      "group": "Optional group within the pack, e.g. a practice or area — omit for ungrouped",
+      "group": "${group}",
       "text": "The prompt body."
     }
   ]
@@ -46,7 +51,7 @@ Placeholder rules for "text":
 - {{lowercase_word}} (double braces) is a config parameter: the user saves a personal value once and it pastes without asking. Use only for user-specific standing values (e.g. {{standing_instructions}}); ship it empty.
 
 Pack rules:
-- 5 to 15 prompts, each genuinely reusable (no one-off prompts).
+- ${count}
 - Cover distinct moments of the workflow (starting, diagnosing, deciding, reviewing, wrapping up). No two prompts should ask for nearly the same thing.
 - Titles must be unique.
 - Reuse these existing tags where they fit, adding new ones only when needed: ${tags}
@@ -77,23 +82,36 @@ const PRACTICES = [
   "Housekeeping — commits, version bumps, cleanup",
 ]
 
-function agentInstruction(rules: string, topic: string, filePath: string): Segment[] {
-  if (topic) {
-    return [
-      `You are creating a prompt pack for Promptline (a prompt-paste tool). Write the pack as JSON directly into this file, replacing its placeholder contents:\n\n`,
-      { chip: filePath || "(created at step 1)", kind: "path" },
-      `\n\n${rules}\n\n${SURVEY}\n\nGenerate the pack for: `,
-      { chip: topic, kind: "topic" },
-      `\n\nKeep "name" exactly as it is in the file. When done, re-read the file and confirm it parses as JSON. Do not print the JSON anywhere else.`,
-    ]
-  }
-  // Survey mode: no topic — the agent mines the project it runs in, one pack per practice
+// Both agent prompts share one skeleton: opening, file path, rules, survey,
+// scope, closing. Only the scope (a topic, or one group per practice) and the
+// two parameterized rules differ, so the two read as one instruction.
+function agentInstruction(tags: string, topic: string, filePath: string): Segment[] {
+  const survey = !topic
+  const rules = packInstructionRules(
+    tags,
+    survey
+      ? {
+          count: "15 to 30 prompts in total, 3 to 6 per group, each genuinely reusable (no one-off prompts).",
+          group: "The practice this prompt belongs to, by its one-word name",
+        }
+      : {}
+  )
+  const opening = survey
+    ? "You are creating a prompt pack for Promptline (a prompt-paste tool): the prompts a developer of THIS project asks over and over."
+    : "You are creating a prompt pack for Promptline (a prompt-paste tool)."
+  const scope: Segment[] = survey
+    ? [
+        `Name the pack after the project. Set each prompt's "group" to its practice, `,
+        { chip: "one group per practice", kind: "topic" },
+        `:\n${PRACTICES.map((p) => `- ${p}`).join("\n")}\n\nSkip a practice you have nothing project-specific to say about.`,
+      ]
+    : [`Generate the pack for: `, { chip: topic, kind: "topic" }, `\n\nKeep "name" exactly as it is in the file.`]
   return [
-    `You are creating a prompt pack for Promptline (a prompt-paste tool) — prompts a developer of THIS project asks over and over. Write it as a single JSON pack object directly into this file, replacing its contents:\n\n`,
+    `${opening} Write it as a single JSON pack object directly into this file, replacing its contents:\n\n`,
     { chip: filePath || "(created at step 1)", kind: "path" },
-    `\n\n${rules}\n\n${SURVEY}\n\nName the pack after the project. Set each prompt's "group" to its practice, `,
-    { chip: "one group per practice", kind: "topic" },
-    `:\n${PRACTICES.map((p) => `- ${p}`).join("\n")}\n\nUse the practice's one-word name as the group. Skip a practice you have nothing project-specific to say about. 3 to 6 prompts per group, 15 to 30 in total (this replaces the 5 to 15 rule above). Write the file once, when every group is done, then re-read it and confirm it parses as JSON. Do not print the JSON anywhere else.`,
+    `\n\n${rules}\n\n${SURVEY}\n\n`,
+    ...scope,
+    `\n\nWrite the file once, when every prompt is done, then re-read it and confirm it parses as JSON. Do not print the JSON anywhere else.`,
   ]
 }
 
@@ -184,7 +202,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   const tags = m.allTags().slice(0, 12).join(", ") || "debug, review, plan"
   const rules = packInstructionRules(tags)
   const segments =
-    path === "chat" ? chatInstruction(rules, topic.trim()) : agentInstruction(rules, topic.trim(), agentFilePath)
+    path === "chat" ? chatInstruction(rules, topic.trim()) : agentInstruction(tags, topic.trim(), agentFilePath)
 
   const reset = () => {
     setTopic("")
@@ -234,7 +252,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       const meta = m.packMeta.find((p) => p.name === t)
       let filePath = meta?.path
       if (!t) {
-        // Survey mode: several packs land in one scratch file that backs no pack
+        // Survey mode: the project pack lands in a scratch file that backs no pack
         filePath = await invoke<string>("create_generated_file")
       } else if (!filePath) {
         // A file for the agent to write into. The pack itself is created on
@@ -246,7 +264,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       setAgentFilePath(filePath!)
       dismissedRaw.current = null
       await invoke("set_clipboard_text", {
-        text: segmentsToText(agentInstruction(rules, t, filePath!)),
+        text: segmentsToText(agentInstruction(tags, t, filePath!)),
       })
       setCopied(true)
       setWatching(true)
