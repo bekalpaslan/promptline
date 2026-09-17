@@ -542,6 +542,11 @@ export function App() {
     setPickedId(null)
     setQuery("")
     setSel(0)
+    // A summon starts at the top of the list. The scroll offset outlives
+    // hiding the window, and the keep-in-view effect can't undo it: row 0
+    // only scrolls to the nearest edge (leaving its section header above the
+    // fold), and with `sel` already 0 the effect doesn't run at all.
+    if (listRef.current) listRef.current.scrollTop = 0
     inputRef.current?.focus()
     try {
       const [lib, clipboard, config] = await Promise.all([
