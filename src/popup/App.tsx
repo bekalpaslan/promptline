@@ -744,7 +744,21 @@ export function App() {
   if (create) {
     return (
       <Shell hint={hint} notice={notice} announce={announce}>
-        <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-1">
+        <div
+          className="flex flex-1 flex-col gap-3 overflow-y-auto p-1"
+          // Enter saves from any field, as the hint bar promises: the pack and
+          // group selects have no Enter of their own, and the document listener
+          // stays out of this view. Arrow keys reach the selects untouched, and
+          // a focused button keeps its native Enter (that is already a click).
+          onKeyDown={(e) => {
+            if (e.key !== "Enter" || e.target instanceof HTMLButtonElement) return
+            e.preventDefault()
+            // Saving unmounts this view; the same keydown must not reach the
+            // document listener and be taken for a list pick
+            e.stopPropagation()
+            void saveCreate()
+          }}
+        >
           <SectionHeader>New prompt from clipboard</SectionHeader>
           <div className="px-1">
             <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Name</label>
@@ -754,15 +768,6 @@ export function App() {
               spellCheck={false}
               onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => setCreate((c) => c && { ...c, title: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  // Saving unmounts this view; the same keydown must not reach
-                  // the document listener and be taken for a list pick
-                  e.stopPropagation()
-                  void saveCreate()
-                }
-              }}
               className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-ui text-foreground outline-none focus:border-(--focus)"
             />
           </div>
