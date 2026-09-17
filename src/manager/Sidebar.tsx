@@ -625,7 +625,7 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         title={`${group} — Enter toggles, right-click for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.06em]",
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.06em]",
           isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground"
         )}
         onClick={() => toggleCollapsedGroup(key)}
@@ -654,7 +654,7 @@ export function Sidebar() {
             autoFocus
             defaultValue={group}
             spellCheck={false}
-            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.05em] text-foreground focus-ring"
+            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.06em] text-foreground focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               // The header above toggles on Enter / Space; typing must not reach it
@@ -777,7 +777,7 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         title={`${name} — Enter toggles, right-click for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-ui font-semibold",
+          "group flex cursor-pointer select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-sm font-semibold",
           isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
         )}
         onClick={() => toggleCollapsed(name)}
@@ -806,7 +806,7 @@ export function Sidebar() {
             autoFocus
             defaultValue={name}
             spellCheck={false}
-            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-ui font-semibold text-foreground focus-ring"
+            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-sm font-semibold text-foreground focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               e.stopPropagation()
