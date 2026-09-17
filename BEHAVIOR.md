@@ -227,6 +227,15 @@ pack, group, `configValues` are the editor's). The manager's bulk operations
 and the change has to be redone. Every snippet command returns the library
 with its revision, and the store lock serialises every read-modify-write.
 
+**A pin remembers when it was pinned.** `pinnedAt` (ms since epoch, personal
+state next to `uses` and `pinned`) is stamped when a prompt is pinned and
+cleared when it is unpinned, and `rankSnippets` draws pinned rows in that
+order. Ordering them by `uses` like the rest of the list made Ctrl+1..5 slots
+swap as soon as one pin was pasted more often than another, which is the
+opposite of what a pin is for. Legacy pins carry no stamp (0) and sort by
+title among themselves. Every pin path goes through `C.withPin` (manager) or
+`patch_snippet` (popup) so the stamp can't be forgotten.
+
 **Preferences are mirrored into `localStorage`** as well as `config.json`. The
 popup must apply theme, scale and font on first paint — a round-trip to Rust
 would show a flash of the wrong theme on every summon.

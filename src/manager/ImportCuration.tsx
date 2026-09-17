@@ -119,6 +119,7 @@ export function ImportCuration({
         group: r.group,
         uses: 0,
         pinned: false,
+        pinnedAt: 0,
         fieldValues: {},
         configValues: {},
       })

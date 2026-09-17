@@ -13,6 +13,8 @@ export interface Snippet {
   group: string
   uses: number
   pinned: boolean
+  /** When this prompt was pinned (ms since epoch); 0 = not pinned, or a legacy pin */
+  pinnedAt: number
   fieldValues: Record<string, string>
   configValues: Record<string, string>
 }
@@ -108,6 +110,8 @@ interface PromptlineCore {
   defaultPackFor(lastPack: string | null, names: string[], isLocked: (name: string) => boolean, defaultPack: string): string
   /** Whether pinning `ids` fits under `max`, counting only newly pinned rows */
   pinPlan(snippets: Pick<Snippet, "id" | "pinned">[], ids: Iterable<string>, max: number): { ok: boolean; already: number; toPin: number; room: number }
+  /** Pin or unpin one snippet, stamping the pin order that Ctrl+1..5 follows */
+  withPin<T extends Pick<Snippet, "pinned" | "pinnedAt">>(snippet: T, pinned: boolean, now?: number): T
   /** Shareable pack JSON; group only when set, never personal state */
   packToJson(name: string, prompts: Pick<Snippet, "title" | "text" | "tags" | "group">[]): { name: string; prompts: { title: string; text: string; tags: string[]; group?: string }[] }
   removeByIds<T extends { id: string }>(list: T[], ids: Iterable<string>): { kept: T[]; removed: Removed<T>[] }

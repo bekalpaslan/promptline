@@ -386,6 +386,7 @@ export function App() {
       group: create.group,
       uses: 0,
       pinned: false,
+      pinnedAt: 0,
       fieldValues: {},
       configValues: {},
     }

@@ -191,6 +191,7 @@ export function App() {
       group: (into?.pack && !isLocked(into.pack) && into.group) || "",
       uses: 0,
       pinned: false,
+      pinnedAt: 0,
       fieldValues: {},
       configValues: {},
     }

@@ -109,6 +109,36 @@ test('rankSnippets: pins lead with no query, then uses, then title', () => {
   assert.equal(core.rankSnippets('', lib)[0].indices, null);
 });
 
+test('rankSnippets: pins hold their pin order whatever their use counts (BH3-1)', () => {
+  const lib = [
+    { id: 'first', title: 'Zeta', text: '', tags: [], uses: 0, pinned: true, pinnedAt: 100 },
+    { id: 'second', title: 'Alpha', text: '', tags: [], uses: 99, pinned: true, pinnedAt: 200 },
+    { id: 'plain', title: 'Beta', text: '', tags: [], uses: 5, pinned: false },
+  ];
+  // Pasting the second pin over and over must not take the first one's Ctrl+1 slot
+  assert.deepEqual(core.rankSnippets('', lib).map(e => e.s.id), ['first', 'second', 'plain']);
+  // Legacy pins (no stamp) lead, by title among themselves
+  const legacy = [
+    { id: 'stamped', title: 'Alpha', text: '', tags: [], uses: 0, pinned: true, pinnedAt: 100 },
+    { id: 'old-z', title: 'Zeta', text: '', tags: [], uses: 1, pinned: true },
+    { id: 'old-b', title: 'Beta', text: '', tags: [], uses: 9, pinned: true },
+  ];
+  assert.deepEqual(core.rankSnippets('', legacy).map(e => e.s.id), ['old-b', 'old-z', 'stamped']);
+});
+
+test('withPin stamps the pin order, keeps it on a re-pin, clears it on unpin (BH3-1)', () => {
+  const s = { id: 'a', title: 'A', pinned: false, pinnedAt: 0 };
+  const pinned = core.withPin(s, true, 1234);
+  assert.equal(pinned.pinned, true);
+  assert.equal(pinned.pinnedAt, 1234);
+  assert.equal(s.pinned, false); // pure
+  assert.equal(core.withPin(pinned, true, 9999).pinnedAt, 1234);
+  assert.deepEqual(core.withPin(pinned, false, 9999).pinnedAt, 0);
+  assert.equal(core.withPin(pinned, false).pinned, false);
+  // A legacy pin gets a stamp the next time it is pinned
+  assert.equal(core.withPin({ id: 'b', pinned: true }, true, 7).pinnedAt, 7);
+});
+
 test('rankSnippets: a title subsequence beats a contiguous tag match beats a body match', () => {
   const lib = [
     { id: 'body', title: 'Nothing here', text: 'plan the work', tags: [], uses: 50 },

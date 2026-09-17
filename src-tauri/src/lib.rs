@@ -89,6 +89,13 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     fs::rename(&tmp, path)
 }
 
+fn now_millis() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+}
+
 fn tmp_path(path: &Path) -> PathBuf {
     let mut name = path.file_name().unwrap_or_default().to_os_string();
     name.push(".tmp");
@@ -169,6 +176,11 @@ struct Snippet {
     uses: u64,
     #[serde(default)]
     pinned: bool,
+    // When the prompt was pinned (ms since epoch), so pins keep the order they
+    // were pinned in — their Ctrl+1..5 slots must not move as uses change.
+    // 0 = not pinned, or a pin made before this was recorded.
+    #[serde(default, rename = "pinnedAt")]
+    pinned_at: u64,
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -495,6 +507,7 @@ fn snip(title: &str, tag: &str, text: &str) -> Snippet {
         group: String::new(),
         uses: 0,
         pinned: false,
+        pinned_at: 0,
     }
 }
 
@@ -637,6 +650,12 @@ fn merge_patch(list: &mut [Snippet], id: &str, patch: SnippetPatch) -> bool {
     };
     if let Some(p) = patch.pinned {
         s.pinned = p;
+        // Stamp the pin order once; re-pinning an already-pinned row keeps it
+        s.pinned_at = match (p, s.pinned_at) {
+            (false, _) => 0,
+            (true, 0) => now_millis(),
+            (true, at) => at,
+        };
     }
     if let Some(v) = patch.field_values {
         s.field_values = v;
@@ -1397,6 +1416,7 @@ mod tests {
         assert!(s.config_values.is_empty());
         assert_eq!(s.uses, 0);
         assert!(!s.pinned);
+        assert_eq!(s.pinned_at, 0);
     }
 
     #[test]
@@ -1638,6 +1658,27 @@ mod tests {
         assert_eq!(list[0].field_values["goal"], "next");
         assert_eq!(list[0].uses, 7);
         assert!(!merge_patch(&mut list, "missing", SnippetPatch::default()));
+    }
+
+    #[test]
+    fn a_pin_is_stamped_once_and_cleared_on_unpin() {
+        let mut list = vec![sample("a")];
+        list[0].pinned = false;
+        list[0].pinned_at = 0;
+        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(true), field_values: None }));
+        let stamped = list[0].pinned_at;
+        assert!(stamped > 0);
+        // Re-pinning an already-pinned prompt keeps its place in the pin order
+        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(true), field_values: None }));
+        assert_eq!(list[0].pinned_at, stamped);
+        // Unpinning forgets the order; the next pin goes to the end
+        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(false), field_values: None }));
+        assert_eq!(list[0].pinned_at, 0);
+        // A patch that says nothing about pinning leaves the stamp alone
+        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(true), field_values: None }));
+        let again = list[0].pinned_at;
+        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: None, field_values: None }));
+        assert_eq!(list[0].pinned_at, again);
     }
 
     #[test]

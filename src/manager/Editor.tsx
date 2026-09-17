@@ -406,7 +406,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       sayErr(`Max ${MAX_PINS} pins — unpin something first`)
       return
     }
-    await m.persist(m.snippets.map((s) => (s.id === snippet.id ? { ...s, pinned: !s.pinned } : s)))
+    await m.persist(m.snippets.map((s) => (s.id === snippet.id ? C.withPin(s, !s.pinned) : s)))
     say(snippet.pinned ? "Unpinned" : "Pinned")
   }
 
