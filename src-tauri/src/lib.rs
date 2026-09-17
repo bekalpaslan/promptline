@@ -1934,9 +1934,18 @@ pub fn run() {
                     let _ = window.hide();
                 }
             }
-            // Closing the main window hides to tray instead of quitting
-            WindowEvent::CloseRequested { api, .. } if window.label() == "main" => {
+            // Closing a window hides it. The main window lives in the tray; the
+            // popup must survive Alt+F4 too — it is created once at startup, so
+            // destroying it leaves `show_popup` with no window to show and the
+            // hotkey dead until the app is restarted.
+            WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
+                if window.label() == "popup" {
+                    let app = window.app_handle();
+                    let state = app.state::<AppState>();
+                    let _guard = state.store.lock().unwrap();
+                    persist_popup_size(app);
+                }
                 let _ = window.hide();
             }
             _ => {}

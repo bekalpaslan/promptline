@@ -270,6 +270,13 @@ its own after 1.5 s if the webview never answers, so Quit can't hang.
 `beforeunload` would not have done it — `app.exit` tears the webview down
 without firing it.
 
+**Closing a window hides it, whichever window it is.** The main window going
+to the tray is the visible half of that; the popup needs it just as much,
+because it is created once at startup and never rebuilt — Alt+F4 on it used to
+destroy the window, and `show_popup` then had nothing to show, leaving the
+hotkey dead until a restart. The popup's size is persisted on the way out, the
+same as on a blur.
+
 ## Content Security Policy
 
 `tauri.conf.json` sets a CSP: only the app's own scripts, styles (inline
