@@ -852,7 +852,9 @@ export function App() {
                   id={`field-${f}`}
                   aria-invalid={empty || undefined}
                   autoFocus={i === 0}
-                  rows={remembered ? Math.min(4, remembered.split("\n").length) : 1}
+                  // Grows with what is being typed, capped at four lines: taken
+                  // from the stored value alone, a Shift+Enter newline was invisible
+                  rows={Math.min(4, (formValues[f] ?? "").split("\n").length)}
                   value={formValues[f] ?? ""}
                   spellCheck={false}
                   onFocus={(e) => { if (remembered) e.currentTarget.select() }}
