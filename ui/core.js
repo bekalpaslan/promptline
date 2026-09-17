@@ -110,6 +110,17 @@
     return { score: 1000 + gaps, indices }; // subsequence ranks below contiguous
   }
 
+  // ---- Drafts ---------------------------------------------------------------
+  // The manager's "+ New" creates a real prompt so the editor has something
+  // to autosave into: the default title, an empty body, never used. It is the
+  // manager's to finish (and to sweep at startup — BEHAVIOR.md); the popup
+  // has nothing to paste from it, so the ranking leaves it out of the list
+  // and of the Ctrl+1..5 slots that follow it.
+  const DRAFT_TITLE = 'New prompt';
+  function isEmptyDraft(s) {
+    return s.title === DRAFT_TITLE && !(s.text || '').trim() && !(s.uses || 0);
+  }
+
   // ---- Ranking ---------------------------------------------------------------------
   // The popup's list order, as one pure function. No query text: pinned first
   // in pin order (oldest pin first — a pin is a fixed Ctrl+digit slot, so use
@@ -120,7 +131,7 @@
   // (UTF-16 offsets into the title; null for tag/body matches).
   function rankSnippets(rawQuery, snippets) {
     const q = parseQuery(rawQuery);
-    const pool = snippets.filter(s => matchesFilters(s, q));
+    const pool = snippets.filter(s => !isEmptyDraft(s) && matchesFilters(s, q));
     if (!q.text) {
       return pool
         .slice()
@@ -380,6 +391,7 @@
     fillFields,
     expandBuiltins,
     fuzzyScore,
+    isEmptyDraft,
     rankSnippets,
     highlightSegments,
     parseQuery,

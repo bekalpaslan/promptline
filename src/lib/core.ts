@@ -94,6 +94,8 @@ interface PromptlineCore {
   fillFields(text: string, values: Record<string, string>): string
   expandBuiltins(text: string): string
   fuzzyScore(query: string, target: string): FuzzyResult | null
+  /** An untouched "+ New" draft: the manager's to finish, never the popup's to paste */
+  isEmptyDraft(snippet: Pick<Snippet, "title" | "text" | "uses">): boolean
   /** The popup's list order: filters, then pins/uses or title>tag>body fuzzy tiers */
   rankSnippets(query: string, snippets: Snippet[]): { s: Snippet; indices: number[] | null }[]
   /** Title split into code-point runs marked hit/miss from UTF-16 match indices */

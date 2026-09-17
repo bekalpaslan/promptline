@@ -139,6 +139,21 @@ test('withPin stamps the pin order, keeps it on a re-pin, clears it on unpin (BH
   assert.equal(core.withPin({ id: 'b', pinned: true }, true, 7).pinnedAt, 7);
 });
 
+test("rankSnippets leaves an untouched \"New prompt\" draft out of the list (BH3-L)", () => {
+  const lib = [
+    { id: 'draft', title: 'New prompt', text: '', tags: [], uses: 0, pinned: false },
+    { id: 'blank-ish', title: 'New prompt', text: '  \n ', tags: [], uses: 0, pinned: false },
+    { id: 'used', title: 'New prompt', text: '', tags: [], uses: 3, pinned: false },
+    { id: 'written', title: 'New prompt', text: 'body', tags: [], uses: 0, pinned: false },
+    { id: 'real', title: 'Root cause', text: 'x', tags: [], uses: 0, pinned: false },
+  ];
+  // Only the untouched drafts drop out; a written or used one is a real prompt
+  assert.deepEqual(core.rankSnippets('', lib).map(e => e.s.id), ['used', 'written', 'real']);
+  assert.deepEqual(core.rankSnippets('new', lib).map(e => e.s.id), ['used', 'written']);
+  assert.equal(core.isEmptyDraft({ title: 'New prompt', text: '', uses: 0 }), true);
+  assert.equal(core.isEmptyDraft({ title: 'Mine', text: '', uses: 0 }), false);
+});
+
 test('rankSnippets: a title subsequence beats a contiguous tag match beats a body match', () => {
   const lib = [
     { id: 'body', title: 'Nothing here', text: 'plan the work', tags: [], uses: 50 },
