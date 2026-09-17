@@ -48,7 +48,7 @@ them, plus config values and a live preview. Invisible until you want it.
 - Search is fuzzy over titles, tags, and bodies with match highlighting;
   `#tag`, `@pack` and `>group` terms filter (`#debug root cause`); click a tag pill to filter by it
 - With no query, prompts sort by how often you use them, grouped under
-  collapsible pack sections with a sub-header per group; searching flattens
+  collapsible pack sections with a collapsible sub-header per group; searching flattens
   them into one ranked list
 - **Ctrl+N** turns whatever you just copied into a new prompt without leaving
   the popup — name pre-filled from the first line, pick its pack, confirm.

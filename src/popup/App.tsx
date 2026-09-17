@@ -16,6 +16,8 @@ import {
 import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
 import { applyPrefs, isCompact } from "@/lib/prefs"
 import { type Config, DEFAULT_PACK, MAX_PINS, TOKEN_CHIP, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
+// Same key shape as the sidebar, so a group folds independently per pack
+const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 import { cn } from "@/lib/utils"
 import { Kbd as UiKbd } from "@/components/ui/kbd"
 
@@ -301,6 +303,23 @@ export function App() {
     localStorage.setItem("popupCollapsedPacks", JSON.stringify([...next]))
     pendingAnchor.current = { pack: name, expanding }
   }, [collapsed])
+  // Groups fold the same way, keyed by pack + group so two packs' "Drafts"
+  // fold independently. Same key shape as the sidebar's collapsedGroups.
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
+    try {
+      return new Set(JSON.parse(localStorage.getItem("popupCollapsedGroups") || "[]"))
+    } catch {
+      return new Set()
+    }
+  })
+  const toggleCollapsedGroup = useCallback((key: string) => {
+    const next = new Set(collapsedGroups)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
+    setCollapsedGroups(next)
+    localStorage.setItem("popupCollapsedGroups", JSON.stringify([...next]))
+    setSel(0)
+  }, [collapsedGroups])
 
   // `count` is what the heading shows: for a pack, every prompt it holds,
   // pinned ones included, so the popup agrees with the manager's sidebar even
@@ -346,9 +365,14 @@ export function App() {
         collapsible: true,
         isCollapsed: collapsed.has(name),
       })
-    const visible = [...pinned, ...packs.flatMap(([n, es]) => (collapsed.has(n) ? [] : es))]
+    const visible = [
+      ...pinned,
+      ...packs.flatMap(([n, es]) =>
+        collapsed.has(n) ? [] : es.filter((e) => !e.s.group || !collapsedGroups.has(groupKey(n, e.s.group)))
+      ),
+    ]
     return { sections, visible }
-  }, [filtered, hasQuery, collapsed])
+  }, [filtered, hasQuery, collapsed, collapsedGroups])
 
   // Row index within `visible`, for selection
   const rowIndex = useMemo(() => new Map(visible.map((e, i) => [e.s.id, i])), [visible])
@@ -764,9 +788,11 @@ export function App() {
         e.preventDefault()
         hidePreview()
       } else if (e.key === "ArrowLeft" && !hasQuery && visible[sel] && !visible[sel].s.pinned) {
-        // ← collapses the selected row's pack
+        // ← folds the selected row's group; on an ungrouped row, its pack
         e.preventDefault()
-        toggleCollapsed(visible[sel].s.pack || DEFAULT_PACK)
+        const { pack, group } = visible[sel].s
+        if (group) toggleCollapsedGroup(groupKey(pack || DEFAULT_PACK, group))
+        else toggleCollapsed(pack || DEFAULT_PACK)
       } else if (e.key === "Tab") {
         e.preventDefault()
         if (visible[sel]) { hidePreview(); setPanelFor(visible[sel].s); setPanelSel(0) }
@@ -777,7 +803,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, collapsed, toggleCollapsed])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, collapsed, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live selection and
   // preview index through refs instead of closing over them
@@ -1141,16 +1167,34 @@ export function App() {
               {!sec.isCollapsed && (
                 <div className="flex flex-col gap-1.5">
                   {rows(ungrouped)}
-                  {[...groups.entries()].map(([g, es]) => (
-                    <div key={g} className="flex flex-col gap-1.5 pl-2.5" role="group" aria-label={g}>
-                      <div className="flex select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em] text-muted-foreground">
-                        <span className="min-w-0 flex-1 truncate">
-                          {g} <span className="font-medium">({es.length})</span>
-                        </span>
+                  {[...groups.entries()].map(([g, es]) => {
+                    const key = groupKey(sec.name, g)
+                    const gc = collapsedGroups.has(key)
+                    const GChev = gc ? RiArrowRightSLine : RiArrowDownSLine
+                    return (
+                      <div key={g} className="flex flex-col gap-1.5 pl-2.5" role="group" aria-label={g}>
+                        <button
+                          type="button"
+                          tabIndex={-1}
+                          aria-expanded={!gc}
+                          className={cn(
+                            "flex w-full cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-left text-xs font-semibold uppercase tracking-[0.06em]",
+                            gc ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground"
+                          )}
+                          onClick={() => {
+                            toggleCollapsedGroup(key)
+                            inputRef.current?.focus()
+                          }}
+                        >
+                          <span className="min-w-0 flex-1 truncate">
+                            {g} <span className="font-medium">({es.length})</span>
+                          </span>
+                          <GChev className="size-4 shrink-0" />
+                        </button>
+                        {!gc && rows(es)}
                       </div>
-                      {rows(es)}
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>
