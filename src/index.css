@@ -164,6 +164,11 @@
 @utility tag-border-dark {
   border-color: color-mix(in srgb, var(--tag) 45%, transparent);
 }
+/* A pill whose #term is in the query: tinted fill and a solid edge */
+@utility tag-fill {
+  background-color: color-mix(in srgb, var(--tag) 18%, transparent);
+  border-color: var(--tag);
+}
 
 /* The one focus treatment: a 2 px ring in --focus, only for keyboard focus
    (focus-visible), so mouse clicks don't flash it. Every outline-none in

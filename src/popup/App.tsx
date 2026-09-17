@@ -124,6 +124,7 @@ const Row = memo(function Row({
   onMove,
   onLeave,
   onTag,
+  activeTags,
   previewed,
   clipEmpty,
   slot,
@@ -140,6 +141,8 @@ const Row = memo(function Row({
   onMove: (i: number, e: React.MouseEvent) => void
   onLeave: () => void
   onTag: (tag: string) => void
+  /** Lower-cased #terms in the query; a matching pill renders filled */
+  activeTags: readonly string[]
   /** The preview card is open for this row (it describes the row) */
   previewed: boolean
   /** Clipboard is empty, so a `{clipboard}` prompt would paste a hole */
@@ -182,15 +185,20 @@ const Row = memo(function Row({
       {/* Up to three pills keep the row single-line; the rest fold into +N */}
       {tags.slice(0, MAX_ROW_TAGS).map((tag) => {
         const c = C.tagColor(tag)
+        const active = activeTags.includes(tag.toLowerCase())
         return (
           <button
             key={tag}
             type="button"
             tabIndex={-1}
-            className="flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs tag-text tag-border dark:tag-text-dark dark:tag-border-dark"
+            aria-pressed={active}
+            className={cn(
+              "flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs tag-text tag-border dark:tag-text-dark dark:tag-border-dark",
+              active && "tag-fill",
+            )}
             style={{ "--tag": c } as React.CSSProperties}
-            title={`Filter by #${tag}`}
-            aria-label={`Filter by #${tag}`}
+            title={active ? `Clear #${tag} filter` : `Filter by #${tag}`}
+            aria-label={active ? `Clear #${tag} filter` : `Filter by #${tag}`}
             onClick={(e) => {
               e.stopPropagation()
               onTag(tag)
@@ -838,10 +846,20 @@ export function App() {
   useLayoutEffect(() => {
     setPreviewH(previewIdx === null ? null : previewCardRef.current?.offsetHeight ?? null)
   }, [previewIdx, previewPos])
-  const onTagClick = useCallback((tag: string) => {
-    setQuery(`#${tag} `)
+  // A pill toggles its filter term: first click adds it to the query,
+  // second click removes it again, other terms stay put
+  const toggleFilter = useCallback((prefix: "#" | "@" | ">", name: string) => {
+    setQuery((q) => {
+      const term = C.filterTerm(prefix, name.toLowerCase())
+      const terms = q.match(/[#@>]"[^"]*"|\S+/g) || []
+      const rest = terms.filter((t) => t.toLowerCase() !== term)
+      const next = rest.length < terms.length ? rest : [...rest, term]
+      return next.length ? next.join(" ") + " " : ""
+    })
     inputRef.current?.focus()
   }, [])
+  const onTagClick = useCallback((tag: string) => toggleFilter("#", tag), [toggleFilter])
+  const activeTags = useMemo(() => C.parseQuery(query).tags, [query])
 
   // --- Hint bar (kit kbd-chip idiom) -------------------------------------------
   const hint = panelFor ? (
@@ -1051,6 +1069,7 @@ export function App() {
       onMove={onItemMouseMove}
       onLeave={onItemMouseLeave}
       onTag={onTagClick}
+      activeTags={activeTags}
       previewed={previewIdx === i}
       clipEmpty={!clip}
       slot={slotOf.get(entry.s.id)}
