@@ -41,6 +41,18 @@ function Kbd({ children }: { children: React.ReactNode }) {
   )
 }
 
+// One key and what it does. A group per hint, so a hint bar too wide for the
+// window (125% scale, the mono font) wraps between hints instead of being
+// clipped by the shell's overflow, and never splits a key from its label.
+function Hint({ k, children }: { k: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span className="flex shrink-0 items-center gap-1">
+      <Kbd>{k}</Kbd>
+      {children}
+    </span>
+  )
+}
+
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
     <div className="px-2 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
@@ -787,13 +799,19 @@ export function App() {
 
   // --- Hint bar (kit kbd-chip idiom) -------------------------------------------
   const hint = panelFor ? (
-    <><Kbd>↵</Kbd> run <Kbd>1-9</Kbd> pick <Kbd>Esc</Kbd> back</>
+    <><Hint k="↵">run</Hint><Hint k="1-9">pick</Hint><Hint k="Esc">back</Hint></>
   ) : form ? (
-    <><Kbd>↵</Kbd> paste <Kbd>Ctrl ↵</Kbd> copy <Kbd>⇧ ↵</Kbd> newline <Kbd>Esc</Kbd> back</>
+    <><Hint k="↵">paste</Hint><Hint k="Ctrl ↵">copy</Hint><Hint k="⇧ ↵">newline</Hint><Hint k="Esc">back</Hint></>
   ) : create ? (
-    <><Kbd>↵</Kbd> save <Kbd>Esc</Kbd> back</>
+    <><Hint k="↵">save</Hint><Hint k="Esc">back</Hint></>
   ) : (
-    <><Kbd>↵</Kbd> paste <Kbd>Ctrl ↵</Kbd> copy <Kbd>Tab</Kbd> actions <Kbd>→</Kbd> preview <Kbd>Esc</Kbd> close</>
+    <>
+      <Hint k="↵">paste</Hint>
+      <Hint k="Ctrl ↵">copy</Hint>
+      <Hint k="Tab">actions</Hint>
+      <Hint k="→">preview</Hint>
+      <Hint k="Esc">close</Hint>
+    </>
   )
 
   // What a screen reader hears when the state changes (UM14)
@@ -1223,7 +1241,10 @@ function Shell({
           </div>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-1 pt-2 font-mono text-[11px] text-muted-foreground">
+      {/* Wraps rather than clips: at 125% scale, or with the mono font, the
+          list's five hints are wider than the window and the shell's
+          overflow-hidden used to eat the last of them */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-1 pt-2 font-mono text-[11px] text-muted-foreground">
         {hint}
       </div>
     </div>
