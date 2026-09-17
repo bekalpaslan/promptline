@@ -35,7 +35,7 @@ const MAX_ROW_TAGS = 3
 // The shared Kbd in the kit's 16px bordered-square idiom
 function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <UiKbd className="h-4 min-w-4 shrink-0 rounded-sm border border-border bg-background px-0.5 text-xs font-normal text-muted-foreground">
+    <UiKbd className="h-4 min-w-4 shrink-0 rounded-sm border border-border bg-background px-0.5 font-mono text-[11px] font-normal text-muted-foreground">
       {children}
     </UiKbd>
   )
@@ -43,7 +43,7 @@ function Kbd({ children }: { children: React.ReactNode }) {
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-2 pb-0.5 pt-1.5 text-xs font-medium tracking-[0.04em] text-muted-foreground">
+    <div className="px-2 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
       {children}
     </div>
   )
@@ -147,9 +147,9 @@ const Row = memo(function Row({
       title={usesClip ? "Clipboard is empty — {clipboard} will paste nothing" : undefined}
       data-selected={selected}
       className={cn(
-        "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 text-ui font-semibold",
-        compact ? "py-1" : "py-1.5",
-        selected ? "bg-accent text-foreground" : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
+        "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
+        compact ? "py-0.5" : "py-1",
+        selected ? "bg-accent text-foreground" : "text-foreground hover:bg-hover",
         picked && "bg-primary/20"
       )}
       onClick={(e) => onPick(s, !e.ctrlKey)}
@@ -749,7 +749,7 @@ export function App() {
                   void saveCreate()
                 }
               }}
-              className="w-full rounded-lg border-2 border-input bg-background px-2 py-1.5 text-ui text-foreground outline-none focus:border-(--focus)"
+              className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-ui text-foreground outline-none focus:border-(--focus)"
             />
           </div>
           <div className="px-1">
@@ -909,7 +909,7 @@ export function App() {
       {/* Search — kit "Active" state: 36px boxed input, 2px focus border */}
       <div
         role="search"
-        className="flex h-8 shrink-0 items-center gap-1 rounded-lg border-2 border-input bg-background py-1.5 pl-2 pr-1.5 focus-within:border-(--focus)"
+        className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-input bg-background py-1.5 pl-2 pr-1.5 focus-within:border-(--focus)"
       >
         <RiSearchLine className="size-4 shrink-0 text-muted-foreground" />
         <input
@@ -977,7 +977,7 @@ export function App() {
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!))
           const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
           const headerClass = cn(
-            "flex w-full select-none items-center gap-1.5 rounded-lg px-1 py-2 text-left text-sm font-bold",
+            "flex w-full select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-[11px] font-semibold uppercase tracking-[0.06em]",
             sec.collapsible && "cursor-pointer",
             sec.isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
           )
@@ -1101,7 +1101,7 @@ export function App() {
   )
 }
 
-// Window chrome — the kit palette card: 12px radius, 8px padding, soft shadow
+// Window chrome: 8px radius, 8px padding, a line-strong edge and the one shadow
 function Shell({
   children,
   hint,
@@ -1115,7 +1115,7 @@ function Shell({
   announce: string
 }) {
   return (
-    <div className="flex h-dvh flex-col gap-2.5 overflow-hidden rounded-xl border border-border bg-background p-2.5 text-foreground shadow-(--shadow-shell)">
+    <div className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-background p-2 text-foreground shadow-(--shadow-shell)">
       {import.meta.env.DEV && <SizeDebug />}
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
       {children}
@@ -1134,7 +1134,7 @@ function Shell({
           </div>
         )}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-1 pt-2.5 text-xs text-muted-foreground">
+      <div className="flex shrink-0 items-center gap-1.5 border-t border-border px-1 pt-2 font-mono text-[11px] text-muted-foreground">
         {hint}
       </div>
     </div>

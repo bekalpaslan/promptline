@@ -2,12 +2,13 @@
 // mirrored to localStorage so the popup can apply them without a round-trip.
 // Legacy theme values ("sand"/"sundown") were both dark; treat anything but
 // "light" as dark.
-// UI font choices: "outfit" ships with the app, the rest are stock Windows
-// fonts so no download is needed. Applied via --app-font, which --font-sans
-// (and every font-sans/font-heading utility) resolves to at runtime.
+// UI font choices: the platform UI face is the default (a tool, not a
+// website); "outfit" ships with the app, the rest are stock Windows fonts.
+// Applied via --app-font, which --font-sans (and every font-sans/font-heading
+// utility) resolves to at runtime.
 export const FONTS = [
-  { id: "outfit", label: "Outfit — default", stack: "'Outfit Variable', sans-serif" },
-  { id: "system", label: "System — Segoe UI", stack: "system-ui, 'Segoe UI', sans-serif" },
+  { id: "system", label: "System — Segoe UI (default)", stack: "'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif" },
+  { id: "outfit", label: "Outfit", stack: "'Outfit Variable', sans-serif" },
   { id: "serif", label: "Serif — Georgia", stack: "Georgia, 'Times New Roman', serif" },
   { id: "mono", label: "Monospace — Cascadia", stack: "'Cascadia Mono', Consolas, monospace" },
 ] as const
@@ -21,7 +22,7 @@ export function applyPrefs() {
   document.documentElement.classList.toggle("dark", theme !== "light")
   const scale = parseInt(localStorage.getItem("scale") ?? "", 10) || 100
   document.documentElement.style.fontSize = `${(16 * scale) / 100}px`
-  const font = localStorage.getItem("font") || "outfit"
+  const font = localStorage.getItem("font") || "system"
   document.documentElement.style.setProperty("--app-font", fontStack(font))
 }
 

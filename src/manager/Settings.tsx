@@ -13,7 +13,7 @@ import { say, sayErr } from "./status"
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="w-full max-w-160 self-center rounded-xl bg-card p-3 text-card-foreground">
+    <div className="w-full max-w-160 self-center rounded-xl border border-border bg-card p-3 text-card-foreground">
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h2>
       {children}
     </div>

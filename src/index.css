@@ -11,6 +11,9 @@
     --font-heading: var(--font-sans);
     /* Runtime-switchable: applyPrefs() overrides --app-font from the font pref */
     --font-sans: var(--app-font);
+    /* Everything a person types or presses: kbd, placeholder tokens, previews */
+    --font-mono: 'Cascadia Code', 'JetBrains Mono', Consolas, ui-monospace, monospace;
+    --color-hover: var(--hover);
     /* The UI's body size sits between Tailwind's xs and sm; one name, not text-[13px] */
     --text-ui: 13px;
     --text-ui--line-height: 1.25rem;
@@ -49,84 +52,91 @@
        scrollbars, select dropdowns, form controls. Without it they
        stay light no matter what the tokens below say. */
     color-scheme: light;
-    --app-font: 'Outfit Variable', sans-serif;
-    --background: oklch(1 0 0);
-    --foreground: oklch(0.145 0 0);
-    --card: oklch(1 0 0);
-    --card-foreground: oklch(0.145 0 0);
-    --popover: oklch(1 0 0);
-    --popover-foreground: oklch(0.145 0 0);
-    --primary: oklch(0.52 0.105 223.128);
-    --primary-foreground: oklch(0.984 0.019 200.873);
-    --secondary: oklch(0.967 0.001 286.375);
-    --secondary-foreground: oklch(0.21 0.006 285.885);
-    --muted: oklch(0.97 0 0);
-    --muted-foreground: oklch(0.556 0 0);
-    /* Command-palette kit grays: rows/hover #ebeef0, borders #d6dde0 */
-    --accent: oklch(0.944 0.004 235);
-    --accent-foreground: oklch(0.205 0 0);
-    --destructive: oklch(0.577 0.245 27.325);
-    --border: oklch(0.891 0.008 224);
-    --input: oklch(0.891 0.008 224);
-    --ring: oklch(0.708 0 0);
-    --radius: 0.625rem;
-    /* One focus colour for every control in both themes (was the popup's
-       #00a6f4 alone, with three other ring systems elsewhere) */
-    --focus: #00a6f4;
-    /* Placeholder kinds: darker in light so the chip text clears 4.5:1 on
-       white; the 500s in dark. Backgrounds are the same hue at 15 %. */
-    --param-builtin: oklch(0.52 0.12 222);
-    --param-builtin-bg: oklch(0.72 0.14 222 / 15%);
-    --param-field: oklch(0.55 0.14 70);
-    --param-field-bg: oklch(0.79 0.17 75 / 15%);
-    --param-config: oklch(0.52 0.22 322);
-    --param-config-bg: oklch(0.72 0.25 322 / 15%);
-    /* Warnings and pins/locks: amber, one step darker in light */
-    --warn: oklch(0.55 0.15 70);
-    /* Segmented controls: an explicit track and active pair, so the active
-       segment is a raised tile in both themes instead of a hole in dark */
-    --segment-track: oklch(0.955 0.002 286);
-    --segment-active: oklch(1 0 0);
-    --shadow-segment: 0 4px 6px rgba(28, 29, 34, 0.08);
-    /* The popup's floating surfaces */
-    --shadow-pop: 0 0 16px rgba(18, 45, 88, 0.24);
-    --shadow-shell: 0 0 16px rgba(18, 45, 88, 0.12);
+    --app-font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+    /* Direction A ("Instrument"): ink first, hue second. Text and controls
+       are neutral; the accent only marks selection, focus and matches. */
+    --background: #ffffff;
+    --foreground: #1a1d21;
+    --card: #ffffff;
+    --card-foreground: #1a1d21;
+    --popover: #ffffff;
+    --popover-foreground: #1a1d21;
+    /* The one primary button is ink on paper, not a coloured call to action */
+    --primary: #1a1d21;
+    --primary-foreground: #ffffff;
+    --secondary: #f5f6f8;
+    --secondary-foreground: #1a1d21;
+    --muted: #f5f6f8;
+    --muted-foreground: #586270;
+    /* accent = the keyboard-selected row; --hover = the mouse. Never the same
+       colour, so a hover can't be mistaken for the row Enter will paste. */
+    --accent: #e3f2fb;
+    --accent-foreground: #1a1d21;
+    --hover: #eef0f3;
+    --destructive: #b93227;
+    --border: #e3e6e9;
+    --input: #c9cfd6;
+    --ring: #0b7fb4;
+    --sidebar: #f5f6f8;
+    /* 4px base; the collapsed scale above gives 2 / 4 / 6 / 8 */
+    --radius: 0.25rem;
+    --focus: #0b7fb4;
+    --link: #0b7fb4;
+    /* Placeholder kinds: cyan / amber / orchid (config moved off violet so it
+       no longer reads as the accent). Text clears 4.5:1 on its soft ground. */
+    --param-builtin: #0b6f9e;
+    --param-builtin-bg: #e3f2fb;
+    --param-field: #8a5a05;
+    --param-field-bg: #fbf1dc;
+    --param-config: #9a2a8c;
+    --param-config-bg: #f9e6f5;
+    --warn: #b4530a;
+    --success: #2b7a3b;
+    --segment-track: #f5f6f8;
+    --segment-active: #ffffff;
+    --shadow-segment: 0 1px 2px rgba(16, 24, 40, 0.10);
+    /* Hairlines carry structure; only floating surfaces cast a shadow */
+    --shadow-pop: 0 4px 12px rgba(16, 24, 40, 0.10);
+    --shadow-shell: 0 8px 24px rgba(16, 24, 40, 0.16);
 }
 
 .dark {
     color-scheme: dark;
-    --background: oklch(0.145 0 0);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.205 0 0);
-    --card-foreground: oklch(0.985 0 0);
-    --popover: oklch(0.205 0 0);
-    --popover-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.45 0.085 224.283);
-    --primary-foreground: oklch(0.984 0.019 200.873);
-    --secondary: oklch(0.274 0.006 286.033);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.269 0 0);
-    --muted-foreground: oklch(0.708 0 0);
-    --accent: oklch(0.269 0 0);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    /* 16 %: at 10 % the popup and sidebar rows lost their edges on the
-       same-coloured shell */
-    --border: oklch(1 0 0 / 16%);
-    --input: oklch(1 0 0 / 15%);
-    --ring: oklch(0.556 0 0);
-    --param-builtin: oklch(0.79 0.13 222);
-    --param-builtin-bg: oklch(0.72 0.14 222 / 15%);
-    --param-field: oklch(0.83 0.16 80);
-    --param-field-bg: oklch(0.79 0.17 75 / 15%);
-    --param-config: oklch(0.78 0.2 322);
-    --param-config-bg: oklch(0.72 0.25 322 / 15%);
-    --warn: oklch(0.83 0.16 80);
-    --segment-track: oklch(0.22 0.004 286);
-    --segment-active: oklch(0.33 0.006 286);
-    --shadow-segment: 0 4px 6px rgba(0, 0, 0, 0.35);
-    --shadow-pop: 0 0 16px rgba(0, 0, 0, 0.6);
-    --shadow-shell: 0 0 16px rgba(0, 0, 0, 0.45);
+    --background: #15181b;
+    --foreground: #e8ebee;
+    --card: #1c2024;
+    --card-foreground: #e8ebee;
+    --popover: #1c2024;
+    --popover-foreground: #e8ebee;
+    --primary: #f2f4f6;
+    --primary-foreground: #15181b;
+    --secondary: #22272c;
+    --secondary-foreground: #e8ebee;
+    --muted: #22272c;
+    --muted-foreground: #a3abb5;
+    --accent: #1c2f3b;
+    --accent-foreground: #e8ebee;
+    --hover: #22272c;
+    --destructive: #ff7b6e;
+    --border: #2a2f35;
+    --input: #3a4048;
+    --ring: #4cc2f5;
+    --sidebar: #101214;
+    --focus: #4cc2f5;
+    --link: #4cc2f5;
+    --param-builtin: #63c8f2;
+    --param-builtin-bg: #173040;
+    --param-field: #f0c25a;
+    --param-field-bg: #3a2e12;
+    --param-config: #ea8fdc;
+    --param-config-bg: #3b1e37;
+    --warn: #f5a54b;
+    --success: #7bd389;
+    --segment-track: #101214;
+    --segment-active: #22272c;
+    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.45);
+    --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.55);
 }
 
 /* Tag hues are tuned for dark surfaces (ui/core.js). A pill sets --tag to

@@ -30,7 +30,7 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [genOpen, setGenOpen] = useState(false)
   const [hotkey, setHotkeyState] = useState("ctrl+shift+v")
-  const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100", font: "outfit" })
+  const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100", font: "system" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
   // The editor's debounced autosave, if one is pending (see quit-requested)
   const pendingFlush = useRef<(() => Promise<void>) | null>(null)
@@ -276,7 +276,7 @@ export function App() {
           theme,
           density: config.density || "comfortable",
           scale: config.scale || "100",
-          font: config.font || "outfit",
+          font: config.font || "system",
         }
         setPrefs(loaded)
         localStorage.setItem("theme", loaded.theme)

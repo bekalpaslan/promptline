@@ -452,7 +452,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           placeholder="Title"
           aria-label="Title"
           spellCheck={false}
-          className="min-w-50 flex-[2] bg-transparent py-1 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
+          className="min-w-50 flex-[2] bg-transparent py-1 text-[15px] font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
         />
         {newPackMode ? (
           <input
@@ -538,7 +538,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           The field (textarea + one-line tag strip) fills the card below the
           header; the textarea is 4 lines by default, grows with content
           (1lh bottom padding keeps one line free), capped at 10 lines. */}
-      <div className="flex flex-col gap-3 rounded-xl bg-card p-3">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Prompt</span>
         <div className="-mx-3 -mb-3 flex flex-col overflow-hidden rounded-b-xl border border-transparent bg-secondary/50 focus-within:border-(--focus)">
         <Textarea
@@ -588,7 +588,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
 
       {/* One containing card: the toggle is its header, the parameter cards
           sit inside it on the tinted background */}
-      <div className="flex flex-col rounded-xl bg-card p-3">
+      <div className="flex flex-col rounded-xl border border-border bg-card p-3">
         <button
           className="flex cursor-pointer items-center gap-1 self-start text-xs font-semibold uppercase tracking-wide text-muted-foreground hover:text-primary"
           onClick={() => {
@@ -665,7 +665,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         )}
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl bg-card p-3">
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3">
         <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Preview</span>
         {/* The one line of syntax help that doesn't vanish once typing starts */}
         <p className="text-xs leading-relaxed text-muted-foreground">

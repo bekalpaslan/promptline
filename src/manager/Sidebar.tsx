@@ -625,7 +625,7 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         title={`${group} — Enter toggles, right-click for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.05em]",
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-[11px] font-semibold uppercase tracking-[0.06em]",
           isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-muted-foreground"
         )}
         onClick={() => toggleCollapsedGroup(key)}
@@ -706,10 +706,10 @@ export function Sidebar() {
         title={s.title || "(untitled)"}
         data-snip-id={s.id}
         className={cn(
-          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-ui font-semibold transition-[transform,box-shadow] duration-150",
+          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui font-medium transition-[transform,box-shadow] duration-150",
           active
             ? "bg-accent text-foreground"
-            : "text-muted-foreground hover:border-ring/40 hover:text-foreground",
+            : "text-foreground hover:bg-hover",
           multi && "outline outline-1 -outline-offset-1 outline-primary",
           lifted ? "z-10 scale-[1.02] cursor-grabbing shadow-lg ring-1 ring-ring/40" : "hover:cursor-grab",
           mark !== null &&
@@ -777,7 +777,7 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         title={`${name} — Enter toggles, right-click for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-1 py-2 text-sm font-bold",
+          "group flex cursor-pointer select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-ui font-semibold",
           isCollapsed ? "text-muted-foreground hover:text-foreground" : "text-foreground"
         )}
         onClick={() => toggleCollapsed(name)}
@@ -806,7 +806,7 @@ export function Sidebar() {
             autoFocus
             defaultValue={name}
             spellCheck={false}
-            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-sm font-bold text-foreground focus-ring"
+            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-ui font-semibold text-foreground focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               e.stopPropagation()
@@ -841,7 +841,7 @@ export function Sidebar() {
   }
 
   return (
-    <aside aria-label="Prompts" className="flex w-[clamp(15rem,28%,20rem)] flex-col border-r border-border">
+    <aside aria-label="Prompts" className="flex w-[clamp(15rem,28%,20rem)] flex-col border-r border-border bg-sidebar">
       {/* Title row: page title + view-config toggle + round add button */}
       <div className="flex items-center gap-1.5 p-3">
         <h1 className="min-w-0 flex-1 truncate text-2xl font-bold">Prompts</h1>

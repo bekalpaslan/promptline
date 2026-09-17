@@ -195,7 +195,7 @@ fn default_scale() -> String {
 }
 
 fn default_font() -> String {
-    "outfit".into()
+    "system".into()
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -1417,7 +1417,7 @@ mod tests {
         assert_eq!(c.theme, "sand");
         assert_eq!(c.density, "comfortable");
         assert_eq!(c.scale, "100");
-        assert_eq!(c.font, "outfit");
+        assert_eq!(c.font, "system");
         assert!(!c.popup_seen);
         assert_eq!(c.popup_width, 0.0);
         assert_eq!(c.popup_height, 0.0);
