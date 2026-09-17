@@ -224,7 +224,7 @@ Fix shape: require a contiguous match (or a word-prefix match) for the body
 tier and keep subsequence matching for titles and tags only; or cap the
 subsequence gap total relative to the text length.
 
-**Status:** open, not fixed (not on the fix branch).
+**Status:** fixed on branch `fix/bug-hunt-3` in `d69fccf` (Opus, 2026-09-18): body matches need the query as a substring or word-prefix per word; titles and tags keep fuzzy matching.
 
 ---
 
@@ -401,6 +401,549 @@ writes the moved-to pack. The same path also covered "Add tag…" mid-save.
 
 ---
 
+## 13. Pinned section split by group (re-report of candidate 8)
+
+Reporter: Fable-3 (bench-2 run F), message 2; Fable-1 (run F), message 2;
+Fable-2 (run F), message 2; G1 (run G), message 2; G2 (run G), message 2;
+G3 (run G), message 2 (combined with the Results split of candidate 2).
+Verdict: **No** (not the target), all six.
+
+**Trigger.** Popup in browse mode (no query) with a pinned prompt that has a
+group.
+
+**Symptom.** The Pinned section is drawn split under a group sub-heading, so
+the drawn order differs from the Ctrl+1..5 / arrow-key order.
+
+**Stated cause.** None beyond the description.
+
+**Code check.** Confirmed; same defect as candidate 8. At `523fc43`
+`src/popup/App.tsx:263` builds `pinned` in rank order, only the pack sections
+get `byGroup` (line 274-278), and the render loop splits every section by
+group, so the Pinned section is drawn regrouped while `visible` (line 283)
+keeps rank order. Fix shape: skip the group split for non-collapsible sections.
+
+Status: fixed on master (`50393b7`, after the bench-2 runs); open at `523fc43`.
+
+---
+
+## 14. Pack-header click steals search focus (re-report of candidate 7)
+
+Reporter: Fable-3 (bench-2 run F), message 3; Fable-1 (run F), message 3;
+Fable-2 (run F), message 1; G1 (run G), message 1; G2 (run G), message 1;
+G3 (run G), message 3; GS (Sonnet, run G), message 7. Verdict: **No** (not
+the target), all seven.
+
+**Trigger.** In the popup, click a pack header with the mouse to collapse or
+expand it, then type.
+
+**Symptom.** The search box has lost focus, so keystrokes do not filter until
+the box is clicked again.
+
+**Stated cause.** None beyond the description.
+
+**Code check.** Confirmed; same defect as candidate 7. The header button in
+`src/popup/App.tsx` (around line 936) takes focus on mouse down and nothing
+returns it to the search input. Fix shape: `preventDefault` on the header's
+mouse down or refocus the search input in the click handler.
+
+Status: fixed on master (`447cbc3`, after the bench-2 runs); open at `523fc43`.
+
+---
+
+## 15. Fill-in preview shows stale clipboard (re-report of candidate 11)
+
+Reporter: Fable-3 (bench-2 run F), message 4; G3 (run G), message 4; G2 (run
+G), message 6. Verdict: **No** (not the target), all three.
+
+**Trigger.** Open the fill-in form for a prompt using `{clipboard}`, then
+change the clipboard while the popup stays open (e.g. Ctrl+C in one of its
+own fields).
+
+**Symptom.** The "Will paste" preview keeps the clipboard text captured at
+popup open; the actual paste uses the new contents.
+
+**Stated cause.** None beyond the description.
+
+**Code check.** Confirmed; same as candidate 11. `src/popup/App.tsx:497-503`
+reads the clipboard once on open, the preview at lines 813-814 substitutes
+that value, and `paste_snippet` in `src-tauri/src/lib.rs` re-reads at paste
+time. Fix shape: re-read the clipboard on window focus or on a short poll
+while the fill-in form is open.
+
+Status: fixed on master (`a3f588e`, after the bench-2 runs); open at `523fc43`.
+
+---
+
+## 16. Search results drawn split by group (re-report of candidate 2)
+
+Reporter: Fable-3 (bench-2 run F), message 5; G2 (run G), message 5; G1 (run
+G), message 4. Verdict: **No** (not the target), all three.
+
+**Trigger.** Type a search in the popup where some matches belong to a group.
+
+**Symptom.** Results are not one flat ranked list: grouped matches are drawn
+under a group sub-heading below ungrouped ones, so the drawn order differs
+from the highlight / Enter / Ctrl+1..5 order.
+
+**Stated cause.** The render loop applies the ungrouped-then-grouped split to
+every section, including Results, while `visible` stays flat.
+
+**Code check.** Confirmed; same defect as candidate 2, unfixed at `523fc43`.
+`src/popup/App.tsx:258-260` builds a single Results section from the ranked
+`filtered` list, and the render loop (around line 907) splits it by group.
+Fix shape: render non-collapsible sections flat.
+
+Status: fixed on master (`6c98d7b`, branch `fix/bug-hunt`); open at `523fc43`.
+
+---
+
+## 17. Pinned order (and Ctrl+1..5 slots) shifts with use count
+
+Reporter: Fable-3 (bench-2 run F), message 6; G2 (run G), message 7; GS
+(Sonnet, run G), message 3; G3 (run G), messages 10 and 17 (the second
+framed as the alphabetical fallback: a newly pinned prompt is slotted by
+title, not appended) and 22 (the popup ignores the manager's custom sort
+order for pins). Verdict: **No** (not the target), all six.
+
+**Trigger.** Pin several prompts, then paste one of them more often than
+another.
+
+**Symptom.** The pinned prompts swap places in the popup's Pinned section, so
+the Ctrl+1..5 slot each one occupies changes, contrary to the README's
+"stable muscle-memory slots" promise.
+
+**Stated cause.** The browse ranking sorts pinned prompts by use count, then
+title, with no user-arranged pin order.
+
+**Code check.** Confirmed as behaviour, arguable as a bug. `ui/core.js:125`
+sorts the browse list pinned-first, then by `uses` descending, then title,
+and the comment above it (line 114) documents exactly that; there is no
+stored pin order to honour. Whether README line 45 ("stable muscle-memory
+slots") is a promise of fixed order or only of pins staying on top is a
+documentation question. Fix shape: record a pin timestamp or explicit order
+on pin and sort pinned rows by it instead of by uses.
+
+Status: fixed on branch `fix/bug-hunt-3` in `afc424e` (Opus, 2026-09-18):
+`pinnedAt` personal state stamped on pin, `rankSnippets` orders pins by it,
+legacy pins by title; tests added.
+
+---
+
+## 18. Enter in the fill-in form is handled twice: the form re-opens after submit
+
+Reporter: G1 (bench-2 run G), message 7; G2 (run G), message 8; G3 (run G),
+message 11. Verdict: **No** (not the target), all three. Three independent
+reproductions in three separate harnesses (G3: after Ctrl+Enter the popup
+stayed in form mode with the copy notice inside the form and `hide_popup`
+fired 600 ms later), so the effect is real in the WebView even though the
+fixer could not reproduce the ordering in jsdom.
+
+**Trigger.** Open the popup, pick a prompt with `{field}` values so the
+fill-in form appears, then press Enter (or Ctrl+Enter for copy) in a field.
+G2's sharper trigger: open the fill-in prompt with Ctrl+1..5 while a
+*different* row is highlighted, fill the field, press Enter.
+
+**Symptom.** Instead of returning to the list, the fill-in form immediately
+re-opens for the same prompt with the remembered value, the copy notice shows
+under it, and the popup then closes from that state. G1 found it with a mocked
+IPC harness and reported it as visible on the copy path. G2 reproduced the
+same double handling with a worse outcome: the second Enter pastes
+`visible[sel]`, the highlighted row, about 90 ms after the filled-in prompt,
+so the target app receives the wrong prompt (possibly both), the clipboard
+ends up holding the highlighted prompt, and its use count is bumped.
+
+**Stated cause.** The textarea's `onKeyDown` calls `preventDefault` and
+`submitForm`, which calls `setForm(null)` synchronously; the window-level
+keydown listener then sees no form and treats the same Enter as a list pick.
+
+**Code check.** Plausible, unverified in the real WebView. At `523fc43`
+`src/popup/App.tsx:793-797` submits on Enter without `stopPropagation`;
+`submitForm` (line 415) clears the form; the window listener (line 563)
+guards with `if (form || create) return`, but it is re-registered by a
+`useEffect` keyed on `form`. React 18 flushes discrete-event renders and
+their passive effects synchronously at the end of React's own dispatch, which
+happens before the native event bubbles from the root container to `window`,
+so the freshly registered listener can run with `form === null` and call
+`pick(visible[sel])`, re-opening the form. Fix shape: `e.stopPropagation()`
+in the textarea handler, or read the form state from a ref in the window
+listener.
+
+Status: guarded on branch `fix/bug-hunt-3` in `4b7a976` (Opus, 2026-09-18).
+The fixer could not reproduce the effect-flush ordering with react-dom
+19.2.7 in jsdom (the stale listener still sees the form and returns), so
+the mechanism is unconfirmed; the fix stops propagation in the fill-in
+textarea and the create title input and ignores default-prevented keys in
+the document listener, so the timing cannot matter. A second real keydown
+(Enter autorepeat after the popup closes) would give the same symptom and
+is not covered.
+
+---
+
+## 19. Preview card covers the pointer on low rows, swallowing the click (re-report of candidate 3)
+
+Reporter: G1 (bench-2 run G), message 8. Verdict: **No** (not the target).
+
+**Trigger.** Rest the mouse on a prompt row in the lower part of the popup
+list so the hover preview card opens.
+
+**Symptom.** The card is clamped upward onto the pointer and covers the row;
+a click there lands on the card and nothing pastes until the mouse moves away.
+
+**Stated cause.** None beyond the description; G1 reproduced it in its own
+harness at cursor y of about 380 in the 400 by 600 popup.
+
+**Code check.** Confirmed; same clamp as candidate 3. At `523fc43`
+`src/popup/App.tsx` (preview render, line 975 onward) clamps `top` with a
+hard-coded 220 max height rather than the card's measured height, so low
+anchors are pushed up over the pointer. The click-swallowing is the
+user-visible consequence that candidate 3 described as "floats above its
+row". Fix shape: as candidate 3.
+
+Status: open at `523fc43`; fixed on master in `311b601`.
+
+---
+
+## 20. Popup reopens with the list still scrolled down, hiding the top section header
+
+Reporter: G2 (bench-2 run G), message 10; G3 (run G), message 15. Verdict:
+**No** (not the target), both.
+
+**Trigger.** Scroll the popup list during one use, dismiss the popup (Esc or
+blur), then summon it again.
+
+**Symptom.** The list comes back at (or near) its old scroll offset rather
+than at the top: the first row is pulled flush against the top edge and the
+"Pinned" or pack header above it is cut off until the user scrolls up.
+
+**Stated cause.** The list element survives the hide with its scroll offset;
+on reopen the keep-selected-in-view effect uses `block: "nearest"`, which
+only brings row 0 to the edge and not the header above it.
+
+**Code check.** Confirmed by reading. At `523fc43` `reload` in
+`src/popup/App.tsx:485-508` (run on `popup-shown`, line 511) resets form,
+create, notice, preview, query and `sel` but never touches
+`listRef.current.scrollTop`; the only scroll code is the effect at line
+531-533, `scrollIntoView({ block: "nearest" })` on the selected row, which
+leaves anything above row 0 hidden. If `sel` was already 0 the effect does
+not fire at all and the old offset stays. Fix shape: in `reload`, set
+`listRef.current.scrollTop = 0` (or scroll the list container to top in the
+`popup-shown` handler).
+
+Status: fixed on branch `fix/bug-hunt-3` in `b572b4a` (Opus, 2026-09-18): `reload` now resets the list's scrollTop to 0.
+
+---
+
+## 21. Collapsing a pack throws the list back to the top
+
+Reporter: G1 (bench-2 run G), message 11. Verdict: **No** (not the target).
+
+**Trigger.** In a long, scrolled popup list with no query, collapse a pack
+that sits further down, by clicking its heading or pressing Left on one of
+its rows.
+
+**Symptom.** The pack collapses, but the list scrolls back to the top and the
+highlight jumps to the very first prompt, so the user loses their place.
+
+**Stated cause.** The collapse resets the selection to index 0 and the
+keep-selection-in-view effect scrolls to it.
+
+**Code check.** Confirmed. At `523fc43` `toggleCollapsed` in
+`src/popup/App.tsx:247-254` ends with `setSel(0)` unconditionally; the effect
+at lines 531-533 then scrolls row 0 into view. Fix shape: keep the selection
+on the collapsed pack's heading, or on the first row after it, by computing
+the new index from the toggled section rather than resetting to 0.
+
+Status: fixed on branch `fix/bug-hunt-3` in `124f825` (Opus, 2026-09-18): the collapse records an anchor and a `visible` effect lands the selection on the toggled pack's first row (expand) or the next pack's first row (collapse).
+
+---
+
+## 22. Ctrl+N screen: Enter on the Pack or Group dropdown does not save
+
+Reporter: G3 (bench-2 run G), message 8. Verdict: **No** (not the target).
+
+**Trigger.** Ctrl+N in the popup, Tab from the Name field to the Pack (or
+Group) dropdown, pick a value with the arrow keys, press Enter.
+
+**Symptom.** Nothing happens: the prompt is not saved and the screen stays
+open, although the hint bar reads "Enter save". Enter saves only from the
+Name field or the focused Save button.
+
+**Stated cause.** Only the Name input has an Enter handler.
+
+**Code check.** Confirmed. At `523fc43` `src/popup/App.tsx:692-697` attaches
+the Enter handler to the title input alone; the `<select>` elements at lines
+703 and 724 have no key handler; the window listener returns early while
+`create` is set (line 563), and the hint at line 664 promises Enter saves.
+Fix shape: move the Enter handling to a wrapper `onKeyDown` on the create
+view, or add it to both selects.
+
+Status: fixed on branch `fix/bug-hunt-3` in `1714cc7` (Opus, 2026-09-18): one Enter handler on the create view's wrapper saves from any field; buttons keep native Enter.
+
+---
+
+## 23. Fill-in field does not grow after Shift+Enter
+
+Reporter: G3 (bench-2 run G), message 9. Verdict: **No** (not the target).
+
+**Trigger.** Pick a prompt with a `{field}`, type a value, press Shift+Enter
+(the hint bar promises a newline), keep typing a second line.
+
+**Symptom.** The newline is inserted but the textarea stays one line tall,
+so the earlier line scrolls out of view; only a remembered multi-line value
+gets a taller box.
+
+**Stated cause.** The textarea's row count is derived from the remembered
+value, not the current one.
+
+**Code check.** Confirmed. At `523fc43` `src/popup/App.tsx:788` sets
+`rows={remembered ? Math.min(4, remembered.split("
+").length) : 1}` from the
+stored `fieldValues` entry; the live `formValues[f]` never feeds it, and the
+class has `resize-none` with `min-h-8`. Fix shape: compute rows from the
+current value (or auto-size on input), capped at 4.
+
+Status: fixed on branch `fix/bug-hunt-3` in `76ff125` (Opus, 2026-09-18): rows now derive from the live field value, capped at 4.
+
+---
+
+## 24. Pack heading count in the popup excludes the pack's pinned prompts
+
+Reporter: G1 (bench-2 run G), message 14. Verdict: **No** (not the target).
+
+**Trigger.** Pin a prompt that belongs to a pack, open the popup with no
+query, read the count in parentheses on that pack's heading.
+
+**Symptom.** The heading counts only the rows drawn under it, so a pack with
+four prompts of which one is pinned shows "(3)" while the manager sidebar
+shows 4 for the same pack.
+
+**Stated cause.** The count is the section's row count by construction; the
+pinned row lives in the Pinned section instead.
+
+**Code check.** Confirmed as behaviour, arguable as a bug. At `523fc43`
+`src/popup/App.tsx:926` renders `({sec.entries.length})`, and `pinned` rows
+are filtered out of the pack sections at lines 263-264. Nothing in
+`BEHAVIOR.md` says whether the heading count is "rows here" or "prompts in
+the pack". Fix shape: count from the unfiltered pack membership, or label
+the number as rows shown.
+
+Status: fixed on branch `fix/bug-hunt-3` in `218802a` (Opus, 2026-09-18): sections carry a `count` of all prompts in the pack, pins included, matching the manager; one line in BEHAVIOR.md.
+
+---
+
+## 25. Native title tooltip overlaps the hover preview card (re-report of candidate 3's related note)
+
+Reporter: G1 (bench-2 run G), message 15. Verdict: **No** (not the target).
+
+**Trigger.** Rest the mouse on a prompt row in the popup for about a second.
+
+**Symptom.** The webview's own tooltip with the prompt title appears next to
+the pointer in addition to the app's preview card, two popups for one hover.
+
+**Code check.** Confirmed; the same human-observed note recorded under
+candidate 3. At `523fc43` every row carries a `title` attribute. Fixed on
+master in `6150930` by dropping the row tooltip.
+
+Status: open at `523fc43`; fixed on master.
+
+---
+
+## 26. Popup row titles render at 16px: `text-ui` is dropped by tailwind-merge
+
+Reporter: G1 (bench-2 run G), message 16. Verdict: **No** (not the target).
+
+**Trigger.** Open the popup and compare the row titles with the search box,
+the create button and the hint bar.
+
+**Symptom.** Titles are visibly larger (16px, the root default) than the rest
+of the popup's 13px text.
+
+**Stated cause.** `cn()` wraps tailwind-merge, which does not know the
+project's custom `text-ui` font-size utility and classifies it as a text
+colour; a later `text-foreground` / `text-muted-foreground` in the same
+`cn()` call then removes it. The earlier `text-[13px]` merged correctly, so
+this is a regression from the design-system drift commit.
+
+**Code check.** Confirmed. At `523fc43` the row container class string at
+`src/popup/App.tsx:141` includes `text-ui` inside a `cn()` call that later
+adds a text colour, and running `twMerge("truncate text-ui font-semibold
+text-foreground")` with the pinned tailwind-merge 3.6 yields `truncate
+font-semibold text-foreground`, `text-ui` gone. `src/index.css:15` defines
+`--text-ui: 13px`. Fix shape: extend tailwind-merge with `text-ui` in the
+`font-size` group (`extendTailwindMerge({ extend: { classGroups: {
+'font-size': ['text-ui'] } } })` in `src/lib/utils.ts`), or use
+`text-(length:--text-ui)`.
+
+Status: fixed on branch `fix/bug-hunt-3` in `029b986` (Opus, 2026-09-18): `cn()` uses `extendTailwindMerge` with `text-ui` in the font-size group; restores 13px at four `cn(` sites in popup and manager.
+
+---
+
+## 27. Editor "+ tag" box merges a comma-separated pair into one tag
+
+Reporter: GS (Sonnet, bench-2 run G), message 6 (after a factual question at
+message 4). Verdict: **No** (not the target).
+
+**Trigger.** In the manager editor's "+ tag" input, type "debug, urgent" and
+press Enter.
+
+**Symptom.** One pill "debug urgent" is added instead of two tags.
+
+**Stated cause.** The Enter handler strips commas rather than splitting on
+them, although tags are stored as a comma-joined list.
+
+**Code check.** Confirmed. At `523fc43` `src/manager/Editor.tsx:562` does
+`.trim().toLowerCase().replace(/,/g, "")` and calls `addTag` once, while
+`tagList` at line 363 is `tags.split(",")`. Fix shape: split the typed value
+on commas and add each non-empty, deduplicated piece.
+
+Status: fixed on branch `fix/bug-hunt-3` in `8fbfd8b` (Opus, 2026-09-18): the tag box splits on commas and adds each piece, deduplicated.
+
+---
+
+## 28. Pin or unpin from the action panel leaves the highlight on a different prompt
+
+Reporter: G3 (bench-2 run G), message 14. Verdict: **No** (not the target).
+
+**Trigger.** In the popup list, arrow to an unpinned prompt, Tab, Pin (or the
+reverse with Unpin).
+
+**Symptom.** The prompt jumps into (or out of) the Pinned section but the
+selection highlight stays at the same list position, now on the prompt that
+was below it; Enter at that point acts on that other prompt.
+
+**Stated cause.** The selection is an index, not the row's identity.
+
+**Code check.** Confirmed. At `523fc43` `togglePin` in
+`src/popup/App.tsx:422-428` patches `pinned` and closes the panel without
+touching `sel`; the only adjustment is the clamp at line 291-292. Fix shape:
+after a pin/unpin (and any other in-place reorder such as delete/undo),
+re-find the acted-on snippet's id in the new `visible` list and set `sel` to
+it, falling back to the clamp.
+
+Status: fixed on branch `fix/bug-hunt-3` in `62622bc` (Opus, 2026-09-18): pin, unpin and undo arm a follow-by-id anchor and the selection re-finds the row.
+
+---
+
+## 29. Popup hint bar clips at 125% UI scale or with the monospace font
+
+Reporter: G3 (bench-2 run G), message 16. G1 and G2 measured the same in
+their reasoning (420 px of content in a 374 px bar) without sending it.
+Verdict: **No** (not the target).
+
+**Trigger.** Set UI scale to 125% in the manager's Settings (or pick the
+monospace font), open the popup, look at the bottom hint bar of the list.
+
+**Symptom.** The hint bar does not wrap, so its right-hand end ("preview",
+"Esc close") is cut off at the popup's edge. At 100 to 110% it fits.
+
+**Stated cause.** Fixed-width popup, non-wrapping hint row.
+
+**Code check.** Confirmed by reading. At `523fc43` the hint row in `Shell`
+(`src/popup/App.tsx`, around line 1063) is `flex shrink-0 items-center
+gap-1.5 ... text-xs` with no `flex-wrap`, each `Kbd` is `shrink-0`, and the
+shell root (line 1044) is `overflow-hidden`, so any content wider than the
+window is clipped rather than wrapped or scaled. Fix shape: allow the hint
+row to wrap (`flex-wrap`), or drop lower-priority hints below a width
+threshold, or scale the popup window with the UI scale.
+
+Status: fixed on branch `fix/bug-hunt-3` in `e4cda58` (Opus, 2026-09-18): the hint bar wraps; each key plus label is one unwrappable Hint group.
+
+---
+
+## 30. Manager toasts say "1 prompts" after a single-prompt delete or copy
+
+Reporter: GS (Sonnet, bench-2 run G), message 8. Verdict: **No** (not the
+target).
+
+**Trigger.** In the manager sidebar, right-click one prompt and choose the
+delete or copy item.
+
+**Symptom.** The menu label and confirmation say "1 prompt", but the status
+toast afterwards says "Deleted 1 prompts" or "Copied 1 prompts to clipboard".
+
+**Code check.** Confirmed. At `523fc43` `src/manager/Sidebar.tsx:580` and
+`:590` interpolate `${n} prompts` without a singular branch, while line 466
+(the menu label) and line 1046 (the group-delete dialog) do pluralise. Fix
+shape: a small `plural(n, "prompt")` helper used at all four sites.
+
+Status: open, not fixed (repository frozen for the benchmark).
+
+---
+
+## 31. After a popup delete, a typed "u" triggers Undo instead of entering the search box
+
+Reporter: GS (Sonnet, bench-2 run G), message 9. G1 and F1 noted the same in
+their reasoning (G1 called it a documented, deliberate risk) without sending
+it. Verdict: **No** (not the target).
+
+**Trigger.** Delete a prompt from the popup's action panel, then within the
+undo window start typing a query whose first letter is "u".
+
+**Symptom.** The "u" is swallowed: the deleted prompt comes back and the
+letter does not appear in the search box.
+
+**Code check.** Confirmed as behaviour, documented as a trade-off. At
+`523fc43` `src/popup/App.tsx:564-566` treats a bare "u" as Undo whenever
+`lastDeleted` is set, before the input sees it; `BEHAVIOR.md:73-74`
+describes "U to undo" in the feedback strip. Whether a plain letter should
+be a hotkey while a text box has focus is a design call; the safer shape is
+Ctrl+Z (or only honouring "u" when the search box is empty).
+
+Status: fixed on branch `fix/bug-hunt-3` in `884913b` (Opus, 2026-09-18): a bare "u" undoes only while the search box is empty; Ctrl+Z always undoes; strip text and BEHAVIOR.md updated.
+
+---
+
+## 32. Popup opening under a resting pointer steals the selection
+
+Reporter: G3 (bench-2 run G), message 18. Verdict: **No** (not the target).
+
+**Trigger.** Leave the mouse pointer where the popup will appear (for
+example low on the screen, so the popup is clamped upward under it), press
+the hotkey, touch nothing.
+
+**Symptom.** The highlight jumps to the row under the pointer and, after
+about 350 ms, that row's preview card opens; Enter then pastes that row
+instead of the top one.
+
+**Stated cause.** `lastMouse` starts at (-1, -1) and is never reset on show,
+so the synthetic mouse-move Windows sends when a window appears under a
+stationary pointer counts as real movement.
+
+**Code check.** Plausible, unverified in the real WebView. At `523fc43`
+`src/popup/App.tsx:228` initialises `lastMouse` to (-1, -1), and the row
+`onMouseMove` handler at lines 636-637 treats any position different from
+it as movement, so the first mouse-move event after show always selects.
+Whether WebView2 delivers a mouse-move on show without pointer motion is the
+open question. Fix shape: reset `lastMouse` from the first event without
+acting on it (or ignore mouse-moves for a short window after `popup-shown`).
+
+Status: fixed on branch `fix/bug-hunt-3` in `78e630b` (Opus, 2026-09-18): the first mouse-move after a summon only seeds the last position.
+
+---
+
+## 33. An abandoned empty "New prompt" draft is listed in the popup until the next manager start
+
+Reporter: G3 (bench-2 run G), message 20. Verdict: **No** (not the target).
+
+**Trigger.** In the manager click "New prompt" (or a pack's "New group"),
+leave the draft empty, select something else, then open the popup.
+
+**Symptom.** The popup lists a row titled "New prompt" with an empty body;
+choosing it pastes nothing. It stays until the manager's startup sweep runs.
+
+**Code check.** Confirmed as behaviour, documented as a trade-off.
+`BEHAVIOR.md:232-233` says "+ New" creates a real prompt titled "New prompt"
+with an empty body and the manager sweeps abandoned drafts at startup; the
+popup (`src/popup/App.tsx`, `ui/core.js`) has no filter for empty drafts.
+Related to candidate 9 (the swept draft lingering in the pack file, fixed
+on master). Fix shape: hide title-only empty-body drafts from the popup's
+ranking, or sweep on manager blur / editor deselect rather than only at
+startup.
+
+Status: fixed on branch `fix/bug-hunt-3` in `0ff1e33` (Opus, 2026-09-18): `isEmptyDraft` in `ui/core.js` keeps untouched drafts out of the popup list and Ctrl slots; the manager still shows them.
+
+---
+
 # Runs
 
 | Run | Contestant | X | Valid | Notes |
@@ -410,6 +953,15 @@ writes the moved-to pack. The same path also covered "Add tag…" mid-save.
 | C | Opus | 3 | no | read the findings file, captured the human's screen; see below |
 | D | Sonnet (bench-2, `523fc43`) | 19 | yes | three cold candidates first, then a linear walk; strict answers |
 | E | Opus (bench-2, `523fc43`) | 10 | yes | pure bisection, no candidates until the last message |
+| F | Fable 5.1 x3 (bench-2) | 5 / 2 / 6 | no | aborted: clone carried a `master` ref with the fix commits; see below |
+| G1 | Fable 5.1 (bench-2, clean clone) | 18 | yes* | seven wrong candidates from driving the app, then a clean close |
+| G2 | Fable 5.1 (bench-2, clean clone) | 16 | yes* | seven cold candidates, then pure bisection from message 9 |
+| G3 | Fable 5.1 (bench-2, clean clone) | 22, stopped | yes* | unfinished; twelve candidates, three framings of the same pin-order bug |
+| GS | Sonnet (bench-2, clean clone) | 13, stopped | yes* | unfinished; read truthful answers to factual questions as confirmations |
+
+\* valid with a caveat: every run-G contestant's context carried the dev
+repo's five most recent commit subjects (a harness leak, not a clone leak);
+the target's fix was not among them. See "Run G isolation notes".
 
 ## Run A: external agent (relayed by the human) — X = 10
 
@@ -594,3 +1146,231 @@ three messages on manager-side candidates, then enumerated list features
 linearly and did not act on a Partially that already named the pill. Opus's
 10 matches Run A's external agent exactly; Sonnet's 19 is two worse than its
 bench-1 run (17), with the same pattern of a wasted opening candidate.
+
+## Run F: three Fable 5.1 contestants (bench-2) — ABORTED, CONTAMINATED
+
+Spawned 2026-09-17 with the clone recipe as it stood ("clone master,
+detach at the tag"). That recipe leaves a local `master` ref at the
+development HEAD, so `git log master` in every contestant copy listed all
+seven fix commits, including `b1bf5a3` "Show all tags on a popup row", and
+`git show master:BUG-HUNT-FINDINGS.md` would have printed this file with the
+target unredacted. F1 (message 5) and F3 (message 6) both cited "the later
+fix" for the Pinned section in their reasoning. All three were stopped at
+F1 = 5, F2 = 2, F3 = 6; none had reached the target. The recipe in
+`BUG-HUNT-BENCHMARK.md` now clones the tag directly with `--single-branch
+--no-tags` and tells the orchestrator to verify `git for-each-ref` shows one
+ref. The wrong candidates they sent were real bugs and are filed as 13–17.
+
+| F1 | message (condensed) | answer |
+|---|---|---|
+| 1 | Bug in the hotkey popup rather than the manager? | Yes |
+| 2 | Candidate: Pinned section split by group, drawn order != keyboard order | No |
+| 3 | Candidate: pack header click steals search focus | No |
+| 4 | Does it involve the {clipboard} placeholder? | No |
+| 5 | Candidate: pins re-sorted by use count (cited the later fix title) | not answered |
+
+| F2 | message (condensed) | answer |
+|---|---|---|
+| 1 | Candidate (cold): pack header click steals search focus | No |
+| 2 | Candidate: Pinned section split by group | No |
+
+| F3 | message (condensed) | answer |
+|---|---|---|
+| 1 | Bug in the popup rather than the manager or disk? | Yes |
+| 2 | Candidate: Pinned section split by group | No |
+| 3 | Candidate: pack header click steals search focus | No |
+| 4 | Candidate: fill-in preview shows stale clipboard | No |
+| 5 | Candidate: search results split by group | No |
+| 6 | Candidate: pins re-sorted by use count | No |
+
+## Run G isolation notes
+
+Clean clone verified before copying: one ref (`refs/tags/bench-2`), 106
+commits all reachable from HEAD, no fix commit in `git log --all`, no
+findings file, 42 tests passing. Each contestant got its own copy; the
+copies were deleted after the runs.
+
+**Harness leak, not fixed.** Every subagent spawned from the orchestrator's
+session receives the orchestrator's own git status block in its system
+context: the dev repo's branch, dirty files, and its five most recent
+commit subjects. On 2026-09-17 those five were the fixes for candidates 11,
+9, 8, 7 and 12. Every run-G contestant therefore opened with the same
+five-item shortlist and spent its first messages guessing them; G2's
+reasoning literally called it "the fix list", and G3 quoted the subject
+"Draw the popup's Pinned section flat, in pinned order" at message 17. The
+target's fix (`b1bf5a3`) is older than the five, so the target itself was
+not leaked; the leak acted as five decoys that cost each contestant two to
+seven messages. Runs D and E were spawned the same way and saw whatever the
+dev HEAD's five recent subjects were then (the Ctrl+1..5 and lock fixes,
+plus benchmark and merge commits), so the leak differs between editions and
+confounds cross-run comparison. Fix for the next edition: run each
+contestant as a separate `claude -p` process whose working directory is its
+clone, so the injected git status is the clone's own; or commit nothing
+descriptive to the dev repo between template build and run.
+
+**Transcript file.** The orchestrator's scratchpad transcript was emptied by
+a failed write mid-run (a non-ASCII character in a Windows code-page write
+truncated the file before the exception). It was rebuilt from the
+conversation record; the tables below are that reconstruction.
+
+## Run G1: Fable 5.1 (bench-2, clean clone) — X = 18
+
+| # | Agent message (condensed) | Answer |
+|---|---|---|
+| 1 | Candidate (cold): pack heading click drops search focus | No |
+| 2 | Candidate: Pinned section split by group | No |
+| 3 | In the manager rather than the popup? | No |
+| 4 | Candidate: search results split by group | No |
+| 5 | About the pasted or clipboard text rather than the popup's look or behaviour? | No |
+| 6 | About popup open, close or focus rather than inside the popup? | No |
+| 7 | Candidate: fill-in Ctrl+Enter re-opens the form (18) | No |
+| 8 | Candidate: preview card covers the pointer on low rows, click swallowed (19) | No |
+| 9 | On a secondary screen rather than the main list? | No |
+| 10 | Does it involve the search box? | No |
+| 11 | Candidate: collapsing a lower pack scrolls to top (21) | No |
+| 12 | Does it involve the Tab action panel? | No |
+| 13 | Something displayed wrongly on the list rather than a key or click response? | Yes |
+| 14 | Candidate: pack heading count excludes pins (24) | No |
+| 15 | Candidate: native tooltip overlaps the preview card (25) | No |
+| 16 | Candidate: row titles at 16px, `text-ui` dropped by tailwind-merge (26) | No |
+| 17 | Is something that should be there cut off or missing? | Yes |
+| 18 | Candidate: a multi-tag prompt's row shows only its first tag as a pill; the other tags are missing, though the editor shows them and search matches them | **Yes** |
+
+After confirmation it sent "DONE" (not counted). Its own recount said 20;
+the true count is 18. Stated cause `tags.slice(0, 1)` in the row component
+is correct.
+
+Strategy: two cold guesses off the leaked shortlist, then a linear
+bisection (manager, clipboard, open/close, secondary screens, search, action
+panel, display, missing versus extra) that was sound but interleaved with
+seven candidate guesses of real bugs it had found by building and driving
+the app in its own profile. Those guesses were the whole gap to G2: the
+bisection questions alone would have closed in about nine. It found more
+new bugs than any other contestant (18, 19, 21, 24, 25, 26).
+
+## Run G2: Fable 5.1 (bench-2, clean clone) — X = 16
+
+| # | Agent message (condensed) | Answer |
+|---|---|---|
+| 1 | Candidate (cold): pack header click steals search focus | No |
+| 2 | Candidate: Pinned section split by group | No |
+| 3 | In the manager rather than the popup or disk? | No |
+| 4 | In the popup itself rather than the JSON files? | Yes |
+| 5 | Candidate: search results split by group | No |
+| 6 | Candidate: fill-in preview shows stale clipboard | No |
+| 7 | Candidate: pins re-sorted by use count (17) | No |
+| 8 | Candidate: Ctrl+digit fill-in then Enter pastes the highlighted row instead (18) | No |
+| 9 | Already wrong in what the popup first displays on open? | Yes |
+| 10 | Candidate: popup reopens still scrolled down (20) | No |
+| 11 | About position or size rather than contents? | No |
+| 12 | About appearance or layout rather than which prompts are listed or highlighted? | Partially |
+| 13 | About how individual rows are drawn rather than headers or grouping? | Yes |
+| 14 | About the row's text rather than its tag pill, icon, badges or highlight? | No |
+| 15 | About the row highlight rather than the tag pill, icon or badges? | No |
+| 16 | Candidate: a prompt with several tags shows only one pill, the first tag; the others are not shown, while the manager shows them all | **Yes** |
+
+After confirmation it sent "DONE" (not counted). Stated cause correct.
+
+Strategy: no location question until message 3, and seven cold candidates in
+the first eight messages (five from the leaked shortlist, plus the grouped
+search results and the pin order). From message 9 it switched to a pure
+bisection (at open, position, appearance versus listing, rows versus
+headers, text versus adornments, highlight versus pill) and landed the
+target on its first candidate after that. The Partially at message 12 was
+read correctly. Its bisection tail of eight messages is the best in the
+edition; its opening is the worst.
+
+## Run G3: Fable 5.1 (bench-2, clean clone) — stopped at 22, unconfirmed
+
+| # | Agent message (condensed) | Answer |
+|---|---|---|
+| 1 | In the popup rather than the manager or disk? | Yes |
+| 2 | Candidate: grouped rows split in Pinned and Results | No |
+| 3 | Candidate: pack header click steals search focus | No |
+| 4 | Candidate: fill-in preview shows stale clipboard | No |
+| 5 | Does reproducing require typed search text? | No |
+| 6 | Does reproducing require the mouse? | No |
+| 7 | Does it concern what happens outside the popup? | No |
+| 8 | Candidate: Ctrl+N Enter on the Pack/Group dropdown does not save (22) | No |
+| 9 | Candidate: fill-in field does not grow after Shift+Enter (23) | No |
+| 10 | Candidate: pins re-sorted by use count (17) | No |
+| 11 | Candidate: copy-only submit re-opens the fill-in form (18) | No |
+| 12 | Does the popup fail to appear or vanish? | No |
+| 13 | On the main list screen rather than a sub-screen? | Yes |
+| 14 | Candidate: pin/unpin from the panel leaves the highlight on another prompt (28) | No |
+| 15 | Candidate: popup reopens scrolled down (20) | No |
+| 16 | Candidate: hint bar clips at 125% scale (29) | No |
+| 17 | Candidate: new pin slotted alphabetically, not appended (17) | No |
+| 18 | Candidate: popup opening under a resting pointer steals the selection (32) | No |
+| 19 | Does reproducing require a prior manager action (tagging, grouping, ...)? | Yes |
+| 20 | Candidate: abandoned empty "New prompt" draft listed in the popup (33) | No |
+| 21 | Is the manager action a Settings change rather than a prompt/pack change? | No |
+| 22 | Candidate: popup Pinned order ignores the manager's custom sort (17) | No |
+
+Stopped by the human at 22. Strategy: good opening (location, typed text,
+mouse, outside/inside) but then twelve candidate guesses against seven
+questions, including three framings of the same pin-order bug (10, 17, 22).
+It never asked the display-versus-behaviour or missing-versus-extra
+questions that carried G1 and G2 home, and at message 19 it listed "only the
+first tag shown per row" among its remaining options without asking about
+it. Most productive bug-finder after G1: 22, 23, 28, 29, 32, 33 are its.
+
+## Run GS: Sonnet (bench-2, clean clone) — stopped at 13, unconfirmed
+
+| # | Agent message (condensed) | Answer |
+|---|---|---|
+| 1 | Factual question: does pasting a pin change its Ctrl slot? (true) | Yes |
+| 2 | "DONE" with a root-cause write-up, no candidate description | Can't answer as asked |
+| 3 | Candidate: pins re-sorted by use count (17) | No |
+| 4 | Factual question: does "debug, urgent" become one tag in the editor? (true) | Yes |
+| 5 | "DONE" again, no candidate description | Can't answer as asked |
+| 6 | Candidate: editor tag box merges a comma pair (27) | No |
+| 7 | Candidate: pack header click steals search focus | No |
+| 8 | Candidate: manager toast says "1 prompts" (30) | No |
+| 9 | Candidate: a typed "u" after a popup delete triggers Undo (31) | No |
+| 10 | In the manager rather than the popup? | No |
+| 11 | Is the pasted text wrong rather than search, sorting, focus or display? | No |
+| 12 | About the popup window's position, size or timing? | No |
+| 13 | Factual question premised on the popup staying open after a copy (it hides after 600 ms) | Can't answer as asked |
+
+Stopped by the human at 13. Strategy: it asked "does the app do X?" about a
+bug it had found, read the truthful Yes as a confirmation, and declared DONE
+twice; each cost a point and a further point to resend as a candidate. It
+then guessed four more real-but-wrong bugs before asking its first location
+question at message 10. Its questions from 10 on were reasonable splits.
+
+## Run G score table
+
+| Contestant | Model | X | Cold candidates before first split | Candidates total | Partially | Root cause |
+|---|---|---|---|---|---|---|
+| G2 | Fable 5.1 | 16 | 2 | 8 | 1 | correct |
+| G1 | Fable 5.1 | 18 | 2 | 9 | 0 | correct |
+| G3 | Fable 5.1 | stopped at 22 | 0 | 12 | 0 | not reached |
+| GS | Sonnet | stopped at 13 | 1 (plus two DONEs) | 6 | 0 | not reached |
+| E (ref.) | Opus | 10 | 0 | 1 | 0 | correct |
+| D (ref.) | Sonnet | 19 | 3 | several | 2 | not offered |
+
+The three Fables shared one failure mode: each built and drove the app in
+its own profile, found a real bug, and spent a message on it as a candidate
+instead of continuing to split the space. G1 and G2 recovered by switching
+to bisection (G2 from message 9, G1 throughout but interleaved); G3 never
+did and cycled the same pin-order bug three times. Against run E's Opus
+(10, pure bisection, one candidate), the best Fable is six messages worse,
+and the whole gap is candidate guesses: G2's eight bisection questions from
+message 9 to 16 are as tight as Opus's ten. The five-commit harness leak
+explains the first two to five guesses of every Fable but not the later
+ones, which came from their own harnesses. The compensating result is
+sixteen new filed candidates (18–33) from this edition, six of them since
+fixed on `fix/bug-hunt-3`. Sonnet's run is not comparable with run D: it
+used a different tactic (factual questions read as confirmations) and was
+stopped early.
+
+## Release 0.2.5
+
+`fix/bug-hunt-3` was rebased onto master (`077b1d6`, which had merged its
+first four commits as `4a9ffa8`) and tagged `v0.2.5` at `d69fccf`. Installers
+built from that commit: `Promptline_0.2.5_x64-setup.exe` (NSIS) and
+`Promptline_0.2.5_x64_en-US.msi` under `src-tauri/target/release/bundle/`.
+Fixed in this release beyond the four already on master: candidates 6, 20,
+21, 22, 23, 24, 26, 27, 28, 29, 31, 32, 33 and the Alt+F4 popup-destroy
+note (`3d4b3c4`). Not fixed: nothing filed remains open at `d69fccf`.

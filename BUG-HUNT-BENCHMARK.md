@@ -215,12 +215,19 @@ current edition is `bench-2` at `523fc4385fa8fbb2dd9b99df5ec2d269fba72a2c`
 
 ```sh
 git -C "$REPO" tag bench-2 523fc4385fa8fbb2dd9b99df5ec2d269fba72a2c   # label the edition (once)
-git clone --no-local --single-branch --branch master "$REPO" "$BENCH/template"
-cd "$BENCH/template"
-git checkout --detach bench-2
+git clone --no-local --single-branch --no-tags --branch bench-2 "$REPO" "$BENCH/template"
+cd "$BENCH/template"                          # HEAD is detached at the tag; no branch ref
 git remote remove origin                      # no fetch path back to the dev repo
+git for-each-ref                              # must list refs/tags/bench-2 only
 npm ci
 ```
+
+Clone the *tag*, not `master`. Cloning `master` and detaching at the tag
+(the recipe used for run F) leaves a local `master` ref at the development
+HEAD, so `git log master` shows every later fix commit and
+`git show master:BUG-HUNT-FINDINGS.md` prints the unredacted target. Verify
+with `git for-each-ref` (one line) and `git rev-list --all | wc -l` equal to
+`git rev-list HEAD | wc -l` before copying.
 
 Per contestant: `cp -r "$BENCH/template" "$BENCH/<name>"` (or `robocopy`
 with `/MIR` on Windows). Delete the copies when the run ends. The target
