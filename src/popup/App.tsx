@@ -19,6 +19,7 @@ import { applyPrefs, isCompact } from "@/lib/prefs"
 import { type Config, DEFAULT_PACK, MAX_PINS, TOKEN_CHIP, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 // Same key shape as the sidebar, so a group folds independently per pack
 const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
+const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { Kbd as UiKbd } from "@/components/ui/kbd"
 
@@ -284,6 +285,16 @@ export function App() {
   const derived = useMemo(() => new Map(snippets.map((s) => [s.id, derive(s)])), [snippets])
 
   const hasQuery = !!C.parseQuery(query).text
+  // A filter-only query (#tag, @pack, >group, no free text) keeps the pack
+  // layout, and every pack and group that holds a hit is drawn open so the
+  // hits are on screen. Folds made while that filter is on are remembered
+  // per filter, not saved, so the browsing layout is untouched.
+  const filterKey = useMemo(() => {
+    const q = C.parseQuery(query)
+    return q.text || (!q.tags.length && !q.packs.length && !q.groups.length)
+      ? ""
+      : JSON.stringify([q.tags, q.packs, q.groups])
+  }, [query])
 
   // Browsing groups by pack (collapsible); searching stays a flat ranked list.
   // `visible` is what the keyboard navigates — collapsed packs drop out of it.
@@ -303,15 +314,13 @@ export function App() {
   // resetting it to 0 threw a click on a far-down pack back to the top.
   type PendingSel = { follow: string } | { pack: string; expanding: boolean }
   const pendingAnchor = useRef<PendingSel | null>(null)
-  const toggleCollapsed = useCallback((name: string) => {
-    const next = new Set(collapsed)
-    const expanding = next.has(name)
-    if (expanding) next.delete(name)
-    else next.add(name)
-    setCollapsed(next)
-    localStorage.setItem("popupCollapsedPacks", JSON.stringify([...next]))
-    pendingAnchor.current = { pack: name, expanding }
-  }, [collapsed])
+  // Folds made under a filter, keyed by that filter so a new filter opens
+  // everything again
+  const [filterFolds, setFilterFolds] = useState<{ key: string; packs: Set<string>; groups: Set<string> }>({
+    key: "",
+    packs: new Set(),
+    groups: new Set(),
+  })
   // Groups fold the same way, keyed by pack + group so two packs' "Drafts"
   // fold independently. Same key shape as the sidebar's collapsedGroups.
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
@@ -321,14 +330,36 @@ export function App() {
       return new Set()
     }
   })
+  const folds = filterKey && filterFolds.key === filterKey ? filterFolds : null
+  const effCollapsed = filterKey ? (folds?.packs ?? EMPTY) : collapsed
+  const effCollapsedGroups = filterKey ? (folds?.groups ?? EMPTY) : collapsedGroups
+  const toggleCollapsed = useCallback((name: string) => {
+    const base = filterKey ? (folds?.packs ?? EMPTY) : collapsed
+    const next = new Set(base)
+    const expanding = next.has(name)
+    if (expanding) next.delete(name)
+    else next.add(name)
+    if (filterKey) {
+      setFilterFolds({ key: filterKey, packs: next, groups: folds?.groups ?? new Set() })
+    } else {
+      setCollapsed(next)
+      localStorage.setItem("popupCollapsedPacks", JSON.stringify([...next]))
+    }
+    pendingAnchor.current = { pack: name, expanding }
+  }, [collapsed, filterKey, folds])
   const toggleCollapsedGroup = useCallback((key: string) => {
-    const next = new Set(collapsedGroups)
+    const base = filterKey ? (folds?.groups ?? EMPTY) : collapsedGroups
+    const next = new Set(base)
     if (next.has(key)) next.delete(key)
     else next.add(key)
-    setCollapsedGroups(next)
-    localStorage.setItem("popupCollapsedGroups", JSON.stringify([...next]))
+    if (filterKey) {
+      setFilterFolds({ key: filterKey, packs: folds?.packs ?? new Set(), groups: next })
+    } else {
+      setCollapsedGroups(next)
+      localStorage.setItem("popupCollapsedGroups", JSON.stringify([...next]))
+    }
     setSel(0)
-  }, [collapsedGroups])
+  }, [collapsedGroups, filterKey, folds])
 
   // `count` is what the heading shows: for a pack, every prompt it holds,
   // pinned ones included, so the popup agrees with the manager's sidebar even
@@ -372,16 +403,16 @@ export function App() {
         entries,
         count: inPack.get(name) ?? entries.length,
         collapsible: true,
-        isCollapsed: collapsed.has(name),
+        isCollapsed: effCollapsed.has(name),
       })
     const visible = [
       ...pinned,
       ...packs.flatMap(([n, es]) =>
-        collapsed.has(n) ? [] : es.filter((e) => !e.s.group || !collapsedGroups.has(groupKey(n, e.s.group)))
+        effCollapsed.has(n) ? [] : es.filter((e) => !e.s.group || !effCollapsedGroups.has(groupKey(n, e.s.group)))
       ),
     ]
     return { sections, visible }
-  }, [filtered, hasQuery, collapsed, collapsedGroups])
+  }, [filtered, hasQuery, effCollapsed, effCollapsedGroups])
 
   // Row index within `visible`, for selection
   const rowIndex = useMemo(() => new Map(visible.map((e, i) => [e.s.id, i])), [visible])
@@ -767,13 +798,17 @@ export function App() {
         hidePreview()
         suppressHoverUntil.current = Date.now() + 250
       }
-      if (e.key === "ArrowRight" && e.ctrlKey && collapsed.size) {
+      if (e.key === "ArrowRight" && e.ctrlKey && effCollapsed.size) {
         // Keyboard path for the pack headers (with ← below): Ctrl+→ expands
         // every collapsed pack, since collapsed rows leave `visible` and
         // there is no row to expand from
         e.preventDefault()
-        setCollapsed(new Set())
-        localStorage.setItem("popupCollapsedPacks", "[]")
+        if (filterKey) {
+          setFilterFolds((f) => ({ ...f, key: filterKey, packs: new Set() }))
+        } else {
+          setCollapsed(new Set())
+          localStorage.setItem("popupCollapsedPacks", "[]")
+        }
       } else if (e.key === "ArrowDown") {
         e.preventDefault()
         if (visible.length) setSel((s) => (s + 1) % visible.length)
@@ -812,7 +847,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, collapsed, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, effCollapsed, filterKey, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live selection and
   // preview index through refs instead of closing over them
@@ -1216,7 +1251,7 @@ export function App() {
                   {rows(ungrouped)}
                   {[...groups.entries()].map(([g, es]) => {
                     const key = groupKey(sec.name, g)
-                    const gc = collapsedGroups.has(key)
+                    const gc = effCollapsedGroups.has(key)
                     const GChev = gc ? RiArrowRightSLine : RiArrowDownSLine
                     const gf = groupActive(g)
                     return (
