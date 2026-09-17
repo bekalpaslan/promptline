@@ -103,6 +103,8 @@ interface PromptlineCore {
   /** Title split into code-point runs marked hit/miss from UTF-16 match indices */
   highlightSegments(title: string, indices: number[] | null): { text: string; hit: boolean }[]
   parseQuery(raw: string): ParsedQuery
+  /** `@name`, or `@"two words"` when the name has whitespace */
+  filterTerm(prefix: "#" | "@" | ">", name: string): string
   matchesFilters(snippet: Pick<Snippet, "tags" | "pack" | "group">, query: Pick<ParsedQuery, "tags" | "packs" | "groups">): boolean
   TAG_COLORS: Record<string, string>
   tagColor(tag: string): string

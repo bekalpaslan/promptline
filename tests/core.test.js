@@ -223,6 +223,24 @@ test('bare # or @ are ignored, not treated as filters', () => {
   assert.equal(q.text, 'hello');
 });
 
+test('parseQuery: a quoted filter value keeps its spaces; an unclosed quote is text', () => {
+  const q = core.parseQuery('@"my prompts" >"code review" #x tail');
+  assert.deepEqual(q.packs, ['my prompts']);
+  assert.deepEqual(q.groups, ['code review']);
+  assert.deepEqual(q.tags, ['x']);
+  assert.equal(q.text, 'tail');
+  const open = core.parseQuery('@"my prompts');
+  assert.deepEqual(open.packs, ['"my']);
+  assert.equal(open.text, 'prompts');
+  assert.deepEqual(core.parseQuery('@""').packs, []);
+});
+
+test('filterTerm quotes only names with whitespace', () => {
+  assert.equal(core.filterTerm('@', 'Starter'), '@Starter');
+  assert.equal(core.filterTerm('@', 'My prompts'), '@"My prompts"');
+  assert.equal(core.filterTerm('>', 'Debugging'), '>Debugging');
+});
+
 test('matchesFilters requires every tag and pack filter to hit', () => {
   const s = { tags: ['debug', 'rust'], pack: 'Starter' };
   assert.ok(core.matchesFilters(s, { tags: ['deb'], packs: ['start'] }));

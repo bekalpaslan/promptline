@@ -211,16 +211,26 @@
   }
 
   // ---- Search query parsing: `#tag`, `@pack` and `>group` filter terms -----
-  // Returns {text, tags: [..], packs: [..], groups: [..]}
+  // Returns {text, tags: [..], packs: [..], groups: [..]}. A filter value
+  // with spaces is quoted: `@"my prompts"`; an unclosed quote is plain text.
   function parseQuery(raw) {
     const tags = [], packs = [], groups = [], words = [];
-    for (const term of (raw || '').trim().split(/\s+/).filter(Boolean)) {
-      if (term.startsWith('#') && term.length > 1) tags.push(term.slice(1).toLowerCase());
-      else if (term.startsWith('@') && term.length > 1) packs.push(term.slice(1).toLowerCase());
-      else if (term.startsWith('>') && term.length > 1) groups.push(term.slice(1).toLowerCase());
-      else if (term !== '#' && term !== '@' && term !== '>') words.push(term);
+    for (const term of (raw || '').match(/[#@>]"[^"]*"|\S+/g) || []) {
+      const prefix = term[0];
+      let value = term.slice(1);
+      if (value.length > 1 && value.startsWith('"') && value.endsWith('"')) value = value.slice(1, -1).trim();
+      if ((prefix === '#' || prefix === '@' || prefix === '>') && !value) continue;
+      if (prefix === '#') tags.push(value.toLowerCase());
+      else if (prefix === '@') packs.push(value.toLowerCase());
+      else if (prefix === '>') groups.push(value.toLowerCase());
+      else words.push(term);
     }
     return { text: words.join(' '), tags, packs, groups };
+  }
+
+  // The query term that filters on `name`: quoted when the name has spaces
+  function filterTerm(prefix, name) {
+    return /\s/.test(name) ? `${prefix}"${name}"` : prefix + name;
   }
 
   function matchesFilters(snippet, filters) {
@@ -432,6 +442,7 @@
     highlightSegments,
     parseQuery,
     matchesFilters,
+    filterTerm,
     TAG_COLORS,
     tagColor,
     stripFences,
