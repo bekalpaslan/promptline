@@ -266,13 +266,19 @@ export function App() {
       return new Set()
     }
   })
+  // Where the selection goes once the list has been rebuilt for the new
+  // collapsed set. `visible` is a memo, so the new row order isn't known here;
+  // the effect below lands the selection as soon as it is. Resetting to 0
+  // instead threw a click on a pack far down the list back to the top.
+  const pendingAnchor = useRef<{ pack: string; expanding: boolean } | null>(null)
   const toggleCollapsed = useCallback((name: string) => {
     const next = new Set(collapsed)
-    if (next.has(name)) next.delete(name)
+    const expanding = next.has(name)
+    if (expanding) next.delete(name)
     else next.add(name)
     setCollapsed(next)
     localStorage.setItem("popupCollapsedPacks", JSON.stringify([...next]))
-    setSel(0)
+    pendingAnchor.current = { pack: name, expanding }
   }, [collapsed])
 
   // `count` is what the heading shows: for a pack, every prompt it holds,
@@ -586,7 +592,10 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  useEffect(() => { setSel(0) }, [query])
+  useEffect(() => {
+    pendingAnchor.current = null
+    setSel(0)
+  }, [query])
 
   // Form and create mode replace the whole tree, so the search input is
   // unmounted while they are up; give it focus back once the list returns
@@ -598,6 +607,30 @@ export function App() {
     if (wasInMode.current && !inMode) inputRef.current?.focus()
     wasInMode.current = inMode
   }, [form, create])
+
+  // A pack was just collapsed or expanded: keep the selection by that pack
+  // rather than at the top of the list. Expanding takes its first row;
+  // collapsing takes the first row below the section, or the last row above
+  // it when the collapsed pack was the last one.
+  useEffect(() => {
+    const anchor = pendingAnchor.current
+    if (!anchor) return
+    pendingAnchor.current = null
+    if (!visible.length) {
+      setSel(0)
+      return
+    }
+    const packOf = (e: Entry) => e.s.pack || DEFAULT_PACK
+    if (anchor.expanding) {
+      const i = visible.findIndex((e) => !e.s.pinned && packOf(e) === anchor.pack)
+      setSel(i < 0 ? 0 : i)
+      return
+    }
+    // Packs are drawn in name order, so the row that took the section's place
+    // is the first one belonging to a later pack
+    const after = visible.findIndex((e) => !e.s.pinned && packOf(e).localeCompare(anchor.pack) > 0)
+    setSel(after < 0 ? visible.length - 1 : after)
+  }, [visible])
 
   // Keep the selected row in view
   useEffect(() => {
