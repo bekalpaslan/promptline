@@ -176,6 +176,32 @@
   html {
     @apply font-sans;
     }
+  /* Scrollbars in both windows are thin and hidden until the scrolling
+     surface is hovered, so a long list doesn't wear a grey bar all day.
+     ::-webkit-scrollbar is used instead of scrollbar-width because only
+     it lets the thumb be transparent at rest. */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background: transparent;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+    background-color: transparent;
+  }
+  :hover::-webkit-scrollbar-thumb {
+    background-color: color-mix(in srgb, var(--foreground) 25%, transparent);
+  }
+  ::-webkit-scrollbar-thumb:hover,
+  ::-webkit-scrollbar-thumb:active {
+    background-color: color-mix(in srgb, var(--foreground) 45%, transparent);
+  }
   /* Users who asked the OS for less motion get none: dialog and toast
      entrances, the drag lift, the spinner */
   @media (prefers-reduced-motion: reduce) {
