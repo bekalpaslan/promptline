@@ -260,6 +260,11 @@ export function App() {
   // when the list scrolls under a stationary cursor
   const suppressHoverUntil = useRef(0)
   const lastMouse = useRef({ x: -1, y: -1 })
+  // The first mouse-move a summon sees is the pointer being where it already
+  // was — the window appeared under it — not the user aiming at a row. It
+  // seeds `lastMouse` and nothing else; otherwise a resting pointer took the
+  // selection off the top row and opened that row's preview.
+  const mouseSeeded = useRef(false)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -585,6 +590,8 @@ export function App() {
     setPickedId(null)
     setQuery("")
     setSel(0)
+    mouseSeeded.current = false
+    lastMouse.current = { x: -1, y: -1 }
     // A summon starts at the top of the list. The scroll offset outlives
     // hiding the window, and the keep-in-view effect can't undo it: row 0
     // only scrolls to the nearest edge (leaving its section header above the
@@ -781,6 +788,10 @@ export function App() {
   const onItemMouseMove = useCallback((i: number, e: React.MouseEvent) => {
     const moved = e.clientX !== lastMouse.current.x || e.clientY !== lastMouse.current.y
     lastMouse.current = { x: e.clientX, y: e.clientY }
+    if (!mouseSeeded.current) {
+      mouseSeeded.current = true
+      return
+    }
     if (!moved || Date.now() < suppressHoverUntil.current) return
     if (selRef.current !== i) setSel(i)
     if (previewRef.current !== i) {
