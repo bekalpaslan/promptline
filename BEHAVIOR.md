@@ -151,7 +151,14 @@ Two guards follow from that:
   would retire a live pack.
 
 Orphans are never swept automatically. A file in `packs/` that no pack claims
-may be one an agent just dropped there for importing.
+may be one an agent just dropped there for importing. **Backing a pack adopts
+such a file when it declares that very pack's name** (`pack_file_slot`): the
+Generate dialog creates a pack's file before the pack exists, so an import that
+conjures the pack used to find `<name>.json` taken and back the pack with
+`<name>-2.json`, leaving the agent's file orphaned beside it. An adopted file is
+never written over on adoption — it may still hold prompts the library has not
+imported. A file claimed by another pack, or one that isn't a readable pack
+document, is never taken.
 
 **`packs/generated/`** holds scratch files for the Generate dialog's survey mode
 (agent path, empty topic). An agent writes the project's pack into one, with a
@@ -226,6 +233,15 @@ pack, group, `configValues` are the editor's). The manager's bulk operations
 `stale` if the file has moved on; the manager then reloads, tells the user,
 and the change has to be redone. Every snippet command returns the library
 with its revision, and the store lock serialises every read-modify-write.
+
+**A pin remembers when it was pinned.** `pinnedAt` (ms since epoch, personal
+state next to `uses` and `pinned`) is stamped when a prompt is pinned and
+cleared when it is unpinned, and `rankSnippets` draws pinned rows in that
+order. Ordering them by `uses` like the rest of the list made Ctrl+1..5 slots
+swap as soon as one pin was pasted more often than another, which is the
+opposite of what a pin is for. Legacy pins carry no stamp (0) and sort by
+title among themselves. Every pin path goes through `C.withPin` (manager) or
+`patch_snippet` (popup) so the stamp can't be forgotten.
 
 **Preferences are mirrored into `localStorage`** as well as `config.json`. The
 popup must apply theme, scale and font on first paint — a round-trip to Rust

@@ -483,7 +483,7 @@ export function Sidebar() {
         run: () => {
           if (allPinned) {
             void m
-              .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, pinned: false } : s)))
+              .persist(m.snippets.map((s) => (ids.includes(s.id) ? C.withPin(s, false) : s)))
               .then(() => say(n === 1 ? "Unpinned" : `Unpinned ${n}`))
             return
           }
@@ -496,7 +496,7 @@ export function Sidebar() {
             return
           }
           void m
-            .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, pinned: true } : s)))
+            .persist(m.snippets.map((s) => (ids.includes(s.id) ? C.withPin(s, true) : s)))
             .then(() => say(plan.toPin === 1 ? "Pinned" : `Pinned ${plan.toPin}`))
         },
       },

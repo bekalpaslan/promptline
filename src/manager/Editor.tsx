@@ -18,6 +18,9 @@ import { TOKEN_CHIP } from "@/lib/library"
 import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
+// The stored form of the tags field, so a save and the refresh that follows it
+// compare the same way
+const storedTags = (raw: string) => raw.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
 const SUGGESTED_PARAMS = ["goal", "feature", "task", "error", "file"]
 
 // One card per parameter kind. The card's Edit toggle reveals delete badges
@@ -248,7 +251,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     // merged there from whatever the popup wrote since this render
     await mgr.updateSnippet(snippet.id, {
       title: cur.title.trim() || "(untitled)",
-      tags: cur.tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean),
+      tags: storedTags(cur.tags),
       pack: targetPack,
       group: cur.group.trim(),
       text: cur.text,
@@ -280,11 +283,19 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   // External changes (move-to-pack, add-tag via context menu) refresh the
   // fields the user isn't mid-edit on. Skipping the whole refresh while a save
   // was pending let the save write the stale pack back, undoing the move.
+  //
+  // A field is also left alone when the store only holds what this editor's
+  // own save just wrote: `dirty` is cleared on commit, and the saved value is
+  // trimmed, so re-syncing from it ate the space in a half-typed "my group "
+  // the moment the 600 ms autosave landed.
   useEffect(() => {
     const d = dirty.current
-    if (!d.has("tags")) setTags((snippet.tags || []).join(", "))
-    if (!d.has("pack")) setPack(snippet.pack || DEFAULT_PACK)
-    if (!d.has("group")) setGroup(snippet.group || "")
+    const cur = latest.current
+    const tagsInStore = (snippet.tags || []).join(", ")
+    if (!d.has("tags") && tagsInStore !== storedTags(cur.tags).join(", ")) setTags(tagsInStore)
+    if (!d.has("pack") && (snippet.pack || DEFAULT_PACK) !== (cur.pack.trim() || DEFAULT_PACK))
+      setPack(snippet.pack || DEFAULT_PACK)
+    if (!d.has("group") && (snippet.group || "") !== cur.group.trim()) setGroup(snippet.group || "")
   }, [snippet.tags, snippet.pack, snippet.group])
 
   const editTags = (next: string) => {
@@ -406,7 +417,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       sayErr(`Max ${MAX_PINS} pins — unpin something first`)
       return
     }
-    await m.persist(m.snippets.map((s) => (s.id === snippet.id ? { ...s, pinned: !s.pinned } : s)))
+    await m.persist(m.snippets.map((s) => (s.id === snippet.id ? C.withPin(s, !s.pinned) : s)))
     say(snippet.pinned ? "Unpinned" : "Pinned")
   }
 

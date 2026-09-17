@@ -386,6 +386,7 @@ export function App() {
       group: create.group,
       uses: 0,
       pinned: false,
+      pinnedAt: 0,
       fieldValues: {},
       configValues: {},
     }
@@ -584,6 +585,11 @@ export function App() {
   // --- Keyboard ---------------------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // A key the form or create view already acted on is spent: they close
+      // themselves, so whether this listener still sees them mounted depends
+      // on when React re-runs this effect. The guard makes that timing
+      // irrelevant — nothing here re-handles a key handled in a view.
+      if (e.defaultPrevented) return
       if (panelFor) {
         if (e.key === "Escape") { e.preventDefault(); closePanel() }
         else if (e.key === "ArrowDown") { e.preventDefault(); setPanelSel((p) => (p + 1) % panelActions.length) }
@@ -746,6 +752,9 @@ export function App() {
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault()
+                  // Saving unmounts this view; the same keydown must not reach
+                  // the document listener and be taken for a list pick
+                  e.stopPropagation()
                   void saveCreate()
                 }
               }}
@@ -846,6 +855,9 @@ export function App() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault()
+                      // Submitting closes the form; this keydown is spent here
+                      // and must not bubble on to the list's Enter
+                      e.stopPropagation()
                       void submitForm(e.ctrlKey)
                     }
                   }}

@@ -111,9 +111,11 @@
   }
 
   // ---- Ranking ---------------------------------------------------------------------
-  // The popup's list order, as one pure function. No query text: pinned first,
-  // then most used, then title. With text: title matches rank above tag
-  // matches above body matches, each tier by fuzzy score, ties by uses.
+  // The popup's list order, as one pure function. No query text: pinned first
+  // in pin order (oldest pin first — a pin is a fixed Ctrl+digit slot, so use
+  // counts must never move it), then the rest by most used, then title. With
+  // text: title matches rank above tag matches above body matches, each tier
+  // by fuzzy score, ties by uses.
   // Returns [{s, indices}] where indices are title-highlight positions
   // (UTF-16 offsets into the title; null for tag/body matches).
   function rankSnippets(rawQuery, snippets) {
@@ -122,7 +124,12 @@
     if (!q.text) {
       return pool
         .slice()
-        .sort((a, b) => (+!!b.pinned - +!!a.pinned) || ((b.uses || 0) - (a.uses || 0)) || a.title.localeCompare(b.title))
+        .sort((a, b) =>
+          (+!!b.pinned - +!!a.pinned) ||
+          (a.pinned
+            // Legacy pins carry no pinnedAt (0) and sort by title among themselves
+            ? ((a.pinnedAt || 0) - (b.pinnedAt || 0)) || a.title.localeCompare(b.title)
+            : ((b.uses || 0) - (a.uses || 0)) || a.title.localeCompare(b.title)))
         .map(s => ({ s, indices: null }));
     }
     return pool
@@ -304,6 +311,15 @@
     return { ok: toPin <= room, already, toPin, room };
   }
 
+  // Pin or unpin one snippet, stamping the pin order. Pins are muscle-memory
+  // slots (Ctrl+1..5), so the order they are drawn in must be the order they
+  // were pinned in, never anything that changes as prompts are pasted.
+  // Re-pinning an already-pinned row keeps its original place.
+  function withPin(snippet, pinned, now) {
+    if (!pinned) return { ...snippet, pinned: false, pinnedAt: 0 };
+    return { ...snippet, pinned: true, pinnedAt: snippet.pinnedAt || now || Date.now() };
+  }
+
   // ---- Pack export --------------------------------------------------------------
   // The shareable form of prompts: title, tags, text, and group only when set.
   // Never uses/pinned/fieldValues/configValues — those are personal state.
@@ -375,6 +391,7 @@
     diagnosePack,
     defaultPackFor,
     pinPlan,
+    withPin,
     packToJson,
     removeByIds,
     restoreRemoved,
