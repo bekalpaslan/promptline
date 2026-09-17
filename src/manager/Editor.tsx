@@ -399,6 +399,13 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     if (tagList.includes(t)) return
     editTags([...tagList, t].join(", "))
   }
+  // "review, plan" in the + tag box is two tags, the way the field itself
+  // reads commas — stripping them made one "reviewplan"
+  const addTags = (raw: string) => {
+    const next = [...tagList]
+    for (const t of storedTags(raw)) if (!next.includes(t)) next.push(t)
+    if (next.length !== tagList.length) editTags(next.join(", "))
+  }
   const removeTag = (t: string) => {
     editTags(tagList.filter((x) => x !== t).join(", "))
   }
@@ -588,8 +595,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-xs text-foreground focus-ring placeholder:text-muted-foreground"
             onKeyDown={(e) => {
               if (e.key !== "Enter") return
-              const name = e.currentTarget.value.trim().toLowerCase().replace(/,/g, "")
-              if (name) addTag(name)
+              addTags(e.currentTarget.value)
               e.currentTarget.value = ""
             }}
           />
