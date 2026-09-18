@@ -3,7 +3,6 @@ import {
   RiAddLine,
   RiArrowDownSLine,
   RiArrowRightSLine,
-  RiCheckLine,
   RiCloseLine,
   RiDeleteBinLine,
   RiFileTextLine,
@@ -553,9 +552,8 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       </div>
 
       {/* Prompt panel: same header idiom as Advanced options and Preview.
-          The field (textarea + one-line tag strip) fills the card below the
-          header; the textarea is 4 lines by default, grows with content
-          (1lh bottom padding keeps one line free), capped at 10 lines. */}
+          The field fills the card below the header; the textarea is 4 lines
+          by default, grows with content, capped at 10 lines. */}
       <div className="module flex flex-col gap-3">
         <span className="section-title">Prompt</span>
         <div className="-mx-3 -mb-3 flex flex-col overflow-hidden rounded-b-xl border border-transparent bg-secondary/50 focus-within:border-(--focus)">
@@ -566,42 +564,48 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           aria-label="Prompt text"
           spellCheck={false}
           placeholder="Prompt text…  Use {clipboard}, {date}, {time}, any {lowercase_word} as a fill-in field, or {{lowercase_word}} as a saved config parameter."
-          className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 pt-3 pb-[calc(0.75rem+1lh)] leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
+          className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 py-3 leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
         />
-        <div className="flex flex-wrap items-center gap-1.5 px-3 pb-2">
-          {tagList.map((t) => {
-            const c = C.tagColor(t)
-            return (
-              <button
-                key={t}
-                title={`Remove tag "${t}"`}
-                aria-label={`Remove tag ${t}`}
-                className="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border bg-background/60 px-2 py-1 text-xs font-medium tag-text tag-border dark:tag-text-dark dark:tag-border-dark"
-                style={{ "--tag": c } as React.CSSProperties}
-                onClick={() => removeTag(t)}
-              >
-                <RiCheckLine className="size-3" />
-                {t}
-              </button>
-            )
-          })}
-          {tagSuggestions.map((t) => (
-            <AddPill key={t} label={t} title={`Add tag "${t}"`} onAdd={() => addTag(t)} />
-          ))}
-          <input
-            placeholder="+ tag…"
-            aria-label="Add a tag"
-            spellCheck={false}
-            className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
-            onKeyDown={(e) => {
-              if (e.key !== "Enter") return
-              addTags(e.currentTarget.value)
-              e.currentTarget.value = ""
-            }}
-          />
-        </div>
         </div>
       </div>
+
+      {/* Tags: the same card as Built-ins — chips for the prompt's own tags,
+          add-pills for the library's other tags, a box for a new one; Edit
+          puts a delete badge on each chip */}
+      <ParamSection title="Tags" hint="#tag narrows the popup's list — click a pill to add">
+        {(editing) => (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {tagList.map((t) => {
+              const c = C.tagColor(t)
+              return (
+                <span
+                  key={t}
+                  title={editing ? `#${t}` : `#${t} — Edit to remove`}
+                  className="relative flex shrink-0 select-none items-center rounded-sm border bg-background/60 px-2.5 py-0.5 text-xs font-medium tag-text tag-border dark:tag-text-dark dark:tag-border-dark"
+                  style={{ "--tag": c } as React.CSSProperties}
+                >
+                  {t}
+                  {editing && <DeleteBadge onDelete={() => removeTag(t)} />}
+                </span>
+              )
+            })}
+            {tagSuggestions.map((t) => (
+              <AddPill key={t} label={t} title={`Add tag "${t}"`} onAdd={() => addTag(t)} />
+            ))}
+            <input
+              placeholder="+ tag…"
+              aria-label="Add a tag"
+              spellCheck={false}
+              className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
+              onKeyDown={(e) => {
+                if (e.key !== "Enter") return
+                addTags(e.currentTarget.value)
+                e.currentTarget.value = ""
+              }}
+            />
+          </div>
+        )}
+      </ParamSection>
 
       {/* One containing card: the toggle is its header, the parameter cards
           sit inside it on the tinted background */}
