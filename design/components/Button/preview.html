@@ -1,0 +1,29 @@
+<!-- @dsCard group="Actions" height=120 subtitle="Default (ink), outline, secondary, ghost, destructive, link; sizes xs to lg" -->
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<div id="root"></div>
+<script>
+  Promptline.syncTheme()
+  const { h, mount, Button } = Promptline
+  const row = (props, ...kids) => h("div", { className: "flex items-center gap-2" }, ...kids)
+  mount(document.getElementById("root"),
+    h("div", { className: "flex flex-col gap-3 p-3" },
+      row(null,
+        h(Button, null, "Paste"),
+        h(Button, { variant: "outline" }, "Copy"),
+        h(Button, { variant: "secondary" }, "Import"),
+        h(Button, { variant: "ghost" }, "Cancel"),
+        h(Button, { variant: "destructive" }, "Delete"),
+        h(Button, { variant: "link" }, "Change hotkey"),
+        h(Button, { disabled: true }, "Apply")),
+      row(null,
+        h(Button, { size: "xs" }, "xs"),
+        h(Button, { size: "sm" }, "sm"),
+        h(Button, null, "default"),
+        h(Button, { size: "compact", variant: "outline" }, "compact"),
+        h(Button, { size: "lg" }, "lg"))))
+</script>
+</body>
+</html>

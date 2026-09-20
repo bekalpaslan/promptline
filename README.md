@@ -131,6 +131,7 @@ npm test           # JS core tests (node --test)
 npm run tokens     # render design/tokens.json into src/index.css (tokens:check verifies)
                    # edited tokens on the design-system page? ask Claude to pull
                    # its project/tokens.json into design/tokens.json, then run this
+npm run design:build  # bundle the real components + previews for the design-system artifact (design/dist)
 npm run test:rust  # Rust unit tests (cargo test)
 npm run lint       # ESLint over the frontend
 ```

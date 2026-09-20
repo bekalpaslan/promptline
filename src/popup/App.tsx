@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { SizeDebug } from "@/lib/SizeDebug"
@@ -6,13 +6,9 @@ import {
   RiAddLine,
   RiArrowDownSLine,
   RiArrowRightSLine,
-  RiClipboardLine,
   RiCloseLine,
-  RiEdit2Line,
   RiFileCopyLine,
-  RiFileTextLine,
   RiFilterLine,
-  RiPushpinFill,
   RiSearchLine,
 } from "@remixicon/react"
 import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
@@ -22,10 +18,9 @@ import { type Config, DEFAULT_PACK, MAX_PINS, TOKEN_CHIP, defaultPackFor, isLock
 const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
-import { Kbd as UiKbd } from "@/components/ui/kbd"
+import { type Entry, Kbd, Row, derive } from "@/popup/Row"
 
 
-type Entry = { s: Snippet; indices: number[] | null }
 type FormState = { snippet: Snippet; base: string; fields: string[]; paste: boolean }
 type PanelAction = { label: string; danger?: boolean; run: () => void }
 type CreateState = { title: string; pack: string; group: string; prefilled: string }
@@ -33,20 +28,7 @@ type CreateState = { title: string; pack: string; group: string; prefilled: stri
 // error (a failed paste or save) or a confirmation (copied, saved)
 type Notice = { text: string; kind: "error" | "info" }
 
-// Tag pills shown on a row before the rest fold into a "+N" overflow pill
-const MAX_ROW_TAGS = 3
 
-
-// The shared Kbd in the kit's 16px bordered-square idiom
-function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <UiKbd className="h-4 min-w-4 shrink-0 rounded-sm border border-border bg-background px-0.5 font-mono text-[11px] font-normal text-muted-foreground">
-      {children}
-    </UiKbd>
-  )
-}
-
-// One key and what it does. A group per hint, so a hint bar too wide for the
 // window (125% scale, the mono font) wraps between hints instead of being
 // clipped by the shell's overflow, and never splits a key from its label.
 function Hint({ k, children }: { k: React.ReactNode; children: React.ReactNode }) {
@@ -99,154 +81,6 @@ function Tokens({ text, clip }: { text: string; clip: string }) {
     </>
   )
 }
-
-// The kit highlights matched characters with an underline. Segments come
-// from core so UTF-16 match indices line up with code points (emoji).
-function HighlightedTitle({ title, indices }: { title: string; indices: number[] | null }) {
-  if (!indices?.length) return <span className="truncate">{title}</span>
-  return (
-    <span className="truncate">
-      {C.highlightSegments(title, indices).map((seg, i) => (
-        <span key={i} className={seg.hit ? "underline decoration-solid underline-offset-2" : undefined}>
-          {seg.text}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-// Per-snippet facts that don't change between renders: computed once per
-// library load, not once per row per keystroke
-type Derived = { inputs: string[]; Icon: typeof RiFileTextLine }
-function derive(s: Snippet): Derived {
-  const inputs = C.requiredInputs(s)
-  const Icon = s.pinned ? RiPushpinFill : inputs.length ? RiEdit2Line : s.text.includes("{clipboard}") ? RiClipboardLine : RiFileTextLine
-  return { inputs, Icon }
-}
-
-// One list row. Memoized so an arrow key re-renders only the two rows whose
-// `selected` changed, not every visible row.
-const Row = memo(function Row({
-  entry,
-  index,
-  selected,
-  picked,
-  compact,
-  derived,
-  onPick,
-  onMove,
-  onLeave,
-  onTag,
-  activeTags,
-  previewed,
-  clipEmpty,
-  slot,
-}: {
-  entry: Entry
-  index: number
-  /** Ctrl+digit slot (1..5) this row answers to, if any */
-  slot?: number
-  selected: boolean
-  picked: boolean
-  compact: boolean
-  derived: Derived
-  onPick: (s: Snippet, paste: boolean) => void
-  onMove: (i: number, e: React.MouseEvent) => void
-  onLeave: () => void
-  onTag: (tag: string) => void
-  /** Lower-cased #terms in the query; a matching pill renders filled */
-  activeTags: readonly string[]
-  /** The preview card is open for this row (it describes the row) */
-  previewed: boolean
-  /** Clipboard is empty, so a `{clipboard}` prompt would paste a hole */
-  clipEmpty: boolean
-}) {
-  const { s, indices } = entry
-  const tags = s.tags || []
-  const { inputs, Icon } = derived
-  const usesClip = clipEmpty && s.text.includes("{clipboard}")
-  return (
-    <div
-      id={`row-${s.id}`}
-      role="option"
-      aria-selected={selected}
-      aria-describedby={previewed ? "popup-preview" : undefined}
-      aria-label={s.title}
-      // No name tooltip: it would sit on top of the preview card the same
-      // hover opens. Only the empty-clipboard warning is worth a title.
-      title={usesClip ? "Clipboard is empty — {clipboard} will paste nothing" : undefined}
-      data-selected={selected}
-      className={cn(
-        "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
-        compact ? "py-0.5" : "py-1",
-        selected ? "bg-accent text-foreground" : "text-foreground hover:bg-hover",
-        picked && "bg-primary/20"
-      )}
-      onClick={(e) => onPick(s, !e.ctrlKey)}
-      onMouseMove={(e) => onMove(index, e)}
-      onMouseLeave={onLeave}
-    >
-      <Icon className={cn("size-3.5 shrink-0", s.pinned ? "text-(--warn)" : "opacity-70")} aria-hidden />
-      <div className="flex min-w-0 flex-1 flex-col justify-center">
-        <span className="flex min-w-0 items-center">
-          <HighlightedTitle title={s.title} indices={indices} />
-        </span>
-        {!compact && (
-          <span className="truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
-        )}
-      </div>
-      {/* Up to three pills keep the row single-line; the rest fold into +N */}
-      {tags.slice(0, MAX_ROW_TAGS).map((tag) => {
-        const c = C.tagColor(tag)
-        const active = activeTags.includes(tag.toLowerCase())
-        return (
-          <button
-            key={tag}
-            type="button"
-            tabIndex={-1}
-            aria-pressed={active}
-            className={cn(
-              "flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs tag-text tag-border dark:tag-text-dark dark:tag-border-dark",
-              active && "tag-fill",
-            )}
-            style={{ "--tag": c } as React.CSSProperties}
-            title={active ? `Clear #${tag} filter` : `Filter by #${tag}`}
-            aria-label={active ? `Clear #${tag} filter` : `Filter by #${tag}`}
-            onClick={(e) => {
-              e.stopPropagation()
-              onTag(tag)
-            }}
-          >
-            {tag}
-          </button>
-        )
-      })}
-      {tags.length > MAX_ROW_TAGS && (
-        <span
-          className="flex h-4 shrink-0 items-center whitespace-nowrap rounded-sm border border-border px-1 text-xs tabular-nums text-muted-foreground"
-          title={tags.slice(MAX_ROW_TAGS).map((t) => `#${t}`).join(", ")}
-        >
-          +{tags.length - MAX_ROW_TAGS}
-        </span>
-      )}
-      {inputs.length > 0 && (
-        <span
-          className="flex h-4 shrink-0 items-center rounded-sm border border-(--warn)/40 px-1 text-xs tabular-nums text-(--warn)"
-          title={`Asks for ${inputs.length} value${inputs.length === 1 ? "" : "s"} before pasting: ${inputs.join(", ")}`}
-        >
-          {"{"}{inputs.length}{"}"}
-        </span>
-      )}
-      {slot && (
-        <span className="flex shrink-0 gap-1">
-          <Kbd>Ctrl</Kbd>
-          <Kbd>{slot}</Kbd>
-        </span>
-      )}
-    </div>
-  )
-})
-
 export function App() {
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [clip, setClip] = useState("")

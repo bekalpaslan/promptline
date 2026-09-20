@@ -1,0 +1,6 @@
+/* The app's stylesheet, then the shim that points shadcn's variables at the
+   artifact's tokens (design/dist/shim.css, written by `npm run design:build`
+   from scripts/tokens.mjs MAP). The shim comes last so it wins over the
+   literal values index.css carries: previews then follow tokens.css live. */
+@import "../src/index.css";
+@import "./dist/shim.css";

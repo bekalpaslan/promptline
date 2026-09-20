@@ -1,0 +1,21 @@
+<!-- @dsCard group="Popup" height=200 subtitle="Resting, keyboard-selected with a Ctrl slot, pinned, fill-in count, compact" -->
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<div id="root"></div>
+<script>
+  Promptline.syncTheme()
+  const { h, mount, snippet, rowProps, Row } = Promptline
+  const rows = [
+    rowProps(snippet({ id: "a", title: "Root cause first", text: "Here's the error: {clipboard} Find the root cause before proposing any fix.", tags: ["debug"], pinned: true }), { selected: true, slot: 1 }),
+    rowProps(snippet({ id: "b", title: "Reproduce before fixing", text: "Before fixing, write a minimal reproduction or failing test for this bug: {bug}", tags: ["debug"], pinned: true }), { slot: 2 }),
+    rowProps(snippet({ id: "c", title: "Session kickoff", text: "Hi Claude — new session. {{standing_instructions}} Today's focus: {focus}", tags: ["session", "kickoff", "flow", "plan"] })),
+    rowProps(snippet({ id: "d", title: "Verify before done", text: "Before you call this done: run the relevant checks and show me the evidence.", tags: ["flow", "test"] }), { activeTags: ["test"] }),
+    rowProps(snippet({ id: "e", title: "Clean up git changes", text: "Group the changes into logical units and commit each.", tags: ["git"] }), { compact: true }),
+  ]
+  mount(document.getElementById("root"),
+    h("div", { role: "listbox", className: "flex w-[376px] flex-col gap-0.5 p-2" }, ...rows.map((p) => h(Row, { key: p.entry.s.id, ...p }))))
+</script>
+</body>
+</html>

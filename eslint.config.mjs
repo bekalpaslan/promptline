@@ -9,7 +9,7 @@ export default tseslint.config(
   { ignores: ["dist/", "node_modules/", "src-tauri/", "ui/core.js", "tests/"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
-  { files: ["scripts/**/*.mjs"], languageOptions: { globals: { ...globals.node } } },
+  { files: ["scripts/**/*.mjs", "design/vite.config.ts"], languageOptions: { globals: { ...globals.node } } },
   {
     files: ["src/**/*.{ts,tsx}"],
     plugins: { "react-hooks": reactHooks },
