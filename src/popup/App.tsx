@@ -157,8 +157,16 @@ export function App() {
   // lands the selection as soon as it is. A plain index survived neither:
   // it left the highlight on whatever prompt had taken the old row, and
   // resetting it to 0 threw a click on a far-down pack back to the top.
-  type PendingSel = { follow: string } | { pack: string; expanding: boolean }
+  // `follow` a prompt wherever its row went; land on a `pack` (or a `group`
+  // in it) that was just expanded; or land `at` an index, clamped — the row
+  // that took a collapsed section's place, or the last row when it was last
+  type PendingSel =
+    | { follow: string }
+    | { pack: string; group?: string; expanding: true }
+    | { at: number }
   const pendingAnchor = useRef<PendingSel | null>(null)
+  // What the list showed when a fold was toggled, for the anchor above
+  const visibleRef = useRef<Entry[]>([])
   // Folds made under a filter, keyed by that filter so a new filter opens
   // everything again
   const [filterFolds, setFilterFolds] = useState<{ key: string; packs: Set<string>; groups: Set<string> }>({
@@ -190,12 +198,20 @@ export function App() {
       setCollapsed(next)
       localStorage.setItem("popupCollapsedPacks", JSON.stringify([...next]))
     }
-    pendingAnchor.current = { pack: name, expanding }
+    if (expanding) pendingAnchor.current = { pack: name, expanding }
+    else {
+      // The row that takes the section's place is the first one below it
+      const first = visibleRef.current.findIndex((e) => !e.s.pinned && (e.s.pack || DEFAULT_PACK) === name)
+      pendingAnchor.current = { at: first < 0 ? 0 : first }
+    }
   }, [collapsed, filterKey, folds])
+  // Same as a pack fold: the selection stays by the toggled group instead
+  // of jumping to the top of the list
   const toggleCollapsedGroup = useCallback((key: string) => {
     const base = filterKey ? (folds?.groups ?? EMPTY) : collapsedGroups
     const next = new Set(base)
-    if (next.has(key)) next.delete(key)
+    const expanding = next.has(key)
+    if (expanding) next.delete(key)
     else next.add(key)
     if (filterKey) {
       setFilterFolds({ key: filterKey, packs: folds?.packs ?? new Set(), groups: next })
@@ -203,7 +219,14 @@ export function App() {
       setCollapsedGroups(next)
       localStorage.setItem("popupCollapsedGroups", JSON.stringify([...next]))
     }
-    setSel(0)
+    const [pack, group] = key.split("\u0000")
+    if (expanding) pendingAnchor.current = { pack, group, expanding }
+    else {
+      const first = visibleRef.current.findIndex(
+        (e) => !e.s.pinned && (e.s.pack || DEFAULT_PACK) === pack && e.s.group === group
+      )
+      pendingAnchor.current = { at: first < 0 ? 0 : first }
+    }
   }, [collapsedGroups, filterKey, folds])
 
   // `count` is what the heading shows: for a pack, every prompt it holds,
@@ -563,16 +586,18 @@ export function App() {
       if (i >= 0) setSel(i)
       return
     }
-    const packOf = (e: Entry) => e.s.pack || DEFAULT_PACK
-    if (anchor.expanding) {
-      const i = visible.findIndex((e) => !e.s.pinned && packOf(e) === anchor.pack)
-      setSel(i < 0 ? 0 : i)
+    if ("at" in anchor) {
+      setSel(Math.min(anchor.at, visible.length - 1))
       return
     }
-    // Packs are drawn in name order, so the row that took the section's place
-    // is the first one belonging to a later pack
-    const after = visible.findIndex((e) => !e.s.pinned && packOf(e).localeCompare(anchor.pack) > 0)
-    setSel(after < 0 ? visible.length - 1 : after)
+    const packOf = (e: Entry) => e.s.pack || DEFAULT_PACK
+    const i = visible.findIndex(
+      (e) => !e.s.pinned && packOf(e) === anchor.pack && (anchor.group === undefined || e.s.group === anchor.group)
+    )
+    setSel(i < 0 ? 0 : i)
+  }, [visible])
+  useEffect(() => {
+    visibleRef.current = visible
   }, [visible])
 
   // Keep the selected row in view
