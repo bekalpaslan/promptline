@@ -52,100 +52,95 @@
        scrollbars, select dropdowns, form controls. Without it they
        stay light no matter what the tokens below say. */
     color-scheme: light;
-    --app-font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
     /* Direction A ("Instrument"): ink first, hue second. Text and controls
-       are neutral; the accent only marks selection, focus and matches. */
+       are neutral; the accent only marks selection, focus and matches.
+       Values and the note on each token live in design/tokens.json. */
+    /* @tokens light: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --app-font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
     --background: #ffffff;
-    --foreground: #1a1d21;
-    --card: #ffffff;
-    --card-foreground: #1a1d21;
-    --popover: #ffffff;
-    --popover-foreground: #1a1d21;
-    /* The one primary button is ink on paper, not a coloured call to action */
-    --primary: #1a1d21;
-    --primary-foreground: #ffffff;
+    --sidebar: #f5f6f8;
+    --segment-track: #f5f6f8;
     --secondary: #f5f6f8;
-    --secondary-foreground: #1a1d21;
     --muted: #f5f6f8;
-    --muted-foreground: #586270;
-    /* accent = the keyboard-selected row; --hover = the mouse. Never the same
-       colour, so a hover can't be mistaken for the row Enter will paste. */
-    --accent: #e3f2fb;
-    --accent-foreground: #1a1d21;
+    --card: #ffffff;
+    --popover: #ffffff;
+    --segment-active: #ffffff;
     --hover: #eef0f3;
-    --destructive: #b93227;
+    --accent: #e3f2fb;
+    --foreground: #1a1d21;
+    --card-foreground: #1a1d21;
+    --popover-foreground: #1a1d21;
+    --secondary-foreground: #1a1d21;
+    --accent-foreground: #1a1d21;
+    --muted-foreground: #586270;
     --border: #e3e6e9;
     --input: #c9cfd6;
+    --link: #0a76a6;
     --ring: #0b7fb4;
-    --sidebar: #f5f6f8;
-    /* 4px base; the collapsed scale above gives 2 / 4 / 6 / 8 */
-    --radius: 0.25rem;
     --focus: #0b7fb4;
-    --link: #0b7fb4;
-    /* Placeholder kinds: cyan / amber / orchid (config moved off violet so it
-       no longer reads as the accent). Text clears 4.5:1 on its soft ground. */
+    --primary: #1a1d21;
+    --primary-foreground: #ffffff;
+    --destructive: #b93227;
+    --warn: #b4530a;
+    --heading: #0b6f9e;
+    --heading-strong: #085a80;
+    --success: #2b7a3b;
     --param-builtin: #0b6f9e;
     --param-builtin-bg: #e3f2fb;
     --param-field: #8a5a05;
     --param-field-bg: #fbf1dc;
     --param-config: #9a2a8c;
     --param-config-bg: #f9e6f5;
-    --warn: #b4530a;
-    /* Module titles (Prompt, Preview, Settings cards): the one place the
-       accent hue names a section rather than a state */
-    --heading: #0b6f9e;
-    /* Pack titles: one step deeper than module and group titles */
-    --heading-strong: #085a80;
-    --module-border: color-mix(in srgb, var(--heading) 35%, transparent);
-    --success: #2b7a3b;
-    --segment-track: #f5f6f8;
-    --segment-active: #ffffff;
-    --shadow-segment: 0 1px 2px rgba(16, 24, 40, 0.10);
-    /* Hairlines carry structure; only floating surfaces cast a shadow */
-    --shadow-pop: 0 4px 12px rgba(16, 24, 40, 0.10);
     --shadow-shell: 0 8px 24px rgba(16, 24, 40, 0.16);
+    --shadow-pop: 0 4px 12px rgba(16, 24, 40, 0.10);
+    --shadow-segment: 0 1px 2px rgba(16, 24, 40, 0.10);
+    --radius: 4px;
+    /* @tokens end */
+    --module-border: color-mix(in srgb, var(--heading) 35%, transparent);
 }
 
 .dark {
     color-scheme: dark;
+    /* @tokens dark: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
     --background: #15181b;
-    --foreground: #e8ebee;
-    --card: #1c2024;
-    --card-foreground: #e8ebee;
-    --popover: #1c2024;
-    --popover-foreground: #e8ebee;
-    --primary: #f2f4f6;
-    --primary-foreground: #15181b;
+    --sidebar: #101214;
+    --segment-track: #101214;
     --secondary: #22272c;
-    --secondary-foreground: #e8ebee;
     --muted: #22272c;
-    --muted-foreground: #a3abb5;
-    --accent: #1c2f3b;
-    --accent-foreground: #e8ebee;
+    --card: #1c2024;
+    --popover: #1c2024;
+    --segment-active: #22272c;
     --hover: #22272c;
-    --destructive: #ff7b6e;
+    --accent: #1c2f3b;
+    --foreground: #e8ebee;
+    --card-foreground: #e8ebee;
+    --popover-foreground: #e8ebee;
+    --secondary-foreground: #e8ebee;
+    --accent-foreground: #e8ebee;
+    --muted-foreground: #a3abb5;
     --border: #2a2f35;
     --input: #3a4048;
-    --ring: #4cc2f5;
-    --sidebar: #101214;
-    --focus: #4cc2f5;
     --link: #4cc2f5;
+    --ring: #4cc2f5;
+    --focus: #4cc2f5;
+    --primary: #f2f4f6;
+    --primary-foreground: #15181b;
+    --destructive: #ff7b6e;
+    --warn: #f5a54b;
+    --heading: #63c8f2;
+    --heading-strong: #3fb2e6;
+    --success: #7bd389;
     --param-builtin: #63c8f2;
     --param-builtin-bg: #173040;
     --param-field: #f0c25a;
     --param-field-bg: #3a2e12;
     --param-config: #ea8fdc;
     --param-config-bg: #3b1e37;
-    --warn: #f5a54b;
-    --heading: #63c8f2;
-    --heading-strong: #3fb2e6;
-    --module-border: color-mix(in srgb, var(--heading) 40%, transparent);
-    --success: #7bd389;
-    --segment-track: #101214;
-    --segment-active: #22272c;
-    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
-    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.45);
     --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.55);
+    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.45);
+    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    /* @tokens end */
+    --module-border: color-mix(in srgb, var(--heading) 40%, transparent);
 }
 
 /* Tag hues are tuned for dark surfaces (ui/core.js). A pill sets --tag to
