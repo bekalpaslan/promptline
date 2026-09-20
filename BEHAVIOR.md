@@ -299,7 +299,12 @@ is deleted when the manager next starts (roadmap 0.7). The popup cannot make
 one: with an empty clipboard it refuses to save (L7), and a saved popup prompt
 always has a body. Until the sweep runs, `rankSnippets` keeps such a draft out
 of the popup's list and its Ctrl+1..5 slots (`isEmptyDraft`) — there is nothing
-to paste from it — while the manager still lists and edits it.
+to paste from it — while the manager still lists and edits it. Such a draft
+also backs no pack (`packs_in_play`): "New prompt" lands in the default pack,
+and declaring that pack with metadata and a file the moment the draft was
+written left a permanent empty "My prompts" behind once the draft was moved
+to the pack the user meant, or swept. The pack is declared by the first save
+that gives the draft a body or a title, like any other prompt's pack.
 
 Migrations run on load in `apply_snippet_migrations` (v2 `category` becomes the
 first tag; packless prompts get a default pack) and via `#[serde(default)]` on
