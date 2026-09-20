@@ -6,7 +6,7 @@ import reactHooks from "eslint-plugin-react-hooks"
 import globals from "globals"
 
 export default tseslint.config(
-  { ignores: ["dist/", "node_modules/", "src-tauri/", "ui/core.js", "tests/"] },
+  { ignores: ["dist/", "design/dist/", "node_modules/", "src-tauri/", "ui/core.js", "tests/"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { files: ["scripts/**/*.mjs", "design/vite.config.ts"], languageOptions: { globals: { ...globals.node } } },
