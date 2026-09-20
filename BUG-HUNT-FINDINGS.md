@@ -6,7 +6,7 @@ One entry per candidate. `Verdict` is the human's answer to the description;
 stated cause hold up in the source, independent of whether it was the target bug.
 
 Commit under test: `523fc4385fa8fbb2dd9b99df5ec2d269fba72a2c` (`523fc43`, tag `bench-2`),
-the current edition. Runs A–C used `b36d67e` (`bench-1`, plus uncommitted README and
+see "Edition bench-3" at the end for the 2026-09-21 runs on `4af6015`. Runs A–C used `b36d67e` (`bench-1`, plus uncommitted README and
 benchmark files). Fixes for candidates 1–6 and the target were made on branch
 `fix/bug-hunt` (`8cae48f`…`28448bc`, seven commits), merged to master after
 `523fc43`; candidates 7–9 are not fixed. The target is unfixed at `523fc43`.
@@ -1374,3 +1374,282 @@ built from that commit: `Promptline_0.2.5_x64-setup.exe` (NSIS) and
 Fixed in this release beyond the four already on master: candidates 6, 20,
 21, 22, 23, 24, 26, 27, 28, 29, 31, 32, 33 and the Alt+F4 popup-destroy
 note (`3d4b3c4`). Not fixed: nothing filed remains open at `d69fccf`.
+
+---
+
+# Edition bench-3
+
+Commit under test: `4af6015a4a77423c32a8eec5f6d3b1a520a99906` (`4af6015`, tag
+`bench-3`), run on 2026-09-21. Candidates 34–43 and runs H1–H3 below are
+against that commit. Unlike bench-2, this commit carries this findings file
+and the benchmark file, so every contestant could read candidates 1–33 and
+the bench-2 target; none of those describe the bench-3 target.
+
+## Target bug (bench-3; unredacted after the runs)
+
+**Trigger.** Clean profile. In the manager, create a pack with "New pack"
+(name it, Enter). Click "New prompt": the draft lands in a freshly created
+"My prompts" pack, not the pack just created (debatable, but the documented
+rule: no last-saved pack yet, so the default pack). In the editor, change the
+draft's pack to the pack created first.
+
+**Symptom.** "My prompts" stays in the sidebar and the Library view as an
+empty pack, "(0)", even though it was only conjured to hold that one draft
+and now holds nothing. It never goes away on its own.
+
+**Code check.** Confirmed. `add_snippet` calls the pack-backing pass in
+`src-tauri/src/lib.rs:385-405`: a pack that "exists only as a name on a
+prompt" gets a real `PackMeta` and a file the moment the draft is written.
+`packNames` (`src/lib/library.ts:25-34`) unions declared metadata with
+referenced names, and the sidebar seeds a section for every declared pack
+(`src/manager/Sidebar.tsx:112-114`), so the declared, now-empty "My prompts"
+is drawn forever. Moving the draft out and the startup sweep of an abandoned
+draft (Opus's message 14) leave the same residue. Fix shape: do not declare a
+pack for an empty "New prompt" draft until the draft is kept, or undeclare a
+pack that was auto-created for a draft when its last prompt leaves. Status:
+fixed on the working tree on 2026-09-21: an empty draft references no pack
+for backing (`packs_in_play`, `is_empty_draft` in src-tauri/src/lib.rs), so the
+default pack is declared by the first save that gives the draft a body or a
+title; unit-tested, documented in BEHAVIOR.md.
+
+## Candidates reported by agents (bench-3)
+
+## 34. Folding a group in the popup throws the selection back to the top (Sonnet, message 2)
+
+Verdict: No (not the target). Trigger: in the popup browse list, fold or unfold a group (click its sub-header or Left on one of its rows) with the selection lower in the list. Symptom: the highlight, and with it the scroll, jumps to the first row of the whole list; folding a pack keeps the selection by the toggled section. Stated cause: the selection-keeping fix for pack collapse (candidate 21) was never applied to group collapse.
+Code check: confirmed. `toggleCollapsedGroup` in src/popup/App.tsx:195-207 ends with `setSel(0)`, while `toggleCollapsed` (packs, line 181-194) sets `pendingAnchor.current = { pack, expanding }` and lets the effect at line 552 land the selection. Fix shape: set an anchor for the group (first row of the group when expanding, first row after it when collapsing) instead of `setSel(0)`. Status: fixed on the working tree on 2026-09-21: popup group folds now anchor the selection like pack folds (src/popup/App.tsx).
+
+## 35. Library view cards show the literal `{clipboard}` in their body excerpt (Sonnet, message 3)
+
+Verdict: No (not the target). Trigger: open the manager's Library view with a prompt whose body contains `{clipboard}`. Symptom: the card's three-line excerpt prints the placeholder verbatim, while BEHAVIOR.md ("Previews show the clipboard, not the word 'clipboard'") says every preview substitutes the current clipboard on the builtin tint. Stated cause: the card renders the raw body.
+Code check: confirmed as a rule-vs-code gap. `PromptCard` in src/manager/Library.tsx:194-196 renders `s.text.replace(/\s+/g, " ")` with no `clipboardPreview` pass; the editor and popup previews do substitute. Whether a 3-line card excerpt should expand the clipboard is a judgement call (it is a tinted placeholder elsewhere), so fix shape is either to run the excerpt through the shared preview renderer or to exempt cards in BEHAVIOR.md. Status: fixed on the working tree on 2026-09-21: Library cards run the excerpt through the shared tokeniser with the clipboard on the builtin tint (src/manager/Library.tsx).
+
+## 36. Escape on a context menu also switches the manager between prompt view and Library view (Fable, message 2)
+
+Verdict: No (not the target). Trigger: in the manager, open a right-click or three-dot menu on a prompt, pack or group and press Escape. Symptom: the menu closes and the manager also switches mode: prompt view jumps to the Library view, Library view drops back to the prompt view. Stated cause: the menu's Escape handling does not stop the manager's mode-switch handler.
+Code check: confirmed by listener order. The manager's Escape handler (src/manager/App.tsx:371) is a document keydown listener that only skips when `e.defaultPrevented` or a `[role="dialog"]` is open; the menu's listener (src/manager/ctx-menu.tsx:68-73) is also on document and calls `preventDefault`, but it is registered when the menu opens, so it runs after the manager's listener, which was registered at mount and re-registered only when `settingsOpen`, `view.kind` or `activeId` change. Fix shape: have the manager's handler also return when a `[role="menu"]` is present, or register the menu's listener in the capture phase. Status: fixed on the working tree on 2026-09-21: the manager's Escape handler also yields to an open [role="menu"] (src/manager/App.tsx).
+
+## 37. A collapsed pack or group comes back expanded after a rename (Sonnet, message 7)
+
+Verdict: No (not the target). Trigger: collapse a pack (or a group) in the manager sidebar, then rename it. Symptom: the renamed pack or group reappears expanded; its collapsed state is lost. Stated cause: collapsed state is keyed by the name string and a rename never migrates the entry.
+Code check: confirmed. `collapsed` and `collapsedGroups` in src/manager/Sidebar.tsx:55-56 are name-keyed sets persisted to localStorage; the rename paths (lines 326 and 491 call `renameGroup`/`renamePack` from the manager API) touch neither set, and the stale entry stays under the old name. Fix shape: on rename, move the old key to the new one in both sets (and in the popup's `popupCollapsedPacks`/`popupCollapsedGroups`, which have the same shape). Status: fixed on the working tree on 2026-09-21: renames carry the fold keys over, in the sidebar and the popup's stored keys (src/manager/Sidebar.tsx).
+
+## 38. A pack created while the sidebar filter is active is not listed until the filter is cleared (Sonnet, message 15)
+
+Verdict: No (not the target). Trigger: type into the sidebar's "Filter prompts…" box, then click "New pack" and name it. Symptom: the toast says the pack was created but no section for it appears until the filter is cleared. Stated cause: under a filter the sidebar lists only packs holding a matching prompt.
+Code check: behaviour confirmed, intent debatable. src/manager/Sidebar.tsx:112-114 seeds empty packs as sections only when no filter is typed (`if (!q)`), by design so a filter shows matches only; an empty new pack therefore has no section under a filter. Fix shape, if wanted: clear the filter when a pack is created, or seed the just-created pack regardless of `q`. Status: open, not fixed (repository frozen for the benchmark).
+
+## Target-adjacent: Opus message 14: empty "My prompts" left behind after the swept draft
+
+Verdict: Partially. Symptom matches the target (a permanent empty default-pack section the user never created, conjured by New prompt); the trigger given is the draft being swept rather than the prompt being moved to another pack. Code check: the same cause covers both triggers. `add_snippet` (src-tauri/src/lib.rs:385-405) declares the draft's pack into `config.packs` with a file the moment the draft is created; neither a later move nor the sweep of the abandoned draft undeclares it. So the swept-draft path is a real second trigger of the same bug.
+
+## 39. "New pack" accepts a name that differs from an existing pack only by letter case (Sonnet, message 20)
+
+Verdict: No (not the target). Trigger: create a pack whose name matches an existing one except for case (or, per the candidate, surrounding spaces). Symptom: two packs that read the same. Stated cause: the duplicate check is an exact string match.
+Code check: half confirmed. The whitespace half is refuted: the sidebar input trims before calling `addPack` (src/manager/Sidebar.tsx:614). The case half holds: `addPack` (src/manager/App.tsx:238) rejects only an exact `packNames().includes(name)` hit, and `create_pack_file` in lib.rs has no case-insensitive check, so "General" and "general" coexist as two packs; on Windows their pack files would also collide by name unless `new_pack_file` suffixes. Fix shape: compare names case-insensitively in `addPack` (and in the Rust rename path, which has the same exact-match test at lib.rs:963). Status: fixed on the working tree on 2026-09-21: pack names are compared case-insensitively in addPack, the rename menu and rename_pack_in (src/manager/App.tsx, src/manager/menus.tsx, src-tauri/src/lib.rs).
+
+## 40. An abandoned empty "New prompt" draft stays listed in the sidebar and Library view (Fable, message 12)
+
+Verdict: No (not the target). Trigger: click New prompt (or "+ prompt" in the Library view) and leave the draft untouched. Symptom: the empty draft stays as a sidebar row and an "(empty)" Library card. 
+Code check: refuted as a defect, documented behaviour. BEHAVIOR.md "The manager sweeps abandoned drafts at startup" says the draft is a real prompt the editor autosaves into and is deleted when the manager next starts; the popup already hides it (`isEmptyDraft`). Same family as candidates 9 and 33. Fix shape, if the design changes: sweep on leaving the editor rather than at startup. Status: by design, no fix.
+
+## 41. Editor keeps the previous prompt's title and body after "New prompt" (Sonnet, message 22)
+
+Verdict: No (not the target). Trigger: with a prompt open in the editor, click New prompt. Claimed symptom: the editor still shows the old title and body while the sidebar selects the new draft. Stated cause: no `key` prop on the editor, so React reuses the instance and its `useState(snippet.title)` never resets.
+Code check: refuted. The editor is mounted as `<Editor key={activeId ?? "none"} />` (src/manager/App.tsx:456), so a new active id remounts it with fresh state; Sonnet read the `useState` initialisers in Editor.tsx:228-233 without checking the call site. Status: not a bug.
+
+## Target-adjacent: Sonnet message 23: New prompt filed under an unchosen pack
+
+Verdict: Partially. It names the setup half of the target (with a pack just created, New prompt lands in the default "My prompts" rather than the new pack, which the human called debatable but expected) and stops before the symptom (the empty "My prompts" left behind after the prompt is moved). Code check: `newPrompt` in src/manager/App.tsx:208 uses `defaultPackFor`, which prefers the last pack saved into (`localStorage.lastPack`) and otherwise the default pack; in a clean profile there is no last pack, so a just-created pack is never chosen. Documented in BEHAVIOR.md, so by design at this commit.
+
+## 42. The sidebar does not scroll a newly created prompt or pack into view (Sonnet, message 26)
+
+Verdict: No (not the target). Trigger: with a sidebar list longer than the window, click New prompt or New pack so the new row lands outside the visible area. Symptom: the list does not scroll to it; the editor opens the draft but the row must be found by hand. Stated cause: the popup scrolls its selected row into view, the sidebar has no equivalent.
+Code check: confirmed by absence. src/manager/Sidebar.tsx and src/manager/App.tsx contain no `scrollIntoView` or `scrollTo` call; the popup does scroll its selection. Fix shape: after `newPrompt`/`addPack`, scroll the row for the new id (or the new pack header) into view. Status: fixed on the working tree on 2026-09-21: the sidebar scrolls the active row and a just-created pack into view (src/manager/Sidebar.tsx).
+
+## Target-adjacent: Fable message 19: sidebar New prompt takes the pack of the last edited prompt
+
+Verdict: Partially. Same setup half as Sonnet's message 23: the sidebar's New prompt uses `defaultPackFor`, which follows `localStorage.lastPack` (set by the editor on save, so "the pack of the prompt you last typed in") rather than the pack that last received a new prompt or the just-created pack. Documented in BEHAVIOR.md; no leftover-pack symptom named.
+
+## Target-adjacent: Fable message 22: sidebar New prompt ignores packs filled by other routes
+
+Verdict: Partially. Third variant of the setup half: `lastPack` is written only by the editor's save path, so a pack filled by "+ prompt", import or generate never becomes the sidebar New prompt's default and the draft goes to "My prompts". True and documented; the leftover empty pack is still not named.
+
+## Target-adjacent: Fable message 23: New prompt not created in the pack currently open
+
+Verdict: Partially. Fourth restatement of the setup half; see message 19.
+
+## Target-adjacent: Fable message 25: a freshly created pack does not receive the next New prompt
+
+Verdict: Partially. Exact trigger setup of the target (New pack, then New prompt) with the expected half as the symptom; the leftover empty "My prompts" after moving the prompt is still unnamed. Fifth restatement.
+
+## 43. (refuted) New pack disappears after New prompt (Sonnet, message 29)
+
+Verdict: No. Code check: refuted. `packNames` (src/lib/library.ts:25-34) unions declared metadata with every pack referenced by a prompt, and the sidebar seeds a section for each name when no filter is typed (src/manager/Sidebar.tsx:112-114); nothing in `newPrompt` removes or hides a pack. Status: not a bug.
+
+## Target-adjacent: Fable message 26: New prompt conjures a "My prompts" pack out of nowhere
+
+Verdict: Partially. Now names the auto-created default pack (the other half of the target's setup) but with the draft still in it; the leftover empty pack after the prompt leaves is still unnamed. Sixth candidate on the theme.
+
+## Target-adjacent: Fable message 27: sidebar New prompt ignores the pack you work in
+
+Verdict: Partially. Seventh restatement of the setup half.
+
+## Run H isolation notes
+
+Each contestant was a separate `claude -p` process (`--output-format json`,
+`--dangerously-skip-permissions`, `--resume <session>` for every turn after
+the first) whose working directory was its own `robocopy /MIR` copy of the
+template clone (`--branch bench-3 --single-branch --no-tags`, one ref, 162
+commits all reachable from HEAD, `node_modules` installed). The orchestrator
+session's git status is therefore not injected: the five-commit shortlist
+leak of runs D–G is closed. Two remaining exposures: the committed findings
+file (above), and `--dangerously-skip-permissions` lets a contestant read
+the development checkout if it goes looking; none did. Opus left a mock
+harness and an `http.server` outside the repo, Fable a Vite dev server;
+both were stopped and the copies deleted after the runs.
+
+Contestants were stopped at 30 messages if unconfirmed.
+
+## Run H1: Opus (bench-3, clean clone) — X = 15
+
+| # | Agent message (condensed) | Answer |
+|---|---|---|
+| 1 | Bug is in the manager window rather than the popup? | Yes |
+| 2 | Requires the library view rather than sidebar+editor? | No |
+| 3 | In the editor pane rather than the sidebar list? | No |
+| 4 | Involves pack/group header rows rather than prompt rows? | Yes |
+| 5 | Symptom is in what a header shows (label/count/extra element) rather than click/key response? | Yes |
+| 6 | Header text (name/count) wrong rather than styling or a control? | No |
+| 7 | Control missing from/extra on header rather than styling? | No |
+| 8 | Is the wrong styling visible on an ordinary short-named header at default settings? | Can't answer as asked |
+| 9 | Is it about which headers appear at all (one extra or one missing)? | Yes |
+| 10 | Is a header missing rather than an extra one showing? | No |
+| 11 | Is the extra one a pack header rather than a group sub-header? | Yes |
+| 12 | Is the extra pack section an empty one, (0) with no prompts? | Yes |
+| 13 | Did the empty pack appear on its own, never created by you? | Yes |
+| 14 | CANDIDATE: empty "My prompts" (0) left behind permanently after New prompt conjures it and the draft is swept | Partially |
+| 15 | CANDIDATE: empty "My prompts" (0) left behind after New prompt conjures it and the prompt is moved to the wanted pack or goes away | Yes (X = 15) |
+
+After confirmation it sent "DONE" (not counted). Stated cause correct
+(`defaultPackFor` returns the default pack without checking it exists, the
+Rust backing pass conjures metadata, the sidebar draws every declared pack).
+
+Strategy: pure bisection with no cold candidate, reading every diff since
+the last release before message 1. Messages 6–8 were lost in a "styling"
+branch after two literal No answers (the extra header is not a wrong label,
+count, control or style, and the human answered the question as asked);
+message 8 was the edition's only Can't answer as asked. From message 9 it
+recovered in one move ("which headers appear at all") and reached the
+symptom by 13. Its first candidate (14) had the right symptom and a real but
+different trigger (the swept draft); the second widened the trigger to
+"once that prompt is no longer in it" and was confirmed.
+
+## Run H2: Sonnet (bench-3, clean clone) — stopped at 30, unconfirmed
+
+| # | Agent message (condensed) | Answer |
+|---|---|---|
+| 1 | Popup row shows only first tag pill for multi-tag prompt (bench-2 target) | No |
+| 2 | CANDIDATE: popup group fold resets selection/scroll to first row | No |
+| 3 | CANDIDATE: Library card preview shows literal {clipboard} | No |
+| 4 | Bug in the popup rather than the manager? | No |
+| 5 | In the editor pane rather than sidebar/library/generate/settings? | No |
+| 6 | In the manager sidebar rather than library/generate/settings? | Yes |
+| 7 | CANDIDATE: collapsed pack/group comes back expanded after rename | No |
+| 8 | Involves press-and-hold drag reordering in the sidebar? | No |
+| 9 | Involves multi-select or a right-click multi-select action? | No |
+| 10 | Involves inline rename of a pack or group? | No |
+| 11 | Involves collapsing/expanding a section (fold chevron)? | No |
+| 12 | Involves locking/unlocking a pack? | No |
+| 13 | Involves filter box, Order by, or Group-by-pack toggle? | No |
+| 14 | Involves the New prompt or New pack button? | Yes |
+| 15 | CANDIDATE: new pack created under an active filter is hidden until filter cleared | No |
+| 16 | New pack specifically, as opposed to New prompt? | Partially |
+| 17 | New prompt lands in a pack other than expected (not the just-created one)? | Partially |
+| 18 | New prompt files into last-saved pack rather than the selected one? | Partially |
+| 19 | Part of the bug about which group the new prompt lands in? | No |
+| 20 | CANDIDATE: New pack allows a case/whitespace-variant duplicate | No |
+| 21 | Happens on plain first-time use of New prompt/New pack, no precondition? | Yes |
+| 22 | CANDIDATE: editor keeps previous prompt title/body after New prompt (no key prop) | No |
+| 23 | CANDIDATE: New prompt filed under an unchosen pack with no indication | Partially |
+| 24 | Is the bug broadly about WHERE a new prompt/pack is filed? | No |
+| 25 | About the buttons appearance rather than what happens after clicking? | No |
+| 26 | CANDIDATE: sidebar does not scroll to reveal a newly created prompt/pack | No |
+| 27 | Specifically about New prompt, not New pack? | Partially |
+| 28 | Requires New pack and New prompt together in sequence? | Yes |
+| 29 | CANDIDATE: newly created pack disappears/hidden after New prompt | No |
+| 30 | New prompt first, then New pack? | No — run stopped at 30, unconfirmed |
+
+Strategy: opened by guessing the bench-2 target straight out of this file,
+then two more cold candidates before any location question. From message 4
+it bisected to the sidebar in three moves, then walked sidebar features
+linearly (drag, multi-select, rename, fold, lock, filter) for eight messages
+before landing on New prompt/New pack at 14. It then alternated candidates
+with narrow questions and never asked what remains after the prompt moves;
+its closest candidate (23) was the expected setup half. Nine candidates,
+six of them real bugs filed above (34, 35, 37, 38, 39, 42), two refuted
+(41, 43).
+
+## Run H3: Fable 5.1 (bench-3, clean clone) — stopped at 30, unconfirmed
+
+| # | Agent message (condensed) | Answer |
+|---|---|---|
+| 1 | Bug in the manager window rather than the popup? | Yes |
+| 2 | CANDIDATE: Escape on a context menu also toggles prompt view / Library view | No |
+| 3 | Shows in the Library view rather than sidebar/editor/settings/dialogs? | Partially |
+| 4 | Shows in both the sidebar and the Library view? | Yes |
+| 5 | Triggered by a context-menu action rather than without a menu? | No |
+| 6 | Involves inline renaming of a pack or group? | No |
+| 7 | About listing order rather than count/icon/folding/looks? | No |
+| 8 | Something displayed wrongly/missing on a header, row or card rather than a click/key response? | Partially |
+| 9 | Involves folding/unfolding a pack or group? | No |
+| 10 | Involves pinning? | No |
+| 11 | Involves creating a new prompt (New prompt button / draft)? | Yes |
+| 12 | CANDIDATE: abandoned empty New prompt draft stays listed in sidebar and Library | No |
+| 13 | Involves the new prompt title text? | No |
+| 14 | New prompt lands under a different pack/group than expected? | Partially |
+| 15 | Is it the group that goes wrong (right pack, wrong group)? | No |
+| 16 | Position of the new prompt within its pack rather than which pack? | No |
+| 17 | New prompt row not visible where it should be, rather than visible in a wrong place? | No |
+| 18 | Sidebar New prompt button files into unexpected pack while Library + prompt files where clicked? | Partially |
+| 19 | CANDIDATE: sidebar New prompt picks the pack of the last edited prompt, not where one was last created | Partially |
+| 20 | Unexpected pack is the last-edited prompt pack rather than default My prompts? | No |
+| 21 | Is the pack the new prompt lands in the default My prompts? | Yes |
+| 22 | CANDIDATE: sidebar New prompt ignores packs filled by other routes, draft goes to My prompts | Partially |
+| 23 | CANDIDATE: sidebar New prompt does not create in the pack you are currently in, goes to My prompts | Partially |
+| 24 | Requires first creating a prompt in pack X via Library + prompt, then sidebar New prompt? | No |
+| 25 | CANDIDATE: freshly created pack does not receive the next New prompt, draft goes to My prompts | Partially |
+| 26 | CANDIDATE: New prompt resurrects/conjures a My prompts pack out of nowhere holding the draft | Partially |
+| 27 | CANDIDATE: sidebar New prompt ignores the pack you work in, draft always in My prompts | Partially |
+| 28 | Involves a locked pack? | No |
+| 29 | Involves saving from the popup with Ctrl+N first? | No |
+| 30 | Expected pack is the one open in the Library view just before? | No — run stopped at 30, unconfirmed |
+
+Strategy: 88 tool turns before message 1 (built and drove the app), then a
+clean bisection opening. Messages 5–10 and 13–17 were feature walks with one
+No each. It reached "creating a new prompt" at 11 and "the default My
+prompts pack" at 21, then spent seven candidates (19, 22, 23, 25, 26, 27
+and the sweep at 12) restating the setup half — which pack the draft goes
+to — each answered Partially, without once asking what the auto-created
+pack does after the draft leaves it. Two real bugs filed (36, 40 is by
+design).
+
+## Run H score table
+
+| Contestant | Model | X | Cold candidates before first split | Candidates total | Partially | Root cause | Cost (USD) |
+|---|---|---|---|---|---|---|---|
+| H1 | Opus | 15 | 0 | 2 | 1 (plus 1 Can't answer) | correct | 25.16 |
+| H2 | Sonnet | stopped at 30 | 3 | 9 | 5 | not reached | 8.53 |
+| H3 | Fable 5.1 | stopped at 30 | 0 | 9 | 10 | not reached | 23.44 |
+
+Opus won by the same method as run E: bisection only, no candidate until
+the symptom was pinned, and a widened second candidate after a Partially.
+Sonnet and Fable both reached the right feature (New prompt, the default
+pack) and then failed the same way: a Partially on a candidate that named
+the setup half was read as "close, restate it" rather than "half right,
+find the other half", so both cycled restatements. Fable's ten Partially
+answers were all on that theme. The harness leak fix worked (no contestant
+mentioned a dev-repo commit), but the committed findings file gave Sonnet
+its first guess for free. Next edition: keep the findings file out of the
+benchmark commit, or accept that contestants start with a 33-item exclusion
+list.
