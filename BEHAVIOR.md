@@ -40,7 +40,12 @@ the Prompts button and Escape. Escape from the editor goes the other way,
 opening the library on that prompt's pack and group. Library folds are
 not saved: each entry opens on what was clicked. The tree itself
 (`packTree`) and the row order (`sortPrompts`) come from `ui/core.js`, one
-shape for the sidebar and the library so the two can't disagree.
+shape for the sidebar and the library so the two can't disagree. The
+three-dot, right-click and Menu-key actions on packs, groups and prompts
+are one hook too (`useLibraryMenus` in `menus.tsx`), with the inline
+rename and the delete-group dialog it drives, so both surfaces offer the
+same menu; only "Move up/down" is sidebar-only, since the library's grid
+has no row order to move within.
 
 ## The paste pipeline
 

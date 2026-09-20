@@ -5,12 +5,14 @@ import {
   RiArrowLeftSLine,
   RiArrowRightSLine,
   RiLock2Fill,
+  RiMoreLine,
   RiPushpinFill,
 } from "@remixicon/react"
 import { Kbd } from "@/components/ui/kbd"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
+import { groupKey, useLibraryMenus } from "./menus"
 
 // Library view: the library spanning the window, drawn as what it is —
 // packs holding groups holding prompts — with the room to show each prompt
@@ -24,8 +26,6 @@ import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 // Clicking a prompt card opens it in the editor, which is prompt view; that
 // is the way back, along with the Prompts button and Escape.
 
-// Same key shape as the sidebar, so a group folds independently per pack
-const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 // Tag pills on a card before the rest fold into a "+N" pill
 const MAX_CARD_TAGS = 3
 
@@ -38,6 +38,11 @@ function Fold({
   count,
   strong,
   locked,
+  onMenu,
+  renaming,
+  onStartRename,
+  onRename,
+  onRenameCancel,
   children,
 }: {
   open: boolean
@@ -47,25 +52,86 @@ function Fold({
   /** Pack titles are a step deeper than group titles, as in the sidebar */
   strong?: boolean
   locked?: boolean
+  /** Opens the three-dot menu at a point: the ⋯ button, a right-click, the Menu key */
+  onMenu: (x: number, y: number) => void
+  /** The title is being renamed inline (double-click, or Rename in the menu) */
+  renaming: boolean
+  onStartRename: () => void
+  onRename: (next: string) => void
+  onRenameCancel: () => void
   /** What sits at the right of the header (an add action) */
   children?: React.ReactNode
 }) {
   const Chev = open ? RiArrowDownSLine : RiArrowRightSLine
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div
+      className="group/hdr flex min-w-0 items-center gap-2"
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onMenu(e.clientX, e.clientY)
+      }}
+    >
+      {renaming ? (
+        <input
+          autoFocus
+          defaultValue={label}
+          spellCheck={false}
+          aria-label={`Rename ${label}`}
+          className={cn(
+            "section-title min-w-0 flex-1 rounded-sm bg-secondary px-1 py-0.5 text-foreground focus-ring",
+            strong && "text-base"
+          )}
+          onKeyDown={(e) => {
+            e.stopPropagation()
+            if (e.key === "Escape") onRenameCancel()
+            if (e.key === "Enter") onRename(e.currentTarget.value.trim())
+          }}
+          // Enter commits, leaving the field cancels: a misclick must not rename
+          onBlur={onRenameCancel}
+        />
+      ) : (
+        <button
+          type="button"
+          aria-expanded={open}
+          title={`${label} — click folds, double-click renames, right-click for actions`}
+          className={cn(
+            "section-title flex min-w-0 cursor-pointer items-center gap-1 hover:text-primary focus-ring rounded-sm",
+            strong ? "text-base text-(--heading-strong)" : "text-(--heading)",
+            !open && "opacity-70 hover:opacity-100"
+          )}
+          onClick={onToggle}
+          onDoubleClick={(e) => {
+            e.stopPropagation()
+            onStartRename()
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+              e.preventDefault()
+              const r = e.currentTarget.getBoundingClientRect()
+              onMenu(r.left + 24, r.bottom)
+            }
+          }}
+        >
+          <span className="truncate">{label}</span>
+          <span className="shrink-0 font-medium text-muted-foreground">({count})</span>
+          <Chev className="size-3.5 shrink-0" />
+        </button>
+      )}
+      {/* The sidebar's three dots: hover-revealed way into the same menu right-click opens */}
       <button
         type="button"
-        aria-expanded={open}
-        className={cn(
-          "section-title flex min-w-0 cursor-pointer items-center gap-1 hover:text-primary focus-ring rounded-sm",
-          strong ? "text-base text-(--heading-strong)" : "text-(--heading)",
-          !open && "opacity-70 hover:opacity-100"
-        )}
-        onClick={onToggle}
+        tabIndex={-1}
+        aria-label={`Actions for ${label}`}
+        title="Actions"
+        className="rounded-sm p-0.5 text-muted-foreground opacity-0 hover:bg-secondary hover:text-foreground group-hover/hdr:opacity-100 focus-visible:opacity-100"
+        onClick={(e) => {
+          e.stopPropagation()
+          const r = e.currentTarget.getBoundingClientRect()
+          onMenu(r.left, r.bottom)
+        }}
       >
-        <span className="truncate">{label}</span>
-        <span className="shrink-0 font-medium text-muted-foreground">({count})</span>
-        <Chev className="size-3.5 shrink-0" />
+        <RiMoreLine className="size-4" />
       </button>
       {locked && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
       <span className="ml-auto flex shrink-0 items-center">{children}</span>
@@ -91,14 +157,26 @@ function AddPrompt({ where, onClick }: { where: string; onClick: () => void }) {
 
 // One prompt as a preview: title, the first lines of its body, its tags and
 // what it asks for. A click opens it in the editor.
-function PromptCard({ s, onOpen }: { s: Snippet; onOpen: () => void }) {
+function PromptCard({ s, onOpen, onMenu }: { s: Snippet; onOpen: () => void; onMenu: (x: number, y: number) => void }) {
   const tags = s.tags || []
   const inputs = C.requiredInputs(s)
   return (
     <button
       type="button"
+      title={`${s.title || "(untitled)"} — click edits, right-click for actions`}
       className="flex min-w-0 cursor-pointer flex-col gap-1.5 rounded-lg border border-border bg-background p-3 text-left text-ui text-foreground transition-colors hover:border-primary focus-ring"
       onClick={onOpen}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onMenu(e.clientX, e.clientY)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+          e.preventDefault()
+          const r = e.currentTarget.getBoundingClientRect()
+          onMenu(r.left + 24, r.bottom)
+        }
+      }}
     >
       <span className="flex min-w-0 items-center gap-1.5">
         {s.pinned && <RiPushpinFill className="size-3.5 shrink-0 text-(--warn)" aria-label="pinned" />}
@@ -144,6 +222,9 @@ function PromptCard({ s, onOpen }: { s: Snippet; onOpen: () => void }) {
 export function Library({ focus }: { focus: LibraryFocus | null }) {
   const m = useManager()
   const { snippets, orderBy, packNames } = m
+  // The same menus as the sidebar's three dots (rename, lock, export, file,
+  // new group, delete; ungroup; pin, move to, tag, export, delete)
+  const menus = useLibraryMenus()
 
   // The tree is pure core (tested); rows follow the sidebar's order
   const tree = useMemo(
@@ -193,10 +274,16 @@ export function Library({ focus }: { focus: LibraryFocus | null }) {
     m.setSelection(new Set([s.id]), s.id)
     m.select(s.id)
   }
+  // A card's menu acts on that card: the selection is set to it first, the
+  // way a sidebar right-click does, so the menu and the pane agree
+  const cardMenu = (s: Snippet, x: number, y: number) => {
+    m.setSelection(new Set([s.id]), s.id)
+    menus.openRowCtx(x, y, new Set([s.id]))
+  }
   const cards = (items: Snippet[]) => (
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {items.map((s) => (
-        <PromptCard key={s.id} s={s} onOpen={() => open(s)} />
+        <PromptCard key={s.id} s={s} onOpen={() => open(s)} onMenu={(x, y) => cardMenu(s, x, y)} />
       ))}
     </div>
   )
@@ -240,7 +327,19 @@ export function Library({ focus }: { focus: LibraryFocus | null }) {
           const locked = m.isLocked(pack.name)
           return (
             <section key={pack.name} className="module flex flex-col" aria-label={pack.name}>
-              <Fold open={isOpen} onToggle={() => togglePack(pack.name)} label={pack.name} count={pack.count} strong locked={locked}>
+              <Fold
+                open={isOpen}
+                onToggle={() => togglePack(pack.name)}
+                label={pack.name}
+                count={pack.count}
+                strong
+                locked={locked}
+                onMenu={(x, y) => menus.openPackCtx(x, y, pack.name, pack.count)}
+                renaming={menus.renaming === pack.name}
+                onStartRename={() => menus.setRenaming(pack.name)}
+                onRename={(next) => void menus.renamePack(pack.name, next)}
+                onRenameCancel={() => menus.setRenaming(null)}
+              >
                 {!locked && <AddPrompt where={pack.name} onClick={() => void m.newPrompt({ pack: pack.name })} />}
               </Fold>
               {isOpen && (
@@ -252,7 +351,17 @@ export function Library({ focus }: { focus: LibraryFocus | null }) {
                     const gOpen = !collapsedGroups.has(key)
                     return (
                       <section key={g.name} className="module flex flex-col bg-secondary/50" aria-label={g.name}>
-                        <Fold open={gOpen} onToggle={() => toggleGroup(key)} label={g.name} count={g.items.length}>
+                        <Fold
+                          open={gOpen}
+                          onToggle={() => toggleGroup(key)}
+                          label={g.name}
+                          count={g.items.length}
+                          onMenu={(x, y) => menus.openGroupCtx(x, y, pack.name, g.name, g.items.length)}
+                          renaming={menus.renamingGroup === key}
+                          onStartRename={() => menus.setRenamingGroup(key)}
+                          onRename={(next) => void menus.renameGroup(pack.name, g.name, next)}
+                          onRenameCancel={() => menus.setRenamingGroup(null)}
+                        >
                           {!locked && (
                             <AddPrompt
                               where={`${pack.name} › ${g.name}`}
@@ -270,6 +379,7 @@ export function Library({ focus }: { focus: LibraryFocus | null }) {
           )
         })}
       </div>
+      {menus.element}
     </div>
   )
 }
