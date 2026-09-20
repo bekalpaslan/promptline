@@ -26,6 +26,22 @@ the pure logic (tokenizing, fuzzy scoring, pack parsing) and is covered by
 `tests/core.test.js` running under bare `node --test`, with no build step in the
 way. `src/lib/core.ts` bridges it into React.
 
+**The manager has two modes.** Prompt view is the sidebar beside the
+editor. Library view is the library spanning the window with the editor
+slid out: packs as cards holding group cards holding prompt previews, each
+folding like the editor's Advanced options card. Clicking a pack or group
+title in the sidebar opens library view on it, expanded one level down (a
+pack shows its prompts and its group headers, a group shows its prompts)
+with every other container folded; the sidebar's chevrons keep folding the
+tree without leaving prompt view, and a double-click still renames (the
+open waits a beat for that). Opening a prompt — a card, a sidebar row, the
+popup's "Edit in manager", "+ New" — is what returns to prompt view, as do
+the Prompts button and Escape. Escape from the editor goes the other way,
+opening the library on that prompt's pack and group. Library folds are
+not saved: each entry opens on what was clicked. The tree itself
+(`packTree`) and the row order (`sortPrompts`) come from `ui/core.js`, one
+shape for the sidebar and the library so the two can't disagree.
+
 ## The paste pipeline
 
 The one flow everything else exists to serve. Hotkey to pasted text:
@@ -97,6 +113,16 @@ editor's preview can never disagree.
 | `{clipboard}` `{date}` `{time}` | At paste time, from the environment |
 | `{lowercase_word}` | Runtime field — the popup asks, remembering the last value in `fieldValues` |
 | `{{lowercase_word}}` | Config parameter — from `configValues`, silently |
+
+**Previews show the clipboard, not the word "clipboard".** `{clipboard}`
+expands at paste time, so every preview — the editor's, the popup's card,
+the fill-in form's "Will paste" — substitutes the clipboard as it is now,
+one line and cut at 240 characters (`clipboardPreview`), on the builtin's
+tint so it still reads as a placeholder. An empty clipboard shows
+"(clipboard is empty)": that is what would paste, and hiding it is how a
+hole gets pasted. The manager re-reads the clipboard when its window
+regains focus and after a copy or cut in it; the popup already re-reads
+on every summon and copy.
 
 Two rules that exist because their absence was worse:
 

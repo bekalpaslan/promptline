@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react"
-import type { PackMeta, Snippet, SnippetEdit } from "@/lib/core"
+import type { OrderBy, PackMeta, Snippet, SnippetEdit } from "@/lib/core"
 
 export { DEFAULT_PACK, MAX_PINS } from "@/lib/library"
 
@@ -16,6 +16,19 @@ export interface DeleteOpts {
   pack?: PackMeta
 }
 
+/** A pack, or a group in one, that the library view opens on */
+export interface LibraryFocus {
+  pack: string
+  group?: string
+}
+
+/**
+ * The manager's two modes. Prompt view is the sidebar beside the editor;
+ * library view is the library spanning the window, the editor slid out,
+ * opened on the pack or group that was clicked.
+ */
+export type View = { kind: "prompt" } | { kind: "library"; focus: LibraryFocus | null }
+
 export interface ManagerApi {
   snippets: Snippet[]
   packMeta: PackMeta[]
@@ -23,6 +36,14 @@ export interface ManagerApi {
   selection: Set<string>
   hotkey: string
   prefs: Prefs
+  view: View
+  /** Switch to library view, expanded on `focus` (one level down) and nothing else */
+  openLibrary(focus: LibraryFocus | null): void
+  /** Back to prompt view: the sidebar and whatever prompt was open */
+  closeLibrary(): void
+  /** How the sidebar and the library view order prompts; persisted in localStorage */
+  orderBy: OrderBy
+  setOrderBy(order: OrderBy): void
   isLocked(name: string): boolean
   packNames(extra?: string): string[]
   allTags(): string[]

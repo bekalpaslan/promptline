@@ -437,3 +437,107 @@ test('restoreRemoved clamps positions when the list shrank meanwhile', () => {
   const out = core.restoreRemoved([{ id: 'a' }], removed);
   assert.deepEqual(out.map(s => s.id), ['a', 'd']);
 });
+
+// ---- library tree --------------------------------------------------------------
+
+const snip = (id, extra = {}) => ({ id, title: id, text: '', tags: [], pack: 'P', group: '', uses: 0, pinned: false, ...extra });
+
+test('sortPrompts: pins first, then by uses and title; never mutates', () => {
+  const list = [
+    snip('b', { uses: 1 }),
+    snip('a', { uses: 1 }),
+    snip('c', { uses: 9 }),
+    snip('d', { uses: 0, pinned: true }),
+  ];
+  const before = list.map(s => s.id);
+  assert.deepEqual(core.sortPrompts(list, 'uses').map(s => s.id), ['d', 'c', 'a', 'b']);
+  assert.deepEqual(core.sortPrompts(list, 'title').map(s => s.id), ['d', 'a', 'b', 'c']);
+  assert.deepEqual(list.map(s => s.id), before);
+});
+
+test('sortPrompts: custom is the array order itself, pins included', () => {
+  const list = [snip('b'), snip('a', { pinned: true })];
+  const out = core.sortPrompts(list, 'custom');
+  assert.deepEqual(out.map(s => s.id), ['b', 'a']);
+  assert.notEqual(out, list);
+});
+
+test('sortPrompts falls back to uses for an unknown order', () => {
+  const list = [snip('a', { uses: 1 }), snip('b', { uses: 5 })];
+  assert.deepEqual(core.sortPrompts(list, 'nonsense').map(s => s.id), ['b', 'a']);
+});
+
+test('packTree: packs by name, every declared pack present even when empty', () => {
+  const tree = core.packTree([snip('x', { pack: 'Zed' })], ['Empty', 'Zed'], 'My prompts');
+  assert.deepEqual(tree.map(p => p.name), ['Empty', 'Zed']);
+  assert.deepEqual(tree[0], { name: 'Empty', count: 0, ungrouped: [], groups: [] });
+  assert.equal(tree[1].count, 1);
+});
+
+test('packTree: a packless prompt lands in the default pack', () => {
+  const tree = core.packTree([snip('x', { pack: '' })], [], 'My prompts');
+  assert.deepEqual(tree.map(p => p.name), ['My prompts']);
+  assert.equal(tree[0].ungrouped[0].id, 'x');
+});
+
+test('packTree: ungrouped run first, groups in order of first appearance, rows in given order', () => {
+  const list = [
+    snip('g1', { group: 'Later' }),
+    snip('u1'),
+    snip('g2', { group: 'Early' }),
+    snip('g3', { group: 'Later' }),
+    snip('u2'),
+  ];
+  const [p] = core.packTree(list, [], 'My prompts');
+  assert.equal(p.count, 5);
+  assert.deepEqual(p.ungrouped.map(s => s.id), ['u1', 'u2']);
+  assert.deepEqual(p.groups.map(g => g.name), ['Later', 'Early']);
+  assert.deepEqual(p.groups[0].items.map(s => s.id), ['g1', 'g3']);
+  assert.deepEqual(p.groups[1].items.map(s => s.id), ['g2']);
+});
+
+test('packTree counts every prompt in the pack, pinned and grouped alike', () => {
+  const list = [snip('a', { pinned: true }), snip('b', { group: 'G' }), snip('c', { pack: 'Other' })];
+  const tree = core.packTree(list, [], 'My prompts');
+  assert.deepEqual(tree.map(p => [p.name, p.count]), [['Other', 1], ['P', 2]]);
+});
+
+// ---- clipboard in previews ---------------------------------------------------------
+
+test('clipboardPreview flattens whitespace and trims', () => {
+  assert.equal(core.clipboardPreview('  fn main() {\n\n  println!("hi");\r\n}  '), 'fn main() { println!("hi"); }');
+});
+
+test('clipboardPreview names an empty clipboard instead of showing a hole', () => {
+  assert.equal(core.clipboardPreview(''), '(clipboard is empty)');
+  assert.equal(core.clipboardPreview('   \n\t '), '(clipboard is empty)');
+  assert.equal(core.clipboardPreview(undefined), '(clipboard is empty)');
+});
+
+test('clipboardPreview cuts long text at the limit with an ellipsis', () => {
+  const out = core.clipboardPreview('a'.repeat(300));
+  assert.equal(out.length, 241);
+  assert.ok(out.endsWith('\u2026'));
+  assert.equal(core.clipboardPreview('hello world', 5), 'hello\u2026');
+  assert.equal(core.clipboardPreview('hello world', 11), 'hello world');
+});
+
+// ---- copy from the editor ------------------------------------------------------
+
+test('expandForCopy substitutes config and the clipboard, keeps fill-in fields', () => {
+  const out = core.expandForCopy('Hi {{name}}: {clipboard} / {goal} / {{unset}}', { name: 'Alp' }, 'PASTED');
+  assert.equal(out, 'Hi Alp: PASTED / {goal} / {unset}');
+});
+
+test('expandForCopy pastes nothing for an empty clipboard and keeps $ patterns literal', () => {
+  assert.equal(core.expandForCopy('a{clipboard}b', {}, ''), 'ab');
+  assert.equal(core.expandForCopy('a{clipboard}b', {}, undefined), 'ab');
+  assert.equal(core.expandForCopy('{clipboard}', {}, 'cost $& $$ $1'), 'cost $& $$ $1');
+});
+
+test('expandForCopy expands {date} and {time} the way a paste does', () => {
+  const out = core.expandForCopy('{date}|{time}', {}, '');
+  const [date, time] = out.split('|');
+  assert.equal(date, new Date().toLocaleDateString());
+  assert.ok(/\d/.test(time) && !time.includes('{'), time);
+});

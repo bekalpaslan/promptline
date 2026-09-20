@@ -9,6 +9,7 @@ import {
   RiClipboardLine,
   RiCloseLine,
   RiEdit2Line,
+  RiFileCopyLine,
   RiFileTextLine,
   RiFilterLine,
   RiPushpinFill,
@@ -65,12 +66,22 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Tokenized prompt text: placeholders render as typed chips
-function Tokens({ text }: { text: string }) {
+// Tokenized prompt text: placeholders render as typed chips, except that
+// {clipboard} shows the clipboard as it is now (BEHAVIOR.md: it expands at
+// paste time, so the preview must show what would go in), on the builtin's
+// tint so it still reads as a placeholder
+function Tokens({ text, clip }: { text: string; clip: string }) {
   return (
     <>
       {C.tokenize(text).map((part, i) => {
         if (part.type === "text") return <span key={i}>{part.value}</span>
+        if (part.type === "builtin" && part.name === "clipboard") {
+          return (
+            <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground" title="The clipboard as it is now">
+              {C.clipboardPreview(clip)}
+            </span>
+          )
+        }
         const label =
           part.type === "builtin" ? part.name :
           part.type === "field" ? `${part.name} — fill-in` :
@@ -1095,7 +1106,7 @@ export function App() {
                 return <span key={i} className="rounded-sm bg-(--param-field-bg) px-0.5 text-foreground">{formValues[part.name]}</span>
               }
               if (part.type === "builtin" && part.name === "clipboard") {
-                return <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground">{clip || "(clipboard is empty)"}</span>
+                return <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground">{C.clipboardPreview(clip)}</span>
               }
               if (part.type === "field") {
                 return <span key={i} className={cn("rounded-sm px-1 text-xs font-semibold", TOKEN_CHIP.field)}>{part.name}</span>
@@ -1320,7 +1331,20 @@ export function App() {
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
             onMouseLeave={onItemMouseLeave}
           >
-            <Tokens text={visible[previewIdx].s.text} />
+            <Tokens text={visible[previewIdx].s.text} clip={clip} />
+            {/* The same copy-only path as Ctrl+↵: asks for fill-ins first */}
+            <button
+              type="button"
+              tabIndex={-1}
+              className="mt-2 flex h-6 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-foreground"
+              onClick={(e) => {
+                e.stopPropagation()
+                pick(visible[previewIdx].s, false)
+              }}
+            >
+              <RiFileCopyLine className="size-3.5" aria-hidden />
+              Copy
+            </button>
           </div>
         )
       })()}

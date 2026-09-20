@@ -54,6 +54,18 @@ export interface ParsedQuery {
   groups: string[]
 }
 
+/** The manager's list order: pins first by use or title, or the array order itself */
+export type OrderBy = "uses" | "title" | "custom"
+
+/** One pack of the library tree: its ungrouped run, then its groups in first-appearance order */
+export interface PackNode<T> {
+  name: string
+  /** Every prompt in the pack, grouped or not */
+  count: number
+  ungrouped: T[]
+  groups: { name: string; items: T[] }[]
+}
+
 /** A removed item and the index it sat at, for Undo */
 export interface Removed<T> {
   item: T
@@ -122,6 +134,14 @@ interface PromptlineCore {
   packToJson(name: string, prompts: Pick<Snippet, "title" | "text" | "tags" | "group">[]): { name: string; prompts: { title: string; text: string; tags: string[]; group?: string }[] }
   removeByIds<T extends { id: string }>(list: T[], ids: Iterable<string>): { kept: T[]; removed: Removed<T>[] }
   restoreRemoved<T extends { id: string }>(list: T[], removed: Removed<T>[]): T[]
+  /** A copy of `list` in the manager's order; "custom" keeps the array order */
+  sortPrompts<T extends Pick<Snippet, "title" | "uses" | "pinned">>(list: T[], orderBy: string): T[]
+  /** Packs by name (every name in `packNames`, even empty) with their groups and prompts, in the given row order */
+  packTree<T extends Pick<Snippet, "pack" | "group">>(snippets: T[], packNames: string[], defaultPack: string): PackNode<T>[]
+  /** What a preview shows for {clipboard}: one line, cut at `max` (240), or "(clipboard is empty)" */
+  clipboardPreview(clip: string | null | undefined, max?: number): string
+  /** What a paste would produce, minus the fill-in form: config and built-ins expanded, the clipboard substituted, {field}s kept */
+  expandForCopy(text: string, configValues: Record<string, string>, clip: string | null | undefined): string
   fmtHotkey(combo: string): string
 }
 

@@ -1,10 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { invoke } from "@tauri-apps/api/core"
 import {
   RiAddLine,
   RiArrowDownSLine,
+  RiArrowLeftSLine,
   RiArrowRightSLine,
   RiCloseLine,
   RiDeleteBinLine,
+  RiFileCopyLine,
   RiFileTextLine,
 } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
@@ -136,10 +139,13 @@ function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name:
 function TokenPreview({
   text,
   configValues,
+  clipboard,
   className,
 }: {
   text: string
   configValues: Record<string, string>
+  /** The clipboard as it is now; null until it has been read */
+  clipboard: string | null
   className?: string
 }) {
   return (
@@ -155,6 +161,15 @@ function TokenPreview({
         const cls = TOKEN_CHIP[part.type]
         if (part.type === "bad") {
           label = `${part.name} — not a param (lowercase letters/_ only)`
+        } else if (part.type === "builtin" && part.name === "clipboard" && clipboard !== null) {
+          // {clipboard} expands at paste time (BEHAVIOR.md): the preview
+          // shows what would go in now, on the builtin's tint so it still
+          // reads as a placeholder rather than as the prompt's own words
+          return (
+            <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground" title="The clipboard as it is now">
+              {C.clipboardPreview(clipboard)}
+            </span>
+          )
         } else if (part.type === "config") {
           const v = (configValues[part.name] || "").replace(/\s+/g, " ")
           label = v ? (v.length > 40 ? v.slice(0, 40) + "…" : v) : `${part.name} — config (unset)`
@@ -197,6 +212,9 @@ export function Editor() {
         }
         actions={[
           { label: "New prompt", onClick: () => void m.newPrompt(), primary: true },
+          ...(m.snippets.length || m.packNames().length
+            ? [{ label: "Browse the library", onClick: () => m.openLibrary(null) }]
+            : []),
           { label: "Generate pack with Claude…", onClick: () => m.openGenerate() },
         ]}
       />
@@ -218,6 +236,26 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const [deleteArmed, setDeleteArmed] = useState(false)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const isDraft = snippet.title === "New prompt" && !snippet.text && !snippet.uses
+
+  // The clipboard for the preview: read when the editor opens, again when
+  // the window comes back (the user copied something elsewhere), and after
+  // a copy or cut in this window. Null until the first read lands, so the
+  // preview never shows "(clipboard is empty)" for a clipboard not yet seen.
+  const [clip, setClip] = useState<string | null>(null)
+  useEffect(() => {
+    const refresh = () => void invoke<string>("get_clipboard_text").then(setClip).catch(() => {})
+    // The clipboard is written after the copy event fires, hence the tick
+    const onCopy = () => setTimeout(refresh, 50)
+    refresh()
+    window.addEventListener("focus", refresh)
+    document.addEventListener("copy", onCopy)
+    document.addEventListener("cut", onCopy)
+    return () => {
+      window.removeEventListener("focus", refresh)
+      document.removeEventListener("copy", onCopy)
+      document.removeEventListener("cut", onCopy)
+    }
+  }, [])
 
   // Autosave: edits persist on a short debounce — no Save button, no lost drafts
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -440,6 +478,19 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     return () => document.removeEventListener("keydown", onKey, true)
   }, [deleteArmed])
 
+  // Copy what the preview shows: what a paste would produce, except that
+  // fill-in fields stay as {field} for the user to complete — the editor has
+  // no form for them, and asking here would be a second paste flow
+  const fields = C.customFields(C.downgradeUnsetConfig(C.expandConfig(text, configValues)))
+  const copyPreview = async () => {
+    try {
+      await invoke("set_clipboard_text", { text: C.expandForCopy(text, configValues, clip) })
+      say(fields.length ? `Copied — fill in ${fields.map((f) => `{${f}}`).join(", ")} by hand` : "Copied to clipboard")
+    } catch (e) {
+      sayErr(`Couldn't copy: ${e}`)
+    }
+  }
+
   const doDelete = async () => {
     if (!deleteArmed) {
       setDeleteArmed(true)
@@ -455,6 +506,27 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
+      {/* Where this prompt sits; the crumb opens the library view on it
+          (Escape outside a field does the same) */}
+      <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+        <button
+          type="button"
+          className="flex cursor-pointer items-center gap-0.5 rounded-sm font-medium hover:text-foreground focus-ring"
+          title="Open the library on this prompt's pack (Esc)"
+          onClick={() => m.openLibrary({ pack: pack.trim() || DEFAULT_PACK, group: group.trim() || undefined })}
+        >
+          <RiArrowLeftSLine className="size-3.5" />
+          Library
+        </button>
+        <span aria-hidden>›</span>
+        <span className="truncate">{pack}</span>
+        {group.trim() && (
+          <>
+            <span aria-hidden>›</span>
+            <span className="truncate">{group.trim()}</span>
+          </>
+        )}
+      </div>
       <div className="flex flex-wrap items-center gap-3">
         <input
           autoFocus={isDraft}
@@ -695,7 +767,24 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           Advanced options · names are lowercase letters and _ only
         </p>
         {/* The field's gray fills the card below the header, edge to edge */}
-        <TokenPreview text={text} configValues={configValues} className="-mx-3 -mb-3 rounded-none rounded-b-xl" />
+        <TokenPreview text={text} configValues={configValues} clipboard={clip} className="-mx-3 rounded-none" />
+        <div className="flex items-center gap-3">
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void copyPreview()}
+            disabled={!text.trim()}
+            title={fields.length ? `Copies with ${fields.map((f) => `{${f}}`).join(", ")} left to fill in` : "Copy what would paste"}
+          >
+            <RiFileCopyLine className="size-4" aria-hidden />
+            Copy
+          </Button>
+          {fields.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {fields.length === 1 ? "1 fill-in field" : `${fields.length} fill-in fields`} stay as typed — the popup asks for them
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="mt-auto flex items-center gap-3">

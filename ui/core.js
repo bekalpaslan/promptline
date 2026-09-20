@@ -416,6 +416,65 @@
     return out;
   }
 
+  // ---- Library tree --------------------------------------------------------------
+  // The manager's list order. Pins come first under every order but "custom",
+  // which is the array order itself (arranged by drag). Never mutates.
+  const ORDERS = {
+    uses: (a, b) => b.uses - a.uses || a.title.localeCompare(b.title),
+    title: (a, b) => a.title.localeCompare(b.title),
+  };
+  function sortPrompts(list, orderBy) {
+    if (orderBy === 'custom') return [...list];
+    const cmp = ORDERS[orderBy] || ORDERS.uses;
+    return [...list].sort((a, b) => (+b.pinned - +a.pinned) || cmp(a, b));
+  }
+
+  // Packs, their groups, and the prompts in each: the one shape both manager
+  // surfaces draw. Packs sort by name and include every name in `packNames`
+  // even when empty (an empty pack is real: it can be seen and deleted). A
+  // packless prompt belongs to `defaultPack`. Within a pack the ungrouped run
+  // comes first, then groups in order of first appearance, so a custom
+  // arrangement holds and any other order carries through from the rows.
+  // `count` is every prompt in the pack, grouped or not.
+  function packTree(snippets, packNames, defaultPack) {
+    const packs = new Map();
+    for (const name of packNames || []) packs.set(name, { name, count: 0, ungrouped: [], groups: [] });
+    for (const s of snippets) {
+      const name = s.pack || defaultPack;
+      if (!packs.has(name)) packs.set(name, { name, count: 0, ungrouped: [], groups: [] });
+      const pack = packs.get(name);
+      pack.count++;
+      if (!s.group) { pack.ungrouped.push(s); continue; }
+      let g = pack.groups.find(x => x.name === s.group);
+      if (!g) { g = { name: s.group, items: [] }; pack.groups.push(g); }
+      g.items.push(s);
+    }
+    return [...packs.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  // ---- Clipboard in previews --------------------------------------------------
+  // What a preview shows in place of {clipboard}: the clipboard as it is
+  // now, whitespace collapsed to one line and cut at `max` characters with
+  // an ellipsis, or a placeholder when there is nothing to paste. The
+  // placeholder is a fact, not a hole: an empty clipboard pastes nothing.
+  const CLIP_PREVIEW_MAX = 240;
+  function clipboardPreview(clip, max) {
+    const limit = max || CLIP_PREVIEW_MAX;
+    const flat = (clip || '').replace(/\s+/g, ' ').trim();
+    if (!flat) return '(clipboard is empty)';
+    return flat.length > limit ? flat.slice(0, limit).trimEnd() + '\u2026' : flat;
+  }
+
+  // What the editor's Copy button puts on the clipboard: config values in,
+  // unset ones downgraded to fields, {date}/{time} expanded, and {clipboard}
+  // replaced by the clipboard as it is now — the same steps as a paste,
+  // minus the fill-in form the editor has no place for, so {field} tokens
+  // stay as typed for the user to fill in by hand.
+  function expandForCopy(text, configValues, clip) {
+    const base = downgradeUnsetConfig(expandConfig(text, configValues));
+    return expandBuiltins(base).split('{clipboard}').join(clip || '');
+  }
+
   // ---- Misc -----------------------------------------------------------------
   function fmtHotkey(h) {
     return (h || '')
@@ -454,6 +513,10 @@
     packToJson,
     removeByIds,
     restoreRemoved,
+    sortPrompts,
+    packTree,
+    clipboardPreview,
+    expandForCopy,
     fmtHotkey,
   };
 

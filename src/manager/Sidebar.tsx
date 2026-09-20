@@ -24,20 +24,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { C, type Snippet } from "@/lib/core"
+import { C, type OrderBy, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { EmptyState } from "./EmptyState"
 import { say, sayErr, sayUndo } from "./status"
-
-// "custom" = the snippets array order itself, arranged by drag-and-drop
-const SORTS: Record<string, (a: Snippet, b: Snippet) => number> = {
-  uses: (a, b) => b.uses - a.uses || a.title.localeCompare(b.title),
-  title: (a, b) => a.title.localeCompare(b.title),
-}
-const withPins = (cmp: (a: Snippet, b: Snippet) => number) => (a: Snippet, b: Snippet) =>
-  (+b.pinned - +a.pinned) || cmp(a, b)
 
 function loadCollapsed(key: string): Set<string> {
   try {
@@ -70,11 +62,8 @@ export function Sidebar() {
   const m = useManager()
   const ctx = useCtxMenu()
   const [query, setQuery] = useState("")
-  const [orderBy, setOrderBy] = useState(
-    ["uses", "title", "custom"].includes(localStorage.getItem("orderBy") ?? "")
-      ? localStorage.getItem("orderBy")!
-      : "uses"
-  )
+  // The order is the manager's, shared with the overview (C.sortPrompts)
+  const { orderBy, setOrderBy } = m
   // Group-by-pack is the default view
   const [grouped, setGrouped] = useState(localStorage.getItem("groupByPack") !== "0")
   const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsed("collapsedPacks"))
@@ -85,6 +74,21 @@ export function Sidebar() {
   const [configOpen, setConfigOpen] = useState(false)
   const [newPackInput, setNewPackInput] = useState(false)
   const visibleIdsRef = useRef<string[]>([])
+  // A click on a pack or group title opens the library view on it, after a
+  // beat: a double-click renames instead, and the view switching away on the
+  // first click would unmount the input before the second one landed
+  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const openLibraryLater = (focus: { pack: string; group?: string }) => {
+    if (openTimer.current) clearTimeout(openTimer.current)
+    openTimer.current = setTimeout(() => {
+      openTimer.current = null
+      m.openLibrary(focus)
+    }, 220)
+  }
+  const cancelOpen = () => {
+    if (openTimer.current) clearTimeout(openTimer.current)
+    openTimer.current = null
+  }
 
   // Drag-to-reorder: a short press-and-hold lifts the row (so the gesture is
   // discoverable), then moving it slides an insertion mark between rows.
@@ -116,9 +120,7 @@ export function Sidebar() {
             s.text.toLowerCase().includes(q)
         )
       : [...m.snippets]
-    // Custom order is the array order itself — no sort, pins included
-    if (orderBy === "custom") return pool
-    return pool.sort(withPins(SORTS[orderBy] || SORTS.uses))
+    return C.sortPrompts(pool, orderBy)
   }, [m.snippets, q, orderBy])
 
   const groups = useMemo(() => {
@@ -175,7 +177,6 @@ export function Sidebar() {
     }
     if (orderBy !== "custom") {
       setOrderBy("custom")
-      localStorage.setItem("orderBy", "custom")
       say('Sorting is now "Custom" — switch back under list view options')
     }
   }
@@ -623,12 +624,12 @@ export function Sidebar() {
         role="button"
         tabIndex={0}
         aria-expanded={!isCollapsed}
-        title={`${group} — Enter toggles, right-click for actions`}
+        title={`${group} — click opens it in the library, Enter folds it, right-click for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.06em]",
           isCollapsed ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
         )}
-        onClick={() => toggleCollapsedGroup(key)}
+        onClick={() => openLibraryLater({ pack, group })}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
@@ -641,6 +642,7 @@ export function Sidebar() {
         }}
         onDoubleClick={(e) => {
           e.stopPropagation()
+          cancelOpen()
           setRenamingGroup(key)
         }}
         onContextMenu={(e) => {
@@ -685,7 +687,20 @@ export function Sidebar() {
         >
           <RiMoreLine className="size-3.5" />
         </button>
-        <Chev className="size-4 shrink-0" />
+        {/* The chevron is the fold; the title is the way into the library */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={isCollapsed ? `Expand group ${group}` : `Collapse group ${group}`}
+          className="flex shrink-0 cursor-pointer rounded-sm hover:bg-secondary"
+          onClick={(e) => {
+            e.stopPropagation()
+            toggleCollapsedGroup(key)
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          <Chev className="size-4" />
+        </button>
       </div>
     )
   }
@@ -775,12 +790,12 @@ export function Sidebar() {
         role="button"
         tabIndex={0}
         aria-expanded={!isCollapsed}
-        title={`${name} — Enter toggles, right-click for actions`}
+        title={`${name} — click opens it in the library, Enter folds it, right-click for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-base font-semibold",
           isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
         )}
-        onClick={() => toggleCollapsed(name)}
+        onClick={() => openLibraryLater({ pack: name })}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
@@ -793,6 +808,7 @@ export function Sidebar() {
         }}
         onDoubleClick={(e) => {
           e.stopPropagation()
+          cancelOpen()
           setRenaming(name)
         }}
         onContextMenu={(e) => {
@@ -835,7 +851,20 @@ export function Sidebar() {
           <RiMoreLine className="size-4" />
         </button>
         {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
-        <Chev className="size-4 shrink-0 text-muted-foreground" />
+        {/* The chevron is the fold; the title is the way into the library */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={isCollapsed ? `Expand pack ${name}` : `Collapse pack ${name}`}
+          className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation()
+            toggleCollapsed(name)
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          <Chev className="size-4" />
+        </button>
       </div>
     )
   }
@@ -878,10 +907,7 @@ export function Sidebar() {
             <span className="whitespace-nowrap">Order by</span>
             <select
               value={orderBy}
-              onChange={(e) => {
-                setOrderBy(e.target.value)
-                localStorage.setItem("orderBy", e.target.value)
-              }}
+              onChange={(e) => setOrderBy(e.target.value as OrderBy)}
               className="min-w-0 flex-1 cursor-pointer truncate rounded-lg bg-background px-2 py-1 text-ui text-foreground focus-ring"
             >
               <option value="uses">Most used</option>

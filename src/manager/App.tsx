@@ -5,13 +5,14 @@ import { SizeDebug } from "@/lib/SizeDebug"
 import { RiCloseLine } from "@remixicon/react"
 import { Toaster } from "@/components/ui/sonner"
 import { Kbd } from "@/components/ui/kbd"
-import { C, isStoreError, type Library, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
+import { C, isStoreError, type Library, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
-import { ManagerCtx, type DeleteOpts, type ManagerApi, type Prefs } from "./state"
-import { type Config, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
+import { ManagerCtx, type DeleteOpts, type LibraryFocus, type ManagerApi, type Prefs, type View } from "./state"
+import { type Config, DEFAULT_PACK, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 import { say, sayErr, sayPersistent, sayUndo, undoLast } from "./status"
 import { Sidebar } from "./Sidebar"
 import { Editor } from "./Editor"
+import { Library as LibraryView } from "./Library"
 import { Settings } from "./Settings"
 import { GenerateDialog } from "./GenerateDialog"
 
@@ -32,6 +33,17 @@ export function App() {
   const [hotkey, setHotkeyState] = useState("ctrl+shift+v")
   const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100", font: "system" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
+  const [view, setView] = useState<View>({ kind: "prompt" })
+  // One list order for the sidebar and the overview, so a drag that switches
+  // to "custom" in one is what the other draws too
+  const [orderBy, setOrderByState] = useState<OrderBy>(() => {
+    const saved = localStorage.getItem("orderBy")
+    return saved === "title" || saved === "custom" ? saved : "uses"
+  })
+  const setOrderBy = useCallback((order: OrderBy) => {
+    setOrderByState(order)
+    localStorage.setItem("orderBy", order)
+  }, [])
   // The editor's debounced autosave, if one is pending (see quit-requested)
   const pendingFlush = useRef<(() => Promise<void>) | null>(null)
 
@@ -168,8 +180,20 @@ export function App() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0])
   }, [snippets])
 
+  // Opening a prompt is what brings the editor back from library view
   const select = useCallback((id: string | null) => {
     setActiveId(id)
+    if (id !== null) setView({ kind: "prompt" })
+  }, [])
+
+  const openLibrary = useCallback((focus: LibraryFocus | null) => {
+    setSettingsOpen(false)
+    setView({ kind: "library", focus })
+  }, [])
+  const closeLibrary = useCallback(() => setView({ kind: "prompt" }), [])
+  const showSettings = useCallback((open: boolean) => {
+    setSettingsOpen(open)
+    if (open) setView({ kind: "prompt" })
   }, [])
 
   const setSelection = useCallback((sel: Set<string>, anchor?: string | null) => {
@@ -205,6 +229,7 @@ export function App() {
     setSelectionState(new Set([s.id]))
     setSelectionAnchor(s.id)
     setActiveId(s.id)
+    setView({ kind: "prompt" })
   }, [isLocked, packMeta, snippets, applyLibrary, refreshPacks])
 
   const addPack = useCallback(
@@ -302,6 +327,7 @@ export function App() {
       setSelectionState(new Set([payload]))
       setSelectionAnchor(payload)
       setActiveId(payload)
+      setView({ kind: "prompt" })
     })
     const unNotice = listen<Notice>("notice", ({ payload }) => sayPersistent(payload.message))
     const unFirst = listen("first-popup", () => {
@@ -333,7 +359,9 @@ export function App() {
     }
   }, [reloadLibrary])
 
-  // Ctrl+Z outside a text field takes the Undo on offer; Escape leaves Settings
+  // Ctrl+Z outside a text field takes the Undo on offer. Escape leaves
+  // Settings; otherwise it switches modes: from the editor to the library
+  // opened on that prompt's pack and group, and from the library back.
   useEffect(() => {
     const typing = (t: EventTarget | null) =>
       t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)
@@ -341,13 +369,20 @@ export function App() {
       if (e.key.toLowerCase() === "z" && e.ctrlKey && !e.shiftKey && !e.altKey && !typing(e.target)) {
         if (undoLast()) e.preventDefault()
       } else if (e.key === "Escape" && !typing(e.target) && !e.defaultPrevented) {
-        // An armed delete takes the Escape first (capture-phase listeners)
-        setSettingsOpen(false)
+        // An armed delete takes the Escape first (capture-phase listeners);
+        // a dialog closing on it must not also switch the mode behind it
+        if (settingsOpen) setSettingsOpen(false)
+        else if (document.querySelector('[role="dialog"]')) return
+        else if (view.kind === "library") setView({ kind: "prompt" })
+        else {
+          const s = activeId ? snippetsRef.current.find((x) => x.id === activeId) : undefined
+          setView({ kind: "library", focus: s ? { pack: s.pack || DEFAULT_PACK, group: s.group || undefined } : null })
+        }
       }
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [])
+  }, [settingsOpen, view.kind, activeId])
 
   const api = useMemo<ManagerApi>(
     () => ({
@@ -358,6 +393,11 @@ export function App() {
       selectionAnchor,
       hotkey,
       prefs,
+      view,
+      openLibrary,
+      closeLibrary,
+      orderBy,
+      setOrderBy,
       isLocked,
       packNames,
       allTags,
@@ -374,10 +414,10 @@ export function App() {
       setHotkey: setHotkeyState,
       openGenerate: () => setGenOpen(true),
       settingsOpen,
-      showSettings: setSettingsOpen,
+      showSettings,
       pendingFlush,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openLibrary, closeLibrary, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)
@@ -406,9 +446,16 @@ export function App() {
           </div>
         )}
 
-        <main className="flex min-h-0 flex-1">
-          <Sidebar />
-          {settingsOpen ? <Settings /> : <Editor key={activeId ?? "none"} />}
+        <main className="flex min-h-0 flex-1 overflow-hidden">
+          {view.kind === "library" ? (
+            // Keyed on the focus so a fresh entry opens on what was clicked
+            <LibraryView key={JSON.stringify(view.focus)} focus={view.focus} />
+          ) : (
+            <>
+              <Sidebar />
+              {settingsOpen ? <Settings /> : <Editor key={activeId ?? "none"} />}
+            </>
+          )}
         </main>
 
         <GenerateDialog open={genOpen} onOpenChange={setGenOpen} />
