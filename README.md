@@ -129,6 +129,8 @@ npm run build      # produce installer (src-tauri/target/release/bundle)
 npm run ui:build   # typecheck + build the frontend only
 npm test           # JS core tests (node --test)
 npm run tokens     # render design/tokens.json into src/index.css (tokens:check verifies)
+                   # edited tokens on the design-system page? ask Claude to pull
+                   # its project/tokens.json into design/tokens.json, then run this
 npm run test:rust  # Rust unit tests (cargo test)
 npm run lint       # ESLint over the frontend
 ```

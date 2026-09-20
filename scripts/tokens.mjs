@@ -8,6 +8,12 @@
 // `/* @tokens <theme> … */` and `/* @tokens end */` markers; everything
 // outside the markers is hand-written and left alone.
 //
+// The design-system artifact holds the same file at project/tokens.json.
+// Repo -> page: publish design/tokens.json there. Page -> repo: no script can
+// reach the artifact (it needs a Claude session), so ask Claude to pull it
+// into design/tokens.json and run this. The page normalises the file (weight
+// strings, extra style fields, key order); values are what matter.
+//
 //   node scripts/tokens.mjs          write src/index.css
 //   node scripts/tokens.mjs --check  exit 1 if src/index.css is out of date
 //
