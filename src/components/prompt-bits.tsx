@@ -24,33 +24,41 @@ export function Kbd({ children }: { children: React.ReactNode }) {
 // whole look lives in this table — change a chip here, never at a call site.
 // `tone` says what the chip is, `size` where it sits: `sm` in a row or card,
 // `md` level with an input in the editor, `inline` inside wrapping text.
+// Chips are tinted grounds, never outlines: an edge is kept for a state (an
+// active filter). `sm` sets 11px text at normal weight on a line exactly its
+// size, which is what lets it breathe in 16px.
 export const chipVariants = cva(
-  "rounded-sm border text-xs font-medium",
+  "rounded-sm border",
   {
     variants: {
       tone: {
         neutral: "border-transparent bg-secondary text-foreground",
-        muted: "border-border text-muted-foreground",
+        muted: "border-transparent bg-secondary text-muted-foreground",
         // hue from `--tag`, set by the Chip's `hue`
-        tag: "tag-text tag-border dark:tag-text-dark dark:tag-border-dark",
+        tag: "tag-text dark:tag-text-dark",
         builtin: "border-transparent bg-(--param-builtin-bg) text-(--param-builtin)",
         field: "border-transparent bg-(--param-field-bg) text-(--param-field)",
         config: "border-transparent bg-(--param-config-bg) text-(--param-config)",
         bad: "border-transparent bg-destructive/15 text-destructive",
-        warn: "border-(--warn)/40 text-(--warn)",
+        warn: "border-transparent bg-(--warn)/15 text-(--warn)",
         primary: "border-transparent bg-primary/15 text-foreground",
       },
       size: {
-        sm: "flex h-4 shrink-0 items-center gap-0.5 whitespace-nowrap px-1",
-        md: "flex h-5 shrink-0 items-center gap-1 whitespace-nowrap px-2",
-        inline: "box-decoration-clone px-1",
+        sm: "flex h-4 shrink-0 items-center gap-0.5 whitespace-nowrap px-1.25 text-[11px] leading-none font-normal",
+        md: "flex h-5 shrink-0 items-center gap-1 whitespace-nowrap px-2 text-xs font-medium",
+        inline: "box-decoration-clone px-1 text-xs font-medium",
       },
       /** A filter term that is on */
       active: { true: "", false: "" },
       /** Offers to add itself: a + segment, muted until hovered */
       add: { true: "cursor-pointer gap-0 overflow-hidden px-0 text-muted-foreground transition-colors hover:border-primary", false: "" },
     },
-    compoundVariants: [{ tone: "tag", active: true, className: "tag-fill" }],
+    // Resting and active grounds are exclusive: a dark: tint would outrank
+    // tag-fill, since variant utilities sort after plain ones
+    compoundVariants: [
+      { tone: "tag", active: false, className: "border-transparent tag-tint dark:tag-tint-dark" },
+      { tone: "tag", active: true, className: "tag-fill" },
+    ],
     defaultVariants: { tone: "neutral", size: "sm", active: false, add: false },
   }
 )
