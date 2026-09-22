@@ -79,8 +79,8 @@ export function Settings() {
   const DEFAULT_HOTKEY = "ctrl+shift+v"
 
   const onHotkeyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    // A keydown with no key (autofill, IME composition) is no hotkey
-    if (!recording || !e.key) return
+    // A keydown with no key (autofill) or one during IME composition is no hotkey
+    if (!recording || !e.key || e.nativeEvent.isComposing) return
     // Tab must keep moving focus: swallowing it registered Shift+Tab as the
     // hotkey and trapped keyboard users in the field
     if (e.key === "Tab") return
