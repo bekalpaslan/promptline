@@ -147,6 +147,13 @@ the search box is empty — every other key goes to the search box, and an
 unconditional "u" made a query like "unit tests" impossible to type after a
 delete; Ctrl+Z works whatever is typed.
 
+**The popup's list folds from the keyboard too.** ← folds the selected
+row's group, or its pack on an ungrouped row; Ctrl+→ unfolds every pack and
+every group at once, because a folded section's rows leave the navigable
+list and there is no row left to unfold from. It used to clear pack folds
+only, and only while one was folded, so a group folded with ← could only be
+reopened with the mouse.
+
 ## Placeholders
 
 Handled in `ui/core.js`, shared by both windows so the popup's preview and the

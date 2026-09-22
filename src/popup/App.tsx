@@ -644,16 +644,20 @@ export function App() {
         hidePreview()
         suppressHoverUntil.current = Date.now() + 250
       }
-      if (e.key === "ArrowRight" && e.ctrlKey && effCollapsed.size) {
-        // Keyboard path for the pack headers (with ← below): Ctrl+→ expands
-        // every collapsed pack, since collapsed rows leave `visible` and
-        // there is no row to expand from
+      if (e.key === "ArrowRight" && e.ctrlKey) {
+        // Keyboard path for the pack and group headers (with ← below):
+        // Ctrl+→ unfolds everything, since folded rows leave `visible` and
+        // there is no row to unfold from. Unconditional: it used to clear
+        // packs only, and only while one was folded, so a folded group had
+        // no keyboard way back (audit M6).
         e.preventDefault()
         if (filterKey) {
-          setFilterFolds((f) => ({ ...f, key: filterKey, packs: new Set() }))
+          setFilterFolds({ key: filterKey, packs: new Set(), groups: new Set() })
         } else {
           setCollapsed(new Set())
+          setCollapsedGroups(new Set())
           localStorage.setItem("popupCollapsedPacks", "[]")
+          localStorage.setItem("popupCollapsedGroups", "[]")
         }
       } else if (e.key === "ArrowDown") {
         e.preventDefault()
@@ -693,7 +697,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, effCollapsed, filterKey, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, filterKey, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live selection and
   // preview index through refs instead of closing over them
