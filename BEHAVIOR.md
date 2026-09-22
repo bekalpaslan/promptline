@@ -259,6 +259,21 @@ Two guards follow from that:
   a pack drops its old name while keeping the same file, and a name comparison
   would retire a live pack.
 
+**A pack's path is stored relative to `packs/`** (`work.json`), and only a
+file placed outside that folder keeps an absolute path. They used to be
+absolute throughout, so a profile restored under another user name, moved
+to another drive or roamed between machines pointed every pack at a folder
+that no longer existed, and every pack write failed with nothing said.
+`resolve_pack_path` turns the stored form into a path to open wherever one
+is used; `relativize_pack_path` turns a path back into the stored form
+(`save_packs`, `ensure_packs_backed`), and a config from before this
+(0.2.9) is brought over once on load. The IPC shape did not change: the
+frontend shows, reads and reveals the path, so `get_config` resolves every
+path on the way out, and `save_packs` accepts whatever the frontend hands
+back. A pack file that can't be written is logged and raised as a notice
+once per session (the library itself is safe in `snippets.json`), not on
+every autosave.
+
 Orphans are never swept automatically. A file in `packs/` that no pack claims
 may be one an agent just dropped there for importing. **Backing a pack adopts
 such a file when it declares that very pack's name** (`pack_file_slot`): the
@@ -281,9 +296,9 @@ of what was generated.
 `%APPDATA%\io.github.bekalpaslan.promptline\` (the bundle identifier; it was
 `com.promptline.app` until 0.2.9, a domain the project never owned, and
 `migrate_data_dir` moves the old folder's contents into the new one on the
-first start after the change, rewriting the packs' absolute file paths in
-the moved config; a folder the move cannot touch stays where it is and
-raises a notice):
+first start after the change, bringing the packs' file paths, absolute
+until then, to their relative form in the moved config; a folder the move
+cannot touch stays where it is and raises a notice):
 
 | File | Holds |
 |---|---|
