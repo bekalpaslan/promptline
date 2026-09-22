@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Promptline — your prompt vocabulary, one hotkey away</title>
+  <meta name="description" content="A tiny Windows tray app: press a hotkey in any window, pick a prompt, and it's pasted with your clipboard already inside it. Free, open source, no network.">
+  <link rel="canonical" href="https://promptline.cc/">
+  <meta property="og:title" content="Promptline">
+  <meta property="og:description" content="Your prompt vocabulary, one hotkey away, in every window.">
+  <meta property="og:image" content="https://promptline.cc/popup.png">
+  <meta property="og:url" content="https://promptline.cc/">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <style>
+    /* Tokens from design/tokens.json ("Promptline Tool UI"), light and dark */
+    :root {
+      --surface-0: #ffffff;
+      --surface-sunk: #f5f6f8;
+      --surface-raised: #ffffff;
+      --control: #f5f6f8;
+      --ink: #1a1d21;
+      --ink-2: #586270;
+      --ink-3: #636d79;
+      --line: #e3e6e9;
+      --line-strong: #c9cfd6;
+      --accent: #0a76a6;
+      --focus: #0b7fb4;
+      --btn-primary: #1a1d21;
+      --on-btn-primary: #ffffff;
+      --selection: #e3f2fb;
+      --param-builtin: #0b6f9e;
+      --param-builtin-soft: #e3f2fb;
+      --param-field: #8a5a05;
+      --param-field-soft: #fbf1dc;
+      --param-config: #9a2a8c;
+      --param-config-soft: #f9e6f5;
+      --warn: #b4530a;
+      --shadow-pop: 0 8px 24px rgba(16, 24, 40, 0.16);
+      --shadow-menu: 0 4px 12px rgba(16, 24, 40, 0.10);
+      --sans: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --mono: 'Cascadia Code', 'JetBrains Mono', Consolas, ui-monospace, monospace;
+      color-scheme: light dark;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --surface-0: #15181b;
+        --surface-sunk: #101214;
+        --surface-raised: #1c2024;
+        --control: #22272c;
+        --ink: #e8ebee;
+        --ink-2: #a3abb5;
+        --ink-3: #8a929c;
+        --line: #2a2f35;
+        --line-strong: #3a4048;
+        --accent: #4cc2f5;
+        --focus: #4cc2f5;
+        --btn-primary: #f2f4f6;
+        --on-btn-primary: #15181b;
+        --selection: #1c2f3b;
+        --param-builtin: #63c8f2;
+        --param-builtin-soft: #173040;
+        --param-field: #f0c25a;
+        --param-field-soft: #3a2e12;
+        --param-config: #ea8fdc;
+        --param-config-soft: #3b1e37;
+        --warn: #f5a54b;
+        --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.55);
+        --shadow-menu: 0 4px 12px rgba(0, 0, 0, 0.45);
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      font-size: 16px;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--surface-0);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 4px; }
+    code, kbd { font-family: var(--mono); font-size: 0.92em; }
+    kbd {
+      display: inline-block;
+      padding: 0 6px;
+      line-height: 22px;
+      border: 1px solid var(--line-strong);
+      border-bottom-width: 2px;
+      border-radius: 2px;
+      background: var(--control);
+      color: var(--ink);
+      font-size: 13px;
+    }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 16px; }
+
+    /* Header */
+    header { border-bottom: 1px solid var(--line); background: var(--surface-0); }
+    .nav { display: flex; align-items: center; justify-content: space-between; height: 56px; gap: 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; font-size: 17px; }
+    .brand svg { width: 24px; height: 24px; }
+    .nav nav { display: flex; gap: 20px; font-size: 14px; }
+    .nav nav a { color: var(--ink-2); }
+    .nav nav a:hover { color: var(--ink); text-decoration: none; }
+
+    /* Hero */
+    .hero { padding: 56px 0 40px; display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 40px; align-items: center; }
+    .hero h1 { font-size: clamp(30px, 4.2vw, 44px); line-height: 1.12; margin: 0 0 14px; letter-spacing: -0.01em; }
+    .hero p.lead { font-size: 18px; color: var(--ink-2); margin: 0 0 26px; max-width: 46ch; }
+    .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 0 18px; height: 44px; border-radius: 4px;
+      font-weight: 600; font-size: 15px; border: 1px solid transparent;
+      cursor: pointer; white-space: nowrap;
+    }
+    .btn:hover { text-decoration: none; }
+    .btn-primary { background: var(--btn-primary); color: var(--on-btn-primary); }
+    .btn-primary:hover { filter: brightness(1.08); }
+    .btn-secondary { background: var(--control); color: var(--ink); border-color: var(--line-strong); }
+    .btn-secondary:hover { background: var(--selection); }
+    .btn svg { width: 18px; height: 18px; }
+    .sub { font-size: 13px; color: var(--ink-3); margin-top: 10px; }
+    .sub code { font-size: 12px; }
+    .shot { position: relative; justify-self: center; }
+    .shot img {
+      display: block; width: 100%; max-width: 400px; height: auto;
+      border: 1px solid var(--line-strong); border-radius: 8px;
+      box-shadow: var(--shadow-pop);
+    }
+
+    /* Move */
+    .move { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-sunk); padding: 36px 0; }
+    .move h2 { margin: 0 0 8px; font-size: 22px; }
+    .move p { margin: 0 0 18px; color: var(--ink-2); max-width: 70ch; }
+    .steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+    .step {
+      background: var(--surface-raised); border: 1px solid var(--line); border-radius: 6px;
+      padding: 14px 16px; box-shadow: var(--shadow-menu);
+    }
+    .step .n { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+    .step .t { font-weight: 600; margin: 4px 0 2px; }
+    .step .d { font-size: 14px; color: var(--ink-2); }
+    .tok { padding: 0 4px; border-radius: 2px; font-family: var(--mono); font-size: 0.9em; }
+    .tok-builtin { color: var(--param-builtin); background: var(--param-builtin-soft); }
+    .tok-field { color: var(--param-field); background: var(--param-field-soft); }
+    .tok-config { color: var(--param-config); background: var(--param-config-soft); }
+
+    /* Features */
+    .features { padding: 48px 0 24px; }
+    .features h2 { font-size: 22px; margin: 0 0 20px; }
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px 28px; }
+    .f h3 { font-size: 16px; margin: 0 0 6px; }
+    .f p { margin: 0; font-size: 15px; color: var(--ink-2); }
+
+    /* Trust */
+    .trust { padding: 24px 0 48px; }
+    .trust ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+    .trust li {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px; font-size: 14px; color: var(--ink-2);
+    }
+    .trust li b { color: var(--ink); display: block; font-weight: 600; }
+    .trust li svg { flex: none; width: 18px; height: 18px; margin-top: 2px; color: var(--accent); }
+    .note { margin-top: 18px; padding: 12px 14px; border-left: 3px solid var(--warn); background: var(--surface-sunk); font-size: 14px; color: var(--ink-2); border-radius: 0 4px 4px 0; }
+
+    footer { border-top: 1px solid var(--line); padding: 22px 0 32px; font-size: 13px; color: var(--ink-3); }
+    footer .row { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
+    footer nav { display: flex; flex-wrap: wrap; gap: 16px; }
+    footer a { color: var(--ink-2); }
+
+    @media (max-width: 880px) {
+      .hero { grid-template-columns: 1fr; padding-top: 36px; }
+      .shot { justify-self: start; }
+      .steps { grid-template-columns: repeat(2, 1fr); }
+      .grid, .trust ul { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 560px) {
+      .nav nav { display: none; }
+      .steps, .grid, .trust ul { grid-template-columns: 1fr; }
+      .btn { height: 42px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap nav">
+      <a class="brand" href="/" aria-label="Promptline home">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6.5 9.5l3 2.5-3 2.5M12 15h5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Promptline
+      </a>
+      <nav aria-label="Site">
+        <a href="#how">How it works</a>
+        <a href="#features">Features</a>
+        <a href="#install">Install</a>
+        <a href="https://github.com/bekalpaslan/promptline">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="wrap hero">
+      <div>
+        <h1>Your prompt vocabulary, one hotkey away, in every window.</h1>
+        <p class="lead">A tiny Windows tray app for people who talk to Claude, or any AI, all day. Press the hotkey, pick a prompt, and it's pasted straight into the app you were just using, with your clipboard already inside it.</p>
+        <div class="cta" id="install">
+          <a class="btn btn-primary" id="download" href="https://github.com/bekalpaslan/promptline/releases/latest">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <span id="download-label">Download for Windows</span>
+          </a>
+          <a class="btn btn-secondary" href="https://github.com/bekalpaslan/promptline/releases">All releases</a>
+        </div>
+        <p class="sub" id="download-sub">Windows 10/11 · free and open source (MIT) · installs for the current user, no admin prompt</p>
+      </div>
+      <div class="shot">
+        <img src="popup.png" width="400" height="600" alt="The Promptline popup: a search box, pinned prompts with Ctrl+1..3 slots, packs with their groups, and a preview card showing a prompt with the clipboard already substituted for {clipboard}">
+      </div>
+    </section>
+
+    <section class="move" id="how">
+      <div class="wrap">
+        <h2>The killer move</h2>
+        <p>Copy an error, a stack trace or a diff. Hit the hotkey. Pick <b>Root cause first</b>. Your template pastes with the clipboard contents already inserted where <span class="tok tok-builtin">{clipboard}</span> was. One gesture turns raw error text into a well-formed prompt.</p>
+        <div class="steps">
+          <div class="step"><div class="n">1</div><div class="t"><kbd>Ctrl</kbd> <kbd>C</kbd> the error</div><div class="d">In the terminal, the browser, wherever it happened.</div></div>
+          <div class="step"><div class="n">2</div><div class="t">Press the hotkey</div><div class="d">The popup opens at your cursor, in front of whatever you were typing into.</div></div>
+          <div class="step"><div class="n">3</div><div class="t">Type a few letters, <kbd>↵</kbd></div><div class="d">Fuzzy search over titles and tags; <kbd>Ctrl</kbd> <kbd>1</kbd>…<kbd>5</kbd> for your pinned ones.</div></div>
+          <div class="step"><div class="n">4</div><div class="t">It's pasted</div><div class="d">Back in the window you came from, clipboard filled in, cursor ready for Enter.</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap features" id="features">
+      <h2>What's in the box</h2>
+      <div class="grid">
+        <div class="f"><h3>Works in every window</h3><p>Claude Code in a terminal, claude.ai in the browser, Cursor, a PR comment box. If it has a text field, the prompt lands in it.</p></div>
+        <div class="f"><h3>Fill-in fields</h3><p>Write <span class="tok tok-field">{goal}</span> in a prompt and the popup asks for it before pasting. <span class="tok tok-config">{{project}}</span> is remembered once and filled in every time.</p></div>
+        <div class="f"><h3>Packs you can share</h3><p>Every pack is a plain JSON file the app keeps current. Commit one to a project, hand one to a colleague, or let an agent write one.</p></div>
+        <div class="f"><h3>Let Claude write your packs</h3><p>Describe a topic, or point a coding agent at your project, and import the pack it produces, curated prompt by prompt.</p></div>
+        <div class="f"><h3>Keyboard first</h3><p>Search, pins, groups, a preview with the real clipboard substituted, undo. Every control reachable without a mouse, labelled for screen readers.</p></div>
+        <div class="f"><h3>A manager when you want one</h3><p>Edit prompts with a live preview, tag and group them, sort by use or your own order, light or dark.</p></div>
+      </div>
+    </section>
+
+    <section class="wrap trust">
+      <ul>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span><b>No network, no telemetry</b>It never phones home. The only thing that leaves your machine is what you paste.</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Plain files you own</b>Prompts, packs and settings are JSON in one folder. Copy it to back up; copy it back to restore.</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>Open source, MIT</b>Rust and React on Tauri 2. Read it, build it, change it.</span></li>
+      </ul>
+      <p class="note">The installers are not code-signed yet, so SmartScreen shows "Windows protected your PC" on first run: choose <b>More info → Run anyway</b>. The default hotkey <kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>V</kbd> is paste in Windows Terminal and some browsers; record <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>V</kbd> in Settings if that bites.</p>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap row">
+      <span>© 2026 Alpaslan Bek · MIT License</span>
+      <nav aria-label="Links">
+        <a href="https://github.com/bekalpaslan/promptline">Source</a>
+        <a href="https://github.com/bekalpaslan/promptline/releases">Releases</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/README.md">Docs</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md">Security</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/THIRD-PARTY-NOTICES.md">Third-party notices</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script>
+    // Point the Download button at the current release's setup exe. The
+    // installer names carry the version, so a fixed link can't; on any
+    // failure the button keeps its fallback, the latest-release page.
+    (async () => {
+      try {
+        const r = await fetch("https://api.github.com/repos/bekalpaslan/promptline/releases/latest", { headers: { Accept: "application/vnd.github+json" } });
+        if (!r.ok) return;
+        const rel = await r.json();
+        const exe = (rel.assets || []).find((a) => /-setup\.exe$/i.test(a.name));
+        if (!exe) return;
+        const a = document.getElementById("download");
+        a.href = exe.browser_download_url;
+        document.getElementById("download-label").textContent = `Download ${rel.tag_name} for Windows`;
+        const mb = (exe.size / 1048576).toFixed(1);
+        document.getElementById("download-sub").textContent = `${exe.name} · ${mb} MB · Windows 10/11 · free and open source (MIT) · installs for the current user, no admin prompt`;
+      } catch { /* keep the fallback link */ }
+    })();
+  </script>
+</body>
+</html>

@@ -1,6 +1,7 @@
 # Promptline
 
 *Your prompt vocabulary, one hotkey away, in every window.*
+**[promptline.cc](https://promptline.cc)** · [Download](https://github.com/bekalpaslan/promptline/releases/latest)
 
 A tiny tray app for developers who talk to Claude (or any AI) all day. Hit the
 global hotkey (default `Ctrl+Shift+V`), a popup appears at your cursor with

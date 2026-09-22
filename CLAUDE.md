@@ -18,6 +18,13 @@ logic in `ui/core.js` (plain UMD, tested with bare `node --test`).
   finding ids (H1, M7, BH3-1), so they stay in the repo.
 - `docs/architecture/` — the architecture map, for the human managing the
   project (see *Architecture map* below).
+- `site/` — the one-page website at https://promptline.cc, published to
+  GitHub Pages by `.github/workflows/pages.yml` on every push to `master`
+  that touches it (the workflow copies `docs/popup.png` in; `site/` holds
+  no binaries). Plain HTML and CSS on the tokens from `design/tokens.json`;
+  the Download button fetches the latest release's setup exe from the
+  GitHub API and falls back to the releases page. Preview it with
+  `python -m http.server` in `site/` after copying the screenshot in.
 
 ## Architecture map
 
