@@ -12,7 +12,8 @@
 // `window.__mock` is the handle for a test driver:
 //   calls              every invoke as { cmd, args }, oldest first
 //   clipboard          what get_clipboard_text answers; set it to change it
-//   emit(event, data)  fire a backend event ("edit-prompt", "popup-shown", …)
+//   emit(event, data)  fire a backend event ("edit-prompt", "popup-shown",
+//                      "paste-failed" with { message }, …)
 //   library            the current { snippets, revision }
 //   pasteResult        what paste_snippet answers: "pasted" (default) or
 //                      "copied" (the manager was in front, copy-only)

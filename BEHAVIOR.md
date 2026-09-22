@@ -112,7 +112,9 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    paste into (Enter would land the prompt in whatever editor field had
    focus), so Rust copies only, leaves the popup up, and the popup says
    "Copied to clipboard — the manager was in front" and hides itself the
-   way Ctrl+Enter does. One pick at a time: the popup ignores a second Enter
+   way Ctrl+Enter does. That self-hide is a 600 ms timer the next summon
+   cancels: a hotkey press inside the pause used to have the freshly shown
+   popup hidden under the user. One pick at a time: the popup ignores a second Enter
    while a paste is in flight (the row stays tinted until the popup is
    hidden or the paste fails), because a fast double Enter used to run the
    command twice, two Ctrl+V and `uses` +2. The `uses` bump is best effort in both halves, the
@@ -121,7 +123,11 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    holding for a moment must not turn into a paste that never happens with
    the prompt sitting on the clipboard.
 5. A detached thread waits 80 ms, calls `SetForegroundWindow` on the remembered
-   window, waits another 80 ms, and sends Ctrl+V via `SendInput`.
+   window, waits another 80 ms, and sends Ctrl+V via `SendInput`. When
+   either refuses (an elevated window, say), Rust re-shows the popup and
+   emits `paste-failed` with a message; the popup shows it in its feedback
+   strip as an error that stays until Esc or the next summon, and the prompt
+   is still on the clipboard to paste by hand.
 
 The sleeps are load-bearing. Focus changes are asynchronous on Windows; sending
 the keystroke immediately delivers it to whatever had focus a moment ago.
@@ -337,6 +343,7 @@ re-fetches:
 | `snippets-changed` | Another window wrote the library — re-fetch before saving over it; payload is the new revision |
 | `edit-prompt` | Popup asked the manager to open a prompt |
 | `popup-shown` / `first-popup` | Popup opened; the second only ever fires once |
+| `paste-failed` | The paste thread could not focus the target or send Ctrl+V; the popup is re-shown and shows the payload's `message` |
 | `notice` | Rust hit something the user must see (quarantined file, refused hotkey); shown until dismissed |
 
 Every delete in the manager goes through one `deleteWithUndo`, and both the
