@@ -1,0 +1,3 @@
+# One author: the early commits used a different git identity than the
+# GitHub account. Folded so `git shortlog` and blame show a single name.
+bekalpaslan <bekalpaslan@gmail.com> alpaslannbek <alpaslannbek@gmail.com>

@@ -500,10 +500,34 @@ cursor on or just outside the frame — and reclaims focus instead of hiding.
 ## Tests
 
 ```sh
-npm test           # ui/core.js — placeholders, fuzzy search, pack parsing
-npm run test:rust  # config/snippet migration, pack filename sanitising
+npm test           # tests/*.test.js under node --test (see below)
+npm run test:rust  # the storage layer and its policies (see below)
 npm run typecheck  # tsc over both windows
 ```
 
-The split reflects what is worth testing: pure functions with real edge cases.
-UI wiring and anything needing an `AppHandle` is verified by running the app.
+`npm test` runs two files. `tests/core.test.js` covers `ui/core.js`:
+placeholders, fuzzy search and ranking, pack parsing, the rules the two
+windows share (`defaultPackFor`, `removeParamToken`, pins). `tests/mock.test.js`
+checks command parity: it scans `src/**` for every `invoke("…")`, `lib.rs`
+for the `generate_handler![…]` list and `src/lib/dev-mock.ts` for the
+commands the fake backend answers, and fails when the three disagree — a
+command the UI calls but the mock ignores hides a whole flow from the
+browser walk, and one Rust never registered fails at runtime.
+
+`npm run test:rust` is around 26 tests in `lib.rs`, covering the storage
+layer end to end: `write_atomic` (temp file, rename, nothing left behind),
+loading with the missing / unparseable / I/O-error split and the byte-exact
+quarantine of an unreadable file, the snippet and config migrations with
+every field serde-defaulted (including a config without a hotkey), the
+intent-level merges (`update` keeps what the popup owns, `patch` changes only
+what is given, `add` replaces a duplicate id, `delete` reports change), the
+pin stamp, pack filename sanitising and reserved Windows device names, pack
+file adoption and write-only-when-changed, drafts backing no pack and a
+draft-only file being emptied, `rename_pack` moving metadata and prompts
+together and treating case variants as taken, the data-dir move from
+`com.promptline.app` rewriting pack paths, and the starter pack's ids.
+
+The split reflects what is worth testing: pure functions and file-level
+policies with real edge cases. UI wiring and anything needing an
+`AppHandle` is verified by running the app (`CLAUDE.md`, "Verifying UI
+changes").

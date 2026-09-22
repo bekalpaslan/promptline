@@ -8,6 +8,10 @@ your prompt library — pick one and it's pasted straight into the app you were
 just using: Claude Code in a terminal, claude.ai in the browser, Cursor, a PR
 comment box, anywhere.
 
+<p align="center">
+  <img src="docs/popup.png" width="400" alt="The Promptline popup: a search box, pinned prompts with Ctrl+1..3 slots, packs with their groups, and a preview card showing a prompt with the clipboard already substituted for {clipboard}">
+</p>
+
 ## The killer move
 
 Copy an error / stack trace / diff, hit the hotkey, pick **"Root cause first"**
@@ -16,13 +20,71 @@ Copy an error / stack trace / diff, hit the hotkey, pick **"Root cause first"**
 
 ## Install
 
-Windows only for now. `npm run build` produces two installers under
-`src-tauri/target/release/bundle/`: an NSIS setup exe (`nsis/`) and an MSI
-(`msi/`). Either works; the setup exe is smaller.
+Windows 10/11 only. Download an installer from the
+[Releases page](https://github.com/bekalpaslan/promptline/releases):
+
+- `Promptline_X.Y.Z_x64-setup.exe` — the setup exe (NSIS); smaller, and the
+  one to pick if in doubt
+- `Promptline_X.Y.Z_x64_en-US.msi` — the MSI, for those who prefer it
+
+Either installs for the current user only, under `%LOCALAPPDATA%\Promptline`,
+so there is no admin prompt. If Microsoft Edge WebView2 is missing (it ships
+with Windows 11 and most Windows 10 machines), the installer downloads its
+bootstrapper, which is the one moment installation needs the network.
 
 The installers are not code-signed yet, so SmartScreen shows "Windows protected
 your PC" on first run — choose **More info → Run anyway**. Signing is on the
 list; it needs a certificate, not a code change.
+
+After installing, Promptline sits in the tray: left-click the icon for the
+manager, press the hotkey anywhere for the popup. There is no auto-update;
+a newer release installs over the old one and your prompts, packs and
+settings carry over untouched.
+
+### Build from source
+
+Requires Rust and Node 22. `npm run build` produces the same two installers
+under `src-tauri/target/release/bundle/` (`nsis/` and `msi/`). See
+[Development](#development).
+
+## Uninstall
+
+**Settings → Apps → Installed apps** (Apps & Features), like any other
+program. The uninstaller offers a **Delete the application data**
+checkbox: leave it off to keep your library for a reinstall, tick it to
+remove the data folder too. Either way it removes the autostart entry it
+made, so nothing of Promptline runs at the next login.
+
+## Back up / sync
+
+Everything Promptline knows is in one folder,
+`%APPDATA%\io.github.bekalpaslan.promptline\` — copy it to back up, restore
+it to bring a library back. To share prompts rather than the whole library,
+use the pack files: every pack owns a `.json` under `…\packs\` that the app
+keeps current, so you can copy one to a colleague, commit it to a project,
+or let an agent write into it; the other side imports it from **Settings →
+Your library** (see [Data](#data)).
+
+## Known limitations
+
+- **Windows only.** A macOS port needs one module rewritten (see
+  [Stack](#stack)); nobody has done it yet.
+- **Unsigned installers**, so SmartScreen warns once (above).
+- **No auto-update.** Watch the Releases page or the repo.
+- **Elevated windows don't accept the paste.** Windows blocks keystrokes
+  from a normal process into a window running as administrator (an elevated
+  terminal, Regedit, an installer). The popup tells you when that happens;
+  the prompt is on your clipboard, so paste it by hand.
+- **WebView2 download at install** on the few machines that lack it (above).
+- **The default hotkey is taken in two popular places.** `Ctrl+Shift+V` is
+  *paste* in Windows Terminal and *paste without formatting* in browsers;
+  Promptline wins while it runs, and those apps lose the shortcut. Record
+  `Ctrl+Alt+V` in **Settings** instead if you miss either.
+
+Promptline has no network code and no telemetry: it never phones home, and
+the only thing that leaves your machine is what you paste. If something
+goes wrong it writes a log file under the data folder; attach it to a bug
+report.
 
 ## Placeholders
 
@@ -109,7 +171,9 @@ them, plus config values and a live preview. Invisible until you want it.
 
 Everything lives in `%APPDATA%\io.github.bekalpaslan.promptline\` as plain JSON — snippets,
 packs, and preferences. Pack format docs: [`packs/TEMPLATE.md`](packs/TEMPLATE.md);
-curated packs ship in [`packs/`](packs/). Older data formats migrate automatically.
+curated packs ship in [`packs/`](packs/). Older data formats migrate automatically,
+and a library from a release before 0.2.9 (which kept it under
+`%APPDATA%\com.promptline.app\`) is moved to the new folder on first start.
 
 Every pack owns a file under `…\packs\` from the moment it exists — however it
 came about, including packs conjured by an import — and the app keeps it
@@ -118,12 +182,9 @@ Deleting a pack moves its file to `…\packs\deleted\` rather than unlinking it:
 the file may hold prompts written there but never imported, and deleting a pack
 in the app shouldn't be able to destroy them.
 
-> The default hotkey `Ctrl+Shift+V` shadows "paste without formatting" in
-> browsers — record `Ctrl+Alt+V` in Settings if you use that.
-
 ## Development
 
-Requires Rust and Node.
+Requires Rust and Node 22 (`.nvmrc`).
 
 ```sh
 npm install
@@ -136,11 +197,14 @@ npm run tokens     # render design/tokens.json into src/index.css (tokens:check 
                    # its project/tokens.json into design/tokens.json, then run this
 npm run design:build  # bundle the real components + previews for the design-system artifact (design/dist)
 npm run test:rust  # Rust unit tests (cargo test)
-npm run lint       # ESLint over the frontend
+npm run lint       # ESLint over the whole tree (`npx eslint src` for the app alone)
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, typecheck, and both test suites on
-every push. See [Install](#install) for the unsigned-installer caveat.
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, the frontend build,
+`cargo fmt`/`clippy` and both test suites on every push and pull request; a
+`v*` tag also builds both installers and keeps them as workflow artefacts
+(the release itself is still made by hand). See [Install](#install) for the
+unsigned-installer caveat.
 
 The frontend is a two-entry Vite app (`index.html` → manager window,
 `popup.html` → popup window) under `src/`. Shared pure logic lives in
@@ -149,14 +213,32 @@ The frontend is a two-entry Vite app (`index.html` → manager window,
 [`BEHAVIOR.md`](BEHAVIOR.md) covers what each surface does and why the
 non-obvious parts are built the way they are — start there before changing
 the paste pipeline or anything touching pack files.
+[`CONTRIBUTING.md`](CONTRIBUTING.md) has the checks and conventions;
+[`SECURITY.md`](SECURITY.md) says what the app touches and how to report a
+problem.
 
 ## Stack
 
 Tauri 2 (Rust) + React 19 + Vite + Tailwind v4 + [shadcn/ui](https://ui.shadcn.com)
-(Base UI primitives, Outfit font, Remixicon). Windows-specific parts (focus
+(Base UI primitives, Outfit font, Remix Icon). Windows-specific parts (focus
 restore via `SetForegroundWindow`, paste via `SendInput`) are isolated in the
 `platform` module in `src-tauri/src/lib.rs`; a macOS port only needs that
 module reimplemented (CGEventPost + Accessibility permission).
+
+## Credits
+
+- [Outfit](https://github.com/Outfitio/Outfit-Fonts), the UI font, by the
+  Outfit Project Authors under the SIL Open Font License 1.1
+- [Remix Icon](https://remixicon.com), the icons, by Remix Design under the
+  Remix Icon License 1.0
+- [Tauri](https://tauri.app), the shell that turns a Rust core and a webview
+  into a Windows app
+- [shadcn/ui](https://ui.shadcn.com) on [Base UI](https://base-ui.com), the
+  components
+
+The full licence texts and the rest of the bundled dependencies are in
+[`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md), which also ships with
+the installer.
 
 ## License
 
