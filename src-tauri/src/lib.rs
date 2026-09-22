@@ -1632,6 +1632,26 @@ fn show_main(app: &AppHandle) {
     }
 }
 
+/// A rectangle in physical pixels: a monitor's work area.
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Area {
+    x: f64,
+    y: f64,
+    width: f64,
+    height: f64,
+}
+
+/// Where a `w`×`h` window asked for at (`x`, `y`) goes so that it stays
+/// inside `area`: pulled back by however much would hang out past the right
+/// or bottom edge, never before the area's origin (monitors left of or above
+/// the primary have negative coordinates). A window larger than the area
+/// sits at the origin, since its top-left is the part that matters.
+fn clamp_to_area(x: f64, y: f64, w: f64, h: f64, area: Area) -> (f64, f64) {
+    let max_x = area.x + area.width - w;
+    let max_y = area.y + area.height - h;
+    (x.min(max_x).max(area.x), y.min(max_y).max(area.y))
+}
+
 /// The window a paste goes back to: the foreground window when it is
 /// someone else's, 0 (no target) when it is one of ours.
 fn paste_target(foreground: isize, ours: &[isize]) -> isize {
@@ -1713,19 +1733,25 @@ fn show_popup(app: &AppHandle) {
     }
 
     if let Ok(cursor) = app.cursor_position() {
-        let mut x = cursor.x;
-        let mut y = cursor.y;
+        let (mut x, mut y) = (cursor.x, cursor.y);
         if let (Ok(Some(monitor)), Ok(size)) =
             (app.monitor_from_point(cursor.x, cursor.y), w.outer_size())
         {
+            // The size is in the pixels of the monitor the popup was last
+            // on; a hidden window keeps that DPI until it moves, and Windows
+            // rescales it on arrival. Clamping with the old size on a
+            // 100% → 150% move left a third of the popup off-screen.
+            let ratio = monitor.scale_factor() / w.scale_factor().unwrap_or(1.0);
             // Clamp to the work area, not the monitor: the taskbar would
             // otherwise cover the last rows and the hint bar
-            let area = monitor.work_area();
-            let (apos, asize) = (area.position, area.size);
-            let max_x = (apos.x + asize.width as i32 - size.width as i32) as f64;
-            let max_y = (apos.y + asize.height as i32 - size.height as i32) as f64;
-            x = x.min(max_x).max(apos.x as f64);
-            y = y.min(max_y).max(apos.y as f64);
+            let work = monitor.work_area();
+            let area = Area {
+                x: work.position.x as f64,
+                y: work.position.y as f64,
+                width: work.size.width as f64,
+                height: work.size.height as f64,
+            };
+            (x, y) = clamp_to_area(x, y, size.width as f64 * ratio, size.height as f64 * ratio, area);
         }
         let _ = w.set_position(PhysicalPosition::new(x, y));
     }
@@ -2307,6 +2333,24 @@ mod tests {
         assert!(!merge_delete(&mut list, "a"));
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].id, "b");
+    }
+
+    #[test]
+    fn the_popup_is_clamped_into_the_work_area() {
+        // A 1920×1040 work area (a 40 px taskbar) left of the primary monitor
+        let area = Area { x: -1920.0, y: 0.0, width: 1920.0, height: 1040.0 };
+        let (w, h) = (400.0, 600.0);
+        // Room to spare: the cursor position is used as is
+        assert_eq!(clamp_to_area(-1000.0, 100.0, w, h, area), (-1000.0, 100.0));
+        // Near the right and bottom edges: pulled back to fit, taskbar excluded
+        assert_eq!(clamp_to_area(-100.0, 900.0, w, h, area), (-400.0, 440.0));
+        // Before the origin (a cursor a pixel outside): the origin
+        assert_eq!(clamp_to_area(-1921.0, -5.0, w, h, area), (-1920.0, 0.0));
+        // The size is the target monitor's: at 150% the same popup is 600×900,
+        // and what fit at 100% no longer does
+        assert_eq!(clamp_to_area(-500.0, 200.0, w * 1.5, h * 1.5, area), (-600.0, 140.0));
+        // Larger than the area: the top-left stays visible
+        assert_eq!(clamp_to_area(0.0, 0.0, 3000.0, 3000.0, area), (-1920.0, 0.0));
     }
 
     #[test]

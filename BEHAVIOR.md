@@ -96,7 +96,11 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    it. With no target, `paste_snippet` copies instead (below).
 2. The popup is positioned at the cursor, then clamped to the *work area* of
    the monitor under the cursor — not its full bounds — so it can't open half
-   off-screen or under the taskbar.
+   off-screen or under the taskbar (`clamp_to_area`). The size it is
+   clamped with is scaled to that monitor's DPI first: a hidden window
+   keeps the DPI of wherever it last was and Windows rescales it on the
+   move, so clamping with the old size on a 100% → 150% move left a third
+   of the popup off-screen.
 3. The user picks a prompt. If it needs runtime `{field}` values, the popup
    switches to form mode first, pre-filled from `snippet.fieldValues`. Each
    field grows with its text, wrapped lines included, from one line to three,
