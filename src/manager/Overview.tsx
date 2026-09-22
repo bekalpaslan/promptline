@@ -64,6 +64,8 @@ function Heading({
       {renaming ? (
         <input
           autoFocus
+          // Typing replaces the name (a New pack's "New pack"), as in the sidebar
+          onFocus={(e) => e.currentTarget.select()}
           defaultValue={label}
           spellCheck={false}
           aria-label={`Rename ${label}`}
@@ -188,7 +190,7 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
   const { snippets, orderBy, packNames } = m
   // The same menus as the sidebar's three dots (rename, lock, export, file,
   // new group, delete; ungroup; pin, move to, tag, export, delete)
-  const menus = useLibraryMenus()
+  const menus = useLibraryMenus({ surface: "overview" })
 
   // The clipboard for the card excerpts, read the way the editor reads it:
   // on open, when the window comes back, and after a copy or cut here
