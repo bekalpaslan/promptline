@@ -14,6 +14,8 @@
 //   clipboard          what get_clipboard_text answers; set it to change it
 //   emit(event, data)  fire a backend event ("edit-prompt", "popup-shown", …)
 //   library            the current { snippets, revision }
+//   pasteResult        what paste_snippet answers: "pasted" (default) or
+//                      "copied" (the manager was in front, copy-only)
 // Commands it doesn't know resolve to null and are logged to the console,
 // so a new command shows up there instead of failing silently.
 
@@ -94,6 +96,7 @@ export function installMock(mode: string | null) {
     calls,
     clipboard: "TypeError: cannot read properties of undefined (reading 'id')",
     library: lib,
+    pasteResult: "pasted" as "pasted" | "copied",
     emit(event: string, payload?: unknown) {
       for (const id of listeners.get(event) ?? []) callbacks.get(id)?.({ event, id, payload })
     },
@@ -158,14 +161,16 @@ export function installMock(mode: string | null) {
     show_in_folder: () => null,
     set_autostart: () => null,
     // The paste itself can't happen here; `calls` shows what would be pasted.
-    // The real one bumps `uses`, and the manager relies on the change event
+    // The real one bumps `uses`, and the manager relies on the change event.
+    // It answers "pasted", or "copied" when Rust fell back to copy-only
+    // because the manager was the foreground window (`pasteResult` sets it)
     paste_snippet: (a) => {
       const s = lib.snippets.find((x) => x.id === a.id)
       if (s) {
         s.uses = (s.uses || 0) + 1
         write(lib.snippets)
       }
-      return null
+      return a.paste ? mock.pasteResult : "copied"
     },
     // @tauri-apps/api/event: listen / unlisten
     "plugin:event|listen": (a) => {
