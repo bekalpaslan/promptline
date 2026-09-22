@@ -34,9 +34,11 @@ type Notice = { text: string; kind: "error" | "info" }
 
 // window (125% scale, the mono font) wraps between hints instead of being
 // clipped by the shell's overflow, and never splits a key from its label.
-function Hint({ k, children }: { k: string; children: React.ReactNode }) {
+// A `minor` hint is dropped below 360 px: at the 320 px minimum the bar
+// wrapped to two lines and ate a row (L20).
+function Hint({ k, minor, children }: { k: string; minor?: boolean; children: React.ReactNode }) {
   return (
-    <span className="flex shrink-0 items-center gap-1">
+    <span className={cn("flex shrink-0 items-center gap-1", minor && "hidden min-[360px]:flex")}>
       <Keys combo={k} />
       {children}
     </span>
@@ -58,7 +60,15 @@ export function App() {
   const [clip, setClip] = useState("")
   const [query, setQuery] = useState("")
   const [sel, setSel] = useState(0)
+  // The prompt whose paste is in flight: its row is tinted, and no other
+  // pick is taken until it lands. Mirrored in a ref because a second Enter
+  // arrives before React has re-rendered with the state (L14).
   const [pickedId, setPickedId] = useState<string | null>(null)
+  const pickedRef = useRef<string | null>(null)
+  const setPicked = useCallback((id: string | null) => {
+    pickedRef.current = id
+    setPickedId(id)
+  }, [])
   const [form, setForm] = useState<FormState | null>(null)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [panelSel, setPanelSel] = useState(0)
@@ -66,9 +76,10 @@ export function App() {
   const [panelNote, setPanelNote] = useState<string | null>(null)
   const [deleteArmed, setDeleteArmed] = useState(false)
   const [previewIdx, setPreviewIdx] = useState<number | null>(null)
-  // Where the preview card anchors its top-left corner: the cursor on hover,
-  // the selected row on keyboard →
-  const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null)
+  // Where the preview card anchors: its top-left at (x, y) when it fits
+  // below, its bottom edge at `above` otherwise. The cursor on hover, the
+  // selected row on keyboard → (so the card never covers that row)
+  const [previewPos, setPreviewPos] = useState<{ x: number; y: number; above: number } | null>(null)
   // The card's measured height, so a short card near the bottom is clamped by
   // what it takes up rather than by its max; null until the card is measured
   const previewCardRef = useRef<HTMLDivElement>(null)
@@ -96,6 +107,10 @@ export function App() {
   const mouseSeeded = useRef(false)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The 600 ms "Copied" pause before the popup hides itself. Held so a
+  // summon inside that window cancels it: a hotkey press right after a
+  // Ctrl+Enter used to have the new popup hidden under the user (L22)
+  const copyHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Ranking is a pure core function (tested); this only memoizes it
   const filtered = useMemo<Entry[]>(() => C.rankSnippets(query, snippets), [snippets, query])
@@ -256,14 +271,12 @@ export function App() {
 
   // Row index within `visible`, for selection
   const rowIndex = useMemo(() => new Map(visible.map((e, i) => [e.s.id, i])), [visible])
-  // Ctrl+1..5 slots: the five highest-ranked entries (pins first, then by
-  // use, or the top search results) that are on screen, wherever the pack
-  // layout draws them. Collapsed packs' entries take no slot. One mapping
-  // feeds both the row badge and the Ctrl+digit handler.
-  const slotEntries = useMemo(() => {
-    const shown = new Set(visible.map((e) => e.s.id))
-    return filtered.filter((e) => shown.has(e.s.id)).slice(0, 5)
-  }, [filtered, visible])
+  // Ctrl+1..5 slots: the rule is core's (tested); this memoizes it over
+  // what the list shows, so a folded pack's or group's entries take no slot
+  const slotEntries = useMemo(
+    () => C.slotEntries(filtered, visible.map((e) => e.s.id), MAX_PINS),
+    [filtered, visible]
+  )
   const slotOf = useMemo(() => new Map(slotEntries.map((e, i) => [e.s.id, i + 1])), [slotEntries])
 
   // Collapsing can strand the selection past the end
@@ -293,36 +306,47 @@ export function App() {
     setNotice({ text: `Couldn't ${what}: ${e instanceof Error ? e.message : String(e)}`, kind: "error" })
   }, [])
 
+  // paste_snippet answers "pasted" (the paste thread is running and the
+  // popup is hidden), "copied" (the manager was the foreground window when
+  // the popup was summoned, so Rust copied only and left the popup up), or
+  // null from an older Rust, which means pasted.
   const send = useCallback(async (snippet: Snippet, text: string, paste: boolean) => {
+    let result: string | null
     try {
-      await invoke("paste_snippet", { text, paste, id: snippet.id })
+      result = await invoke<string | null>("paste_snippet", { text, paste, id: snippet.id })
     } catch (e) {
       // Rust writes the clipboard before hiding, so on failure the popup is
-      // still on screen to show this
+      // still on screen to show this; the pick is over, so a retry is allowed
       fail(paste ? "paste" : "copy", e)
+      setPicked(null)
       return
     }
-    if (!paste) {
+    if (!paste || result === "copied") {
       // Copy-only: Rust leaves the popup up; confirm, then hide
-      setNotice({ text: "Copied to clipboard", kind: "info" })
-      setTimeout(() => void invoke("hide_popup"), 600)
+      setNotice({
+        text: result === "copied" && paste ? "Copied to clipboard — the manager was in front" : "Copied to clipboard",
+        kind: "info",
+      })
+      setPicked(null)
+      if (copyHideTimer.current) clearTimeout(copyHideTimer.current)
+      copyHideTimer.current = setTimeout(() => {
+        copyHideTimer.current = null
+        void invoke("hide_popup")
+      }, 600)
     }
-  }, [fail])
+  }, [fail, setPicked])
 
   // --- Create prompt from clipboard -------------------------------------------
   const openCreate = useCallback(() => {
     hidePreview()
     closePanel()
-    const firstLine = clip.trim().split(/\r?\n/)[0] ?? ""
+    // The clipboard's first line, cut at a word boundary (core); the draft
+    // title when there is nothing to cut from
+    const title = C.titleFromClipboard(clip) || C.DRAFT_TITLE
     // Prefer the pack that last received a prompt (one rule with the manager)
     const pack = defaultPackFor(packMeta, snippets)
     createEscArmed.current = false
-    setCreate({
-      title: firstLine.slice(0, 40) || "New prompt",
-      pack,
-      group: "",
-      prefilled: firstLine.slice(0, 40) || "New prompt",
-    })
+    setCreate({ title, pack, group: "", prefilled: title })
   }, [clip, packMeta, snippets, hidePreview, closePanel])
 
   const saveCreate = useCallback(async () => {
@@ -387,6 +411,9 @@ export function App() {
   }, [refreshClip])
 
   const pick = useCallback((snippet: Snippet, paste: boolean) => {
+    // One paste at a time: a second Enter inside the ~150 ms before Rust
+    // hides the window used to run paste_snippet twice (two Ctrl+V, uses +2)
+    if (pickedRef.current) return
     hidePreview()
     closePanel()
     let base = C.expandConfig(snippet.text, snippet.configValues)
@@ -401,24 +428,27 @@ export function App() {
       if (base.includes("{clipboard}")) refreshClip()
       return
     }
-    setPickedId(snippet.id)
+    setPicked(snippet.id)
     setTimeout(() => send(snippet, C.expandBuiltins(base), paste), 90)
-  }, [hidePreview, closePanel, send, refreshClip])
+  }, [hidePreview, closePanel, send, refreshClip, setPicked])
 
   const submitForm = useCallback(async (forceCopy: boolean) => {
-    if (!form) return
+    // The same guard as pick: the form's Enter fires again before React has
+    // unmounted the textarea, and once it has, the list's Enter is next
+    if (!form || pickedRef.current) return
     // A function replacer in core: a value containing `$&` or `$$` must paste
     // as typed, not as a replacement pattern
     const text = C.fillFields(form.base, formValues)
     const { snippet } = form
     const paste = forceCopy ? false : form.paste
+    setPicked(snippet.id)
     setForm(null)
     // Remember entered values so next time the form is pre-filled.
     // Sequenced: paste_snippet re-reads the file to bump the use count. A
     // failed save is reported but must not stop the paste.
     await patch(snippet.id, { fieldValues: { ...formValues } })
     await send(snippet, C.expandBuiltins(text), paste)
-  }, [form, formValues, patch, send])
+  }, [form, formValues, patch, send, setPicked])
 
   const togglePin = useCallback(async (s: Snippet) => {
     if (!s.pinned && snippets.filter((x) => x.pinned).length >= MAX_PINS) {
@@ -492,8 +522,10 @@ export function App() {
     setNotice(null)
     if (lastDeleted.current) clearTimeout(lastDeleted.current.timer)
     lastDeleted.current = null
+    if (copyHideTimer.current) clearTimeout(copyHideTimer.current)
+    copyHideTimer.current = null
     hidePreview()
-    setPickedId(null)
+    setPicked(null)
     setQuery("")
     setSel(0)
     mouseSeeded.current = false
@@ -516,12 +548,22 @@ export function App() {
     } catch (e) {
       fail("load the library", e)
     }
-  }, [closePanel, hidePreview, fail])
+  }, [closePanel, hidePreview, fail, setPicked])
 
   useEffect(() => {
     const un = listen("popup-shown", () => void reload())
+    // Rust re-shows the popup when it could not focus the target window or
+    // send Ctrl+V (an elevated window) and says why; the prompt is still on
+    // the clipboard. An error, so it stays until Esc or the next summon.
+    const unFailed = listen<{ message: string }>("paste-failed", (e) => {
+      setNotice({ text: e.payload.message, kind: "error" })
+      setPicked(null)
+    })
     void reload()
-    return () => void un.then((f) => f())
+    return () => {
+      void un.then((f) => f())
+      void unFailed.then((f) => f())
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -582,8 +624,10 @@ export function App() {
   // --- Keyboard ---------------------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Autofill and IME composition send keydowns with no key: nothing to act on
-      if (!e.key) return
+      // Autofill sends keydowns with no key, and an IME's keydowns during
+      // composition carry a key (Enter commits the candidate) but are not
+      // the user's command: nothing to act on either way (L21)
+      if (!e.key || e.isComposing) return
       // A key the form or create view already acted on is spent: they close
       // themselves, so whether this listener still sees them mounted depends
       // on when React re-runs this effect. The guard makes that timing
@@ -644,16 +688,20 @@ export function App() {
         hidePreview()
         suppressHoverUntil.current = Date.now() + 250
       }
-      if (e.key === "ArrowRight" && e.ctrlKey && effCollapsed.size) {
-        // Keyboard path for the pack headers (with ← below): Ctrl+→ expands
-        // every collapsed pack, since collapsed rows leave `visible` and
-        // there is no row to expand from
+      if (e.key === "ArrowRight" && e.ctrlKey) {
+        // Keyboard path for the pack and group headers (with ← below):
+        // Ctrl+→ unfolds everything, since folded rows leave `visible` and
+        // there is no row to unfold from. Unconditional: it used to clear
+        // packs only, and only while one was folded, so a folded group had
+        // no keyboard way back (audit M6).
         e.preventDefault()
         if (filterKey) {
-          setFilterFolds((f) => ({ ...f, key: filterKey, packs: new Set() }))
+          setFilterFolds({ key: filterKey, packs: new Set(), groups: new Set() })
         } else {
           setCollapsed(new Set())
+          setCollapsedGroups(new Set())
           localStorage.setItem("popupCollapsedPacks", "[]")
+          localStorage.setItem("popupCollapsedGroups", "[]")
         }
       } else if (e.key === "ArrowDown") {
         e.preventDefault()
@@ -671,7 +719,7 @@ export function App() {
           const rect = listRef.current
             ?.querySelector('[data-selected="true"]')
             ?.getBoundingClientRect()
-          setPreviewPos(rect ? { x: rect.left + 16, y: rect.bottom + 4 } : null)
+          setPreviewPos(rect ? { x: rect.left + 16, y: rect.bottom + 4, above: rect.top - 4 } : null)
           setPreviewIdx(sel)
         }
       } else if (e.key === "ArrowLeft" && previewIdx !== null) {
@@ -693,7 +741,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, effCollapsed, filterKey, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, filterKey, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live selection and
   // preview index through refs instead of closing over them
@@ -714,7 +762,7 @@ export function App() {
       if (hoverTimer.current) clearTimeout(hoverTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
       hoverTimer.current = setTimeout(() => {
-        setPreviewPos({ x: lastMouse.current.x + 12, y: lastMouse.current.y + 12 })
+        setPreviewPos({ x: lastMouse.current.x + 12, y: lastMouse.current.y + 12, above: lastMouse.current.y - 12 })
         setPreviewIdx(i)
       }, 350)
     }
@@ -770,15 +818,15 @@ export function App() {
   const hint = panelFor ? (
     <><Hint k="↵">run</Hint><Hint k="1-9">pick</Hint><Hint k="Esc">back</Hint></>
   ) : form ? (
-    <><Hint k="↵">paste</Hint><Hint k="Ctrl ↵">copy</Hint><Hint k="⇧ ↵">newline</Hint><Hint k="Esc">back</Hint></>
+    <><Hint k="↵">paste</Hint><Hint k="Ctrl ↵">copy</Hint><Hint k="⇧ ↵" minor>newline</Hint><Hint k="Esc">back</Hint></>
   ) : create ? (
     <><Hint k="↵">save</Hint><Hint k="Esc">back</Hint></>
   ) : (
     <>
       <Hint k="↵">paste</Hint>
       <Hint k="Ctrl ↵">copy</Hint>
-      <Hint k="Tab">actions</Hint>
-      <Hint k="→">preview</Hint>
+      <Hint k="Tab" minor>actions</Hint>
+      <Hint k="→" minor>preview</Hint>
       <Hint k="Esc">close</Hint>
     </>
   )
@@ -787,10 +835,10 @@ export function App() {
   const announce = panelFor
     ? `Actions for ${panelFor.title}`
     : form
-      ? `Fill in ${form.fields.length} field${form.fields.length === 1 ? "" : "s"} for ${form.snippet.title}`
+      ? `Fill in ${C.plural(form.fields.length, "field")} for ${form.snippet.title}`
       : create
         ? "New prompt from clipboard"
-        : `${visible.length} prompt${visible.length === 1 ? "" : "s"}${hasQuery ? " match" : ""}`
+        : `${C.plural(visible.length, "prompt")}${hasQuery ? " match" : ""}`
 
   // --- Create-from-clipboard confirmation --------------------------------------
   if (create) {
@@ -803,7 +851,7 @@ export function App() {
           // stays out of this view. Arrow keys reach the selects untouched, and
           // a focused button keeps its native Enter (that is already a click).
           onKeyDown={(e) => {
-            if (e.key !== "Enter" || e.target instanceof HTMLButtonElement) return
+            if (e.key !== "Enter" || e.nativeEvent.isComposing || e.target instanceof HTMLButtonElement) return
             e.preventDefault()
             // Saving unmounts this view; the same keydown must not reach the
             // document listener and be taken for a list pick
@@ -813,8 +861,10 @@ export function App() {
         >
           <SectionHeader>New prompt from clipboard</SectionHeader>
           <div className="px-1">
-            <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Name</label>
+            {/* Real labels, as the fill-in form's: a screen reader names each control */}
+            <label htmlFor="create-title" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Name</label>
             <input
+              id="create-title"
               autoFocus
               value={create.title}
               spellCheck={false}
@@ -824,8 +874,9 @@ export function App() {
             />
           </div>
           <div className="px-1">
-            <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Pack</label>
+            <label htmlFor="create-pack" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Pack</label>
             <Select
+              id="create-pack"
               value={create.pack}
               onChange={(e) => setCreate((c) => c && { ...c, pack: e.target.value, group: "" })}
             >
@@ -844,8 +895,9 @@ export function App() {
             if (!gs.length) return null
             return (
               <div className="px-1">
-                <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Group</label>
+                <label htmlFor="create-group" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Group</label>
                 <Select
+                  id="create-group"
                   value={create.group}
                   onChange={(e) => setCreate((c) => c && { ...c, group: e.target.value })}
                 >
@@ -885,7 +937,7 @@ export function App() {
     const emptyCount = form.fields.filter((f) => !(formValues[f] ?? "").trim()).length
     const verb = form.paste ? "Paste" : "Copy"
     const submitLabel =
-      emptyCount === 0 ? verb : `${verb} with ${emptyCount} field${emptyCount === 1 ? "" : "s"} empty`
+      emptyCount === 0 ? verb : `${verb} with ${C.plural(emptyCount, "field")} empty`
     return (
       <Shell hint={hint} notice={notice} announce={announce}>
         {/* Fields and preview scroll; the button stays in reach below them */}
@@ -913,7 +965,8 @@ export function App() {
                   onFocus={(e) => { if (remembered) e.currentTarget.select() }}
                   onChange={(e) => setFormValues((v) => ({ ...v, [f]: e.target.value }))}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
+                    // An IME's Enter commits the candidate, not the form
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                       e.preventDefault()
                       // Submitting closes the form; this keydown is spent here
                       // and must not bubble on to the list's Enter
@@ -1118,21 +1171,30 @@ export function App() {
       </button>
 
       {previewIdx !== null && visible[previewIdx] && (() => {
-        // Corner-anchored to the trigger point, clamped inside the window
+        // Anchored to the trigger point: below it when the card fits there,
+        // else above it, else on whichever side has more room with the card
+        // capped to that room (it scrolls). Clamping alone slid the card up
+        // over the row it describes near the bottom of the list (L20). The
+        // cap is always the chosen side's room, so the measured height that
+        // feeds the next render never exceeds it and the choice holds.
         const pad = 8
-        const maxH = 220 // matches max-h-55
-        const height = Math.min(previewH ?? maxH, maxH)
+        const maxH = 220
+        const natural = Math.min(previewH ?? maxH, maxH)
         const width = Math.min(320, window.innerWidth - pad * 2)
-        const pos = previewPos ?? { x: 16, y: 56 }
+        const pos = previewPos ?? { x: 16, y: 56, above: 56 }
         const left = Math.max(pad, Math.min(pos.x, window.innerWidth - width - pad))
-        const top = Math.max(pad, Math.min(pos.y, window.innerHeight - height - pad))
+        const roomBelow = window.innerHeight - pad - pos.y
+        const roomAbove = pos.above - pad
+        const below = natural <= roomBelow || (natural > roomAbove && roomBelow >= roomAbove)
+        const cap = Math.min(maxH, Math.max(60, below ? roomBelow : roomAbove))
+        const top = below ? pos.y : Math.max(pad, pos.above - Math.min(natural, cap))
         return (
           <div
             ref={previewCardRef}
             id="popup-preview"
             role="tooltip"
-            className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-ui leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
-            style={{ left, top, width }}
+            className="fixed z-10 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-ui leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
+            style={{ left, top, width, maxHeight: cap }}
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
             onMouseLeave={onItemMouseLeave}
           >

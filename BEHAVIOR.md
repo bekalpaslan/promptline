@@ -107,13 +107,27 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    has to return to a window that is still on screen: the popup shows it in
    its feedback strip and nothing else happens. Copy-only (Ctrl+Enter) leaves
    the popup up for a moment to say "Copied to clipboard"; the popup hides
-   itself afterwards. The `uses` bump is best effort in both halves, the
+   itself afterwards. The command answers `"pasted"` or `"copied"`: when the
+   manager was the foreground window at summon time there is nothing sane to
+   paste into (Enter would land the prompt in whatever editor field had
+   focus), so Rust copies only, leaves the popup up, and the popup says
+   "Copied to clipboard — the manager was in front" and hides itself the
+   way Ctrl+Enter does. That self-hide is a 600 ms timer the next summon
+   cancels: a hotkey press inside the pause used to have the freshly shown
+   popup hidden under the user. One pick at a time: the popup ignores a second Enter
+   while a paste is in flight (the row stays tinted until the popup is
+   hidden or the paste fails), because a fast double Enter used to run the
+   command twice, two Ctrl+V and `uses` +2. The `uses` bump is best effort in both halves, the
    read as much as the write: the popup is already hidden by then, so an
    error would reach nobody, and a library a sync client or scanner is
    holding for a moment must not turn into a paste that never happens with
    the prompt sitting on the clipboard.
 5. A detached thread waits 80 ms, calls `SetForegroundWindow` on the remembered
-   window, waits another 80 ms, and sends Ctrl+V via `SendInput`.
+   window, waits another 80 ms, and sends Ctrl+V via `SendInput`. When
+   either refuses (an elevated window, say), Rust re-shows the popup and
+   emits `paste-failed` with a message; the popup shows it in its feedback
+   strip as an error that stays until Esc or the next summon, and the prompt
+   is still on the clipboard to paste by hand.
 
 The sleeps are load-bearing. Focus changes are asynchronous on Windows; sending
 the keystroke immediately delivers it to whatever had focus a moment ago.
@@ -146,6 +160,25 @@ trip through it would depend on its state. The bare "u" is honoured only while
 the search box is empty — every other key goes to the search box, and an
 unconditional "u" made a query like "unit tests" impossible to type after a
 delete; Ctrl+Z works whatever is typed.
+
+**The popup's list folds from the keyboard too.** ← folds the selected
+row's group, or its pack on an ungrouped row; Ctrl+→ unfolds every pack and
+every group at once, because a folded section's rows leave the navigable
+list and there is no row left to unfold from. It used to clear pack folds
+only, and only while one was folded, so a group folded with ← could only be
+reopened with the mouse.
+
+**The preview card never covers the row it describes.** → (or a hover)
+opens it below the row when it fits there, above the row otherwise, and on
+whichever side has more room, capped to that room and scrolling, when
+neither fits; clamping it into the window used to slide it up over the
+row near the bottom of the list. The hint bar drops its least-used hints
+(actions, preview, newline) below 360 px, because at the 320 px minimum
+width it wrapped to two lines and ate a row. Ctrl+N's pre-filled title is
+the clipboard's first line cut at a word boundary within 40 characters
+(`titleFromClipboard`), not mid-word. Title ties everywhere — the popup's
+ranking and the manager's orders — compare numerically, so "Bulk prompt
+2" comes before "Bulk prompt 10".
 
 ## Placeholders
 
@@ -322,6 +355,7 @@ re-fetches:
 | `snippets-changed` | Another window wrote the library — re-fetch before saving over it; payload is the new revision |
 | `edit-prompt` | Popup asked the manager to open a prompt |
 | `popup-shown` / `first-popup` | Popup opened; the second only ever fires once |
+| `paste-failed` | The paste thread could not focus the target or send Ctrl+V; the popup is re-shown and shows the payload's `message` |
 | `notice` | Rust hit something the user must see (quarantined file, refused hotkey); shown until dismissed |
 
 Every delete in the manager goes through one `deleteWithUndo`, and both the
