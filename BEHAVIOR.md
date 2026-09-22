@@ -26,26 +26,26 @@ the pure logic (tokenizing, fuzzy scoring, pack parsing) and is covered by
 `tests/core.test.js` running under bare `node --test`, with no build step in the
 way. `src/lib/core.ts` bridges it into React.
 
-**The manager has two modes.** Prompt view is the sidebar beside the
-editor. Library view is the library spanning the window with the editor
-slid out: packs as cards holding group cards holding prompt previews, each
-folding like the editor's Advanced options card. Clicking a pack or group
-title in the sidebar opens library view on it, expanded one level down (a
-pack shows its prompts and its group headers, a group shows its prompts)
-with every other container folded; the sidebar's chevrons keep folding the
-tree without leaving prompt view, and a double-click still renames (the
-open waits a beat for that). Opening a prompt — a card, a sidebar row, the
-popup's "Edit in manager", "+ New" — is what returns to prompt view, as do
-the Prompts button and Escape. Escape from the editor goes the other way,
-opening the library on that prompt's pack and group. Library folds are
-not saved: each entry opens on what was clicked. The tree itself
+**The sidebar never leaves the manager.** It is the library as a tree,
+and whatever is selected in it fills the pane beside it: a prompt opens in
+the editor, and a pack or group title shows its **overview** — the prompts
+it holds as preview cards (a pack's ungrouped prompts, then each group under
+a heading that opens that group), with the clipboard substituted as in every
+preview. Clicking a title selects it the way clicking a row selects a
+prompt; the chevron folds the tree, Enter folds too, and a double-click
+renames. The overview has no folds of its own and no mode to leave: a card
+click opens that prompt, the editor's crumbs (pack, group) open those
+overviews, and Escape goes up one level — from a prompt to its group (or
+pack), from a group to its pack. This replaced a full-window library view
+that hid the sidebar to draw the same tree a second time. The tree itself
 (`packTree`) and the row order (`sortPrompts`) come from `ui/core.js`, one
-shape for the sidebar and the library so the two can't disagree. The
+shape for the sidebar and the overview so the two can't disagree. The
 three-dot, right-click and Menu-key actions on packs, groups and prompts
 are one hook too (`useLibraryMenus` in `menus.tsx`), with the inline
 rename and the delete-group dialog it drives, so both surfaces offer the
-same menu; only "Move up/down" is sidebar-only, since the library's grid
-has no row order to move within.
+same menu; only "Move up/down" is sidebar-only, since the overview's grid
+has no row order to move within. An overview follows a rename of its pack
+or group; one whose group is gone shows the pack.
 
 ## The paste pipeline
 
