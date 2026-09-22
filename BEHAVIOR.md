@@ -60,9 +60,14 @@ a hairline, not a panel, so it doesn't repeat its pack's look.
 **The sidebar's filter is always there, and apart from the display.** The
 field under the title takes the popup's syntax (`#tag`, `@pack`, `>group`,
 then free-text words anywhere in the prompt: `matchesQuery` in core), with
-Ctrl+F from anywhere in the manager and Escape clearing it. While it holds
-text the tree opens to its hits, a pack counts "hits / all", matched words
-are marked in titles, and a line under the field counts them. A search
+Ctrl+F from anywhere in the manager and Escape clearing it. Its filter
+terms read as chips: the field is a plain input with transparent text over
+a mirror that draws the same text, the terms on a ground and a hairline
+(both drawn without padding, so the mirror lays out exactly like the input
+and the caret stays where it belongs). While it holds text the tree opens
+to its hits, a pack counts "hits / all", a pack without hits stays listed
+but faded (so the tree keeps its shape), matched words are marked in
+titles, and a line under the field counts them. A search
 begun while a pack or group is shown stays inside it (a chip in the field;
 its × or "N more elsewhere" widens it) and clearing the search drops the
 scope. How the list is shown lives in the Display menu beside the field:
