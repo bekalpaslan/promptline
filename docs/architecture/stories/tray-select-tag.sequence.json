@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "Tray to tagged prompt",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "column_fit": "spread",
+    "viewBox": [1080, 610],
+    "views": [
+      { "id": "open", "label": "Open from the tray", "focus": ["you", "tray", "rust", "manager"], "note": "A left-click only shows the manager. It is already loaded, kept current by snippets-changed, so nothing is re-read." },
+      { "id": "select", "label": "Select a prompt", "focus": ["you", "manager"], "note": "Choosing a prompt in the sidebar is local to the manager: the editor opens it from the library in memory." },
+      { "id": "tag-save", "label": "Add a tag and save", "focus": ["you", "manager", "rust", "store", "packfiles"], "note": "The edit autosaves after 600 ms: update_snippet rewrites snippets.json atomically, mirrors pack files, returns the library." }
+    ]
+  },
+  "participants": [
+    { "id": "you", "type": "external", "label": "You" },
+    { "id": "tray", "type": "external", "label": "Tray icon", "sublabel": "TrayIconBuilder" },
+    { "id": "manager", "type": "frontend", "label": "Manager", "sublabel": "Sidebar + Editor" },
+    { "id": "rust", "type": "backend", "label": "Rust core", "sublabel": "lib.rs commands" },
+    { "id": "store", "type": "database", "label": "snippets.json", "sublabel": "config dir" },
+    { "id": "packfiles", "type": "database", "label": "Pack files", "sublabel": "packs/*.json" }
+  ],
+  "segments": [
+    { "from": 158, "to": 240, "label": "Open" },
+    { "from": 248, "to": 300, "label": "Select" },
+    { "from": 308, "to": 528, "label": "Tag and save" }
+  ],
+  "messages": [
+    { "id": "tray-click", "from": "you", "to": "tray", "y": 172, "label": "left-click" },
+    { "id": "tray-event", "from": "tray", "to": "rust", "y": 200, "label": "TrayIconEvent::Click" },
+    { "id": "show-main", "from": "rust", "to": "manager", "y": 228, "label": "show_main: show · focus", "variant": "emphasis" },
+    { "id": "pick-prompt", "from": "you", "to": "manager", "y": 262, "label": "click prompt in Sidebar" },
+    { "id": "editor-open", "from": "manager", "to": "you", "y": 290, "label": "Editor opens it", "variant": "return" },
+    { "id": "add-tag", "from": "you", "to": "manager", "y": 322, "label": "add tag (pill or + box)" },
+    { "id": "update", "from": "manager", "to": "rust", "y": 350, "label": "update_snippet (600 ms debounce)", "variant": "emphasis" },
+    { "id": "load", "from": "rust", "to": "store", "y": 378, "label": "re-read: load_snippets_from_disk" },
+    { "id": "write", "from": "rust", "to": "store", "y": 406, "label": "write_snippets: atomic, revision+1", "variant": "emphasis" },
+    { "id": "mirror", "from": "rust", "to": "packfiles", "y": 434, "label": "sync_pack_files", "variant": "dashed" },
+    { "id": "library", "from": "rust", "to": "manager", "y": 462, "label": "Library { snippets, revision }", "variant": "return" },
+    { "id": "packs", "from": "manager", "to": "rust", "y": 490, "label": "get_config (refreshPacks)", "variant": "dashed" },
+    { "id": "shown", "from": "manager", "to": "you", "y": 518, "label": "tag shows on the prompt", "variant": "return" }
+  ],
+  "activations": [
+    { "participant": "tray", "from": 169, "to": 203, "type": "external" },
+    { "participant": "manager", "from": 223, "to": 524, "type": "frontend" },
+    { "participant": "rust", "from": 197, "to": 233, "type": "backend" },
+    { "participant": "rust", "from": 347, "to": 496, "type": "backend" },
+    { "participant": "store", "from": 375, "to": 412, "type": "database" },
+    { "participant": "packfiles", "from": 429, "to": 439, "type": "database" }
+  ],
+  "cards": [
+    { "dot": "cyan", "title": "Open", "items": ["The manager stays loaded while hidden", "The tray only shows and focuses it"] },
+    { "dot": "emerald", "title": "Save", "items": ["Autosave on a 600 ms debounce, no Save button", "Rust re-reads the file, merges, writes atomically", "Each pack is mirrored to its own file"] },
+    { "dot": "amber", "title": "The popup isn't told", "items": ["notify_other_window only signals the manager", "The popup reloads when it next opens (popup-shown)"] }
+  ]
+}
