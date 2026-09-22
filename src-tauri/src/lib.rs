@@ -52,8 +52,12 @@ struct Library {
 #[serde(tag = "kind", rename_all = "kebab-case")]
 enum StoreError {
     /// The caller's `base_revision` is behind the file; nothing was written
-    Stale { revision: u64 },
-    Failed { message: String },
+    Stale {
+        revision: u64,
+    },
+    Failed {
+        message: String,
+    },
 }
 
 impl From<String> for StoreError {
@@ -71,7 +75,10 @@ struct Notice {
 
 fn notify(app: &AppHandle, kind: &str, message: String) {
     log::warn!("{kind}: {message}");
-    let notice = Notice { kind: kind.into(), message };
+    let notice = Notice {
+        kind: kind.into(),
+        message,
+    };
     if let Some(state) = app.try_state::<AppState>() {
         state.notices.lock().unwrap().push(notice.clone());
     }
@@ -140,7 +147,8 @@ fn rename_with_retries(from: &Path, to: &Path) -> std::io::Result<()> {
 /// ERROR_ACCESS_DENIED (5) and ERROR_SHARING_VIOLATION (32). Anything else
 /// (a missing folder, a full disk) will not get better by waiting.
 fn is_transient_rename_error(e: &std::io::Error) -> bool {
-    e.kind() == std::io::ErrorKind::PermissionDenied || matches!(e.raw_os_error(), Some(5) | Some(32))
+    e.kind() == std::io::ErrorKind::PermissionDenied
+        || matches!(e.raw_os_error(), Some(5) | Some(32))
 }
 
 fn now_millis() -> u64 {
@@ -165,7 +173,10 @@ enum Loaded<T> {
     /// The file exists but isn't valid JSON of the expected shape. It has been
     /// moved to `moved_to` untouched so nothing can overwrite it; the caller
     /// decides what to start from. `error` is serde's message.
-    Quarantined { moved_to: PathBuf, error: String },
+    Quarantined {
+        moved_to: PathBuf,
+        error: String,
+    },
 }
 
 /// Read and parse a JSON data file. An I/O failure other than "not found"
@@ -181,7 +192,10 @@ fn load_json_file<T: DeserializeOwned>(path: &Path) -> Result<Loaded<T>, String>
         Ok(v) => Ok(Loaded::Present(v)),
         Err(e) => {
             let moved_to = quarantine(path)?;
-            Ok(Loaded::Quarantined { moved_to, error: e.to_string() })
+            Ok(Loaded::Quarantined {
+                moved_to,
+                error: e.to_string(),
+            })
         }
     }
 }
@@ -193,7 +207,11 @@ fn quarantine(path: &Path) -> Result<PathBuf, String> {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or(0);
-    let base = path.file_name().unwrap_or_default().to_string_lossy().into_owned();
+    let base = path
+        .file_name()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .into_owned();
     let mut dest = path.with_file_name(format!("{base}.corrupt-{stamp}"));
     let mut i = 2;
     while dest.exists() {
@@ -385,7 +403,9 @@ fn normalize_pack_paths(config: &mut Config, packs_dir: &Path) -> bool {
 /// absolute one it can display, read and show in a folder.
 fn with_resolved_pack_paths(mut config: Config, packs_dir: &Path) -> Config {
     for pack in config.packs.iter_mut().filter(|p| !p.path.is_empty()) {
-        pack.path = resolve_pack_path(packs_dir, &pack.path).to_string_lossy().into_owned();
+        pack.path = resolve_pack_path(packs_dir, &pack.path)
+            .to_string_lossy()
+            .into_owned();
     }
     config
 }
@@ -400,7 +420,11 @@ fn sanitize_pack_filename(name: &str) -> String {
         }
     }
     let s = s.trim_matches('-').to_string();
-    let s = s.split('-').filter(|p| !p.is_empty()).collect::<Vec<_>>().join("-");
+    let s = s
+        .split('-')
+        .filter(|p| !p.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
     if s.is_empty() {
         return "pack".into();
     }
@@ -443,7 +467,11 @@ fn claimed_pack_paths(app: &AppHandle) -> Vec<String> {
             c.packs
                 .iter()
                 .filter(|p| !p.path.is_empty())
-                .map(|p| resolve_pack_path(&dir, &p.path).to_string_lossy().into_owned())
+                .map(|p| {
+                    resolve_pack_path(&dir, &p.path)
+                        .to_string_lossy()
+                        .into_owned()
+                })
                 .collect()
         })
         .unwrap_or_default()
@@ -509,7 +537,8 @@ fn packs_in_play(config: &Config, snippets: &[Snippet]) -> Vec<String> {
 // files can't be handled at the point of creation alone.
 fn ensure_packs_backed(app: &AppHandle) {
     // An unreadable file is no reason to invent metadata over it
-    let (Ok(mut config), Ok(snippets)) = (load_config_from_disk(app), load_snippets_from_disk(app)) else {
+    let (Ok(mut config), Ok(snippets)) = (load_config_from_disk(app), load_snippets_from_disk(app))
+    else {
         return;
     };
 
@@ -536,7 +565,11 @@ fn ensure_packs_backed(app: &AppHandle) {
                         String::new()
                     }
                 };
-                config.packs.push(PackMeta { name, locked: false, path });
+                config.packs.push(PackMeta {
+                    name,
+                    locked: false,
+                    path,
+                });
                 changed = true;
             }
         }
@@ -640,7 +673,9 @@ fn pack_file_holds_only_drafts(path: &Path) -> bool {
     !prompts.is_empty()
         && prompts.iter().all(|p| {
             p.get("title").and_then(|t| t.as_str()) == Some("New prompt")
-                && p.get("text").and_then(|t| t.as_str()).is_none_or(|t| t.trim().is_empty())
+                && p.get("text")
+                    .and_then(|t| t.as_str())
+                    .is_none_or(|t| t.trim().is_empty())
         })
 }
 
@@ -667,7 +702,10 @@ fn write_pack_files(packs_dir: &Path, packs: &[PackMeta], snippets: &[Snippet]) 
                 false => continue,
             },
         };
-        if fs::read(&path).map(|cur| cur == json.as_bytes()).unwrap_or(false) {
+        if fs::read(&path)
+            .map(|cur| cur == json.as_bytes())
+            .unwrap_or(false)
+        {
             continue;
         }
         match write_atomic(&path, json.as_bytes()) {
@@ -905,11 +943,16 @@ fn write_snippets(app: &AppHandle, snippets: &[Snippet]) -> Result<(), String> {
 }
 
 fn current_revision(app: &AppHandle) -> u64 {
-    app.try_state::<AppState>().map(|s| *s.revision.lock().unwrap()).unwrap_or(0)
+    app.try_state::<AppState>()
+        .map(|s| *s.revision.lock().unwrap())
+        .unwrap_or(0)
 }
 
 fn library(app: &AppHandle) -> Result<Library, String> {
-    Ok(Library { snippets: load_snippets_from_disk(app)?, revision: current_revision(app) })
+    Ok(Library {
+        snippets: load_snippets_from_disk(app)?,
+        revision: current_revision(app),
+    })
 }
 
 // ---- Intent-level edits: read-modify-write on disk, so a window never has
@@ -997,7 +1040,10 @@ fn mutate_library(
         sync_pack_files(app);
         notify_other_window(app, window);
     }
-    Ok(Library { snippets, revision: current_revision(app) })
+    Ok(Library {
+        snippets,
+        revision: current_revision(app),
+    })
 }
 
 #[tauri::command]
@@ -1140,7 +1186,10 @@ fn check_revision(base: Option<u64>, current: u64) -> Result<(), StoreError> {
 #[tauri::command]
 fn get_config(app: AppHandle, state: State<AppState>) -> Result<Config, String> {
     let _guard = state.store.lock().unwrap();
-    Ok(with_resolved_pack_paths(load_config_from_disk(&app)?, &packs_dir(&app)))
+    Ok(with_resolved_pack_paths(
+        load_config_from_disk(&app)?,
+        &packs_dir(&app),
+    ))
 }
 
 fn save_config(app: &AppHandle, config: &Config) -> Result<(), String> {
@@ -1153,9 +1202,13 @@ fn save_config(app: &AppHandle, config: &Config) -> Result<(), String> {
 /// system-wide. The recorder in Settings never emits one, so this guards
 /// the file, not the UI.
 fn parse_hotkey(text: &str) -> Result<Shortcut, String> {
-    let shortcut: Shortcut = text.parse().map_err(|e| format!("Invalid hotkey \"{text}\": {e}"))?;
+    let shortcut: Shortcut = text
+        .parse()
+        .map_err(|e| format!("Invalid hotkey \"{text}\": {e}"))?;
     if shortcut.mods.is_empty() {
-        return Err(format!("Invalid hotkey \"{text}\": it needs a modifier (Ctrl, Alt, Shift or Win)"));
+        return Err(format!(
+            "Invalid hotkey \"{text}\": it needs a modifier (Ctrl, Alt, Shift or Win)"
+        ));
     }
     Ok(shortcut)
 }
@@ -1244,7 +1297,11 @@ fn retire_into(deleted_dir: &Path, src: &Path) -> std::io::Result<Option<PathBuf
         return Ok(None);
     }
     fs::create_dir_all(deleted_dir)?;
-    let stem = src.file_stem().unwrap_or_default().to_string_lossy().into_owned();
+    let stem = src
+        .file_stem()
+        .unwrap_or_default()
+        .to_string_lossy()
+        .into_owned();
     let mut dest = deleted_dir.join(format!("{stem}.json"));
     let mut i = 2;
     while dest.exists() {
@@ -1259,7 +1316,12 @@ fn retire_into(deleted_dir: &Path, src: &Path) -> std::io::Result<Option<PathBuf
 /// two frontend writes, `ensure_packs_backed` ran in between and saw prompts
 /// still carrying the old name (or already carrying the new one) and
 /// conjured a second pack for it.
-fn rename_pack_in(config: &mut Config, snippets: &mut [Snippet], from: &str, to: &str) -> Result<(), String> {
+fn rename_pack_in(
+    config: &mut Config,
+    snippets: &mut [Snippet],
+    from: &str,
+    to: &str,
+) -> Result<(), String> {
     if from == to {
         return Ok(());
     }
@@ -1280,7 +1342,11 @@ fn rename_pack_in(config: &mut Config, snippets: &mut [Snippet], from: &str, to:
     }
     if !renamed {
         // A pack that existed only as a name on prompts: give it metadata now
-        config.packs.push(PackMeta { name: to.to_string(), locked: false, path: String::new() });
+        config.packs.push(PackMeta {
+            name: to.to_string(),
+            locked: false,
+            path: String::new(),
+        });
     }
     for s in snippets.iter_mut().filter(|s| s.pack == from) {
         s.pack = to.to_string();
@@ -1304,7 +1370,10 @@ fn rename_pack(
     write_snippets(&app, &snippets)?;
     sync_pack_files(&app);
     notify_other_window(&app, &window);
-    Ok(Library { snippets, revision: current_revision(&app) })
+    Ok(Library {
+        snippets,
+        revision: current_revision(&app),
+    })
 }
 
 /// Create a fresh file-backed pack file and return its absolute path.
@@ -1418,7 +1487,9 @@ async fn import_pack_file() -> Result<Option<String>, String> {
         .pick_file()
         .await
     {
-        Some(f) => fs::read_to_string(f.path()).map(Some).map_err(|e| e.to_string()),
+        Some(f) => fs::read_to_string(f.path())
+            .map(Some)
+            .map_err(|e| e.to_string()),
         None => Ok(None),
     }
 }
@@ -1444,7 +1515,11 @@ fn get_autostart(app: AppHandle) -> bool {
 #[tauri::command]
 fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
     let autolaunch = app.autolaunch();
-    let result = if enabled { autolaunch.enable() } else { autolaunch.disable() };
+    let result = if enabled {
+        autolaunch.enable()
+    } else {
+        autolaunch.disable()
+    };
     result.map_err(|e| {
         log::warn!("couldn't set autostart to {enabled}: {e}");
         e.to_string()
@@ -1600,7 +1675,9 @@ fn paste_snippet(
             // happens to be in front, which is not the one the user meant
             let focused = platform::focus_window(prev_window);
             if !focused {
-                log::warn!("SetForegroundWindow refused window {prev_window:#x}; the paste was not sent");
+                log::warn!(
+                    "SetForegroundWindow refused window {prev_window:#x}; the paste was not sent"
+                );
             }
             let sent = focused && {
                 std::thread::sleep(Duration::from_millis(80));
@@ -1628,7 +1705,8 @@ fn expand_clipboard(text: &str, clip: Option<&str>) -> String {
 
 /// What the popup shows when the paste thread could not deliver. The
 /// popup listens for `paste-failed` with exactly this payload shape.
-const PASTE_FAILED_MESSAGE: &str = "Couldn't paste into that window — the prompt is on your clipboard";
+const PASTE_FAILED_MESSAGE: &str =
+    "Couldn't paste into that window — the prompt is on your clipboard";
 
 /// The paste thread could not deliver (an elevated window, a foreground
 /// lock held elsewhere, a blocked input queue): bring the popup back where
@@ -1799,7 +1877,13 @@ fn show_popup(app: &AppHandle) {
                 width: work.size.width as f64,
                 height: work.size.height as f64,
             };
-            (x, y) = clamp_to_area(x, y, size.width as f64 * ratio, size.height as f64 * ratio, area);
+            (x, y) = clamp_to_area(
+                x,
+                y,
+                size.width as f64 * ratio,
+                size.height as f64 * ratio,
+                area,
+            );
         }
         let _ = w.set_position(PhysicalPosition::new(x, y));
     }
@@ -1810,13 +1894,12 @@ fn show_popup(app: &AppHandle) {
 
 #[cfg(windows)]
 mod platform {
+    use windows::core::{w, HSTRING, PCWSTR};
     use windows::Win32::Foundation::HWND;
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT,
-        KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_MENU,
-        VK_SHIFT, VK_V,
+        GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
+        KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_MENU, VK_SHIFT, VK_V,
     };
-    use windows::core::{w, HSTRING, PCWSTR};
     use windows::Win32::UI::Shell::ShellExecuteW;
     use windows::Win32::UI::WindowsAndMessaging::{
         GetForegroundWindow, SetForegroundWindow, SW_SHOWNORMAL,
@@ -1832,7 +1915,14 @@ mod platform {
     pub fn open_url(url: &str) -> Result<(), String> {
         let url = HSTRING::from(url);
         let result = unsafe {
-            ShellExecuteW(HWND::default(), w!("open"), &url, PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL)
+            ShellExecuteW(
+                HWND::default(),
+                w!("open"),
+                &url,
+                PCWSTR::null(),
+                PCWSTR::null(),
+                SW_SHOWNORMAL,
+            )
         };
         let code = result.0 as usize;
         if code > 32 {
@@ -1911,748 +2001,6 @@ mod platform {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn v2_category_migrates_to_tag_and_packs_get_defaults() {
-        let mut snippets: Vec<Snippet> = serde_json::from_str(
-            r#"[
-                {"id": "starter-root-cause-first", "title": "Root cause", "text": "x", "category": "Debug"},
-                {"id": "abc-123", "title": "Mine", "text": "y", "category": "Review"},
-                {"id": "def-456", "title": "Tagged", "text": "z", "tags": ["kept"], "pack": "Custom"}
-            ]"#,
-        )
-        .unwrap();
-        apply_snippet_migrations(&mut snippets);
-
-        assert_eq!(snippets[0].tags, vec!["debug"]);
-        assert_eq!(snippets[0].pack, "Starter");
-        assert_eq!(snippets[1].tags, vec!["review"]);
-        assert_eq!(snippets[1].pack, "My prompts");
-        // Already-migrated data is untouched
-        assert_eq!(snippets[2].tags, vec!["kept"]);
-        assert_eq!(snippets[2].pack, "Custom");
-    }
-
-    #[test]
-    fn snippet_deserializes_with_all_new_fields_defaulted() {
-        let s: Snippet =
-            serde_json::from_str(r#"{"id": "a", "title": "t", "text": "b"}"#).unwrap();
-        assert!(s.tags.is_empty());
-        assert!(s.pack.is_empty());
-        assert!(s.field_values.is_empty());
-        assert!(s.config_values.is_empty());
-        assert_eq!(s.uses, 0);
-        assert!(!s.pinned);
-        assert_eq!(s.pinned_at, 0);
-    }
-
-    #[test]
-    fn legacy_category_field_is_not_reserialized() {
-        let s: Snippet = serde_json::from_str(
-            r#"{"id": "a", "title": "t", "text": "b", "category": "Debug"}"#,
-        )
-        .unwrap();
-        let json = serde_json::to_string(&s).unwrap();
-        assert!(!json.contains("category"));
-    }
-
-    #[test]
-    fn config_deserializes_older_versions_with_defaults() {
-        let c: Config = serde_json::from_str(r#"{"hotkey": "ctrl+alt+v"}"#).unwrap();
-        assert_eq!(c.hotkey, "ctrl+alt+v");
-        assert!(c.packs.is_empty());
-        assert_eq!(c.theme, "sand");
-        assert_eq!(c.density, "comfortable");
-        assert_eq!(c.scale, "100");
-        assert_eq!(c.font, "system");
-        assert!(!c.popup_seen);
-        assert_eq!(c.popup_width, 0.0);
-        assert_eq!(c.popup_height, 0.0);
-
-        let with_packs: Config = serde_json::from_str(
-            r#"{"hotkey": "x", "packs": [{"name": "Starter", "locked": true}, {"name": "Open"}]}"#,
-        )
-        .unwrap();
-        assert!(with_packs.packs[0].locked);
-        assert!(!with_packs.packs[1].locked);
-
-        let sized: Config = serde_json::from_str(
-            r#"{"hotkey": "x", "popupWidth": 480.0, "popupHeight": 620.5}"#,
-        )
-        .unwrap();
-        assert_eq!(sized.popup_width, 480.0);
-        assert_eq!(sized.popup_height, 620.5);
-    }
-
-    #[test]
-    fn pack_filenames_are_sanitized_and_stable() {
-        assert_eq!(sanitize_pack_filename("Beekon Routine Injections"), "beekon-routine-injections");
-        assert_eq!(sanitize_pack_filename("Rust + Tauri!!"), "rust-tauri");
-        assert_eq!(sanitize_pack_filename("---"), "pack");
-        assert_eq!(sanitize_pack_filename("Ünïcode Pack"), "ünïcode-pack");
-    }
-
-    #[test]
-    fn reserved_windows_device_names_never_become_pack_filenames() {
-        for name in ["Con", "CON", "nul", "aux", "PRN", "com1", "LPT9"] {
-            let s = sanitize_pack_filename(name);
-            assert!(s.ends_with("-pack"), "{name} -> {s}");
-            assert!(!is_reserved_device_name(&s));
-        }
-        // Not reserved: longer names, COM0, prefixes with more characters
-        assert_eq!(sanitize_pack_filename("Console"), "console");
-        assert_eq!(sanitize_pack_filename("com0"), "com0");
-        assert_eq!(sanitize_pack_filename("com10"), "com10");
-        assert_eq!(sanitize_pack_filename("Con Air"), "con-air");
-    }
-
-    #[test]
-    fn backing_a_pack_adopts_the_file_an_agent_already_wrote_for_it() {
-        let dir = temp_dir("packadopt");
-        // The Generate dialog's file for pack "Agent Pack", filled by the agent
-        let agent_file = dir.join("agent-pack.json");
-        fs::write(&agent_file, pack_doc_json("Agent Pack", vec![serde_json::json!({
-            "title": "A", "tags": ["t"], "text": "body"
-        })]).unwrap()).unwrap();
-        // The import conjures the pack; backing it must land on that same file
-        let (path, adopted) = pack_file_slot(&dir, "Agent Pack", &[]);
-        assert!(adopted);
-        assert_eq!(path, agent_file);
-        // Once a pack claims it, the next same-named pack file gets its own name
-        let claimed = vec![agent_file.to_string_lossy().into_owned()];
-        let (path, adopted) = pack_file_slot(&dir, "Agent Pack", &claimed);
-        assert!(!adopted);
-        assert_eq!(path, dir.join("agent-pack-2.json"));
-        // A file of another pack's, or one that isn't a pack document, is never taken
-        fs::write(dir.join("other.json"), pack_doc_json("Other", Vec::new()).unwrap()).unwrap();
-        assert_eq!(pack_file_slot(&dir, "Other pack", &[]).0, dir.join("other-pack.json"));
-        fs::write(dir.join("junk.json"), b"not json").unwrap();
-        let (path, adopted) = pack_file_slot(&dir, "Junk", &[]);
-        assert!(!adopted);
-        assert_eq!(path, dir.join("junk-2.json"));
-        // Nothing there at all: the plain name
-        assert_eq!(pack_file_slot(&dir, "Fresh", &[]), (dir.join("fresh.json"), false));
-    }
-
-    #[test]
-    fn pack_files_are_written_only_when_their_content_changed() {
-        let dir = temp_dir("packsync");
-        // P is stored the on-disk way, relative to packs/; the file is resolved
-        let path = dir.join("p.json");
-        let packs = vec![
-            PackMeta { name: "P".into(), locked: false, path: "p.json".into() },
-            PackMeta { name: "Empty".into(), locked: false, path: dir.join("empty.json").to_string_lossy().into_owned() },
-            PackMeta { name: "Unbacked".into(), locked: false, path: String::new() },
-        ];
-        let mut a = snip("A", "t", "body");
-        a.pack = "P".into();
-        let mut snippets = vec![a];
-        // First sync writes P; the empty pack never gets a file written
-        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 1);
-        assert!(!dir.join("empty.json").exists());
-        let first = fs::read_to_string(&path).unwrap();
-        assert!(first.contains("\"title\": \"A\""));
-        // Nothing changed: nothing written
-        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 0);
-        assert_eq!(fs::read_to_string(&path).unwrap(), first);
-        // A change to a P prompt writes P again (and only P)
-        snippets[0].text = "changed".into();
-        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 1);
-        assert!(fs::read_to_string(&path).unwrap().contains("changed"));
-        // Personal state never reaches the file
-        snippets[0].uses = 9;
-        snippets[0].pinned = true;
-        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 0);
-    }
-
-    #[test]
-    fn a_pack_file_left_holding_only_swept_drafts_is_emptied() {
-        let dir = temp_dir("packdrafts");
-        let path = dir.join("d.json");
-        let packs = vec![PackMeta { name: "D".into(), locked: false, path: "d.json".into() }];
-        let mut draft = snip("New prompt", "", "");
-        draft.pack = "D".into();
-        draft.tags.clear();
-        assert_eq!(write_pack_files(&dir, &packs, &[draft]).written, 1);
-        assert!(fs::read_to_string(&path).unwrap().contains("New prompt"));
-        // The manager's sweep removed the draft: the file follows
-        assert_eq!(write_pack_files(&dir, &packs, &[]).written, 1);
-        let after: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert_eq!(after["prompts"].as_array().unwrap().len(), 0);
-        assert_eq!(write_pack_files(&dir, &packs, &[]).written, 0);
-        // But a file with real content (an agent's, or a user-emptied pack)
-        // is still never overwritten by an empty library view
-        let mut real = snip("Real", "t", "body");
-        real.pack = "D".into();
-        assert_eq!(write_pack_files(&dir, &packs, &[real]).written, 1);
-        assert_eq!(write_pack_files(&dir, &packs, &[]).written, 0);
-        assert!(fs::read_to_string(&path).unwrap().contains("Real"));
-    }
-
-    #[test]
-    fn a_pack_file_that_cannot_be_written_is_reported_not_skipped() {
-        let dir = temp_dir("packfail");
-        // The pack's folder is gone (a moved profile, a deleted subfolder)
-        let packs = vec![
-            PackMeta { name: "Gone".into(), locked: false, path: dir.join("missing").join("gone.json").to_string_lossy().into_owned() },
-            PackMeta { name: "Fine".into(), locked: false, path: "fine.json".into() },
-        ];
-        let mut gone = snip("A", "t", "body");
-        gone.pack = "Gone".into();
-        let mut fine = snip("B", "t", "body");
-        fine.pack = "Fine".into();
-        let result = write_pack_files(&dir, &packs, &[gone, fine]);
-        // The good file is still written; the bad one is named with its error
-        assert_eq!(result.written, 1);
-        assert!(dir.join("fine.json").exists());
-        assert_eq!(result.failed.len(), 1);
-        assert!(result.failed[0].contains("gone.json"), "{}", result.failed[0]);
-    }
-
-    #[test]
-    fn pack_paths_are_stored_relative_to_packs_and_resolved_back() {
-        let packs = PathBuf::from(if cfg!(windows) { "C:\\data\\packs" } else { "/data/packs" });
-        let elsewhere = PathBuf::from(if cfg!(windows) { "D:\\shared\\team.json" } else { "/shared/team.json" });
-        // Under packs/: relative on disk, the same file when resolved
-        assert_eq!(relativize_pack_path(&packs, &packs.join("work.json")), "work.json");
-        assert_eq!(resolve_pack_path(&packs, "work.json"), packs.join("work.json"));
-        let nested = packs.join("generated").join("g.json");
-        let rel = relativize_pack_path(&packs, &nested);
-        assert_eq!(resolve_pack_path(&packs, &rel), nested);
-        // Elsewhere: absolute both ways
-        assert_eq!(relativize_pack_path(&packs, &elsewhere), elsewhere.to_string_lossy());
-        assert_eq!(resolve_pack_path(&packs, &elsewhere.to_string_lossy()), elsewhere);
-        // Not file-backed stays empty, and packs/ itself is never "relative to itself"
-        assert_eq!(resolve_pack_path(&packs, ""), PathBuf::new());
-        assert_eq!(relativize_pack_path(&packs, &packs), packs.to_string_lossy());
-    }
-
-    #[test]
-    fn absolute_pack_paths_under_packs_migrate_to_relative_once() {
-        let packs = PathBuf::from(if cfg!(windows) { "C:\\data\\packs" } else { "/data/packs" });
-        let elsewhere = if cfg!(windows) { "D:\\shared\\team.json" } else { "/shared/team.json" };
-        let mut config = Config::default();
-        config.packs.push(PackMeta { name: "Work".into(), locked: false, path: packs.join("work.json").to_string_lossy().into_owned() });
-        config.packs.push(PackMeta { name: "Team".into(), locked: true, path: elsewhere.into() });
-        config.packs.push(PackMeta { name: "Already".into(), locked: false, path: "already.json".into() });
-        config.packs.push(PackMeta { name: "None".into(), locked: false, path: String::new() });
-        // A config from before 0.2.9: the path under packs/ becomes relative,
-        // the one elsewhere is kept absolute, the rest are untouched
-        assert!(normalize_pack_paths(&mut config, &packs));
-        assert_eq!(config.packs[0].path, "work.json");
-        assert_eq!(config.packs[1].path, elsewhere);
-        assert_eq!(config.packs[2].path, "already.json");
-        assert_eq!(config.packs[3].path, "");
-        // Once migrated, a load changes nothing (and so writes nothing)
-        assert!(!normalize_pack_paths(&mut config, &packs));
-        // The frontend always gets absolute paths, whatever is stored
-        let resolved = with_resolved_pack_paths(config, &packs);
-        assert_eq!(resolved.packs[0].path, packs.join("work.json").to_string_lossy());
-        assert_eq!(resolved.packs[1].path, elsewhere);
-        assert_eq!(resolved.packs[2].path, packs.join("already.json").to_string_lossy());
-        assert_eq!(resolved.packs[3].path, "");
-    }
-
-    #[test]
-    fn pack_meta_path_defaults_for_older_configs() {
-        let c: Config = serde_json::from_str(
-            r#"{"hotkey": "x", "packs": [{"name": "Old", "locked": true}]}"#,
-        )
-        .unwrap();
-        assert_eq!(c.packs[0].path, "");
-        assert!(c.packs[0].locked);
-    }
-
-    fn temp_dir(name: &str) -> PathBuf {
-        let dir = std::env::temp_dir().join(format!("promptline-test-{}-{name}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        dir
-    }
-
-    #[test]
-    fn moving_the_data_dir_carries_files_and_rewrites_pack_paths() {
-        let root = temp_dir("move");
-        let old = root.join("com.promptline.app");
-        let new = root.join("io.github.bekalpaslan.promptline");
-        fs::create_dir_all(old.join("packs")).unwrap();
-        fs::write(old.join("snippets.json"), "[]").unwrap();
-        fs::write(old.join("packs").join("work.json"), "{}").unwrap();
-        let old_pack = old.join("packs").join("work.json");
-        let config = Config {
-            packs: vec![PackMeta {
-                name: "Work".into(),
-                locked: false,
-                path: old_pack.to_string_lossy().to_string(),
-            }],
-            ..Config::default()
-        };
-        fs::write(old.join("config.json"), serde_json::to_vec(&config).unwrap()).unwrap();
-
-        move_data_dir(&old, &new).unwrap();
-
-        assert!(new.join("snippets.json").exists());
-        assert!(new.join("packs").join("work.json").exists());
-        assert!(!old.exists(), "the emptied old folder goes");
-        let moved: Config = serde_json::from_str(&fs::read_to_string(new.join("config.json")).unwrap()).unwrap();
-        // The old absolute path becomes the on-disk form, which resolves to
-        // the moved file
-        assert_eq!(moved.packs[0].path, "work.json");
-        assert_eq!(resolve_pack_path(&new.join("packs"), &moved.packs[0].path), new.join("packs").join("work.json"));
-
-        // A second run never overwrites what the new folder already holds
-        fs::create_dir_all(&old).unwrap();
-        fs::write(old.join("snippets.json"), "[1]").unwrap();
-        move_data_dir(&old, &new).unwrap();
-        assert_eq!(fs::read_to_string(new.join("snippets.json")).unwrap(), "[]");
-        assert!(old.join("snippets.json").exists(), "the skipped file stays put");
-        let _ = fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn write_atomic_replaces_the_file_and_leaves_no_temp_behind() {
-        let dir = temp_dir("atomic");
-        let path = dir.join("snippets.json");
-        write_atomic(&path, b"[1]").unwrap();
-        write_atomic(&path, b"[1,2]").unwrap();
-        assert_eq!(fs::read_to_string(&path).unwrap(), "[1,2]");
-        assert!(!tmp_path(&path).exists());
-        let names: Vec<_> = fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name()).collect();
-        assert_eq!(names.len(), 1);
-    }
-
-    #[test]
-    fn only_a_held_file_is_worth_retrying_the_rename_for() {
-        use std::io::{Error, ErrorKind};
-        assert!(is_transient_rename_error(&Error::from(ErrorKind::PermissionDenied)));
-        // ERROR_ACCESS_DENIED and ERROR_SHARING_VIOLATION, what Windows
-        // answers while a sync client or a scanner holds the destination
-        assert!(is_transient_rename_error(&Error::from_raw_os_error(5)));
-        assert!(is_transient_rename_error(&Error::from_raw_os_error(32)));
-        // A missing folder or a full disk will not get better by waiting
-        assert!(!is_transient_rename_error(&Error::from(ErrorKind::NotFound)));
-        assert!(!is_transient_rename_error(&Error::from_raw_os_error(2)));
-    }
-
-    #[test]
-    fn a_write_that_cannot_land_leaves_no_temp_file_behind() {
-        let dir = temp_dir("atomicfail");
-        // A directory where the file should go: the rename can never succeed
-        let path = dir.join("snippets.json");
-        fs::create_dir_all(&path).unwrap();
-        assert!(write_atomic(&path, b"[1]").is_err());
-        assert!(!tmp_path(&path).exists(), "the temp file is cleaned up");
-        assert!(path.is_dir(), "the obstacle is untouched");
-    }
-
-    #[cfg(windows)]
-    #[test]
-    fn a_write_outlasts_a_program_briefly_holding_the_file() {
-        use std::os::windows::fs::OpenOptionsExt;
-        let dir = temp_dir("atomicheld");
-        let path = dir.join("snippets.json");
-        write_atomic(&path, b"[1]").unwrap();
-        // Something else (a sync client, a scanner) opens the file with no
-        // sharing for 60 ms: a rename over it is a sharing violation
-        let held = fs::OpenOptions::new().read(true).share_mode(0).open(&path).unwrap();
-        let holder = std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_millis(60));
-            drop(held);
-        });
-        write_atomic(&path, b"[1,2]").unwrap();
-        holder.join().unwrap();
-        assert_eq!(fs::read_to_string(&path).unwrap(), "[1,2]");
-        assert!(!tmp_path(&path).exists());
-    }
-
-    #[test]
-    fn load_json_file_missing_is_not_an_error() {
-        let dir = temp_dir("missing");
-        let loaded: Loaded<Vec<Snippet>> = load_json_file(&dir.join("snippets.json")).unwrap();
-        assert!(matches!(loaded, Loaded::Missing));
-    }
-
-    #[test]
-    fn load_json_file_parses_a_good_file() {
-        let dir = temp_dir("good");
-        let path = dir.join("snippets.json");
-        fs::write(&path, r#"[{"id": "a", "title": "t", "text": "b"}]"#).unwrap();
-        match load_json_file::<Vec<Snippet>>(&path).unwrap() {
-            Loaded::Present(v) => assert_eq!(v[0].id, "a"),
-            other => panic!("expected Present, got {other:?}"),
-        }
-    }
-
-    #[test]
-    fn unreadable_file_is_quarantined_intact_and_never_overwritten() {
-        let dir = temp_dir("corrupt");
-        let path = dir.join("snippets.json");
-        // A write that died halfway through
-        let truncated = r#"[{"id": "a", "title": "t", "te"#;
-        fs::write(&path, truncated).unwrap();
-        let moved_to = match load_json_file::<Vec<Snippet>>(&path).unwrap() {
-            Loaded::Quarantined { moved_to, error } => {
-                assert!(!error.is_empty());
-                moved_to
-            }
-            other => panic!("expected Quarantined, got {other:?}"),
-        };
-        // The bytes survive under the quarantine name, and the original path
-        // is free, so whatever gets written next cannot destroy them
-        assert!(!path.exists());
-        assert!(moved_to.file_name().unwrap().to_string_lossy().starts_with("snippets.json.corrupt-"));
-        assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
-        write_atomic(&path, b"[]").unwrap();
-        assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
-        // A second corruption in the same second gets its own file
-        fs::write(&path, "{").unwrap();
-        let again = match load_json_file::<Vec<Snippet>>(&path).unwrap() {
-            Loaded::Quarantined { moved_to, .. } => moved_to,
-            other => panic!("expected Quarantined, got {other:?}"),
-        };
-        assert_ne!(again, moved_to);
-        assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
-    }
-
-    fn sample(id: &str) -> Snippet {
-        let mut s = snip(id, "tag", "body {goal}");
-        s.id = id.into();
-        s.uses = 7;
-        s.pinned = true;
-        s.field_values.insert("goal".into(), "remembered".into());
-        s.config_values.insert("cfg".into(), "v".into());
-        s
-    }
-
-    #[test]
-    fn merge_update_keeps_what_the_popup_owns() {
-        let mut list = vec![sample("a"), sample("b")];
-        let edit = SnippetEdit {
-            title: "New title".into(),
-            text: "new {goal}".into(),
-            tags: vec!["x".into()],
-            pack: "P".into(),
-            group: "G".into(),
-            config_values: HashMap::from([("cfg".into(), "w".into())]),
-        };
-        assert!(merge_update(&mut list, "a", edit.clone()));
-        assert!(!merge_update(&mut list, "missing", edit));
-        let a = &list[0];
-        assert_eq!(a.title, "New title");
-        assert_eq!(a.pack, "P");
-        assert_eq!(a.group, "G");
-        assert_eq!(a.config_values["cfg"], "w");
-        // Popup-owned state survives a manager edit
-        assert_eq!(a.uses, 7);
-        assert!(a.pinned);
-        assert_eq!(a.field_values["goal"], "remembered");
-        assert_eq!(list[1].title, sample("b").title);
-    }
-
-    #[test]
-    fn merge_patch_changes_only_what_is_given() {
-        let mut list = vec![sample("a")];
-        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(false), field_values: None }));
-        assert!(!list[0].pinned);
-        assert_eq!(list[0].field_values["goal"], "remembered");
-        let vals = HashMap::from([("goal".into(), "next".into())]);
-        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: None, field_values: Some(vals) }));
-        assert!(!list[0].pinned);
-        assert_eq!(list[0].field_values["goal"], "next");
-        assert_eq!(list[0].uses, 7);
-        assert!(!merge_patch(&mut list, "missing", SnippetPatch::default()));
-    }
-
-    #[test]
-    fn a_pin_is_stamped_once_and_cleared_on_unpin() {
-        let mut list = vec![sample("a")];
-        list[0].pinned = false;
-        list[0].pinned_at = 0;
-        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(true), field_values: None }));
-        let stamped = list[0].pinned_at;
-        assert!(stamped > 0);
-        // Re-pinning an already-pinned prompt keeps its place in the pin order
-        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(true), field_values: None }));
-        assert_eq!(list[0].pinned_at, stamped);
-        // Unpinning forgets the order; the next pin goes to the end
-        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(false), field_values: None }));
-        assert_eq!(list[0].pinned_at, 0);
-        // A patch that says nothing about pinning leaves the stamp alone
-        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: Some(true), field_values: None }));
-        let again = list[0].pinned_at;
-        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: None, field_values: None }));
-        assert_eq!(list[0].pinned_at, again);
-    }
-
-    #[test]
-    fn merge_add_replaces_a_duplicate_id_and_merge_delete_reports_change() {
-        let mut list = vec![sample("a")];
-        let mut again = sample("a");
-        again.title = "retried".into();
-        merge_add(&mut list, again);
-        assert_eq!(list.len(), 1);
-        assert_eq!(list[0].title, "retried");
-        merge_add(&mut list, sample("b"));
-        assert_eq!(list.len(), 2);
-        assert!(merge_delete(&mut list, "a"));
-        assert!(!merge_delete(&mut list, "a"));
-        assert_eq!(list.len(), 1);
-        assert_eq!(list[0].id, "b");
-    }
-
-    #[test]
-    fn a_save_from_a_stale_revision_is_refused_with_the_current_one() {
-        assert!(check_revision(None, 7).is_ok(), "no base: startup GC and migrations skip the check");
-        assert!(check_revision(Some(7), 7).is_ok());
-        match check_revision(Some(6), 7) {
-            Err(StoreError::Stale { revision }) => assert_eq!(revision, 7),
-            other => panic!("expected Stale, got {other:?}"),
-        }
-        assert!(matches!(check_revision(Some(8), 7), Err(StoreError::Stale { revision: 7 })));
-    }
-
-    #[test]
-    fn a_retired_pack_file_is_numbered_on_repeats_and_missing_is_a_no_op() {
-        let dir = temp_dir("retire");
-        let deleted = dir.join("deleted");
-        let src = dir.join("work.json");
-        fs::write(&src, "first").unwrap();
-        assert_eq!(retire_into(&deleted, &src).unwrap(), Some(deleted.join("work.json")));
-        assert!(!src.exists());
-        assert_eq!(fs::read_to_string(deleted.join("work.json")).unwrap(), "first");
-        // The pack is recreated and deleted again: the first retirement stays
-        fs::write(&src, "second").unwrap();
-        assert_eq!(retire_into(&deleted, &src).unwrap(), Some(deleted.join("work-2.json")));
-        fs::write(&src, "third").unwrap();
-        assert_eq!(retire_into(&deleted, &src).unwrap(), Some(deleted.join("work-3.json")));
-        assert_eq!(fs::read_to_string(deleted.join("work.json")).unwrap(), "first");
-        assert_eq!(fs::read_to_string(deleted.join("work-2.json")).unwrap(), "second");
-        // Nothing to retire (never backed, or already moved): nothing happens
-        assert_eq!(retire_into(&deleted, &src).unwrap(), None);
-        let fresh = temp_dir("retire-none");
-        assert_eq!(retire_into(&fresh.join("deleted"), &fresh.join("ghost.json")).unwrap(), None);
-        assert!(!fresh.join("deleted").exists(), "no folder is made for nothing");
-    }
-
-    #[test]
-    fn clipboard_expansion_is_one_pass_and_leaves_holes_when_empty() {
-        // No token: the text comes back as it was
-        assert_eq!(expand_clipboard("plain {goal}", Some("clip")), "plain {goal}");
-        // Every token takes the clipboard
-        assert_eq!(expand_clipboard("a {clipboard} b {clipboard}", Some("X")), "a X b X");
-        // An empty or unreadable clipboard leaves a hole rather than the word
-        assert_eq!(expand_clipboard("a {clipboard} b", Some("")), "a  b");
-        assert_eq!(expand_clipboard("a {clipboard} b", None), "a  b");
-        // A clipboard holding the token itself is text, never expanded again
-        assert_eq!(expand_clipboard("see {clipboard}", Some("{clipboard} inside")), "see {clipboard} inside");
-    }
-
-    #[test]
-    fn a_quarantined_library_starts_empty_with_a_notice_and_a_missing_one_with_starters() {
-        let (starters, notice) = snippets_from_loaded(Loaded::Missing);
-        assert_eq!(starters.len(), default_snippets().len());
-        assert!(notice.is_none());
-
-        let moved_to = PathBuf::from("snippets.json.corrupt-1700000000");
-        let (empty, notice) = snippets_from_loaded(Loaded::Quarantined { moved_to, error: "EOF while parsing".into() });
-        assert!(empty.is_empty(), "never the starters: that would look like a reset, not a loss");
-        let notice = notice.unwrap();
-        assert_eq!(notice.kind, "library-recovered");
-        assert!(notice.message.contains("snippets.json.corrupt-1700000000"));
-        assert!(notice.message.contains("EOF while parsing"));
-
-        // Present: the migrations run (v2 category becomes a tag, packs default)
-        let v2: Vec<Snippet> =
-            serde_json::from_str(r#"[{"id": "abc", "title": "t", "text": "x", "category": "Debug"}]"#).unwrap();
-        let (present, notice) = snippets_from_loaded(Loaded::Present(v2));
-        assert!(notice.is_none());
-        assert_eq!(present[0].tags, vec!["debug"]);
-        assert_eq!(present[0].pack, "My prompts");
-    }
-
-    #[test]
-    fn only_files_under_the_data_folder_are_admitted() {
-        let root = temp_dir("within");
-        let data = root.join("data");
-        fs::create_dir_all(data.join("packs")).unwrap();
-        fs::write(data.join("packs").join("work.json"), "{}").unwrap();
-        fs::write(root.join("outside.json"), "{}").unwrap();
-        let inside = data.join("packs").join("work.json");
-        // A file under the folder comes back as a plain path explorer takes
-        let admitted = path_within(&data, &inside.to_string_lossy()).unwrap();
-        assert!(!admitted.to_string_lossy().starts_with(r"\\?\"), "{}", admitted.display());
-        assert_eq!(fs::read_to_string(&admitted).unwrap(), "{}");
-        // A sibling of the folder, and a traversal out of it, are refused
-        let outside = root.join("outside.json");
-        assert!(path_within(&data, &outside.to_string_lossy()).unwrap_err().contains("outside"));
-        let traversal = data.join("packs").join("..").join("..").join("outside.json");
-        assert!(path_within(&data, &traversal.to_string_lossy()).unwrap_err().contains("outside"));
-        // A file that isn't there is an error naming it, not a false refusal
-        let missing = data.join("packs").join("missing.json");
-        assert!(path_within(&data, &missing.to_string_lossy()).unwrap_err().contains("missing.json"));
-        let _ = fs::remove_dir_all(&root);
-    }
-
-    #[test]
-    fn the_popup_is_clamped_into_the_work_area() {
-        // A 1920×1040 work area (a 40 px taskbar) left of the primary monitor
-        let area = Area { x: -1920.0, y: 0.0, width: 1920.0, height: 1040.0 };
-        let (w, h) = (400.0, 600.0);
-        // Room to spare: the cursor position is used as is
-        assert_eq!(clamp_to_area(-1000.0, 100.0, w, h, area), (-1000.0, 100.0));
-        // Near the right and bottom edges: pulled back to fit, taskbar excluded
-        assert_eq!(clamp_to_area(-100.0, 900.0, w, h, area), (-400.0, 440.0));
-        // Before the origin (a cursor a pixel outside): the origin
-        assert_eq!(clamp_to_area(-1921.0, -5.0, w, h, area), (-1920.0, 0.0));
-        // The size is the target monitor's: at 150% the same popup is 600×900,
-        // and what fit at 100% no longer does
-        assert_eq!(clamp_to_area(-500.0, 200.0, w * 1.5, h * 1.5, area), (-600.0, 140.0));
-        // Larger than the area: the top-left stays visible
-        assert_eq!(clamp_to_area(0.0, 0.0, 3000.0, 3000.0, area), (-1920.0, 0.0));
-    }
-
-    #[test]
-    fn a_summon_over_one_of_our_windows_records_no_paste_target() {
-        let ours = [0x10, 0x20];
-        assert_eq!(paste_target(0x30, &ours), 0x30);
-        // The manager's window, or the popup's own: nothing to paste into
-        assert_eq!(paste_target(0x10, &ours), 0);
-        assert_eq!(paste_target(0x20, &ours), 0);
-        assert_eq!(paste_target(0, &ours), 0);
-    }
-
-    #[test]
-    fn a_paste_with_no_target_falls_back_to_copy_only() {
-        assert_eq!(paste_mode(true, 0x30), PasteMode::Pasted);
-        assert_eq!(paste_mode(true, 0), PasteMode::Copied);
-        assert_eq!(paste_mode(false, 0x30), PasteMode::Copied);
-        assert_eq!(paste_mode(false, 0), PasteMode::Copied);
-        // The tags the popup switches on
-        assert_eq!(PasteMode::Pasted.tag(), "pasted");
-        assert_eq!(PasteMode::Copied.tag(), "copied");
-    }
-
-    #[test]
-    fn hotkey_config_falls_back_to_the_default_when_unparseable() {
-        let default: Shortcut = Config::default().hotkey.parse().unwrap();
-        assert_eq!(resolve_hotkey("not a hotkey"), default);
-        assert_eq!(resolve_hotkey(""), default);
-        assert_eq!(resolve_hotkey("ctrl+alt+v"), "ctrl+alt+v".parse::<Shortcut>().unwrap());
-        assert_ne!(resolve_hotkey("ctrl+alt+v"), default);
-    }
-
-    #[test]
-    fn a_hotkey_without_a_modifier_is_refused_everywhere() {
-        // The parser itself takes a bare letter; a hand-edited config with
-        // one would capture it system-wide
-        assert!("a".parse::<Shortcut>().is_ok());
-        let err = parse_hotkey("a").unwrap_err();
-        assert!(err.contains("modifier"), "{err}");
-        assert!(parse_hotkey("f5").is_err());
-        assert!(parse_hotkey("").is_err());
-        assert!(parse_hotkey("ctrl+shift+v").is_ok());
-        assert!(parse_hotkey("alt+f5").is_ok());
-        // From the config it falls back to the default; from Settings it is
-        // an error the user sees
-        let default: Shortcut = Config::default().hotkey.parse().unwrap();
-        assert_eq!(resolve_hotkey("a"), default);
-        assert_eq!(resolve_hotkey("f5"), default);
-    }
-
-    #[test]
-    fn an_empty_draft_backs_no_pack() {
-        let mut config = Config::default();
-        config.packs.push(PackMeta { name: "Work".into(), locked: false, path: String::new() });
-        let mut draft = snip("New prompt", "", "");
-        draft.pack = "My prompts".into();
-        draft.uses = 0;
-        let mut kept = snip("Kept", "", "");
-        kept.pack = "Notes".into();
-        // The draft's pack is not in play; a real prompt's is
-        assert_eq!(packs_in_play(&config, &[draft.clone(), kept]), vec!["Work".to_string(), "Notes".to_string()]);
-        // Typing a body (or a title) makes it a prompt like any other
-        draft.text = "hello".into();
-        assert_eq!(packs_in_play(&config, &[draft.clone()]), vec!["Work".to_string(), "My prompts".to_string()]);
-        draft.text.clear();
-        draft.title = "Standup".into();
-        assert_eq!(packs_in_play(&config, &[draft]), vec!["Work".to_string(), "My prompts".to_string()]);
-    }
-
-    #[test]
-    fn rename_pack_treats_case_variants_as_taken_except_its_own() {
-        let mut config = Config::default();
-        config.packs.push(PackMeta { name: "General".into(), locked: false, path: String::new() });
-        let mut s = snip("A", "", "x");
-        s.pack = "Other".into();
-        let mut snippets = vec![s];
-        assert!(rename_pack_in(&mut config, &mut snippets, "Other", "general").is_err());
-        assert!(rename_pack_in(&mut config, &mut snippets, "Other", "OTHER").is_ok());
-        assert_eq!(snippets[0].pack, "OTHER");
-        assert!(rename_pack_in(&mut config, &mut snippets, "General", "GENERAL").is_ok());
-        assert_eq!(config.packs[0].name, "GENERAL");
-    }
-
-    #[test]
-    fn rename_pack_moves_metadata_and_prompts_together() {
-        let mut config = Config::default();
-        config.packs.push(PackMeta { name: "Old".into(), locked: true, path: "C:\\old.json".into() });
-        config.packs.push(PackMeta { name: "Other".into(), locked: false, path: String::new() });
-        let mut snippets = vec![sample("a"), sample("b"), sample("c")];
-        snippets[0].pack = "Old".into();
-        snippets[1].pack = "Old".into();
-        snippets[2].pack = "Other".into();
-        rename_pack_in(&mut config, &mut snippets, "Old", "New").unwrap();
-        // One entry, same file, lock kept; every prompt follows
-        assert_eq!(config.packs.iter().filter(|p| p.name == "New").count(), 1);
-        assert!(!config.packs.iter().any(|p| p.name == "Old"));
-        let new = config.packs.iter().find(|p| p.name == "New").unwrap();
-        assert!(new.locked);
-        assert_eq!(new.path, "C:\\old.json");
-        assert_eq!(snippets.iter().filter(|s| s.pack == "New").count(), 2);
-        assert_eq!(snippets[2].pack, "Other");
-        // Collisions and empties are refused, nothing touched
-        assert!(rename_pack_in(&mut config, &mut snippets, "New", "Other").is_err());
-        assert!(rename_pack_in(&mut config, &mut snippets, "New", "  ").is_err());
-        assert_eq!(snippets.iter().filter(|s| s.pack == "New").count(), 2);
-        // A pack that was only a name on prompts gets metadata when renamed
-        snippets[2].pack = "Nameless".into();
-        rename_pack_in(&mut config, &mut snippets, "Nameless", "Named").unwrap();
-        assert!(config.packs.iter().any(|p| p.name == "Named" && p.path.is_empty()));
-        assert_eq!(snippets[2].pack, "Named");
-    }
-
-    #[test]
-    fn config_without_a_hotkey_still_parses_with_the_default() {
-        // A hand-edited or partially written config.json must not be
-        // quarantined over a missing field: the packs and their paths live
-        // in the same file
-        let config: Config = serde_json::from_str(r#"{"packs": [{"name": "Work", "locked": true}]}"#).unwrap();
-        assert_eq!(config.hotkey, Config::default().hotkey);
-        assert_eq!(config.packs.len(), 1);
-        let empty: Config = serde_json::from_str("{}").unwrap();
-        assert_eq!(empty.hotkey, "ctrl+shift+v");
-    }
-
-    #[test]
-    fn store_error_serializes_with_a_kind_tag() {
-        let json = serde_json::to_string(&StoreError::Stale { revision: 4 }).unwrap();
-        assert_eq!(json, r#"{"kind":"stale","revision":4}"#);
-    }
-
-    #[test]
-    fn starter_pack_ids_are_unique_and_tagged() {
-        let snippets = default_snippets();
-        let mut ids: Vec<_> = snippets.iter().map(|s| s.id.clone()).collect();
-        ids.sort();
-        ids.dedup();
-        assert_eq!(ids.len(), snippets.len());
-        assert!(snippets.iter().all(|s| !s.tags.is_empty() && s.pack == "Starter"));
-    }
-}
-
 /// The argument the autostart entry passes so a login launch stays in the
 /// tray; a launch from the Start menu or the installer has no arguments and
 /// opens the manager as before.
@@ -2667,7 +2015,10 @@ const LOG_FILE_STEM: &str = "promptline";
 
 fn log_plugin<R: tauri::Runtime>(dir: PathBuf) -> tauri::plugin::TauriPlugin<R> {
     use tauri_plugin_log::{Builder, RotationStrategy, Target, TargetKind, TimezoneStrategy};
-    let mut targets = vec![Target::new(TargetKind::Folder { path: dir, file_name: Some(LOG_FILE_STEM.into()) })];
+    let mut targets = vec![Target::new(TargetKind::Folder {
+        path: dir,
+        file_name: Some(LOG_FILE_STEM.into()),
+    })];
     if cfg!(debug_assertions) {
         targets.push(Target::new(TargetKind::Stdout));
     }
@@ -2846,4 +2197,1031 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running Promptline");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn v2_category_migrates_to_tag_and_packs_get_defaults() {
+        let mut snippets: Vec<Snippet> = serde_json::from_str(
+            r#"[
+                {"id": "starter-root-cause-first", "title": "Root cause", "text": "x", "category": "Debug"},
+                {"id": "abc-123", "title": "Mine", "text": "y", "category": "Review"},
+                {"id": "def-456", "title": "Tagged", "text": "z", "tags": ["kept"], "pack": "Custom"}
+            ]"#,
+        )
+        .unwrap();
+        apply_snippet_migrations(&mut snippets);
+
+        assert_eq!(snippets[0].tags, vec!["debug"]);
+        assert_eq!(snippets[0].pack, "Starter");
+        assert_eq!(snippets[1].tags, vec!["review"]);
+        assert_eq!(snippets[1].pack, "My prompts");
+        // Already-migrated data is untouched
+        assert_eq!(snippets[2].tags, vec!["kept"]);
+        assert_eq!(snippets[2].pack, "Custom");
+    }
+
+    #[test]
+    fn snippet_deserializes_with_all_new_fields_defaulted() {
+        let s: Snippet = serde_json::from_str(r#"{"id": "a", "title": "t", "text": "b"}"#).unwrap();
+        assert!(s.tags.is_empty());
+        assert!(s.pack.is_empty());
+        assert!(s.field_values.is_empty());
+        assert!(s.config_values.is_empty());
+        assert_eq!(s.uses, 0);
+        assert!(!s.pinned);
+        assert_eq!(s.pinned_at, 0);
+    }
+
+    #[test]
+    fn legacy_category_field_is_not_reserialized() {
+        let s: Snippet =
+            serde_json::from_str(r#"{"id": "a", "title": "t", "text": "b", "category": "Debug"}"#)
+                .unwrap();
+        let json = serde_json::to_string(&s).unwrap();
+        assert!(!json.contains("category"));
+    }
+
+    #[test]
+    fn config_deserializes_older_versions_with_defaults() {
+        let c: Config = serde_json::from_str(r#"{"hotkey": "ctrl+alt+v"}"#).unwrap();
+        assert_eq!(c.hotkey, "ctrl+alt+v");
+        assert!(c.packs.is_empty());
+        assert_eq!(c.theme, "sand");
+        assert_eq!(c.density, "comfortable");
+        assert_eq!(c.scale, "100");
+        assert_eq!(c.font, "system");
+        assert!(!c.popup_seen);
+        assert_eq!(c.popup_width, 0.0);
+        assert_eq!(c.popup_height, 0.0);
+
+        let with_packs: Config = serde_json::from_str(
+            r#"{"hotkey": "x", "packs": [{"name": "Starter", "locked": true}, {"name": "Open"}]}"#,
+        )
+        .unwrap();
+        assert!(with_packs.packs[0].locked);
+        assert!(!with_packs.packs[1].locked);
+
+        let sized: Config =
+            serde_json::from_str(r#"{"hotkey": "x", "popupWidth": 480.0, "popupHeight": 620.5}"#)
+                .unwrap();
+        assert_eq!(sized.popup_width, 480.0);
+        assert_eq!(sized.popup_height, 620.5);
+    }
+
+    #[test]
+    fn pack_filenames_are_sanitized_and_stable() {
+        assert_eq!(
+            sanitize_pack_filename("Beekon Routine Injections"),
+            "beekon-routine-injections"
+        );
+        assert_eq!(sanitize_pack_filename("Rust + Tauri!!"), "rust-tauri");
+        assert_eq!(sanitize_pack_filename("---"), "pack");
+        assert_eq!(sanitize_pack_filename("Ünïcode Pack"), "ünïcode-pack");
+    }
+
+    #[test]
+    fn reserved_windows_device_names_never_become_pack_filenames() {
+        for name in ["Con", "CON", "nul", "aux", "PRN", "com1", "LPT9"] {
+            let s = sanitize_pack_filename(name);
+            assert!(s.ends_with("-pack"), "{name} -> {s}");
+            assert!(!is_reserved_device_name(&s));
+        }
+        // Not reserved: longer names, COM0, prefixes with more characters
+        assert_eq!(sanitize_pack_filename("Console"), "console");
+        assert_eq!(sanitize_pack_filename("com0"), "com0");
+        assert_eq!(sanitize_pack_filename("com10"), "com10");
+        assert_eq!(sanitize_pack_filename("Con Air"), "con-air");
+    }
+
+    #[test]
+    fn backing_a_pack_adopts_the_file_an_agent_already_wrote_for_it() {
+        let dir = temp_dir("packadopt");
+        // The Generate dialog's file for pack "Agent Pack", filled by the agent
+        let agent_file = dir.join("agent-pack.json");
+        fs::write(
+            &agent_file,
+            pack_doc_json(
+                "Agent Pack",
+                vec![serde_json::json!({
+                    "title": "A", "tags": ["t"], "text": "body"
+                })],
+            )
+            .unwrap(),
+        )
+        .unwrap();
+        // The import conjures the pack; backing it must land on that same file
+        let (path, adopted) = pack_file_slot(&dir, "Agent Pack", &[]);
+        assert!(adopted);
+        assert_eq!(path, agent_file);
+        // Once a pack claims it, the next same-named pack file gets its own name
+        let claimed = vec![agent_file.to_string_lossy().into_owned()];
+        let (path, adopted) = pack_file_slot(&dir, "Agent Pack", &claimed);
+        assert!(!adopted);
+        assert_eq!(path, dir.join("agent-pack-2.json"));
+        // A file of another pack's, or one that isn't a pack document, is never taken
+        fs::write(
+            dir.join("other.json"),
+            pack_doc_json("Other", Vec::new()).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            pack_file_slot(&dir, "Other pack", &[]).0,
+            dir.join("other-pack.json")
+        );
+        fs::write(dir.join("junk.json"), b"not json").unwrap();
+        let (path, adopted) = pack_file_slot(&dir, "Junk", &[]);
+        assert!(!adopted);
+        assert_eq!(path, dir.join("junk-2.json"));
+        // Nothing there at all: the plain name
+        assert_eq!(
+            pack_file_slot(&dir, "Fresh", &[]),
+            (dir.join("fresh.json"), false)
+        );
+    }
+
+    #[test]
+    fn pack_files_are_written_only_when_their_content_changed() {
+        let dir = temp_dir("packsync");
+        // P is stored the on-disk way, relative to packs/; the file is resolved
+        let path = dir.join("p.json");
+        let packs = vec![
+            PackMeta {
+                name: "P".into(),
+                locked: false,
+                path: "p.json".into(),
+            },
+            PackMeta {
+                name: "Empty".into(),
+                locked: false,
+                path: dir.join("empty.json").to_string_lossy().into_owned(),
+            },
+            PackMeta {
+                name: "Unbacked".into(),
+                locked: false,
+                path: String::new(),
+            },
+        ];
+        let mut a = snip("A", "t", "body");
+        a.pack = "P".into();
+        let mut snippets = vec![a];
+        // First sync writes P; the empty pack never gets a file written
+        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 1);
+        assert!(!dir.join("empty.json").exists());
+        let first = fs::read_to_string(&path).unwrap();
+        assert!(first.contains("\"title\": \"A\""));
+        // Nothing changed: nothing written
+        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 0);
+        assert_eq!(fs::read_to_string(&path).unwrap(), first);
+        // A change to a P prompt writes P again (and only P)
+        snippets[0].text = "changed".into();
+        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 1);
+        assert!(fs::read_to_string(&path).unwrap().contains("changed"));
+        // Personal state never reaches the file
+        snippets[0].uses = 9;
+        snippets[0].pinned = true;
+        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 0);
+    }
+
+    #[test]
+    fn a_pack_file_left_holding_only_swept_drafts_is_emptied() {
+        let dir = temp_dir("packdrafts");
+        let path = dir.join("d.json");
+        let packs = vec![PackMeta {
+            name: "D".into(),
+            locked: false,
+            path: "d.json".into(),
+        }];
+        let mut draft = snip("New prompt", "", "");
+        draft.pack = "D".into();
+        draft.tags.clear();
+        assert_eq!(write_pack_files(&dir, &packs, &[draft]).written, 1);
+        assert!(fs::read_to_string(&path).unwrap().contains("New prompt"));
+        // The manager's sweep removed the draft: the file follows
+        assert_eq!(write_pack_files(&dir, &packs, &[]).written, 1);
+        let after: serde_json::Value =
+            serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(after["prompts"].as_array().unwrap().len(), 0);
+        assert_eq!(write_pack_files(&dir, &packs, &[]).written, 0);
+        // But a file with real content (an agent's, or a user-emptied pack)
+        // is still never overwritten by an empty library view
+        let mut real = snip("Real", "t", "body");
+        real.pack = "D".into();
+        assert_eq!(write_pack_files(&dir, &packs, &[real]).written, 1);
+        assert_eq!(write_pack_files(&dir, &packs, &[]).written, 0);
+        assert!(fs::read_to_string(&path).unwrap().contains("Real"));
+    }
+
+    #[test]
+    fn a_pack_file_that_cannot_be_written_is_reported_not_skipped() {
+        let dir = temp_dir("packfail");
+        // The pack's folder is gone (a moved profile, a deleted subfolder)
+        let packs = vec![
+            PackMeta {
+                name: "Gone".into(),
+                locked: false,
+                path: dir
+                    .join("missing")
+                    .join("gone.json")
+                    .to_string_lossy()
+                    .into_owned(),
+            },
+            PackMeta {
+                name: "Fine".into(),
+                locked: false,
+                path: "fine.json".into(),
+            },
+        ];
+        let mut gone = snip("A", "t", "body");
+        gone.pack = "Gone".into();
+        let mut fine = snip("B", "t", "body");
+        fine.pack = "Fine".into();
+        let result = write_pack_files(&dir, &packs, &[gone, fine]);
+        // The good file is still written; the bad one is named with its error
+        assert_eq!(result.written, 1);
+        assert!(dir.join("fine.json").exists());
+        assert_eq!(result.failed.len(), 1);
+        assert!(
+            result.failed[0].contains("gone.json"),
+            "{}",
+            result.failed[0]
+        );
+    }
+
+    #[test]
+    fn pack_paths_are_stored_relative_to_packs_and_resolved_back() {
+        let packs = PathBuf::from(if cfg!(windows) {
+            "C:\\data\\packs"
+        } else {
+            "/data/packs"
+        });
+        let elsewhere = PathBuf::from(if cfg!(windows) {
+            "D:\\shared\\team.json"
+        } else {
+            "/shared/team.json"
+        });
+        // Under packs/: relative on disk, the same file when resolved
+        assert_eq!(
+            relativize_pack_path(&packs, &packs.join("work.json")),
+            "work.json"
+        );
+        assert_eq!(
+            resolve_pack_path(&packs, "work.json"),
+            packs.join("work.json")
+        );
+        let nested = packs.join("generated").join("g.json");
+        let rel = relativize_pack_path(&packs, &nested);
+        assert_eq!(resolve_pack_path(&packs, &rel), nested);
+        // Elsewhere: absolute both ways
+        assert_eq!(
+            relativize_pack_path(&packs, &elsewhere),
+            elsewhere.to_string_lossy()
+        );
+        assert_eq!(
+            resolve_pack_path(&packs, &elsewhere.to_string_lossy()),
+            elsewhere
+        );
+        // Not file-backed stays empty, and packs/ itself is never "relative to itself"
+        assert_eq!(resolve_pack_path(&packs, ""), PathBuf::new());
+        assert_eq!(
+            relativize_pack_path(&packs, &packs),
+            packs.to_string_lossy()
+        );
+    }
+
+    #[test]
+    fn absolute_pack_paths_under_packs_migrate_to_relative_once() {
+        let packs = PathBuf::from(if cfg!(windows) {
+            "C:\\data\\packs"
+        } else {
+            "/data/packs"
+        });
+        let elsewhere = if cfg!(windows) {
+            "D:\\shared\\team.json"
+        } else {
+            "/shared/team.json"
+        };
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: "Work".into(),
+            locked: false,
+            path: packs.join("work.json").to_string_lossy().into_owned(),
+        });
+        config.packs.push(PackMeta {
+            name: "Team".into(),
+            locked: true,
+            path: elsewhere.into(),
+        });
+        config.packs.push(PackMeta {
+            name: "Already".into(),
+            locked: false,
+            path: "already.json".into(),
+        });
+        config.packs.push(PackMeta {
+            name: "None".into(),
+            locked: false,
+            path: String::new(),
+        });
+        // A config from before 0.2.9: the path under packs/ becomes relative,
+        // the one elsewhere is kept absolute, the rest are untouched
+        assert!(normalize_pack_paths(&mut config, &packs));
+        assert_eq!(config.packs[0].path, "work.json");
+        assert_eq!(config.packs[1].path, elsewhere);
+        assert_eq!(config.packs[2].path, "already.json");
+        assert_eq!(config.packs[3].path, "");
+        // Once migrated, a load changes nothing (and so writes nothing)
+        assert!(!normalize_pack_paths(&mut config, &packs));
+        // The frontend always gets absolute paths, whatever is stored
+        let resolved = with_resolved_pack_paths(config, &packs);
+        assert_eq!(
+            resolved.packs[0].path,
+            packs.join("work.json").to_string_lossy()
+        );
+        assert_eq!(resolved.packs[1].path, elsewhere);
+        assert_eq!(
+            resolved.packs[2].path,
+            packs.join("already.json").to_string_lossy()
+        );
+        assert_eq!(resolved.packs[3].path, "");
+    }
+
+    #[test]
+    fn pack_meta_path_defaults_for_older_configs() {
+        let c: Config =
+            serde_json::from_str(r#"{"hotkey": "x", "packs": [{"name": "Old", "locked": true}]}"#)
+                .unwrap();
+        assert_eq!(c.packs[0].path, "");
+        assert!(c.packs[0].locked);
+    }
+
+    fn temp_dir(name: &str) -> PathBuf {
+        let dir =
+            std::env::temp_dir().join(format!("promptline-test-{}-{name}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    #[test]
+    fn moving_the_data_dir_carries_files_and_rewrites_pack_paths() {
+        let root = temp_dir("move");
+        let old = root.join("com.promptline.app");
+        let new = root.join("io.github.bekalpaslan.promptline");
+        fs::create_dir_all(old.join("packs")).unwrap();
+        fs::write(old.join("snippets.json"), "[]").unwrap();
+        fs::write(old.join("packs").join("work.json"), "{}").unwrap();
+        let old_pack = old.join("packs").join("work.json");
+        let config = Config {
+            packs: vec![PackMeta {
+                name: "Work".into(),
+                locked: false,
+                path: old_pack.to_string_lossy().to_string(),
+            }],
+            ..Config::default()
+        };
+        fs::write(
+            old.join("config.json"),
+            serde_json::to_vec(&config).unwrap(),
+        )
+        .unwrap();
+
+        move_data_dir(&old, &new).unwrap();
+
+        assert!(new.join("snippets.json").exists());
+        assert!(new.join("packs").join("work.json").exists());
+        assert!(!old.exists(), "the emptied old folder goes");
+        let moved: Config =
+            serde_json::from_str(&fs::read_to_string(new.join("config.json")).unwrap()).unwrap();
+        // The old absolute path becomes the on-disk form, which resolves to
+        // the moved file
+        assert_eq!(moved.packs[0].path, "work.json");
+        assert_eq!(
+            resolve_pack_path(&new.join("packs"), &moved.packs[0].path),
+            new.join("packs").join("work.json")
+        );
+
+        // A second run never overwrites what the new folder already holds
+        fs::create_dir_all(&old).unwrap();
+        fs::write(old.join("snippets.json"), "[1]").unwrap();
+        move_data_dir(&old, &new).unwrap();
+        assert_eq!(fs::read_to_string(new.join("snippets.json")).unwrap(), "[]");
+        assert!(
+            old.join("snippets.json").exists(),
+            "the skipped file stays put"
+        );
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn write_atomic_replaces_the_file_and_leaves_no_temp_behind() {
+        let dir = temp_dir("atomic");
+        let path = dir.join("snippets.json");
+        write_atomic(&path, b"[1]").unwrap();
+        write_atomic(&path, b"[1,2]").unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "[1,2]");
+        assert!(!tmp_path(&path).exists());
+        let names: Vec<_> = fs::read_dir(&dir)
+            .unwrap()
+            .map(|e| e.unwrap().file_name())
+            .collect();
+        assert_eq!(names.len(), 1);
+    }
+
+    #[test]
+    fn only_a_held_file_is_worth_retrying_the_rename_for() {
+        use std::io::{Error, ErrorKind};
+        assert!(is_transient_rename_error(&Error::from(
+            ErrorKind::PermissionDenied
+        )));
+        // ERROR_ACCESS_DENIED and ERROR_SHARING_VIOLATION, what Windows
+        // answers while a sync client or a scanner holds the destination
+        assert!(is_transient_rename_error(&Error::from_raw_os_error(5)));
+        assert!(is_transient_rename_error(&Error::from_raw_os_error(32)));
+        // A missing folder or a full disk will not get better by waiting
+        assert!(!is_transient_rename_error(&Error::from(
+            ErrorKind::NotFound
+        )));
+        assert!(!is_transient_rename_error(&Error::from_raw_os_error(2)));
+    }
+
+    #[test]
+    fn a_write_that_cannot_land_leaves_no_temp_file_behind() {
+        let dir = temp_dir("atomicfail");
+        // A directory where the file should go: the rename can never succeed
+        let path = dir.join("snippets.json");
+        fs::create_dir_all(&path).unwrap();
+        assert!(write_atomic(&path, b"[1]").is_err());
+        assert!(!tmp_path(&path).exists(), "the temp file is cleaned up");
+        assert!(path.is_dir(), "the obstacle is untouched");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_write_outlasts_a_program_briefly_holding_the_file() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let dir = temp_dir("atomicheld");
+        let path = dir.join("snippets.json");
+        write_atomic(&path, b"[1]").unwrap();
+        // Something else (a sync client, a scanner) opens the file with no
+        // sharing for 60 ms: a rename over it is a sharing violation
+        let held = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(&path)
+            .unwrap();
+        let holder = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(60));
+            drop(held);
+        });
+        write_atomic(&path, b"[1,2]").unwrap();
+        holder.join().unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "[1,2]");
+        assert!(!tmp_path(&path).exists());
+    }
+
+    #[test]
+    fn load_json_file_missing_is_not_an_error() {
+        let dir = temp_dir("missing");
+        let loaded: Loaded<Vec<Snippet>> = load_json_file(&dir.join("snippets.json")).unwrap();
+        assert!(matches!(loaded, Loaded::Missing));
+    }
+
+    #[test]
+    fn load_json_file_parses_a_good_file() {
+        let dir = temp_dir("good");
+        let path = dir.join("snippets.json");
+        fs::write(&path, r#"[{"id": "a", "title": "t", "text": "b"}]"#).unwrap();
+        match load_json_file::<Vec<Snippet>>(&path).unwrap() {
+            Loaded::Present(v) => assert_eq!(v[0].id, "a"),
+            other => panic!("expected Present, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn unreadable_file_is_quarantined_intact_and_never_overwritten() {
+        let dir = temp_dir("corrupt");
+        let path = dir.join("snippets.json");
+        // A write that died halfway through
+        let truncated = r#"[{"id": "a", "title": "t", "te"#;
+        fs::write(&path, truncated).unwrap();
+        let moved_to = match load_json_file::<Vec<Snippet>>(&path).unwrap() {
+            Loaded::Quarantined { moved_to, error } => {
+                assert!(!error.is_empty());
+                moved_to
+            }
+            other => panic!("expected Quarantined, got {other:?}"),
+        };
+        // The bytes survive under the quarantine name, and the original path
+        // is free, so whatever gets written next cannot destroy them
+        assert!(!path.exists());
+        assert!(moved_to
+            .file_name()
+            .unwrap()
+            .to_string_lossy()
+            .starts_with("snippets.json.corrupt-"));
+        assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
+        write_atomic(&path, b"[]").unwrap();
+        assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
+        // A second corruption in the same second gets its own file
+        fs::write(&path, "{").unwrap();
+        let again = match load_json_file::<Vec<Snippet>>(&path).unwrap() {
+            Loaded::Quarantined { moved_to, .. } => moved_to,
+            other => panic!("expected Quarantined, got {other:?}"),
+        };
+        assert_ne!(again, moved_to);
+        assert_eq!(fs::read_to_string(&moved_to).unwrap(), truncated);
+    }
+
+    fn sample(id: &str) -> Snippet {
+        let mut s = snip(id, "tag", "body {goal}");
+        s.id = id.into();
+        s.uses = 7;
+        s.pinned = true;
+        s.field_values.insert("goal".into(), "remembered".into());
+        s.config_values.insert("cfg".into(), "v".into());
+        s
+    }
+
+    #[test]
+    fn merge_update_keeps_what_the_popup_owns() {
+        let mut list = vec![sample("a"), sample("b")];
+        let edit = SnippetEdit {
+            title: "New title".into(),
+            text: "new {goal}".into(),
+            tags: vec!["x".into()],
+            pack: "P".into(),
+            group: "G".into(),
+            config_values: HashMap::from([("cfg".into(), "w".into())]),
+        };
+        assert!(merge_update(&mut list, "a", edit.clone()));
+        assert!(!merge_update(&mut list, "missing", edit));
+        let a = &list[0];
+        assert_eq!(a.title, "New title");
+        assert_eq!(a.pack, "P");
+        assert_eq!(a.group, "G");
+        assert_eq!(a.config_values["cfg"], "w");
+        // Popup-owned state survives a manager edit
+        assert_eq!(a.uses, 7);
+        assert!(a.pinned);
+        assert_eq!(a.field_values["goal"], "remembered");
+        assert_eq!(list[1].title, sample("b").title);
+    }
+
+    #[test]
+    fn merge_patch_changes_only_what_is_given() {
+        let mut list = vec![sample("a")];
+        assert!(merge_patch(
+            &mut list,
+            "a",
+            SnippetPatch {
+                pinned: Some(false),
+                field_values: None
+            }
+        ));
+        assert!(!list[0].pinned);
+        assert_eq!(list[0].field_values["goal"], "remembered");
+        let vals = HashMap::from([("goal".into(), "next".into())]);
+        assert!(merge_patch(
+            &mut list,
+            "a",
+            SnippetPatch {
+                pinned: None,
+                field_values: Some(vals)
+            }
+        ));
+        assert!(!list[0].pinned);
+        assert_eq!(list[0].field_values["goal"], "next");
+        assert_eq!(list[0].uses, 7);
+        assert!(!merge_patch(&mut list, "missing", SnippetPatch::default()));
+    }
+
+    #[test]
+    fn a_pin_is_stamped_once_and_cleared_on_unpin() {
+        let mut list = vec![sample("a")];
+        list[0].pinned = false;
+        list[0].pinned_at = 0;
+        assert!(merge_patch(
+            &mut list,
+            "a",
+            SnippetPatch {
+                pinned: Some(true),
+                field_values: None
+            }
+        ));
+        let stamped = list[0].pinned_at;
+        assert!(stamped > 0);
+        // Re-pinning an already-pinned prompt keeps its place in the pin order
+        assert!(merge_patch(
+            &mut list,
+            "a",
+            SnippetPatch {
+                pinned: Some(true),
+                field_values: None
+            }
+        ));
+        assert_eq!(list[0].pinned_at, stamped);
+        // Unpinning forgets the order; the next pin goes to the end
+        assert!(merge_patch(
+            &mut list,
+            "a",
+            SnippetPatch {
+                pinned: Some(false),
+                field_values: None
+            }
+        ));
+        assert_eq!(list[0].pinned_at, 0);
+        // A patch that says nothing about pinning leaves the stamp alone
+        assert!(merge_patch(
+            &mut list,
+            "a",
+            SnippetPatch {
+                pinned: Some(true),
+                field_values: None
+            }
+        ));
+        let again = list[0].pinned_at;
+        assert!(merge_patch(
+            &mut list,
+            "a",
+            SnippetPatch {
+                pinned: None,
+                field_values: None
+            }
+        ));
+        assert_eq!(list[0].pinned_at, again);
+    }
+
+    #[test]
+    fn merge_add_replaces_a_duplicate_id_and_merge_delete_reports_change() {
+        let mut list = vec![sample("a")];
+        let mut again = sample("a");
+        again.title = "retried".into();
+        merge_add(&mut list, again);
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].title, "retried");
+        merge_add(&mut list, sample("b"));
+        assert_eq!(list.len(), 2);
+        assert!(merge_delete(&mut list, "a"));
+        assert!(!merge_delete(&mut list, "a"));
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id, "b");
+    }
+
+    #[test]
+    fn a_save_from_a_stale_revision_is_refused_with_the_current_one() {
+        assert!(
+            check_revision(None, 7).is_ok(),
+            "no base: startup GC and migrations skip the check"
+        );
+        assert!(check_revision(Some(7), 7).is_ok());
+        match check_revision(Some(6), 7) {
+            Err(StoreError::Stale { revision }) => assert_eq!(revision, 7),
+            other => panic!("expected Stale, got {other:?}"),
+        }
+        assert!(matches!(
+            check_revision(Some(8), 7),
+            Err(StoreError::Stale { revision: 7 })
+        ));
+    }
+
+    #[test]
+    fn a_retired_pack_file_is_numbered_on_repeats_and_missing_is_a_no_op() {
+        let dir = temp_dir("retire");
+        let deleted = dir.join("deleted");
+        let src = dir.join("work.json");
+        fs::write(&src, "first").unwrap();
+        assert_eq!(
+            retire_into(&deleted, &src).unwrap(),
+            Some(deleted.join("work.json"))
+        );
+        assert!(!src.exists());
+        assert_eq!(
+            fs::read_to_string(deleted.join("work.json")).unwrap(),
+            "first"
+        );
+        // The pack is recreated and deleted again: the first retirement stays
+        fs::write(&src, "second").unwrap();
+        assert_eq!(
+            retire_into(&deleted, &src).unwrap(),
+            Some(deleted.join("work-2.json"))
+        );
+        fs::write(&src, "third").unwrap();
+        assert_eq!(
+            retire_into(&deleted, &src).unwrap(),
+            Some(deleted.join("work-3.json"))
+        );
+        assert_eq!(
+            fs::read_to_string(deleted.join("work.json")).unwrap(),
+            "first"
+        );
+        assert_eq!(
+            fs::read_to_string(deleted.join("work-2.json")).unwrap(),
+            "second"
+        );
+        // Nothing to retire (never backed, or already moved): nothing happens
+        assert_eq!(retire_into(&deleted, &src).unwrap(), None);
+        let fresh = temp_dir("retire-none");
+        assert_eq!(
+            retire_into(&fresh.join("deleted"), &fresh.join("ghost.json")).unwrap(),
+            None
+        );
+        assert!(
+            !fresh.join("deleted").exists(),
+            "no folder is made for nothing"
+        );
+    }
+
+    #[test]
+    fn clipboard_expansion_is_one_pass_and_leaves_holes_when_empty() {
+        // No token: the text comes back as it was
+        assert_eq!(
+            expand_clipboard("plain {goal}", Some("clip")),
+            "plain {goal}"
+        );
+        // Every token takes the clipboard
+        assert_eq!(
+            expand_clipboard("a {clipboard} b {clipboard}", Some("X")),
+            "a X b X"
+        );
+        // An empty or unreadable clipboard leaves a hole rather than the word
+        assert_eq!(expand_clipboard("a {clipboard} b", Some("")), "a  b");
+        assert_eq!(expand_clipboard("a {clipboard} b", None), "a  b");
+        // A clipboard holding the token itself is text, never expanded again
+        assert_eq!(
+            expand_clipboard("see {clipboard}", Some("{clipboard} inside")),
+            "see {clipboard} inside"
+        );
+    }
+
+    #[test]
+    fn a_quarantined_library_starts_empty_with_a_notice_and_a_missing_one_with_starters() {
+        let (starters, notice) = snippets_from_loaded(Loaded::Missing);
+        assert_eq!(starters.len(), default_snippets().len());
+        assert!(notice.is_none());
+
+        let moved_to = PathBuf::from("snippets.json.corrupt-1700000000");
+        let (empty, notice) = snippets_from_loaded(Loaded::Quarantined {
+            moved_to,
+            error: "EOF while parsing".into(),
+        });
+        assert!(
+            empty.is_empty(),
+            "never the starters: that would look like a reset, not a loss"
+        );
+        let notice = notice.unwrap();
+        assert_eq!(notice.kind, "library-recovered");
+        assert!(notice.message.contains("snippets.json.corrupt-1700000000"));
+        assert!(notice.message.contains("EOF while parsing"));
+
+        // Present: the migrations run (v2 category becomes a tag, packs default)
+        let v2: Vec<Snippet> = serde_json::from_str(
+            r#"[{"id": "abc", "title": "t", "text": "x", "category": "Debug"}]"#,
+        )
+        .unwrap();
+        let (present, notice) = snippets_from_loaded(Loaded::Present(v2));
+        assert!(notice.is_none());
+        assert_eq!(present[0].tags, vec!["debug"]);
+        assert_eq!(present[0].pack, "My prompts");
+    }
+
+    #[test]
+    fn only_files_under_the_data_folder_are_admitted() {
+        let root = temp_dir("within");
+        let data = root.join("data");
+        fs::create_dir_all(data.join("packs")).unwrap();
+        fs::write(data.join("packs").join("work.json"), "{}").unwrap();
+        fs::write(root.join("outside.json"), "{}").unwrap();
+        let inside = data.join("packs").join("work.json");
+        // A file under the folder comes back as a plain path explorer takes
+        let admitted = path_within(&data, &inside.to_string_lossy()).unwrap();
+        assert!(
+            !admitted.to_string_lossy().starts_with(r"\\?\"),
+            "{}",
+            admitted.display()
+        );
+        assert_eq!(fs::read_to_string(&admitted).unwrap(), "{}");
+        // A sibling of the folder, and a traversal out of it, are refused
+        let outside = root.join("outside.json");
+        assert!(path_within(&data, &outside.to_string_lossy())
+            .unwrap_err()
+            .contains("outside"));
+        let traversal = data
+            .join("packs")
+            .join("..")
+            .join("..")
+            .join("outside.json");
+        assert!(path_within(&data, &traversal.to_string_lossy())
+            .unwrap_err()
+            .contains("outside"));
+        // A file that isn't there is an error naming it, not a false refusal
+        let missing = data.join("packs").join("missing.json");
+        assert!(path_within(&data, &missing.to_string_lossy())
+            .unwrap_err()
+            .contains("missing.json"));
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_popup_is_clamped_into_the_work_area() {
+        // A 1920×1040 work area (a 40 px taskbar) left of the primary monitor
+        let area = Area {
+            x: -1920.0,
+            y: 0.0,
+            width: 1920.0,
+            height: 1040.0,
+        };
+        let (w, h) = (400.0, 600.0);
+        // Room to spare: the cursor position is used as is
+        assert_eq!(clamp_to_area(-1000.0, 100.0, w, h, area), (-1000.0, 100.0));
+        // Near the right and bottom edges: pulled back to fit, taskbar excluded
+        assert_eq!(clamp_to_area(-100.0, 900.0, w, h, area), (-400.0, 440.0));
+        // Before the origin (a cursor a pixel outside): the origin
+        assert_eq!(clamp_to_area(-1921.0, -5.0, w, h, area), (-1920.0, 0.0));
+        // The size is the target monitor's: at 150% the same popup is 600×900,
+        // and what fit at 100% no longer does
+        assert_eq!(
+            clamp_to_area(-500.0, 200.0, w * 1.5, h * 1.5, area),
+            (-600.0, 140.0)
+        );
+        // Larger than the area: the top-left stays visible
+        assert_eq!(
+            clamp_to_area(0.0, 0.0, 3000.0, 3000.0, area),
+            (-1920.0, 0.0)
+        );
+    }
+
+    #[test]
+    fn a_summon_over_one_of_our_windows_records_no_paste_target() {
+        let ours = [0x10, 0x20];
+        assert_eq!(paste_target(0x30, &ours), 0x30);
+        // The manager's window, or the popup's own: nothing to paste into
+        assert_eq!(paste_target(0x10, &ours), 0);
+        assert_eq!(paste_target(0x20, &ours), 0);
+        assert_eq!(paste_target(0, &ours), 0);
+    }
+
+    #[test]
+    fn a_paste_with_no_target_falls_back_to_copy_only() {
+        assert_eq!(paste_mode(true, 0x30), PasteMode::Pasted);
+        assert_eq!(paste_mode(true, 0), PasteMode::Copied);
+        assert_eq!(paste_mode(false, 0x30), PasteMode::Copied);
+        assert_eq!(paste_mode(false, 0), PasteMode::Copied);
+        // The tags the popup switches on
+        assert_eq!(PasteMode::Pasted.tag(), "pasted");
+        assert_eq!(PasteMode::Copied.tag(), "copied");
+    }
+
+    #[test]
+    fn hotkey_config_falls_back_to_the_default_when_unparseable() {
+        let default: Shortcut = Config::default().hotkey.parse().unwrap();
+        assert_eq!(resolve_hotkey("not a hotkey"), default);
+        assert_eq!(resolve_hotkey(""), default);
+        assert_eq!(
+            resolve_hotkey("ctrl+alt+v"),
+            "ctrl+alt+v".parse::<Shortcut>().unwrap()
+        );
+        assert_ne!(resolve_hotkey("ctrl+alt+v"), default);
+    }
+
+    #[test]
+    fn a_hotkey_without_a_modifier_is_refused_everywhere() {
+        // The parser itself takes a bare letter; a hand-edited config with
+        // one would capture it system-wide
+        assert!("a".parse::<Shortcut>().is_ok());
+        let err = parse_hotkey("a").unwrap_err();
+        assert!(err.contains("modifier"), "{err}");
+        assert!(parse_hotkey("f5").is_err());
+        assert!(parse_hotkey("").is_err());
+        assert!(parse_hotkey("ctrl+shift+v").is_ok());
+        assert!(parse_hotkey("alt+f5").is_ok());
+        // From the config it falls back to the default; from Settings it is
+        // an error the user sees
+        let default: Shortcut = Config::default().hotkey.parse().unwrap();
+        assert_eq!(resolve_hotkey("a"), default);
+        assert_eq!(resolve_hotkey("f5"), default);
+    }
+
+    #[test]
+    fn an_empty_draft_backs_no_pack() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: "Work".into(),
+            locked: false,
+            path: String::new(),
+        });
+        let mut draft = snip("New prompt", "", "");
+        draft.pack = "My prompts".into();
+        draft.uses = 0;
+        let mut kept = snip("Kept", "", "");
+        kept.pack = "Notes".into();
+        // The draft's pack is not in play; a real prompt's is
+        assert_eq!(
+            packs_in_play(&config, &[draft.clone(), kept]),
+            vec!["Work".to_string(), "Notes".to_string()]
+        );
+        // Typing a body (or a title) makes it a prompt like any other
+        draft.text = "hello".into();
+        assert_eq!(
+            packs_in_play(&config, &[draft.clone()]),
+            vec!["Work".to_string(), "My prompts".to_string()]
+        );
+        draft.text.clear();
+        draft.title = "Standup".into();
+        assert_eq!(
+            packs_in_play(&config, &[draft]),
+            vec!["Work".to_string(), "My prompts".to_string()]
+        );
+    }
+
+    #[test]
+    fn rename_pack_treats_case_variants_as_taken_except_its_own() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: "General".into(),
+            locked: false,
+            path: String::new(),
+        });
+        let mut s = snip("A", "", "x");
+        s.pack = "Other".into();
+        let mut snippets = vec![s];
+        assert!(rename_pack_in(&mut config, &mut snippets, "Other", "general").is_err());
+        assert!(rename_pack_in(&mut config, &mut snippets, "Other", "OTHER").is_ok());
+        assert_eq!(snippets[0].pack, "OTHER");
+        assert!(rename_pack_in(&mut config, &mut snippets, "General", "GENERAL").is_ok());
+        assert_eq!(config.packs[0].name, "GENERAL");
+    }
+
+    #[test]
+    fn rename_pack_moves_metadata_and_prompts_together() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: "Old".into(),
+            locked: true,
+            path: "C:\\old.json".into(),
+        });
+        config.packs.push(PackMeta {
+            name: "Other".into(),
+            locked: false,
+            path: String::new(),
+        });
+        let mut snippets = vec![sample("a"), sample("b"), sample("c")];
+        snippets[0].pack = "Old".into();
+        snippets[1].pack = "Old".into();
+        snippets[2].pack = "Other".into();
+        rename_pack_in(&mut config, &mut snippets, "Old", "New").unwrap();
+        // One entry, same file, lock kept; every prompt follows
+        assert_eq!(config.packs.iter().filter(|p| p.name == "New").count(), 1);
+        assert!(!config.packs.iter().any(|p| p.name == "Old"));
+        let new = config.packs.iter().find(|p| p.name == "New").unwrap();
+        assert!(new.locked);
+        assert_eq!(new.path, "C:\\old.json");
+        assert_eq!(snippets.iter().filter(|s| s.pack == "New").count(), 2);
+        assert_eq!(snippets[2].pack, "Other");
+        // Collisions and empties are refused, nothing touched
+        assert!(rename_pack_in(&mut config, &mut snippets, "New", "Other").is_err());
+        assert!(rename_pack_in(&mut config, &mut snippets, "New", "  ").is_err());
+        assert_eq!(snippets.iter().filter(|s| s.pack == "New").count(), 2);
+        // A pack that was only a name on prompts gets metadata when renamed
+        snippets[2].pack = "Nameless".into();
+        rename_pack_in(&mut config, &mut snippets, "Nameless", "Named").unwrap();
+        assert!(config
+            .packs
+            .iter()
+            .any(|p| p.name == "Named" && p.path.is_empty()));
+        assert_eq!(snippets[2].pack, "Named");
+    }
+
+    #[test]
+    fn config_without_a_hotkey_still_parses_with_the_default() {
+        // A hand-edited or partially written config.json must not be
+        // quarantined over a missing field: the packs and their paths live
+        // in the same file
+        let config: Config =
+            serde_json::from_str(r#"{"packs": [{"name": "Work", "locked": true}]}"#).unwrap();
+        assert_eq!(config.hotkey, Config::default().hotkey);
+        assert_eq!(config.packs.len(), 1);
+        let empty: Config = serde_json::from_str("{}").unwrap();
+        assert_eq!(empty.hotkey, "ctrl+shift+v");
+    }
+
+    #[test]
+    fn store_error_serializes_with_a_kind_tag() {
+        let json = serde_json::to_string(&StoreError::Stale { revision: 4 }).unwrap();
+        assert_eq!(json, r#"{"kind":"stale","revision":4}"#);
+    }
+
+    #[test]
+    fn starter_pack_ids_are_unique_and_tagged() {
+        let snippets = default_snippets();
+        let mut ids: Vec<_> = snippets.iter().map(|s| s.id.clone()).collect();
+        ids.sort();
+        ids.dedup();
+        assert_eq!(ids.len(), snippets.len());
+        assert!(snippets
+            .iter()
+            .all(|s| !s.tags.is_empty() && s.pack == "Starter"));
+    }
 }
