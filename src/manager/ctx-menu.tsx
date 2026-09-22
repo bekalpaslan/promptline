@@ -9,7 +9,9 @@ import { fieldVariants } from "@/components/field"
 // from data at open time (pack lists, selection counts), positioned at the
 // cursor, and support armed destructive items and inline inputs.
 export type CtxItem =
-  | { kind: "header"; text: string }
+  // `name`: the text is something the user wrote (a pack, a group, a prompt
+  // title) and is shown as typed, never uppercased like the app's own labels
+  | { kind: "header"; text: string; name?: boolean }
   | { kind: "sep" }
   | { kind: "input"; placeholder: string; onSubmit: (value: string) => void }
   /** Hover opens a nested panel of items to the right; click runs `run` if given. */
@@ -138,7 +140,7 @@ export function useCtxMenu() {
   const renderItem = (it: CtxItem, i: number, onSub?: (i: number, el: HTMLElement) => void) => {
     if (it.kind === "header") {
       return (
-        <div key={i} className="section-label px-2 pb-0.5 pt-1.5">
+        <div key={i} className={cn(it.name ? "name-label truncate" : "section-label", "px-2 pb-0.5 pt-1.5")}>
           {it.text}
         </div>
       )
