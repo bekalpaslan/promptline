@@ -817,8 +817,10 @@ export function App() {
         >
           <SectionHeader>New prompt from clipboard</SectionHeader>
           <div className="px-1">
-            <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Name</label>
+            {/* Real labels, as the fill-in form's: a screen reader names each control */}
+            <label htmlFor="create-title" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Name</label>
             <input
+              id="create-title"
               autoFocus
               value={create.title}
               spellCheck={false}
@@ -828,8 +830,9 @@ export function App() {
             />
           </div>
           <div className="px-1">
-            <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Pack</label>
+            <label htmlFor="create-pack" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Pack</label>
             <Select
+              id="create-pack"
               value={create.pack}
               onChange={(e) => setCreate((c) => c && { ...c, pack: e.target.value, group: "" })}
             >
@@ -848,8 +851,9 @@ export function App() {
             if (!gs.length) return null
             return (
               <div className="px-1">
-                <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Group</label>
+                <label htmlFor="create-group" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Group</label>
                 <Select
+                  id="create-group"
                   value={create.group}
                   onChange={(e) => setCreate((c) => c && { ...c, group: e.target.value })}
                 >
