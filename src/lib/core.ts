@@ -66,6 +66,22 @@ export interface PackNode<T> {
   groups: { name: string; items: T[] }[]
 }
 
+/** The sidebar's closed packs (names) and groups (groupKeys) */
+export interface Folds {
+  packs: ReadonlySet<string>
+  groups: ReadonlySet<string>
+}
+
+/**
+ * One row of the sidebar's tree as drawn. `key` is what the roving focus
+ * remembers and what the row's data-key carries; `parent` is the key Left
+ * moves to.
+ */
+export type TreeRow =
+  | { key: string; kind: "pack"; name: string; count: number; level: 1; expanded: boolean; hasChildren: boolean; parent?: undefined }
+  | { key: string; kind: "group"; pack: string; group: string; count: number; level: 2; expanded: boolean; hasChildren: boolean; parent: string }
+  | { key: string; kind: "prompt"; id: string; level: 1 | 2 | 3; parent?: string }
+
 /** A removed item and the index it sat at, for Undo */
 export interface Removed<T> {
   item: T
@@ -157,6 +173,18 @@ interface PromptlineCore {
   sortPrompts<T extends Pick<Snippet, "title" | "uses" | "pinned">>(list: T[], orderBy: string): T[]
   /** Packs by name (every name in `packNames`, even empty) with their groups and prompts, in the given row order */
   packTree<T extends Pick<Snippet, "pack" | "group">>(snippets: T[], packNames: string[], defaultPack: string): PackNode<T>[]
+  /** A group's identity: its pack and its label */
+  groupKey(pack: string, group: string): string
+  /** The library in the order the sidebar draws it (sorted, by pack when grouped); "custom" is the array itself */
+  displayOrder<T extends Pick<Snippet, "title" | "uses" | "pinned" | "pack" | "group">>(snippets: T[], orderBy: OrderBy, grouped: boolean, packNames: string[], defaultPack: string): T[]
+  /** Every row of the grouped sidebar in order, folds applied (a search holds them all open) */
+  treeRows(tree: PackNode<Pick<Snippet, "id">>[], folds: Folds, searching: boolean): TreeRow[]
+  /** `base`, then `base 2`, `base 3`, … : the first not in `taken`, case-insensitively */
+  freeName(base: string, taken: string[]): string
+  /** The groups in a pack, each once, A–Z */
+  groupsIn(snippets: Pick<Snippet, "pack" | "group">[], pack: string, defaultPack: string): string[]
+  /** Every tag in the library, most used first */
+  tagsByCount(snippets: Pick<Snippet, "tags">[]): string[]
   /** What a preview shows for {clipboard}: one line, cut at `max` (240), or "(clipboard is empty)" */
   clipboardPreview(clip: string | null | undefined, max?: number): string
   /** What a paste would produce, minus the fill-in form: config and built-ins expanded, the clipboard substituted, {field}s kept */

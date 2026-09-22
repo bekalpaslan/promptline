@@ -531,6 +531,80 @@
     return [...packs.values()].sort((a, b) => a.name.localeCompare(b.name));
   }
 
+  // ---- The manager's tree, as rows ----------------------------------------------
+  // A group is a label scoped to its pack; this is its identity key wherever
+  // the manager holds groups in a set (folds, the rename state, row keys).
+  function groupKey(pack, group) {
+    return `${pack}\u0000${group}`;
+  }
+
+  // The library in the order the sidebar draws it: sorted (sortPrompts),
+  // and by pack — the ungrouped run, then each group — when the view is
+  // grouped. Under "custom" that is the array itself. A drop aimed in this
+  // order is spliced into a copy of it, so the switch to "custom" that
+  // follows shows what was on screen rather than the array's own order.
+  function displayOrder(snippets, orderBy, grouped, packNames, defaultPack) {
+    if (orderBy === 'custom') return [...snippets];
+    const sorted = sortPrompts(snippets, orderBy);
+    if (!grouped) return sorted;
+    return packTree(sorted, packNames, defaultPack).flatMap(p => [...p.ungrouped, ...p.groups.flatMap(g => g.items)]);
+  }
+
+  // Every row of the grouped sidebar as drawn, in order: the keyboard's
+  // tree (one tabbable row, Up/Down move through these, Right steps to the
+  // row after an open pack or group, Left goes to `parent`) and the flat
+  // id list for shift-range selection are both read off it. `folds` holds
+  // the closed pack names and groupKeys; a search holds every fold open,
+  // and a pack with no hits is a header with nothing under it (drawn
+  // faded, so the tree keeps its shape). Row keys are `pack:<name>`,
+  // `group:<groupKey>` and `snip:<id>`.
+  function treeRows(tree, folds, searching) {
+    const rows = [];
+    for (const p of tree) {
+      const faded = searching && p.count === 0;
+      const open = !faded && (searching || !folds.packs.has(p.name));
+      const pk = `pack:${p.name}`;
+      rows.push({ key: pk, kind: 'pack', name: p.name, count: p.count, level: 1, expanded: open, hasChildren: p.count > 0 });
+      if (!open) continue;
+      for (const s of p.ungrouped) rows.push({ key: `snip:${s.id}`, kind: 'prompt', id: s.id, level: 2, parent: pk });
+      for (const g of p.groups) {
+        const gkey = groupKey(p.name, g.name);
+        const gk = `group:${gkey}`;
+        const gopen = searching || !folds.groups.has(gkey);
+        rows.push({ key: gk, kind: 'group', pack: p.name, group: g.name, count: g.items.length, level: 2, expanded: gopen, hasChildren: g.items.length > 0, parent: pk });
+        if (!gopen) continue;
+        for (const s of g.items) rows.push({ key: `snip:${s.id}`, kind: 'prompt', id: s.id, level: 3, parent: gk });
+      }
+    }
+    return rows;
+  }
+
+  // ---- Names and tags ---------------------------------------------------------------
+  // "New pack", then "New pack 2", … : the first of the series not taken,
+  // case-insensitively like every name (a case variant reads as the same
+  // pack, and shares a file name on Windows).
+  function freeName(base, taken) {
+    const lower = new Set(taken.map(t => t.toLowerCase()));
+    for (let n = 1; ; n++) {
+      const name = n === 1 ? base : `${base} ${n}`;
+      if (!lower.has(name.toLowerCase())) return name;
+    }
+  }
+
+  // The groups a pack holds, each once, A–Z: what the New and Move-to menus
+  // list under a pack. A packless prompt belongs to `defaultPack`.
+  function groupsIn(snippets, pack, defaultPack) {
+    const names = new Set(snippets.filter(s => (s.pack || defaultPack) === pack && s.group).map(s => s.group));
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }
+
+  // Every tag in the library, most used first; ties keep first-seen order.
+  function tagsByCount(snippets) {
+    const counts = new Map();
+    for (const s of snippets) for (const t of s.tags || []) counts.set(t, (counts.get(t) || 0) + 1);
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+  }
+
   // ---- Clipboard in previews --------------------------------------------------
   // What a preview shows in place of {clipboard}: the clipboard as it is
   // now, whitespace collapsed to one line and cut at `max` characters with
@@ -635,6 +709,12 @@
     restoreRemoved,
     sortPrompts,
     packTree,
+    groupKey,
+    displayOrder,
+    treeRows,
+    freeName,
+    groupsIn,
+    tagsByCount,
     clipboardPreview,
     expandForCopy,
     titleFromClipboard,

@@ -218,12 +218,7 @@ export function App() {
     [packMeta, snippets]
   )
 
-  const allTags = useCallback(() => {
-    const counts = new Map<string, number>()
-    for (const s of snippets)
-      for (const t of s.tags || []) counts.set(t, (counts.get(t) || 0) + 1)
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0])
-  }, [snippets])
+  const allTags = useCallback(() => C.tagsByCount(snippets), [snippets])
 
   // Opening a prompt is what brings the editor back from an overview
   const select = useCallback((id: string | null) => {

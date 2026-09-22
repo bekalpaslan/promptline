@@ -12,7 +12,7 @@ import {
   RiSettings3Line,
   RiSunLine,
 } from "@remixicon/react"
-import { C, type OrderBy, type Snippet } from "@/lib/core"
+import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { SEGMENT_TRACK, SearchClear, searchBoxClass, segmentClass } from "@/components/field"
@@ -20,13 +20,6 @@ import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
-
-// One row of the tree as drawn. `key` is what the roving focus remembers
-// and what the row's data-key carries; `parent` is the key Left moves to.
-type TreeRow =
-  | { key: string; kind: "pack"; name: string; count: number; level: 1; expanded: boolean; hasChildren: boolean; parent?: undefined }
-  | { key: string; kind: "group"; pack: string; group: string; count: number; level: 2; expanded: boolean; hasChildren: boolean; parent: string }
-  | { key: string; kind: "prompt"; id: string; level: 1 | 2 | 3; parent?: string }
 
 // The filter's text, drawn under a transparent input so its #tag, @pack and
 // >group terms read as chips while the input stays a plain input (caret,
@@ -183,28 +176,12 @@ export function Sidebar() {
 
   // Every row as drawn, in order: the keyboard's tree (one tabbable row,
   // arrows move between them) and the flat id list for shift-range
-  // selection are both read off it. Searching forces every fold open; a
-  // pack with no hits is a faded header with nothing under it.
-  const rows: TreeRow[] = []
-  if (tree) {
-    for (const p of tree) {
-      const faded = !!q && p.count === 0
-      const open = !faded && (!!q || !collapsed.has(p.name))
-      const pk = `pack:${p.name}`
-      rows.push({ key: pk, kind: "pack", name: p.name, count: p.count, level: 1, expanded: open, hasChildren: p.count > 0 })
-      if (!open) continue
-      for (const s of p.ungrouped) rows.push({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 2, parent: pk })
-      for (const g of p.groups) {
-        const gk = `group:${groupKey(p.name, g.name)}`
-        const gopen = !!q || !collapsedGroups.has(groupKey(p.name, g.name))
-        rows.push({ key: gk, kind: "group", pack: p.name, group: g.name, count: g.items.length, level: 2, expanded: gopen, hasChildren: g.items.length > 0, parent: pk })
-        if (!gopen) continue
-        for (const s of g.items) rows.push({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 3, parent: gk })
-      }
-    }
-  } else {
-    for (const s of visible) rows.push({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 1 })
-  }
+  // selection are both read off it (C.treeRows: searching forces every
+  // fold open, a pack with no hits is a faded header with nothing under
+  // it). One list is one row per prompt.
+  const rows: TreeRow[] = tree
+    ? C.treeRows(tree, m.folds, !!q)
+    : visible.map((s) => ({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 1 }))
   const rowByKey = new Map(rows.map((r) => [r.key, r]))
   rowsRef.current = rows
   visibleIdsRef.current = rows.flatMap((r) => (r.kind === "prompt" ? [r.id] : []))
@@ -222,24 +199,14 @@ export function Sidebar() {
     rows[0]?.key ||
     null
 
-  // The library in the order the rows are drawn: sorted, and by pack (the
-  // ungrouped run, then each group) when the view is grouped. Under "custom"
-  // that is the array itself.
-  const displayedOrder = (list: Snippet[]) => {
-    if (orderBy === "custom") return [...list]
-    const sorted = C.sortPrompts(list, orderBy)
-    if (!grouped) return sorted
-    return C.packTree(sorted, [], DEFAULT_PACK).flatMap((p) => [...p.ungrouped, ...p.groups.flatMap((g) => g.items)])
-  }
-
   // Move the dragged snippet next to the drop target in the master array and
   // persist; relative order within every pack follows from the array order.
   // The drop was aimed in the displayed order, so under "Most used" or
-  // "A–Z" the array is first rebased to that order: the switch to "Custom"
-  // that follows would otherwise reveal the array's own order, with every
-  // row but the dragged one reshuffled.
+  // "A–Z" the array is first rebased to that order (C.displayOrder): the
+  // switch to "Custom" that follows would otherwise reveal the array's own
+  // order, with every row but the dragged one reshuffled.
   const commitReorder = async (dragId: string, targetId: string, after: boolean) => {
-    const all = displayedOrder(m.snippets)
+    const all = C.displayOrder(m.snippets, orderBy, grouped, packNames(), DEFAULT_PACK)
     const from = all.findIndex((s) => s.id === dragId)
     if (from === -1) return
     const [item] = all.splice(from, 1)
