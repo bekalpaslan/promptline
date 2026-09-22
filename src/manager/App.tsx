@@ -123,14 +123,34 @@ export function App() {
     }
   }, [applyLibrary, reloadLibrary, refreshPacks])
 
-  const persistPacks = useCallback(async (next: PackMeta[]) => {
-    setPackMeta(next)
+  // Pack metadata is written by intent (lock, delete, add, file), never as
+  // a list: each command is a read-modify-write in Rust that answers with
+  // the registry, and a list handed back from a stale render used to retire
+  // and re-create pack files. On failure the copy here is re-read anyway.
+  const applyPacks = useCallback(async (answer: Promise<PackMeta[]>) => {
     try {
-      await invoke("save_packs", { packs: next })
-    } finally {
+      const packs = await answer
+      setPackMeta(packs)
+      return packs
+    } catch (e) {
       await refreshPacks()
+      throw e
     }
   }, [refreshPacks])
+
+  const setPackLocked = useCallback(async (name: string, locked: boolean) => {
+    try {
+      await applyPacks(invoke<PackMeta[]>("set_pack_locked", { name, locked }))
+    } catch (e) {
+      sayErr(`Couldn't ${locked ? "lock" : "unlock"} the pack: ${e}`)
+      throw e
+    }
+  }, [applyPacks])
+
+  const addPackFile = useCallback(async (name: string) => {
+    const packs = await applyPacks(invoke<PackMeta[]>("add_pack_file", { name }))
+    return packs.find((p) => p.name === name)?.path ?? ""
+  }, [applyPacks])
 
   // The sidebar's folds and the inline-rename state live here, not in the
   // sidebar: a rename or a New from the overview has to reach them too
@@ -152,10 +172,6 @@ export function App() {
     }
   }, [applyLibrary, refreshPacks, carryPackFolds])
 
-  // Latest pack metadata for the same reason
-  const packMetaRef = useRef(packMeta)
-  packMetaRef.current = packMeta
-
   const deleteWithUndo = useCallback(async (ids: Iterable<string>, label: string, opts?: DeleteOpts) => {
     const { kept, removed } = C.removeByIds(snippetsRef.current, ids)
     if (!removed.length && !opts?.pack) return 0
@@ -166,24 +182,34 @@ export function App() {
     setSelectionAnchor((a) => (a && gone.has(a) ? null : a))
     sayUndo(label, () => {
       void (async () => {
-        if (removed.length) await persist(C.restoreRemoved(snippetsRef.current, removed))
-        // Restoring prompts makes Rust conjure the pack again (with a fresh
-        // file, the old one being in packs/deleted/) but without its lock;
-        // put the saved metadata back on whichever entry exists now
-        if (opts?.pack) {
-          const pack = opts.pack
-          const cur = packMetaRef.current
-          await persistPacks(
-            cur.some((p) => p.name === pack.name)
-              ? cur.map((p) => (p.name === pack.name ? { ...p, locked: pack.locked } : p))
-              : [...cur, { ...pack, path: "" }]
-          )
+        try {
+          if (removed.length) await persist(C.restoreRemoved(snippetsRef.current, removed))
+          // Restoring prompts makes Rust conjure the pack again (with a fresh
+          // file, the old one being in packs/deleted/) but without its lock;
+          // set_pack_locked puts the lock back, and gives an empty pack its
+          // metadata (and, through the sync, its file) again
+          if (opts?.pack) await setPackLocked(opts.pack.name, opts.pack.locked)
+        } catch {
+          return // already toasted
         }
         say("Restored")
       })()
     })
     return removed.length
-  }, [persist, persistPacks])
+  }, [persist, setPackLocked])
+
+  // Prompts first, then metadata: while any prompt still names the pack,
+  // the reconciler inside every save would put its metadata straight back
+  const deletePack = useCallback(async (name: string) => {
+    const ids = snippetsRef.current.filter((s) => (s.pack || DEFAULT_PACK) === name).map((s) => s.id)
+    const pack = packMeta.find((p) => p.name === name) ?? { name, locked: false }
+    await deleteWithUndo(ids, `Deleted pack "${name}" (${C.plural(ids.length, "prompt")})`, { pack })
+    try {
+      await applyPacks(invoke<PackMeta[]>("delete_pack", { name }))
+    } catch (e) {
+      sayErr(`Couldn't delete the pack: ${e}`)
+    }
+  }, [packMeta, deleteWithUndo, applyPacks])
 
   const isLocked = useCallback((name: string) => isLockedIn(packMeta, name), [packMeta])
 
@@ -271,32 +297,22 @@ export function App() {
   const addPack = useCallback(
     async (name: string, opts?: { quiet?: boolean }) => {
       if (!name) return
-      // Case variants would read as one pack (and share a file name on
-      // Windows), so they count as the same pack
-      const taken = packNames().find((p) => p.toLowerCase() === name.toLowerCase())
-      if (taken) {
-        sayErr(`Pack "${taken}" already exists`)
+      // New packs are file-backed: they own a .json under the profile that
+      // the app keeps current — grab the file to back up or share the pack.
+      // Rust refuses a name that reads as an existing pack's (case variants
+      // would share a file name on Windows), and a file that can't be
+      // written is its notice: the pack exists either way. Nothing is said
+      // when the caller opens the name for typing straight away (New →
+      // Pack), which announces the pack once its real name is committed.
+      try {
+        await applyPacks(invoke<PackMeta[]>("add_pack", { name }))
+      } catch (e) {
+        sayErr(String(e))
         return
       }
-      // New packs are file-backed: they own a .json under the profile that the
-      // app keeps current — grab the file to back up or share the pack.
-      let path = ""
-      let fileError: string | null = null
-      try {
-        path = await invoke<string>("create_pack_file", { name })
-      } catch (e) {
-        fileError = String(e)
-      }
-      // A pack is just a name, so it exists either way; but say one thing,
-      // not a failure and a success at once — and nothing at all when the
-      // caller opens the name for typing straight away (New → Pack), which
-      // announces the pack once its real name is committed
-      await persistPacks([...packMeta, { name, locked: false, path }])
-      if (fileError)
-        sayErr(`Pack "${name}" created, but its file couldn't be written (${fileError}) — use "Give this pack a file…" to retry`)
-      else if (!opts?.quiet) say(`Pack "${name}" created`)
+      if (!opts?.quiet) say(`Pack "${name}" created`)
     },
-    [packMeta, packNames, persistPacks]
+    [applyPacks]
   )
 
   const savePrefs = useCallback(
@@ -463,7 +479,9 @@ export function App() {
       allTags,
       persist,
       updateSnippet,
-      persistPacks,
+      setPackLocked,
+      deletePack,
+      addPackFile,
       renamePack,
       deleteWithUndo,
       select,
@@ -486,7 +504,7 @@ export function App() {
       showSettings,
       pendingFlush,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)

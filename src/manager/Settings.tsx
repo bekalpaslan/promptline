@@ -143,14 +143,6 @@ export function Settings() {
   const packToJson = (name: string) =>
     C.packToJson(name, m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name))
 
-  const deletePack = async (name: string) => {
-    const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).map((s) => s.id)
-    const pack = m.packMeta.find((p) => p.name === name) ?? { name, locked: false }
-    // Prompts first, then metadata (see Sidebar.deletePack)
-    await m.deleteWithUndo(ids, `Deleted pack "${name}" (${ids.length} prompt${ids.length === 1 ? "" : "s"})`, { pack })
-    await m.persistPacks(m.packMeta.filter((p) => p.name !== name))
-  }
-
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       {/* The pane replaces the editor; say so, and give it a way out */}
@@ -364,19 +356,10 @@ export function Settings() {
                           size="compact"
                           variant="secondary"
                           onClick={() =>
-                            void (async () => {
-                              try {
-                                const path = await invoke<string>("create_pack_file", { name })
-                                const next = meta
-                                  ? m.packMeta.map((p) => (p.name === name ? { ...p, path } : p))
-                                  : [...m.packMeta, { name, locked: false, path }]
-                                await m.persistPacks(next)
-                                await m.persist((cur) => [...cur]) // triggers the sync that fills the fresh file
-                                say(`"${name}" now has a file`)
-                              } catch (e) {
-                                sayErr(`Couldn't create a file for "${name}": ${e}`)
-                              }
-                            })()
+                            void m.addPackFile(name).then(
+                              () => say(`"${name}" now has a file`),
+                              (e) => sayErr(`Couldn't create a file for "${name}": ${e}`)
+                            )
                           }
                         >
                           Give this pack a file…
@@ -392,7 +375,7 @@ export function Settings() {
                             return
                           }
                           setDeleteArm(null)
-                          void deletePack(name)
+                          void m.deletePack(name)
                         }}
                       >
                         <span aria-live="assertive">

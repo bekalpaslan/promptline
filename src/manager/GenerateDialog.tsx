@@ -250,12 +250,14 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       if (!t) {
         // Survey mode: the project pack lands in a scratch file that backs no pack
         filePath = await invoke<string>("create_generated_file")
-      } else if (!filePath) {
+      } else if (meta) {
+        // An existing pack without a file: give it one, on its metadata
+        filePath = await m.addPackFile(t)
+      } else {
         // A file for the agent to write into. The pack itself is created on
         // import (L8): cancelling here leaves a file in packs/ (an orphan,
         // never swept — BEHAVIOR.md) but no empty pack in the sidebar.
         filePath = await invoke<string>("create_pack_file", { name: t })
-        if (meta) await m.persistPacks(m.packMeta.map((p) => (p.name === t ? { ...p, path: filePath } : p)))
       }
       setAgentFilePath(filePath!)
       dismissedRaw.current = null
