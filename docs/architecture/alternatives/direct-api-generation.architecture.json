@@ -173,7 +173,7 @@
     },
     {
       "kind": "region",
-      "label": "%APPDATA%\\com.promptline.app",
+      "label": "%APPDATA%\\io.github.bekalpaslan.promptline",
       "wraps": ["store", "packfiles"]
     }
   ],

@@ -523,6 +523,69 @@ fn write_pack_files(packs: &[PackMeta], snippets: &[Snippet]) -> usize {
 
 /// One-time migration from the v1 EasyPaste data directory: keep user-created
 /// snippets (dropping the v1 samples) and merge in the new starter pack.
+/// 0.2.9 changed the bundle identifier from `com.promptline.app` (a domain
+/// the project never owned) to `io.github.bekalpaslan.promptline`, which
+/// moves the data folder. Everything under the old folder is moved into
+/// the new one before anything else reads it; a failure is a notice, and
+/// the library stays where it was.
+fn migrate_data_dir(app: &AppHandle) {
+    let new_dir = data_dir(app);
+    let Some(parent) = new_dir.parent() else {
+        return;
+    };
+    let old_dir = parent.join("com.promptline.app");
+    if !old_dir.is_dir() {
+        return;
+    }
+    if let Err(e) = move_data_dir(&old_dir, &new_dir) {
+        notify(
+            app,
+            "data-dir-move-failed",
+            format!(
+                "Couldn't move the library from {} to {} ({e}). It is still in the old folder — copy its contents over by hand.",
+                old_dir.display(),
+                new_dir.display()
+            ),
+        );
+    }
+}
+
+/// Move every entry of `old_dir` into `new_dir`, skipping names the new
+/// folder already has (a second run, or a fresh library started before the
+/// move), then point the moved config's pack file paths, which are stored
+/// absolute, at the new folder. The old folder goes only once it is empty.
+fn move_data_dir(old_dir: &Path, new_dir: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(new_dir)?;
+    for entry in fs::read_dir(old_dir)? {
+        let entry = entry?;
+        let target = new_dir.join(entry.file_name());
+        if target.exists() {
+            continue;
+        }
+        fs::rename(entry.path(), &target)?;
+    }
+    let config_path = new_dir.join("config.json");
+    if let Ok(text) = fs::read_to_string(&config_path) {
+        if let Ok(mut config) = serde_json::from_str::<Config>(&text) {
+            let old_prefix = old_dir.to_string_lossy().to_string();
+            let new_prefix = new_dir.to_string_lossy().to_string();
+            let mut changed = false;
+            for pack in &mut config.packs {
+                if let Some(rest) = pack.path.strip_prefix(&old_prefix) {
+                    pack.path = format!("{new_prefix}{rest}");
+                    changed = true;
+                }
+            }
+            if changed {
+                let bytes = serde_json::to_vec_pretty(&config).map_err(std::io::Error::other)?;
+                write_atomic(&config_path, &bytes)?;
+            }
+        }
+    }
+    let _ = fs::remove_dir(old_dir);
+    Ok(())
+}
+
 fn migrate_v1_data(app: &AppHandle) {
     let new_dir = data_dir(app);
     let old_dir = match new_dir.parent() {
@@ -1640,6 +1703,43 @@ mod tests {
     }
 
     #[test]
+    fn moving_the_data_dir_carries_files_and_rewrites_pack_paths() {
+        let root = temp_dir("move");
+        let old = root.join("com.promptline.app");
+        let new = root.join("io.github.bekalpaslan.promptline");
+        fs::create_dir_all(old.join("packs")).unwrap();
+        fs::write(old.join("snippets.json"), "[]").unwrap();
+        fs::write(old.join("packs").join("work.json"), "{}").unwrap();
+        let old_pack = old.join("packs").join("work.json");
+        let config = Config {
+            packs: vec![PackMeta {
+                name: "Work".into(),
+                locked: false,
+                path: old_pack.to_string_lossy().to_string(),
+            }],
+            ..Config::default()
+        };
+        fs::write(old.join("config.json"), serde_json::to_vec(&config).unwrap()).unwrap();
+
+        move_data_dir(&old, &new).unwrap();
+
+        assert!(new.join("snippets.json").exists());
+        assert!(new.join("packs").join("work.json").exists());
+        assert!(!old.exists(), "the emptied old folder goes");
+        let moved: Config = serde_json::from_str(&fs::read_to_string(new.join("config.json")).unwrap()).unwrap();
+        let expected = new.join("packs").join("work.json").to_string_lossy().to_string();
+        assert_eq!(moved.packs[0].path, expected);
+
+        // A second run never overwrites what the new folder already holds
+        fs::create_dir_all(&old).unwrap();
+        fs::write(old.join("snippets.json"), "[1]").unwrap();
+        move_data_dir(&old, &new).unwrap();
+        assert_eq!(fs::read_to_string(new.join("snippets.json")).unwrap(), "[]");
+        assert!(old.join("snippets.json").exists(), "the skipped file stays put");
+        let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn write_atomic_replaces_the_file_and_leaves_no_temp_behind() {
         let dir = temp_dir("atomic");
         let path = dir.join("snippets.json");
@@ -1960,6 +2060,7 @@ pub fn run() {
                 }
             }
 
+            migrate_data_dir(handle);
             migrate_v1_data(handle);
             // Catches packs that predate file backing, so they get their file
             // without waiting for the next save to touch them
