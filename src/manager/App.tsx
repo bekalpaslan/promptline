@@ -403,8 +403,9 @@ export function App() {
     const typing = (t: EventTarget | null) =>
       t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)
     const onKey = (e: KeyboardEvent) => {
-      // Autofill and IME composition send keydowns with no key: nothing to act on
-      if (!e.key) return
+      // Autofill can send a keydown with no key, and a keydown during IME
+      // composition carries a key that is not a command: nothing to act on
+      if (!e.key || e.isComposing) return
       if (e.key.toLowerCase() === "z" && e.ctrlKey && !e.shiftKey && !e.altKey && !typing(e.target)) {
         if (undoLast()) e.preventDefault()
       } else if (e.key === "Escape" && !typing(e.target) && !e.defaultPrevented) {
