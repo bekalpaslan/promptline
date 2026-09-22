@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import { invoke } from "@tauri-apps/api/core"
 import {
   RiAddLine,
   RiArrowDownSLine,
@@ -157,9 +158,22 @@ function AddPrompt({ where, onClick }: { where: string; onClick: () => void }) {
 
 // One prompt as a preview: title, the first lines of its body, its tags and
 // what it asks for. A click opens it in the editor.
-function PromptCard({ s, onOpen, onMenu }: { s: Snippet; onOpen: () => void; onMenu: (x: number, y: number) => void }) {
+function PromptCard({
+  s,
+  clipboard,
+  onOpen,
+  onMenu,
+}: {
+  s: Snippet
+  clipboard: string | null
+  onOpen: () => void
+  onMenu: (x: number, y: number) => void
+}) {
   const tags = s.tags || []
   const inputs = C.requiredInputs(s)
+  // Previews show the clipboard, not the word "clipboard" (BEHAVIOR.md): the
+  // excerpt substitutes it on the builtin's tint, like the editor and popup
+  const excerpt = s.text.replace(/\s+/g, " ")
   return (
     <button
       type="button"
@@ -192,7 +206,19 @@ function PromptCard({ s, onOpen, onMenu }: { s: Snippet; onOpen: () => void; onM
         {s.uses > 0 && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{s.uses}×</span>}
       </span>
       <span className="line-clamp-3 break-words text-xs leading-relaxed text-muted-foreground">
-        {s.text.trim() ? s.text.replace(/\s+/g, " ") : <i>(empty)</i>}
+        {!excerpt.trim() ? (
+          <i>(empty)</i>
+        ) : (
+          C.tokenize(excerpt).map((part, i) =>
+            part.type === "builtin" && part.name === "clipboard" && clipboard !== null ? (
+              <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground" title="The clipboard as it is now">
+                {C.clipboardPreview(clipboard)}
+              </span>
+            ) : (
+              <span key={i}>{part.type === "text" ? part.value : part.raw}</span>
+            )
+          )
+        )}
       </span>
       {tags.length > 0 && (
         <span className="flex flex-wrap items-center gap-1">
@@ -225,6 +251,23 @@ export function Library({ focus }: { focus: LibraryFocus | null }) {
   // The same menus as the sidebar's three dots (rename, lock, export, file,
   // new group, delete; ungroup; pin, move to, tag, export, delete)
   const menus = useLibraryMenus()
+
+  // The clipboard for the card excerpts, read the way the editor reads it:
+  // on open, when the window comes back, and after a copy or cut here
+  const [clipboard, setClipboard] = useState<string | null>(null)
+  useEffect(() => {
+    const refresh = () => void invoke<string>("get_clipboard_text").then(setClipboard).catch(() => {})
+    const onCopy = () => setTimeout(refresh, 50)
+    refresh()
+    window.addEventListener("focus", refresh)
+    document.addEventListener("copy", onCopy)
+    document.addEventListener("cut", onCopy)
+    return () => {
+      window.removeEventListener("focus", refresh)
+      document.removeEventListener("copy", onCopy)
+      document.removeEventListener("cut", onCopy)
+    }
+  }, [])
 
   // The tree is pure core (tested); rows follow the sidebar's order
   const tree = useMemo(
@@ -283,7 +326,7 @@ export function Library({ focus }: { focus: LibraryFocus | null }) {
   const cards = (items: Snippet[]) => (
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
       {items.map((s) => (
-        <PromptCard key={s.id} s={s} onOpen={() => open(s)} onMenu={(x, y) => cardMenu(s, x, y)} />
+        <PromptCard key={s.id} s={s} clipboard={clipboard} onOpen={() => open(s)} onMenu={(x, y) => cardMenu(s, x, y)} />
       ))}
     </div>
   )
