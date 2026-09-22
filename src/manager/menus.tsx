@@ -27,6 +27,8 @@ export const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 export function useLibraryMenus(opts: {
   /** Before a "New group…" creates its first prompt: the sidebar unfolds the pack */
   onNewGroup?: (pack: string) => void
+  /** Before a group's "New prompt" creates one: the sidebar unfolds the group */
+  onNewPromptInGroup?: (pack: string, group: string) => void
   /** Keyboard reorder, where the surface has rows to move between */
   moveRow?: (id: string, dir: -1 | 1) => void
 } = {}) {
@@ -95,6 +97,19 @@ export function useLibraryMenus(opts: {
     const locked = m.isLocked(pack)
     ctx.open(x, y, [
       { kind: "header", text: `${pack} › ${group}` },
+      {
+        // A draft in this group, opened in the editor, like the overview's
+        // "+ prompt" under the group's heading
+        kind: "item",
+        label: locked ? "New prompt (locked)" : "New prompt",
+        disabled: locked,
+        hint: locked ? "Unlock the pack first (its header menu → Unlock)" : undefined,
+        run: () => {
+          opts.onNewPromptInGroup?.(pack, group)
+          void m.newPrompt({ pack, group })
+        },
+      },
+      { kind: "sep" },
       { kind: "item", label: "Rename group", run: () => setRenamingGroup(groupKey(pack, group)) },
       {
         kind: "item",
