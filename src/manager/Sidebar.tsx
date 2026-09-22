@@ -18,7 +18,6 @@ import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { SEGMENT_TRACK, SearchClear, searchBoxClass, segmentClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
-import { EmptyState } from "./EmptyState"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
 
@@ -351,7 +350,6 @@ export function Sidebar() {
     openGroupCtx,
     openRowCtx,
     openNewMenu,
-    newPack,
   } = useLibraryMenus({ surface: "sidebar", moveRow })
 
   // A new prompt or pack can land below the fold of a long list, and a pack
@@ -758,14 +756,8 @@ export function Sidebar() {
           <RiAddLine className="size-4" />
           New
         </button>
-        {/* Nothing at all — not even an empty pack — gets a way in, not a blank */}
-        {m.snippets.length === 0 && m.packNames().length === 0 && (
-          <EmptyState
-            title="No prompts yet"
-            hint="A pack holds your prompts: start with one"
-            actions={[{ label: "New pack", onClick: () => void newPack(), primary: true }]}
-          />
-        )}
+        {/* An empty library says so in the pane, not here as well: the New
+            button above is the sidebar's way in */}
         {groups ? (
           groups.map(([name, items]) => {
             // Searching: a pack with no hits is only its faded header

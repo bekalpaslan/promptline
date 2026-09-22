@@ -219,7 +219,11 @@ tree; locked packs are listed but disabled. There is no default placement
 there: a New that guessed put prompts in packs nobody chose. A group, being
 a label, starts life on a draft prompt, and is what gets selected and named;
 the draft waits inside it, so a group left with only that draft goes when
-the draft is swept (below).
+the draft is swept (below). An empty library has one empty state, in the
+pane, and its primary action is that same New menu (Generate beside it as
+the secondary); the sidebar keeps only its New button. It used to show a
+second "No prompts yet" of its own with a "New pack" button while the
+pane's offered a "New prompt" that guessed a pack.
 
 **Where a new prompt goes** when nothing chose — the popup's Ctrl+N, the
 editor's and overview's empty-state buttons — is one rule for both windows

@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { Select, fieldVariants } from "@/components/field"
 import { Chip, PREVIEW_BOX, PromptTokens, TagPill, chipVariants } from "@/components/prompt-bits"
+import { useLibraryMenus } from "./menus"
 import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
@@ -156,6 +157,9 @@ function TokenPreview({
 export function Editor() {
   const m = useManager()
   const snippet = m.snippets.find((s) => s.id === m.activeId)
+  // The empty library's one way in is the same New menu as the sidebar's
+  // button: it asks what and where, so nothing lands in a pack nobody chose
+  const menus = useLibraryMenus({ surface: "editor" })
 
   if (!snippet) {
     if (m.selection.size > 1) {
@@ -166,15 +170,35 @@ export function Editor() {
         />
       )
     }
+    if (!m.snippets.length) {
+      return (
+        <>
+          <EmptyState
+            icon={RiFileTextLine}
+            title="No prompts yet"
+            hint="A pack holds your prompts: make one and write prompts in it, or let Claude draft a pack for a topic — every prompt is reviewed before it is added"
+            actions={[
+              {
+                label: "New",
+                primary: true,
+                menu: true,
+                onClick: (e) => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  menus.openNewMenu(r.left, r.bottom + 4)
+                },
+              },
+              { label: "Generate pack with Claude…", onClick: () => m.openGenerate() },
+            ]}
+          />
+          {menus.element}
+        </>
+      )
+    }
     return (
       <EmptyState
         icon={RiFileTextLine}
-        title={m.snippets.length ? "Select a prompt to edit it" : "No prompts yet"}
-        hint={
-          m.snippets.length
-            ? `Or press ${C.fmtHotkey(m.hotkey)} in any app to paste one`
-            : "Write one, or let Claude draft a pack for a topic — every prompt is reviewed before it is added"
-        }
+        title="Select a prompt to edit it"
+        hint={`Or press ${C.fmtHotkey(m.hotkey)} in any app to paste one`}
         actions={[
           { label: "New prompt", onClick: () => void m.newPrompt(), primary: true },
           { label: "Generate pack with Claude…", onClick: () => m.openGenerate() },
