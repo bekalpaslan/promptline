@@ -791,10 +791,10 @@ export function App() {
   const announce = panelFor
     ? `Actions for ${panelFor.title}`
     : form
-      ? `Fill in ${form.fields.length} field${form.fields.length === 1 ? "" : "s"} for ${form.snippet.title}`
+      ? `Fill in ${C.plural(form.fields.length, "field")} for ${form.snippet.title}`
       : create
         ? "New prompt from clipboard"
-        : `${visible.length} prompt${visible.length === 1 ? "" : "s"}${hasQuery ? " match" : ""}`
+        : `${C.plural(visible.length, "prompt")}${hasQuery ? " match" : ""}`
 
   // --- Create-from-clipboard confirmation --------------------------------------
   if (create) {
@@ -889,7 +889,7 @@ export function App() {
     const emptyCount = form.fields.filter((f) => !(formValues[f] ?? "").trim()).length
     const verb = form.paste ? "Paste" : "Copy"
     const submitLabel =
-      emptyCount === 0 ? verb : `${verb} with ${emptyCount} field${emptyCount === 1 ? "" : "s"} empty`
+      emptyCount === 0 ? verb : `${verb} with ${C.plural(emptyCount, "field")} empty`
     return (
       <Shell hint={hint} notice={notice} announce={announce}>
         {/* Fields and preview scroll; the button stays in reach below them */}
