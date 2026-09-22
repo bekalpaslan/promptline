@@ -645,6 +645,20 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         <span role="status" className="sr-only">
           {saveState === "saved" ? "Saved" : ""}
         </span>
+        {snippet.uses > 0 && (
+          <span className="text-xs tabular-nums text-muted-foreground">used {snippet.uses}×</span>
+        )}
+        {/* The prompt's own actions sit together in its header: pin, delete */}
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-pressed={snippet.pinned}
+          title={snippet.pinned ? "Unpin from the popup's top slots" : "Pin to the popup's top slots"}
+          onClick={() => void togglePin()}
+          className={cn("min-w-14", snippet.pinned && "bg-(--warn)/15 text-(--warn) hover:bg-(--warn)/25")}
+        >
+          {snippet.pinned ? "Unpin" : "Pin"}
+        </Button>
         <Button
           variant="secondary"
           size="sm"
@@ -821,20 +835,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             </span>
           )}
         </div>
-      </div>
-
-      <div className="mt-auto flex items-center gap-3">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => void togglePin()}
-          className={cn("min-w-19", snippet.pinned && "bg-(--warn)/15 text-(--warn) hover:bg-(--warn)/25")}
-        >
-          {snippet.pinned ? "Unpin" : "Pin"}
-        </Button>
-        {snippet.uses > 0 && (
-          <span className="text-xs tabular-nums text-muted-foreground">used {snippet.uses}×</span>
-        )}
       </div>
     </div>
   )
