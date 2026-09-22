@@ -541,3 +541,23 @@ test('expandForCopy expands {date} and {time} the way a paste does', () => {
   assert.equal(date, new Date().toLocaleDateString());
   assert.ok(/\d/.test(time) && !time.includes('{'), time);
 });
+
+// ---- matchesQuery: the manager sidebar's filter --------------------------------
+test('matchesQuery: every free-text word, anywhere in the prompt, any order', () => {
+  const s = { title: 'Root cause first', text: 'Find the bug', tags: ['debug'], pack: 'Starter', group: 'Triage' };
+  const q = (raw) => core.matchesQuery(s, core.parseQuery(raw));
+  assert.ok(q(''));
+  assert.ok(q('ROOT'));
+  assert.ok(q('bug starter'), 'body word plus pack word');
+  assert.ok(q('triage cause'), 'group word plus title word, reversed');
+  assert.ok(!q('root missing'), 'one word absent fails the whole query');
+});
+
+test('matchesQuery applies #tag, @pack and >group terms before the text', () => {
+  const s = { title: 'Explain this error', text: '{clipboard}', tags: ['debug'], pack: 'Mock Groups', group: 'Debugging' };
+  const q = (raw) => core.matchesQuery(s, core.parseQuery(raw));
+  assert.ok(q('#debug err'));
+  assert.ok(q('@"mock groups" >debug'));
+  assert.ok(!q('#review err'), 'a failed tag term hides a text match');
+  assert.ok(!q('@starter'));
+});

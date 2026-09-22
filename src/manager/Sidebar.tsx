@@ -2,21 +2,24 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import {
   RiArrowDownSLine,
   RiArrowRightSLine,
+  RiBox3Line,
+  RiCloseLine,
   RiDraggable,
-  RiEqualizerLine,
+  RiEqualizer2Line,
   RiFileAddLine,
   RiFolderAddLine,
   RiLock2Fill,
   RiMoonClearLine,
   RiMoreLine,
   RiPushpinFill,
+  RiSearchLine,
   RiSettings3Line,
   RiSunLine,
 } from "@remixicon/react"
-import { Checkbox } from "@/components/ui/checkbox"
 import { C, type OrderBy, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { DEFAULT_PACK, useManager } from "./state"
+import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
+import { useCtxMenu } from "./ctx-menu"
 import { EmptyState } from "./EmptyState"
 import { groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
@@ -45,6 +48,32 @@ function splitGroups(items: Snippet[]): { ungrouped: Snippet[]; groups: [string,
   return { ungrouped, groups: [...map.entries()] }
 }
 
+// A title with the filter's free-text words marked: each word's first
+// occurrence, overlaps merged, case-insensitive like the match itself
+function marked(title: string, words: string[]): React.ReactNode {
+  const lower = title.toLowerCase()
+  const spans = words
+    .map((w) => [lower.indexOf(w), lower.indexOf(w) + w.length] as const)
+    .filter(([a]) => a !== -1)
+    .sort((x, y) => x[0] - y[0])
+  if (!spans.length) return title
+  const out: React.ReactNode[] = []
+  let at = 0
+  for (const [a, b] of spans) {
+    if (b <= at) continue
+    const from = Math.max(a, at)
+    if (from > at) out.push(title.slice(at, from))
+    out.push(
+      <mark key={from} className="rounded-[2px] bg-(--link)/15 text-(--link)">
+        {title.slice(from, b)}
+      </mark>
+    )
+    at = b
+  }
+  if (at < title.length) out.push(title.slice(at))
+  return out
+}
+
 export function Sidebar() {
   const m = useManager()
   const [query, setQuery] = useState("")
@@ -54,8 +83,12 @@ export function Sidebar() {
   const [grouped, setGrouped] = useState(localStorage.getItem("groupByPack") !== "0")
   const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsed("collapsedPacks"))
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => loadCollapsed("collapsedGroups"))
-  const [configOpen, setConfigOpen] = useState(false)
   const [newPackInput, setNewPackInput] = useState(false)
+  // A search started while a pack or group is shown stays inside it until
+  // the chip in the field is dismissed; clearing the search drops it
+  const [scope, setScope] = useState<LibraryFocus | null>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
+  const display = useCtxMenu()
   const visibleIdsRef = useRef<string[]>([])
   // A click on a pack or group title selects it: the pane beside the
   // sidebar shows what it holds (the overview), the way a prompt row shows
@@ -79,21 +112,50 @@ export function Sidebar() {
   }
 
   const q = query.trim().toLowerCase()
-  // The list-view configuration deviates from defaults — surface a dot on the toggle
+  // The popup's syntax: #tag, @pack and >group terms, then free-text words
+  // anywhere in the prompt (C.matchesQuery)
+  const parsed = useMemo(() => C.parseQuery(query), [query])
+  const words = useMemo(() => parsed.text.toLowerCase().split(/\s+/).filter(Boolean), [parsed])
+  const inScope = (s: Snippet) =>
+    !scope || ((s.pack || DEFAULT_PACK) === scope.pack && (!scope.group || s.group === scope.group))
+  const hits = useMemo(
+    () => (q ? m.snippets.filter((s) => C.matchesQuery({ ...s, pack: s.pack || DEFAULT_PACK }, parsed)) : m.snippets),
+    [m.snippets, q, parsed]
+  )
+  const visible = useMemo(
+    () => C.sortPrompts(q ? hits.filter(inScope) : [...m.snippets], orderBy),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [hits, q, orderBy, scope]
+  )
+  // Pack sizes, for the "hits / all" count a pack shows while searching
+  const packTotals = useMemo(() => {
+    const t = new Map<string, number>()
+    for (const s of m.snippets) t.set(s.pack || DEFAULT_PACK, (t.get(s.pack || DEFAULT_PACK) || 0) + 1)
+    return t
+  }, [m.snippets])
 
-  const visible = useMemo(() => {
-    const pool = q
-      ? m.snippets.filter(
-          (s) =>
-            s.title.toLowerCase().includes(q) ||
-            (s.tags || []).some((t) => t.toLowerCase().includes(q)) ||
-            (s.pack || "").toLowerCase().includes(q) ||
-            (s.group || "").toLowerCase().includes(q) ||
-            s.text.toLowerCase().includes(q)
-        )
-      : [...m.snippets]
-    return C.sortPrompts(pool, orderBy)
-  }, [m.snippets, q, orderBy])
+  const setSearch = (next: string) => {
+    // A search begins inside whatever pack or group the pane is showing
+    if (!query.trim() && next.trim()) setScope(shown)
+    if (!next.trim()) setScope(null)
+    setQuery(next)
+  }
+  const clearSearch = () => {
+    setQuery("")
+    setScope(null)
+  }
+  // Ctrl+F reaches the filter from anywhere in the manager
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey && !e.altKey && !e.shiftKey && e.key?.toLowerCase() === "f") {
+        e.preventDefault()
+        searchRef.current?.focus()
+        searchRef.current?.select()
+      }
+    }
+    document.addEventListener("keydown", onKey)
+    return () => document.removeEventListener("keydown", onKey)
+  }, [])
 
   const groups = useMemo(() => {
     if (!grouped) return null
@@ -257,6 +319,17 @@ export function Sidebar() {
     localStorage.setItem("collapsedPacks", JSON.stringify([...next]))
   }
 
+  const foldAll = (fold: boolean) => {
+    const packs = fold ? new Set(m.packNames()) : new Set<string>()
+    const keys = fold
+      ? new Set(m.snippets.filter((s) => s.group).map((s) => groupKey(s.pack || DEFAULT_PACK, s.group)))
+      : new Set<string>()
+    setCollapsed(packs)
+    setCollapsedGroups(keys)
+    localStorage.setItem("collapsedPacks", JSON.stringify([...packs]))
+    localStorage.setItem("collapsedGroups", JSON.stringify([...keys]))
+  }
+
   const toggleCollapsedGroup = (key: string) => {
     const next = new Set(collapsedGroups)
     if (next.has(key)) next.delete(key)
@@ -317,9 +390,8 @@ export function Sidebar() {
         aria-current={shown?.pack === pack && shown.group === group ? "true" : undefined}
         title={`${group} — click shows its prompts, Enter folds it, right-click for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.06em]",
-          isCollapsed ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)",
-          shown?.pack === pack && shown.group === group && "bg-secondary text-(--heading)"
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-medium text-(--heading) hover:bg-hover",
+          shown?.pack === pack && shown.group === group && "bg-accent hover:bg-accent"
         )}
         onClick={() => m.openOverview({ pack, group })}
         onKeyDown={(e) => {
@@ -342,12 +414,26 @@ export function Sidebar() {
           openGroupCtx(e.clientX, e.clientY, pack, group, count)
         }}
       >
+        {/* The chevron is the fold; the title selects */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={isCollapsed ? `Expand group ${group}` : `Collapse group ${group}`}
+          className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation()
+            toggleCollapsedGroup(key)
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          <Chev className="size-4" />
+        </button>
         {renamingGroup === key ? (
           <input
             autoFocus
             defaultValue={group}
             spellCheck={false}
-            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-xs font-semibold uppercase tracking-[0.06em] text-foreground focus-ring"
+            className="min-w-0 flex-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-ui font-medium text-foreground focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               // The header above toggles on Enter / Space; typing must not reach it
@@ -362,9 +448,7 @@ export function Sidebar() {
             onBlur={() => setRenamingGroup(null)}
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate">
-            {group} <span className="font-medium">({count})</span>
-          </span>
+          <span className="min-w-0 flex-1 truncate">{group}</span>
         )}
         {/* Hover-revealed way into the same menu right-click opens */}
         <button
@@ -381,26 +465,13 @@ export function Sidebar() {
         >
           <RiMoreLine className="size-3.5" />
         </button>
-        {/* The chevron is the fold; the title selects */}
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={isCollapsed ? `Expand group ${group}` : `Collapse group ${group}`}
-          className="flex shrink-0 cursor-pointer rounded-sm hover:bg-secondary"
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleCollapsedGroup(key)
-          }}
-          onDoubleClick={(e) => e.stopPropagation()}
-        >
-          <Chev className="size-4" />
-        </button>
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{count}</span>
       </div>
     )
   }
 
   // Prompt row: bordered card, grey fill when active
-  const snipRow = (s: Snippet) => {
+  const snipRow = (s: Snippet, where?: string) => {
     const multi = m.selection.size > 1 && m.selection.has(s.id)
     const active = s.id === m.activeId && m.selection.size <= 1
     const lifted = drag?.id === s.id
@@ -416,7 +487,7 @@ export function Sidebar() {
         title={s.title || "(untitled)"}
         data-snip-id={s.id}
         className={cn(
-          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui font-medium transition-[transform,box-shadow] duration-150",
+          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui transition-[transform,box-shadow] duration-150",
           active
             ? "bg-accent text-foreground"
             : "text-foreground hover:bg-hover",
@@ -473,7 +544,14 @@ export function Sidebar() {
         {/* Resting affordance for press-and-hold drag: a grip on hover */}
         <RiDraggable className="-ml-1 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
         {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-(--warn)" aria-label="pinned" />}
-        <span className="truncate">{s.title || "(untitled)"}</span>
+        {where ? (
+          <span className="flex min-w-0 flex-col">
+            <span className="truncate">{marked(s.title || "(untitled)", words)}</span>
+            <span className="truncate text-xs font-normal text-muted-foreground">{where}</span>
+          </span>
+        ) : (
+          <span className="truncate">{marked(s.title || "(untitled)", words)}</span>
+        )}
       </div>
     )
   }
@@ -488,9 +566,8 @@ export function Sidebar() {
         aria-current={shown?.pack === name && !shown.group ? "true" : undefined}
         title={`${name} — click shows its prompts, Enter folds it, right-click for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-base font-semibold",
-          isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)",
-          shown?.pack === name && !shown.group && "bg-secondary text-(--heading-strong)"
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover",
+          shown?.pack === name && !shown.group && "bg-accent hover:bg-accent"
         )}
         onClick={() => m.openOverview({ pack: name })}
         onKeyDown={(e) => {
@@ -513,12 +590,27 @@ export function Sidebar() {
           openPackCtx(e.clientX, e.clientY, name, count)
         }}
       >
+        {/* The chevron is the fold; the title selects */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={isCollapsed ? `Expand pack ${name}` : `Collapse pack ${name}`}
+          className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onClick={(e) => {
+            e.stopPropagation()
+            toggleCollapsed(name)
+          }}
+          onDoubleClick={(e) => e.stopPropagation()}
+        >
+          <Chev className="size-4" />
+        </button>
+        <RiBox3Line className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         {renaming === name ? (
           <input
             autoFocus
             defaultValue={name}
             spellCheck={false}
-            className="min-w-0 flex-1 -mx-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-base font-semibold text-(--heading-strong) focus-ring"
+            className="min-w-0 flex-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-ui font-semibold text-(--heading-strong) focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               e.stopPropagation()
@@ -531,9 +623,7 @@ export function Sidebar() {
             onBlur={() => setRenaming(null)}
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate">
-            {name} <span className="font-semibold text-muted-foreground">({count})</span>
-          </span>
+          <span className="min-w-0 flex-1 truncate">{name}</span>
         )}
         <button
           type="button"
@@ -550,92 +640,135 @@ export function Sidebar() {
           <RiMoreLine className="size-4" />
         </button>
         {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
-        {/* The chevron is the fold; the title selects */}
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={isCollapsed ? `Expand pack ${name}` : `Collapse pack ${name}`}
-          className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
-          onClick={(e) => {
-            e.stopPropagation()
-            toggleCollapsed(name)
-          }}
-          onDoubleClick={(e) => e.stopPropagation()}
-        >
-          <Chev className="size-4" />
-        </button>
+        {/* While searching: the hits out of the pack's size */}
+        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
+          {q ? `${count} / ${packTotals.get(name) ?? count}` : count}
+        </span>
       </div>
     )
   }
 
   return (
     <aside aria-label="Prompts" className="flex w-[clamp(15rem,28%,20rem)] flex-col border-r border-border bg-sidebar">
-      {/* Title row: page title + view-config toggle + round add button */}
-      <div className="flex items-center gap-1.5 p-3">
+      <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
         <h1 className="min-w-0 flex-1 truncate text-xl font-bold">Prompts</h1>
+      </div>
+
+      {/* What is shown (the filter) apart from how it is shown (Display) */}
+      <div className="flex gap-1.5 px-3 pb-2">
+        <label
+          className={cn(
+            "flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-lg border bg-background px-2 text-ui focus-within:border-ring",
+            q ? "border-ring" : "border-input"
+          )}
+        >
+          <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+          {scope && (
+            <span className="flex max-w-[45%] shrink-0 items-center gap-0.5 rounded-sm bg-secondary py-0.5 pr-0.5 pl-1.5 text-xs text-foreground">
+              <span className="truncate" title={scope.group ? `Searching in ${scope.pack} › ${scope.group}` : `Searching in ${scope.pack}`}>
+                in {scope.group ?? scope.pack}
+              </span>
+              <button
+                type="button"
+                aria-label="Search everywhere"
+                title="Search everywhere"
+                className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:text-foreground"
+                onClick={() => setScope(null)}
+              >
+                <RiCloseLine className="size-3.5" />
+              </button>
+            </span>
+          )}
+          <input
+            ref={searchRef}
+            value={query}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              // Esc clears the filter first, then leaves the field
+              if (e.key === "Escape") {
+                e.preventDefault()
+                if (query) clearSearch()
+                else e.currentTarget.blur()
+              }
+            }}
+            placeholder="Filter  #tag @pack >group"
+            aria-label="Filter prompts"
+            title="Filter (Ctrl+F) · #tag, @pack and >group narrow it, Esc clears"
+            spellCheck={false}
+            className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+          />
+          {query ? (
+            <button
+              type="button"
+              aria-label="Clear the filter"
+              title="Clear (Esc)"
+              className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                clearSearch()
+                searchRef.current?.focus()
+              }}
+            >
+              <RiCloseLine className="size-4" />
+            </button>
+          ) : null}
+        </label>
         <button
           type="button"
-          title="List view options"
-          aria-label="List view options"
-          aria-expanded={configOpen}
-          className={cn(
-            "relative flex h-7 cursor-pointer items-center gap-0.5 rounded-md px-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground",
-            configOpen && "bg-secondary text-foreground"
-          )}
-          onClick={() => setConfigOpen((v) => !v)}
+          title="Display: packs or one list, order, folding"
+          aria-label="Display options"
+          aria-haspopup="menu"
+          className="relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            const orders: [OrderBy, string][] = [["uses", "Most used"], ["title", "A–Z"], ["custom", "Custom — drag to arrange"]]
+            const setView = (on: boolean) => {
+              setGrouped(on)
+              localStorage.setItem("groupByPack", on ? "1" : "0")
+            }
+            display.open(r.left, r.bottom + 4, [
+              { kind: "header", text: "View" },
+              { kind: "item", label: "Packs", checked: grouped, run: () => setView(true) },
+              { kind: "item", label: "One list", checked: !grouped, run: () => setView(false) },
+              { kind: "sep" },
+              { kind: "header", text: "Order" },
+              ...orders.map(([o, label]) => ({ kind: "item" as const, label, checked: orderBy === o, run: () => setOrderBy(o) })),
+              { kind: "sep" },
+              { kind: "item", label: "Collapse all", disabled: !grouped, run: () => foldAll(true) },
+              { kind: "item", label: "Expand all", disabled: !grouped, run: () => foldAll(false) },
+            ])
+          }}
         >
-          <RiEqualizerLine className="size-4" />
-          {/* Points at the panel that unfolds beneath; flips once it is open */}
-          <RiArrowDownSLine className={cn("size-3.5 transition-transform", configOpen && "rotate-180")} />
+          <RiEqualizer2Line className="size-4" />
+          {/* Off the defaults (packs, most used): say so on the button */}
+          {(!grouped || orderBy !== "uses") && (
+            <span className="absolute top-1 right-1 size-1.5 rounded-full bg-(--link)" aria-hidden />
+          )}
         </button>
       </div>
 
-      {/* List-view configuration: filter, order, grouping — tucked away by default */}
-      {configOpen && (
-        <div className="mx-3 mb-3 flex flex-col gap-3 rounded-lg bg-secondary/60 p-3">
-          <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Filter prompts…"
-            aria-label="Filter prompts"
-            spellCheck={false}
-            className="rounded-lg bg-background px-3 py-1.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
-          />
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <span className="whitespace-nowrap">Order by</span>
-            <select
-              value={orderBy}
-              onChange={(e) => setOrderBy(e.target.value as OrderBy)}
-              className="min-w-0 flex-1 cursor-pointer truncate rounded-lg bg-background px-2 py-1 text-ui text-foreground focus-ring"
-            >
-              <option value="uses">Most used</option>
-              <option value="title">Title</option>
-              <option value="custom">Custom — drag to arrange</option>
-            </select>
-          </div>
-          <label className="flex cursor-pointer items-center gap-1.5 whitespace-nowrap text-xs text-muted-foreground">
-            <Checkbox
-              checked={grouped}
-              onCheckedChange={(v) => {
-                setGrouped(v === true)
-                localStorage.setItem("groupByPack", v === true ? "1" : "0")
-              }}
-            />
-            Group by pack
-          </label>
+      {q && (
+        <div className="px-4 pb-2 text-xs text-muted-foreground" aria-live="polite">
+          {visible.length === 0 && !(scope && hits.length) ? (
+            "No matches"
+          ) : scope ? (
+            <>
+              {visible.length} in {scope.group ?? scope.pack}
+              {hits.length > visible.length && (
+                <>
+                  {" · "}
+                  <button type="button" className="cursor-pointer text-(--link) hover:underline" onClick={() => setScope(null)}>
+                    {hits.length - visible.length} more elsewhere
+                  </button>
+                </>
+              )}
+            </>
+          ) : (
+            <>
+              {visible.length} match{visible.length === 1 ? "" : "es"}
+              {grouped && ` in ${new Set(visible.map((s) => s.pack || DEFAULT_PACK)).size} pack${new Set(visible.map((s) => s.pack || DEFAULT_PACK)).size === 1 ? "" : "s"}`}
+            </>
+          )}
         </div>
-      )}
-      {/* A hidden active filter must stay visible — chip clears it */}
-      {!configOpen && q && (
-        <button
-          type="button"
-          aria-label={`Filtering by "${query.trim()}" — clear`}
-          className="mx-3 mb-3 flex cursor-pointer items-center gap-1 self-start rounded-full bg-secondary px-2.5 py-1 text-xs text-muted-foreground hover:text-foreground"
-          onClick={() => setQuery("")}
-        >
-          Filtering by "{query.trim()}" — clear ✕
-        </button>
       )}
 
       <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-3">
@@ -698,20 +831,25 @@ export function Sidebar() {
           groups.map(([name, items]) => {
             const isCollapsed = !q && collapsed.has(name)
             return (
-              <div key={name} data-pack={name} className="mb-3">
+              <div key={name} data-pack={name} className="mb-2">
                 {sectionTitle(name, items.length, isCollapsed)}
                 {!isCollapsed &&
                   (() => {
                     const { ungrouped, groups: gs } = splitGroups(items)
                     return (
-                      <div className="flex flex-col gap-1.5">
+                      <div className="mt-0.5 flex flex-col gap-0.5 pl-4">
                         {ungrouped.map((s) => snipRow(s))}
                         {gs.map(([g, rows]) => {
                           const gc = !q && collapsedGroups.has(groupKey(name, g))
                           return (
-                            <div key={g} className="flex flex-col gap-1.5 pl-2.5">
+                            <div key={g} className="flex flex-col gap-0.5">
                               {groupTitle(name, g, rows.length, gc)}
-                              {!gc && rows.map((s) => snipRow(s))}
+                              {/* The guide line ties a group's prompts to its header */}
+                              {!gc && (
+                                <div className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-2">
+                                  {rows.map((s) => snipRow(s))}
+                                </div>
+                              )}
                             </div>
                           )
                         })}
@@ -722,7 +860,10 @@ export function Sidebar() {
             )
           })
         ) : (
-          <div className="flex flex-col gap-1.5">{visible.map((s) => snipRow(s))}</div>
+          // One list: each row says where it lives, since no header does
+          <div className="flex flex-col gap-0.5">
+            {visible.map((s) => snipRow(s, s.group ? `${s.pack || DEFAULT_PACK} › ${s.group}` : s.pack || DEFAULT_PACK))}
+          </div>
         )}
       </div>
 
@@ -768,6 +909,7 @@ export function Sidebar() {
         </div>
       </div>
       {menus}
+      {display.element}
       <div role="status" aria-live="polite" className="sr-only">{announce}</div>
 
     </aside>
