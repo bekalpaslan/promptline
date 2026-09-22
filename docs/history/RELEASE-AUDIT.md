@@ -35,14 +35,13 @@ sleeps, `prev_window` before show, the prompt staying on the clipboard,
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 0 | 2 | 0 | 2 |
+| TODO | 0 | 0 | 0 | 0 | 0 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
-| DONE | 7 | 15 | 23 | 2 | 47 |
+| DONE | 7 | 15 | 25 | 2 | 49 |
 | **Total** | **7** | **15** | **25** | **2** | **49** |
 
-Open: L3 (`save_packs` intent-level) and L8 (splitting `lib.rs`), plus the
-partial items noted inline (L10 manager call sites,
-L20's two leftovers, L13's type-checked lint). The second wave ran as four
+Everything is closed as of 2026-09-23 except L13's type-checked lint
+(declined for now) and one popup ARIA nit under L20. The second wave ran as four
 parallel agents in worktrees (Rust, manager, popup and core, docs and
 release) merged into master on 2026-09-22.
 
@@ -470,13 +469,17 @@ Document the limitation in README (see L17).
 - *Docs:* `BEHAVIOR.md` step 5, events table.
 
 ### L3. `save_packs` trusts a full client-side list
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs` `save_packs` (~:918). Pass `R`.
 **What:** a stale list retires and re-creates pack files, leaving strays in
 `packs/deleted/`; if the pack was empty in the library the real content
 moves to `deleted/` and a fresh empty file takes its place.
 **Fix:** intent-level commands (`set_pack_locked`, `delete_pack`, `add_pack`)
 like `rename_pack`.
+**Resolution:**
+- *Implementation:* `save_packs` is gone; `set_pack_locked`, `delete_pack`, `add_pack` (refuses a case-insensitive duplicate via `validate_pack_name`, shared with rename) and `add_pack_file` ("Create pack file…") are read-modify-writes under the store lock answering with the resolved `Config.packs`; the manager takes the answer as `packMeta` (`applyPacks`), `persistPacks` is gone, the pack-delete Undo restores the lock with `set_pack_locked`.
+- *Tests added:* one Rust test per helper; the mock answers all four (`tests/mock.test.js`).
+- *Docs:* `BEHAVIOR.md` "Pack metadata is written by intent", "State".
 
 ### L4. Rust accepts a modifier-less hotkey
 **Status:** DONE
@@ -526,7 +529,7 @@ bundle is ever compromised; the URL is a constant today.
 - *Tests added:* only files under the data folder are admitted.
 
 ### L8. `lib.rs` is one 2 000-line file with repeated patterns
-**Status:** TODO
+**Status:** DONE
 **Where:** four "numbered until free" loops (~:144, :345, :955, :1033), two
 epoch helpers, three re-reads of `config.json` per write, `config.json`
 parsed on every hotkey press for the first-run flag, a stale comment on
@@ -534,6 +537,9 @@ parsed on every hotkey press for the first-run flag, a stale comment on
 `mobile_entry_point`). Pass `R`.
 **Fix:** split into `store.rs`, `packs.rs`, `commands.rs`, `paste.rs`,
 `platform.rs`; one `next_free_name`; cache the first-run flag in `AppState`.
+**Resolution:**
+- *Implementation:* `store.rs`, `packs.rs`, `commands.rs`, `paste.rs` (the paste commands live with their pipeline), `platform.rs`, `migrations.rs`; `lib.rs` keeps `AppState`, the tray, window events and `run`. One `first_free` for the four numbering loops, one `since_epoch`, `popup_seen` cached in `AppState`, `staticlib` and `mobile_entry_point` dropped, `pub(crate)` only where read across modules. Tests moved beside what they test (46).
+- *Docs:* `BEHAVIOR.md` "Windows-specific code" (module map), README Stack.
 
 ### L9. Rust paste and storage policies are untested because they are inlined
 **Status:** DONE
@@ -547,7 +553,7 @@ the scenarios).
 - *Tests added:* one per function, the scenarios the `T` pass listed.
 
 ### L10. Testable manager and popup logic lives in components
-**Status:** DONE (popup); manager parts open
+**Status:** DONE
 **Where:** `menus.tsx` `freeName`/`groupsIn`, `ImportCuration.tsx` dupe
 detection and locked-skip, `popup/App.tsx` Ctrl+1..5 `slotEntries` and the
 Ctrl+N title cut, `Editor.tsx` autosave payload, `Settings.tsx`
@@ -558,6 +564,10 @@ test parsing the exact vocabulary the recorder can emit.
 **Resolution:**
 - *Implementation:* `C.slotEntries(ranked, visibleIds, max)` and `C.titleFromClipboard(text, max)` with tests; the popup calls both.
 - *Open:* `freeName`/`groupsIn` (`menus.tsx`), import curation, the autosave payload, `hotkeyFromEvent`, the generate builders, plus the manager wave's own candidates: `displayedOrder` and the `TreeRow` builder in `Sidebar.tsx`, `tagsByCount`.
+**Resolution (manager parts):**
+- *Implementation:* `freeName`, `groupsIn`, `tagsByCount`, `displayOrder`, `treeRows`, `groupKey`, `importRows` + `curateImport`, `hotkeyFromEvent` + `hotkeyKeyName` in `ui/core.js`; the recorder admits exactly the vocabulary `parse_hotkey` reads and refuses the rest with a message.
+- *Tests added:* 11 node tests; Rust `every_key_the_recorder_can_emit_parses_as_a_hotkey`.
+- *Bug found on the way:* Left from a grouped prompt never reached its group (`CSS.escape` on the group key's NUL); fixed by comparing keys.
 
 ### L11. Public-repo hygiene
 **Status:** DONE (repo); remote branches for the human
@@ -657,7 +667,7 @@ generated `installer.nsi` shows `MANUFACTURER "promptline"`, `LICENSE ""`,
 - *Human:* `gh repo edit bekalpaslan/promptline --description "Your prompt vocabulary, one hotkey away, in every window. A Windows tray app that pastes prompts from a library into any app, with the clipboard substituted." --add-topic tauri --add-topic rust --add-topic react --add-topic windows --add-topic clipboard --add-topic prompts --add-topic prompt-library --add-topic claude --add-topic productivity --add-topic tray-app`; enable private vulnerability reporting.
 
 ### L20. Remaining UI polish from the browser walk
-**Status:** DONE except two items
+**Status:** DONE (one popup ARIA item left)
 **Where and what** (pass `U`, screenshots in the session scratchpad):
 "Give this pack a file…" is jargon; two toasts for one New → Pack; title
 tiebreak sorts "0, 1, 10, 11, 2" (use `localeCompare` with `numeric`);
@@ -673,6 +683,9 @@ lack `role=group`; popup options contain buttons (invalid ARIA, works with
 - *Popup:* preview card opens above when there is no room below; minor hints hide below 360 px; Ctrl+N title cut at a word boundary; title ties sort numerically.
 - *Manager:* one toast for New → Pack, on commit; "New prompt"/"New pack" wording; the sidebar New button outside the scroll region; the donation link secondary; Pin next to Delete; Display menu groups labelled.
 - *Open:* "Give this pack a file…" wording; an "Open folder" button in Settings (needs a Rust command); popup options containing buttons.
+**Resolution (leftovers):**
+- *Implementation:* "Give this pack a file…" is "Create pack file…" with the hint "For sharing, or for an agent to write into"; Settings' library card has "Open folder" (`open_data_dir`, no path from the frontend).
+- *Open:* popup options containing buttons (valid enough with `aria-activedescendant`; revisit with a popup pass).
 
 ### L21. Keyboard handlers guard `!e.key` but not `e.isComposing`
 **Status:** DONE
