@@ -355,6 +355,7 @@ export function Settings() {
                         <Button
                           size="compact"
                           variant="secondary"
+                          title="For sharing, or for an agent to write into"
                           onClick={() =>
                             void m.addPackFile(name).then(
                               () => say(`"${name}" now has a file`),
@@ -362,7 +363,7 @@ export function Settings() {
                             )
                           }
                         >
-                          Give this pack a file…
+                          Create pack file…
                         </Button>
                       )}
                       <Button
@@ -465,11 +466,20 @@ export function Settings() {
           >
             Import from file…
           </Button>
+          <Button
+            size="compact"
+            variant="secondary"
+            title="The data folder in Explorer: library, packs and the log file"
+            onClick={() => void invoke("open_data_dir").catch((e) => sayErr(`Couldn't open the folder: ${e}`))}
+          >
+            Open folder
+          </Button>
         </div>
         {importRaw !== null && <ImportCuration raw={importRaw} onClose={() => setImportRaw(null)} />}
         <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
           Click a pack to see its file. Pack files under %APPDATA%\io.github.bekalpaslan.promptline\packs\ are always current —
-          copy one to share or back up. Imports are reviewed prompt-by-prompt before anything is added.
+          copy one to share or back up; Open folder shows that folder, with the library and the log file beside it.
+          Imports are reviewed prompt-by-prompt before anything is added.
         </p>
       </Card>
 

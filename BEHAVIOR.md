@@ -323,7 +323,9 @@ add metadata on any write, the manager re-reads pack metadata after every
 write rather than trusting its own copy.
 
 **Pack metadata is written by intent, never as a list.** Lock, delete, add
-and "Create pack file" are `set_pack_locked`, `delete_pack`, `add_pack` and
+and "Create pack file…" (once "Give this pack a file…", which named the
+mechanism rather than what the file is for: sharing, or an agent to write
+into; the hint says so) are `set_pack_locked`, `delete_pack`, `add_pack` and
 `add_pack_file`, each a read-modify-write of `config.json` under the store
 lock that answers with the registry as `get_config` returns it, which the
 manager takes as its copy. The manager used to hand back its whole pack
@@ -651,10 +653,12 @@ the Accessibility permission) and nothing else.
 `show_in_folder` take a path from the frontend and admit it only when it
 canonicalises to a file under the data folder (`path_within`, so `..` and
 junctions can't escape); every path the frontend can know comes from
-there. `open_url` takes https only and hands the URL to `ShellExecuteW` as
-one string, where the earlier `explorer <url>` let explorer parse the
-string as its own command line. None of this matters unless the bundle
-is compromised, which is the case it is for.
+there. `open_data_dir` (Settings → "Open folder") takes no path at all:
+it opens the data folder itself, the one place the library, the packs and
+the log file all are. `open_url` takes https only and hands the URL to
+`ShellExecuteW` as one string, where the earlier `explorer <url>` let
+explorer parse the string as its own command line. None of this matters
+unless the bundle is compromised, which is the case it is for.
 
 One oddity lives outside it: the popup hides on blur, but starting a
 border-resize drag on an undecorated window *is* a blur, which would slam the

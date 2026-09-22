@@ -1571,13 +1571,27 @@ fn read_pack_file(app: AppHandle, path: String) -> Result<String, String> {
 #[tauri::command]
 fn show_in_folder(app: AppHandle, path: String) -> Result<(), String> {
     let path = data_file(&app, &path)?;
+    open_in_explorer(&["/select,", &path.to_string_lossy()])
+}
+
+/// Open the data folder itself in Explorer (Settings → "Open folder"): the
+/// library, the packs and the log file are all there to back up or
+/// attach. No path comes from the frontend.
+#[tauri::command]
+fn open_data_dir(app: AppHandle) -> Result<(), String> {
+    open_in_explorer(&[&data_dir(&app).to_string_lossy()])
+}
+
+fn open_in_explorer(args: &[&str]) -> Result<(), String> {
     #[cfg(windows)]
     {
         std::process::Command::new("explorer")
-            .args(["/select,", &path.to_string_lossy()])
+            .args(args)
             .spawn()
             .map_err(|e| e.to_string())?;
     }
+    #[cfg(not(windows))]
+    let _ = args;
     Ok(())
 }
 
@@ -2216,6 +2230,7 @@ pub fn run() {
             create_generated_file,
             read_pack_file,
             show_in_folder,
+            open_data_dir,
             open_url,
             edit_in_manager,
             get_autostart,
