@@ -4,7 +4,7 @@ import { C, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "
 export { DEFAULT_PACK, MAX_PINS } from "@/lib/library"
 
 export interface Prefs {
-  theme: string // "light" | "dark" (legacy "sand"/"sundown" map to dark)
+  theme: string // "system" | "light" | "dark" (legacy "sand"/"sundown" map to dark)
   density: string
   scale: string
   font: string // id into FONTS (lib/prefs.ts)

@@ -953,3 +953,14 @@ test('hotkeyKeyName is the vocabulary lib.rs parses: letters, digits, F1–F12, 
   assert.equal(core.hotkeyKeyName(' '), 'space');
   for (const k of ['!', '<', 'Escape', 'Tab', 'CapsLock', 'Unidentified', '', undefined]) assert.equal(core.hotkeyKeyName(k), null);
 });
+
+// ---- theme ------------------------------------------------------------------------------
+
+test('resolveTheme: system follows the OS, explicit choices win, legacy values are dark', () => {
+  assert.equal(core.resolveTheme('system', true), 'dark');
+  assert.equal(core.resolveTheme('system', false), 'light');
+  assert.equal(core.resolveTheme('light', true), 'light');
+  assert.equal(core.resolveTheme('dark', false), 'dark');
+  assert.equal(core.resolveTheme('sand', false), 'dark');
+  assert.equal(core.resolveTheme(null, false), 'dark');
+});

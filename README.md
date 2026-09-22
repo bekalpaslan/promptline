@@ -159,11 +159,10 @@ them, plus config values and a live preview. Invisible until you want it.
   from the keyboard
 - Every control is reachable from the keyboard, including context menus, and
   labelled for screen readers
-- **Light / Dark** toggle sits at the bottom of the sidebar, next to the
-  settings gear
-- **Settings** (⚙): record a hotkey by pressing it, then **Apply** it;
-  autostart (a login launch stays in the tray; the manager opens from the
-  tray icon); popup density; UI font (Outfit / system / serif / mono); UI
+- **Settings** (⚙, top-right of the pane): record a hotkey by pressing it,
+  then **Apply** it; autostart (a login launch stays in the tray; the
+  manager opens from the tray icon); theme (System / Light / Dark, System
+  follows Windows); popup density; UI font (Outfit / system / serif / mono); UI
   scale (90–125%); and **Your library** — export the whole library, import
   from the clipboard or a file, or **Open folder** to see the data folder
   (library, packs and the log file) in Explorer, plus per-pack rows to

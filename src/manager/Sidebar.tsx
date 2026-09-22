@@ -6,16 +6,13 @@ import {
   RiDraggable,
   RiEqualizer2Line,
   RiLock2Fill,
-  RiMoonClearLine,
   RiPushpinFill,
   RiSearchLine,
-  RiSettings3Line,
-  RiSunLine,
 } from "@remixicon/react"
 import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
-import { SEGMENT_TRACK, SearchClear, searchBoxClass, segmentClass } from "@/components/field"
+import { SearchClear, searchBoxClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
@@ -680,12 +677,10 @@ export function Sidebar() {
 
   return (
     <aside aria-label="Prompts" className="flex w-[clamp(15rem,28%,20rem)] flex-col border-r border-border bg-sidebar">
-      <div className="flex items-center gap-1.5 px-3 pt-3 pb-2">
-        <h1 className="min-w-0 flex-1 truncate text-xl font-bold">Prompts</h1>
-      </div>
-
-      {/* What is shown (the filter) apart from how it is shown (Display) */}
-      <div className="flex gap-1.5 px-3 pb-2">
+      {/* No heading: the window is Promptline and the list is visibly prompts;
+          the landmark keeps its name through aria-label. What is shown (the
+          filter) apart from how it is shown (Display) */}
+      <div className="flex gap-1.5 px-3 pt-3 pb-2">
         <label className={cn(searchBoxClass(!!q), "min-w-0 flex-1")}>
           <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           {scope && (
@@ -865,37 +860,9 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Light/Dark segmented mode toggle with the settings gear as a compact segment */}
-      <div className="p-3">
-        <div className={SEGMENT_TRACK}>
-          {(["light", "dark"] as const).map((t) => {
-            const Icon = t === "light" ? RiSunLine : RiMoonClearLine
-            const active = m.prefs.theme === t
-            return (
-              <button
-                key={t}
-                type="button"
-                aria-pressed={active}
-                className={cn(segmentClass(active), "flex-1 capitalize")}
-                onClick={() => void m.savePrefs({ theme: t })}
-              >
-                <Icon className="size-4" />
-                {t}
-              </button>
-            )
-          })}
-          <button
-            type="button"
-            aria-label="Settings"
-            aria-pressed={m.settingsOpen}
-            title={`Settings — popup hotkey: ${C.fmtHotkey(m.hotkey)}`}
-            className={cn(segmentClass(m.settingsOpen), "w-8 shrink-0")}
-            onClick={() => m.showSettings(!m.settingsOpen)}
-          >
-            <RiSettings3Line className="size-4" />
-          </button>
-        </div>
-      </div>
+      {/* No footer: the theme lives in Settings (Appearance) and the gear
+          sits at the top-right of the pane, so the sidebar is the library
+          and nothing else */}
       {menus}
       {display.element}
       <div role="status" aria-live="polite" className="sr-only">{announce}</div>

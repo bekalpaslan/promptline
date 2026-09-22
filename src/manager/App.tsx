@@ -2,9 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import { SizeDebug } from "@/lib/SizeDebug"
-import { RiCloseLine } from "@remixicon/react"
+import { RiCloseLine, RiSettings3Line } from "@remixicon/react"
 import { Toaster } from "@/components/ui/sonner"
 import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 import { Keys } from "@/components/prompt-bits"
 import { C, isStoreError, type Library, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
@@ -355,7 +356,8 @@ export function App() {
         if (cancelled) return
         setHotkeyState(config.hotkey)
         setPackMeta(Array.isArray(config.packs) ? config.packs : [])
-        const theme = config.theme === "light" ? "light" : "dark"
+        // "system" follows the OS; the legacy "sand"/"sundown" read as dark
+        const theme = config.theme === "light" || config.theme === "system" ? config.theme : "dark"
         const loaded: Prefs = {
           theme,
           density: config.density || "comfortable",
@@ -533,13 +535,30 @@ export function App() {
 
         <main className="flex min-h-0 flex-1 overflow-hidden">
           <Sidebar />
-          {settingsOpen ? (
-            <Settings />
-          ) : view.kind === "overview" ? (
-            <Overview focus={view.focus} />
-          ) : (
-            <Editor key={activeId ?? "none"} />
-          )}
+          <div className="flex min-w-0 flex-1 flex-col">
+            {/* App-level controls live above the pane, not in the library's
+                sidebar: today that is the Settings gear alone */}
+            <div className="flex h-9 shrink-0 items-center justify-end border-b border-border px-2">
+              <Button
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Settings"
+                aria-pressed={settingsOpen}
+                title={`Settings — popup hotkey: ${C.fmtHotkey(hotkey)}`}
+                className={cn("text-muted-foreground", settingsOpen && "bg-secondary text-foreground")}
+                onClick={() => showSettings(!settingsOpen)}
+              >
+                <RiSettings3Line className="size-4" />
+              </Button>
+            </div>
+            {settingsOpen ? (
+              <Settings />
+            ) : view.kind === "overview" ? (
+              <Overview focus={view.focus} />
+            ) : (
+              <Editor key={activeId ?? "none"} />
+            )}
+          </div>
         </main>
 
         <GenerateDialog open={genOpen} onOpenChange={setGenOpen} />
