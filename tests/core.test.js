@@ -361,6 +361,31 @@ test('diagnosePack: valid JSON, wrong shape', () => {
 
 // ---- misc ------------------------------------------------------------------------
 
+test('normalizeTag: lowercase, nothing outside [a-z0-9_-] (M14)', () => {
+  assert.equal(core.normalizeTag(' Code Review '), 'codereview');
+  assert.equal(core.normalizeTag('code-review_2'), 'code-review_2');
+  assert.equal(core.normalizeTag('#Debug!'), 'debug');
+  assert.equal(core.normalizeTag(''), '');
+  assert.equal(core.normalizeTag(undefined), '');
+  // Every shipped tag already passes as is
+  for (const t of ['debug', 'review', 'plan', 'refactor', 'test', 'guardrails', 'meta', 'general']) {
+    assert.equal(core.normalizeTag(t), t);
+  }
+});
+
+test('plural counts and pluralises, with an irregular form on request (L6)', () => {
+  assert.equal(core.plural(1, 'prompt'), '1 prompt');
+  assert.equal(core.plural(0, 'prompt'), '0 prompts');
+  assert.equal(core.plural(2, 'prompt'), '2 prompts');
+  assert.equal(core.plural(1, 'entry', 'entries'), '1 entry');
+  assert.equal(core.plural(3, 'entry', 'entries'), '3 entries');
+});
+
+test('DRAFT_TITLE is the title isEmptyDraft looks for', () => {
+  assert.equal(core.DRAFT_TITLE, 'New prompt');
+  assert.ok(core.isEmptyDraft({ title: core.DRAFT_TITLE, text: '', uses: 0 }));
+});
+
 test('fmtHotkey capitalizes parts', () => {
   assert.equal(core.fmtHotkey('ctrl+shift+v'), 'Ctrl+Shift+V');
   assert.equal(core.fmtHotkey('alt+space'), 'Alt+Space');

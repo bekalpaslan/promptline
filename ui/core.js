@@ -534,7 +534,22 @@
     return expandBuiltins(base).split('{clipboard}').join(clip || '');
   }
 
+  // ---- Tags ---------------------------------------------------------------------
+  // One rule for a tag typed anywhere: lowercase, and nothing outside
+  // [a-z0-9_-]. The menu's "Add tag…" already did this; the editor and pack
+  // import only trimmed and lowercased, so a tag with a space could be
+  // stored and then never found (`#code review` parses as the tag `code`).
+  // The strictest of the three, and every shipped pack's tags pass it as is.
+  function normalizeTag(raw) {
+    return (raw || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '');
+  }
+
   // ---- Misc -----------------------------------------------------------------
+  // "1 prompt", "2 prompts"; an irregular plural is passed in ("1 entry", "2 entries")
+  function plural(n, word, pluralWord) {
+    return `${n} ${n === 1 ? word : pluralWord || word + 's'}`;
+  }
+
   function fmtHotkey(h) {
     return (h || '')
       .split('+')
@@ -557,6 +572,7 @@
     expandBuiltins,
     fuzzyScore,
     bodyScore,
+    DRAFT_TITLE,
     isEmptyDraft,
     rankSnippets,
     highlightSegments,
@@ -579,6 +595,8 @@
     packTree,
     clipboardPreview,
     expandForCopy,
+    normalizeTag,
+    plural,
     fmtHotkey,
   };
 
