@@ -8,10 +8,11 @@ import { createElement, type ComponentType, type ReactNode } from "react"
 import { createRoot } from "react-dom/client"
 import { Button } from "@/components/ui/button"
 import { Kbd as UiKbd } from "@/components/ui/kbd"
-import { Row, TagPill, Kbd, HighlightedTitle, derive, type Entry } from "@/popup/Row"
+import { Row, derive, type Entry } from "@/popup/Row"
+import { Chip, HighlightedTitle, InputsBadge, Kbd, PromptTokens, TagList, TagPill } from "@/components/prompt-bits"
 import type { Snippet } from "@/lib/core"
 
-const components = { Button, UiKbd, Kbd, TagPill, HighlightedTitle, Row } as const
+const components = { Button, UiKbd, Kbd, Chip, TagPill, TagList, InputsBadge, HighlightedTitle, PromptTokens, Row } as const
 export type Name = keyof typeof components
 
 /** A complete snippet from the few fields a preview cares about */

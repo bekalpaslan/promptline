@@ -18,6 +18,7 @@ import {
 } from "@remixicon/react"
 import { C, type OrderBy, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
+import { Chip, MATCH_HIT } from "@/components/prompt-bits"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
 import { EmptyState } from "./EmptyState"
@@ -93,9 +94,9 @@ function marked(title: string, words: string[]): React.ReactNode {
     const from = Math.max(a, at)
     if (from > at) out.push(title.slice(at, from))
     out.push(
-      <mark key={from} className="rounded-[2px] bg-(--link)/15 text-(--link)">
+      <span key={from} className={MATCH_HIT}>
         {title.slice(from, b)}
-      </mark>
+      </span>
     )
     at = b
   }
@@ -697,20 +698,11 @@ export function Sidebar() {
         >
           <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           {scope && (
-            <span className="flex max-w-[45%] shrink-0 items-center gap-0.5 rounded-sm bg-secondary py-0.5 pr-0.5 pl-1.5 text-xs text-foreground">
+            <Chip size="md" className="max-w-[45%]" onRemove={() => setScope(null)} removeLabel="Search everywhere">
               <span className="truncate" title={scope.group ? `Searching in ${scope.pack} › ${scope.group}` : `Searching in ${scope.pack}`}>
                 in {scope.group ?? scope.pack}
               </span>
-              <button
-                type="button"
-                aria-label="Search everywhere"
-                title="Search everywhere"
-                className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:text-foreground"
-                onClick={() => setScope(null)}
-              >
-                <RiCloseLine className="size-3.5" />
-              </button>
-            </span>
+            </Chip>
           )}
           <span className="relative flex min-w-0 flex-1">
           {/* Same font and box as the input; scrolled with it when the text runs long */}

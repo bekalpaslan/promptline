@@ -1,0 +1,29 @@
+<!-- @dsCard group="Shared" height=236 subtitle="Every small label in both windows: each tone in each size, the add and remove affordances" -->
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body>
+<div id="root"></div>
+<script>
+  Promptline.syncTheme()
+  const { h, mount, Chip, TagPill } = Promptline
+  const tones = [
+    ["neutral", "group"], ["muted", "+2"], ["warn", "{2}"], ["primary", "Starter"],
+    ["builtin", "{date}"], ["field", "{goal}"], ["config", "{{style}}"], ["bad", "{Bad}"],
+  ]
+  const label = (text) => h("span", { className: "w-14 shrink-0 text-xs text-muted-foreground" }, text)
+  const row = (name, ...chips) => h("div", { className: "flex flex-wrap items-center gap-1.5" }, label(name), ...chips)
+  mount(document.getElementById("root"),
+    h("div", { className: "flex flex-col gap-2.5 p-3 text-ui text-foreground" },
+      row("sm", h(TagPill, { tag: "debug" }), h(TagPill, { tag: "review", active: true }),
+        ...tones.map(([tone, text]) => h(Chip, { key: tone, tone }, text))),
+      row("md", h(TagPill, { tag: "debug", size: "md" }),
+        ...tones.map(([tone, text]) => h(Chip, { key: tone, tone, size: "md" }, text))),
+      row("add", h(Chip, { add: true, size: "md", onClick: () => {} }, "plan"), h(Chip, { add: true, size: "md", onClick: () => {} }, "{time}")),
+      row("remove", h(Chip, { size: "md", onRemove: () => {}, removeLabel: "Search everywhere" }, "in Starter")),
+      row("inline", h("span", { className: "max-w-80 leading-relaxed text-muted-foreground" },
+        "Before fixing, reproduce ", h(Chip, { tone: "field", size: "inline" }, "bug — fill-in"),
+        " on ", h(Chip, { tone: "builtin", size: "inline" }, "date"), " in ", h(Chip, { tone: "config", size: "inline" }, "the house style guide, as saved"), "."))))
+</script>
+</body>
+</html>
