@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Keys } from "@/components/prompt-bits"
 import { C, isStoreError, type Library, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
-import { ManagerCtx, type DeleteOpts, type LibraryFocus, type ManagerApi, type Prefs, type View } from "./state"
+import { ManagerCtx, groupKey, type DeleteOpts, type LibraryFocus, type ManagerApi, type Prefs, type Renaming, type View } from "./state"
 import { type Config, DEFAULT_PACK, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
+import { useFolds } from "./folds"
 import { say, sayErr, sayPersistent, sayUndo, undoLast } from "./status"
 import { Sidebar } from "./Sidebar"
 import { Editor } from "./Editor"
@@ -101,7 +102,9 @@ export function App() {
       // change that didn't land
       await reloadLibrary()
       if (isStoreError(e) && e.kind === "stale") {
-        sayErr("The library changed in the popup meanwhile — reloaded it; please redo that change")
+        // Whoever wrote (the popup, a second window, a migration) is not
+        // known here: a refusal means the change event has not landed yet
+        sayErr("The library changed meanwhile — reloaded it; please redo that change")
       } else {
         sayErr(`Couldn't save: ${isStoreError(e) && e.kind === "failed" ? e.message : e}`)
       }
@@ -129,18 +132,25 @@ export function App() {
     }
   }, [refreshPacks])
 
+  // The sidebar's folds and the inline-rename state live here, not in the
+  // sidebar: a rename or a New from the overview has to reach them too
+  const { folds, togglePackFold, toggleGroupFold, setAll: setAllFolds, unfold, carryPackFolds, carryGroupFold } = useFolds()
+  const [renaming, setRenaming] = useState<Renaming | null>(null)
+  const [renamingGroup, setRenamingGroup] = useState<Renaming | null>(null)
+
   const renamePack = useCallback(async (from: string, to: string) => {
     try {
       applyLibrary(await invoke<Library>("rename_pack", { from, to }))
-      // An overview on the renamed pack follows it
+      // An overview on the renamed pack follows it, and so do its folds
       setView((v) => (v.kind === "overview" && v.focus.pack === from ? { ...v, focus: { ...v.focus, pack: to } } : v))
+      carryPackFolds(from, to)
     } catch (e) {
       sayErr(`Couldn't rename the pack: ${e}`)
       throw e
     } finally {
       await refreshPacks()
     }
-  }, [applyLibrary, refreshPacks])
+  }, [applyLibrary, refreshPacks, carryPackFolds])
 
   // Latest pack metadata for the same reason
   const packMetaRef = useRef(packMeta)
@@ -218,13 +228,16 @@ export function App() {
     // Default to the pack the user last saved a prompt into, not a fixed pack
     // (one rule with the popup: library.ts)
     const pack = into?.pack && !isLocked(into.pack) ? into.pack : defaultPackFor(packMeta, snippets)
+    const group = (into?.pack && !isLocked(into.pack) && into.group) || ""
+    // The draft lands inside: open the pack, and the group, so it is in view
+    unfold(pack, group || undefined)
     const s: Snippet = {
       id: crypto.randomUUID(),
       title: "New prompt",
       text: "",
       tags: [],
       pack,
-      group: (into?.pack && !isLocked(into.pack) && into.group) || "",
+      group,
       uses: 0,
       pinned: false,
       pinnedAt: 0,
@@ -242,10 +255,21 @@ export function App() {
     setSelectionAnchor(s.id)
     setActiveId(s.id)
     setView({ kind: "prompt" })
-  }, [isLocked, packMeta, snippets, applyLibrary, refreshPacks])
+  }, [isLocked, packMeta, snippets, applyLibrary, refreshPacks, unfold])
+
+  const foldAll = useCallback(
+    (fold: boolean) => {
+      if (!fold) return setAllFolds(new Set(), new Set())
+      setAllFolds(
+        new Set(packNames()),
+        new Set(snippets.filter((s) => s.group).map((s) => groupKey(s.pack || DEFAULT_PACK, s.group)))
+      )
+    },
+    [setAllFolds, packNames, snippets]
+  )
 
   const addPack = useCallback(
-    async (name: string) => {
+    async (name: string, opts?: { quiet?: boolean }) => {
       if (!name) return
       // Case variants would read as one pack (and share a file name on
       // Windows), so they count as the same pack
@@ -264,11 +288,13 @@ export function App() {
         fileError = String(e)
       }
       // A pack is just a name, so it exists either way; but say one thing,
-      // not a failure and a success at once
+      // not a failure and a success at once — and nothing at all when the
+      // caller opens the name for typing straight away (New → Pack), which
+      // announces the pack once its real name is committed
       await persistPacks([...packMeta, { name, locked: false, path }])
       if (fileError)
         sayErr(`Pack "${name}" created, but its file couldn't be written (${fileError}) — use "Give this pack a file…" to retry`)
-      else say(`Pack "${name}" created`)
+      else if (!opts?.quiet) say(`Pack "${name}" created`)
     },
     [packMeta, packNames, persistPacks]
   )
@@ -298,11 +324,16 @@ export function App() {
 
   // ---- Init ----
   useEffect(() => {
+    // StrictMode runs this twice in development; a run whose effect was
+    // cleaned up applies nothing, or the second draft sweep would be refused
+    // as stale by the first one's save and toast "Couldn't load"
+    let cancelled = false
     void (async () => {
       try {
         const lib = await invoke<Library>("get_snippets")
+        if (cancelled) return
         // GC abandoned "+ New" drafts (default title, no text, never used)
-        const snips = lib.snippets.filter((s) => !(s.title === "New prompt" && !s.text.trim() && !s.uses))
+        const snips = lib.snippets.filter((s) => !C.isEmptyDraft(s))
         if (snips.length !== lib.snippets.length) {
           lib.revision = await invoke<number>("save_snippets", { snippets: snips, baseRevision: lib.revision })
           lib.snippets = snips
@@ -310,6 +341,7 @@ export function App() {
         applyLibrary(lib)
 
         const config = await invoke<Config>("get_config")
+        if (cancelled) return
         setHotkeyState(config.hotkey)
         setPackMeta(Array.isArray(config.packs) ? config.packs : [])
         const theme = config.theme === "light" ? "light" : "dark"
@@ -327,13 +359,27 @@ export function App() {
         applyPrefs()
         if (!config.popupSeen) setFirstRun("show")
       } catch (e) {
+        if (cancelled) return
         sayPersistent(`Couldn't load the library: ${e}`)
       }
       // Anything Rust hit before this window was listening (a quarantined
       // file, a refused hotkey) is shown now and stays until dismissed
-      for (const n of await invoke<Notice[]>("take_notices").catch(() => [] as Notice[])) sayPersistent(n.message)
+      const notices = await invoke<Notice[]>("take_notices").catch(() => [] as Notice[])
+      if (cancelled) return
+      for (const n of notices) sayPersistent(n.message)
     })()
+    return () => {
+      cancelled = true
+    }
   }, [applyLibrary])
+
+  // The first-run banner's "done" state fades on its own; the timer lives
+  // here rather than inside a state updater, which must stay pure
+  useEffect(() => {
+    if (firstRun !== "done") return
+    const t = setTimeout(() => setFirstRun("hidden"), 6000)
+    return () => clearTimeout(t)
+  }, [firstRun])
 
   // ---- Events from the Rust side ----
   useEffect(() => {
@@ -345,13 +391,7 @@ export function App() {
       setView({ kind: "prompt" })
     })
     const unNotice = listen<Notice>("notice", ({ payload }) => sayPersistent(payload.message))
-    const unFirst = listen("first-popup", () => {
-      setFirstRun((state) => {
-        if (state !== "show") return state
-        setTimeout(() => setFirstRun("hidden"), 6000)
-        return "done"
-      })
-    })
+    const unFirst = listen("first-popup", () => setFirstRun((state) => (state === "show" ? "done" : state)))
     // The popup writes too (create-from-clipboard, pins, use counts) — refresh
     const unChanged = listen<number>("snippets-changed", () => void reloadLibrary())
     // Tray Quit asks first so a pending autosave reaches disk; Rust exits on
@@ -381,8 +421,9 @@ export function App() {
     const typing = (t: EventTarget | null) =>
       t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)
     const onKey = (e: KeyboardEvent) => {
-      // Autofill and IME composition send keydowns with no key: nothing to act on
-      if (!e.key) return
+      // Autofill can send a keydown with no key, and a keydown during IME
+      // composition carries a key that is not a command: nothing to act on
+      if (!e.key || e.isComposing) return
       if (e.key.toLowerCase() === "z" && e.ctrlKey && !e.shiftKey && !e.altKey && !typing(e.target)) {
         if (undoLast()) e.preventDefault()
       } else if (e.key === "Escape" && !typing(e.target) && !e.defaultPrevented) {
@@ -428,6 +469,15 @@ export function App() {
       select,
       setSelection,
       newPrompt,
+      folds,
+      togglePackFold,
+      toggleGroupFold,
+      foldAll,
+      carryGroupFold,
+      renaming,
+      setRenaming,
+      renamingGroup,
+      setRenamingGroup,
       addPack,
       savePrefs,
       setHotkey: setHotkeyState,
@@ -436,7 +486,7 @@ export function App() {
       showSettings,
       pendingFlush,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)

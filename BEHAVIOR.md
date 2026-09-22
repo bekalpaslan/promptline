@@ -32,8 +32,8 @@ the editor, and a pack or group title shows its **overview** — the prompts
 it holds as preview cards (a pack's ungrouped prompts, then each group under
 a heading that opens that group), with the clipboard substituted as in every
 preview. Clicking a title selects it the way clicking a row selects a
-prompt; the chevron folds the tree, Enter folds too, and a double-click
-renames. The overview has no folds of its own and no mode to leave: a card
+prompt; the chevron folds the tree (← and → from the keyboard) and a
+double-click renames. The overview has no folds of its own and no mode to leave: a card
 click opens that prompt, the editor's crumbs (pack, group) open those
 overviews, and Escape goes up one level — from a prompt to its group (or
 pack), from a group to its pack. This replaced a full-window library view
@@ -45,7 +45,30 @@ are one hook too (`useLibraryMenus` in `menus.tsx`), with the inline
 rename and the delete-group dialog it drives, so both surfaces offer the
 same menu; only "Move up/down" is sidebar-only, since the overview's grid
 has no row order to move within. An overview follows a rename of its pack
-or group; one whose group is gone shows the pack.
+or group; one whose group is gone shows the pack. The folds and the
+inline-rename state are the manager's as well (`folds.ts`, `renaming` on
+the API), not the sidebar's: a rename from either surface carries the
+folds keyed by the old name, a prompt created anywhere unfolds the pack
+and group it lands in, and a New → Pack begun on any surface opens the
+new pack's name for typing in the overview it selects. Each surface used
+to hold its own copy of that state, so a rename from the overview left a
+fold behind under the old name and a group created there stayed hidden
+under a folded pack.
+
+**The sidebar is one tree to the keyboard.** The list is a `tree` and every
+row a `treeitem` carrying its level, its fold state and whether it is
+selected; one row is the tab stop (the last one focused, else the open
+prompt, the shown pack or group, or the first row), and Up/Down and
+Home/End move between rows, Right unfolds a pack or group or steps to its
+first child, Left folds or steps out to the parent, Enter or Space is the
+click (with Ctrl and Shift for the selection), Alt+Up/Down moves a prompt,
+and the Menu key or Shift+F10 opens the row's menu at it. While a search
+holds every fold open, Left and Right only move. The chevron and the three
+dots are hidden from assistive tech, since those keys reach the same
+actions, and a click on either keeps focus on the row. The rows used to be
+`role=button` tab stops with real buttons nested inside: about a hundred
+Tab presses to cross a library, no arrow keys, and a computed name that
+read the chevron and the dots out along with the title.
 
 **The tree tells its levels apart without colour.** A pack is a bold row
 with a box icon, a group a medium row in the secondary ink, a prompt a
@@ -56,6 +79,15 @@ accent hue marks state (the selected pack or group, focus, a search hit),
 not structure, per the design system's "ink first, hue second"; so the
 `heading` tokens are ink colours. In the overview a group is a heading over
 a hairline, not a panel, so it doesn't repeat its pack's look.
+
+**The editor autosaves, and says so in one place.** Every edit lands
+through a 600 ms debounce (`update_snippet`, only the fields the editor
+owns), and a caption in the header row reads "Saving…" from the first
+keystroke until the write lands, then "Saved" for two seconds. It is the
+only feedback a successful save gets — a toast per save would fire on
+every pause in typing — and a screen reader hears "Saved" once per landing
+through a `role=status` region beside it, never the "Saving…". A failed
+save is toasted by `updateSnippet`, so the caption only clears.
 
 **The sidebar's filter is always there, and apart from the display.** The
 field under the title takes the popup's syntax (`#tag`, `@pack`, `>group`,
@@ -254,7 +286,11 @@ tree; locked packs are listed but disabled. There is no default placement
 there: a New that guessed put prompts in packs nobody chose. A group, being
 a label, starts life on a draft prompt, and is what gets selected and named;
 the draft waits inside it, so a group left with only that draft goes when
-the draft is swept (below).
+the draft is swept (below). An empty library has one empty state, in the
+pane, and its primary action is that same New menu (Generate beside it as
+the secondary); the sidebar keeps only its New button. It used to show a
+second "No prompts yet" of its own with a "New pack" button while the
+pane's offered a "New prompt" that guessed a pack.
 
 **Where a new prompt goes** when nothing chose — the popup's Ctrl+N, the
 editor's and overview's empty-state buttons — is one rule for both windows

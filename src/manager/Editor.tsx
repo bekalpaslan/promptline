@@ -4,6 +4,7 @@ import {
   RiAddLine,
   RiArrowDownSLine,
   RiArrowRightSLine,
+  RiCheckLine,
   RiCloseLine,
   RiDeleteBinLine,
   RiFileCopyLine,
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { Select, fieldVariants } from "@/components/field"
 import { Chip, PREVIEW_BOX, PromptTokens, TagPill, chipVariants } from "@/components/prompt-bits"
+import { useLibraryMenus } from "./menus"
 import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
@@ -24,6 +26,8 @@ const BUILTIN_PARAMS = ["clipboard", "date", "time"]
 // compare the same way
 const storedTags = (raw: string) => raw.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
 const SUGGESTED_PARAMS = ["goal", "feature", "task", "error", "file"]
+// Tag pills offered under a prompt's own tags: the most used ones it lacks
+const MAX_TAG_PILLS = 6
 
 // One card per parameter kind. The card's Edit toggle reveals delete badges
 // on the pills inside (children render from the editing flag).
@@ -155,6 +159,9 @@ function TokenPreview({
 export function Editor() {
   const m = useManager()
   const snippet = m.snippets.find((s) => s.id === m.activeId)
+  // The empty library's one way in is the same New menu as the sidebar's
+  // button: it asks what and where, so nothing lands in a pack nobody chose
+  const menus = useLibraryMenus({ surface: "editor" })
 
   if (!snippet) {
     if (m.selection.size > 1) {
@@ -165,15 +172,35 @@ export function Editor() {
         />
       )
     }
+    if (!m.snippets.length) {
+      return (
+        <>
+          <EmptyState
+            icon={RiFileTextLine}
+            title="No prompts yet"
+            hint="A pack holds your prompts: make one and write prompts in it, or let Claude draft a pack for a topic — every prompt is reviewed before it is added"
+            actions={[
+              {
+                label: "New",
+                primary: true,
+                menu: true,
+                onClick: (e) => {
+                  const r = e.currentTarget.getBoundingClientRect()
+                  menus.openNewMenu(r.left, r.bottom + 4)
+                },
+              },
+              { label: "Generate pack with Claude…", onClick: () => m.openGenerate() },
+            ]}
+          />
+          {menus.element}
+        </>
+      )
+    }
     return (
       <EmptyState
         icon={RiFileTextLine}
-        title={m.snippets.length ? "Select a prompt to edit it" : "No prompts yet"}
-        hint={
-          m.snippets.length
-            ? `Or press ${C.fmtHotkey(m.hotkey)} in any app to paste one`
-            : "Write one, or let Claude draft a pack for a topic — every prompt is reviewed before it is added"
-        }
+        title="Select a prompt to edit it"
+        hint={`Or press ${C.fmtHotkey(m.hotkey)} in any app to paste one`}
         actions={[
           { label: "New prompt", onClick: () => void m.newPrompt(), primary: true },
           { label: "Generate pack with Claude…", onClick: () => m.openGenerate() },
@@ -228,6 +255,16 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const dirty = useRef(new Set<"tags" | "pack" | "group">())
   const mRef = useRef(m)
   mRef.current = m
+  // What the header says about the autosave: "Saving…" from the first
+  // keystroke until the write lands, "Saved" for a moment after, then
+  // nothing. A failed write is toasted by updateSnippet, so it only clears
+  // the caption rather than saying anything twice.
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
+  useEffect(() => {
+    if (saveState !== "saved") return
+    const t = setTimeout(() => setSaveState("idle"), 2000)
+    return () => clearTimeout(t)
+  }, [saveState])
 
   const commit = useCallback(async () => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -247,21 +284,28 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     const names = C.configNames(cur.text)
     // Only the editor's own fields go to disk; uses/pinned/fieldValues are
     // merged there from whatever the popup wrote since this render
-    await mgr.updateSnippet(snippet.id, {
-      title: cur.title.trim() || "(untitled)",
-      tags: storedTags(cur.tags),
-      pack: targetPack,
-      group: cur.group.trim(),
-      text: cur.text,
-      configValues: Object.fromEntries(
-        Object.entries(cur.configValues).filter(([k, v]) => names.includes(k) && v !== "")
-      ),
-    })
+    try {
+      await mgr.updateSnippet(snippet.id, {
+        title: cur.title.trim() || "(untitled)",
+        tags: storedTags(cur.tags),
+        pack: targetPack,
+        group: cur.group.trim(),
+        text: cur.text,
+        configValues: Object.fromEntries(
+          Object.entries(cur.configValues).filter(([k, v]) => names.includes(k) && v !== "")
+        ),
+      })
+    } catch (e) {
+      setSaveState("idle")
+      throw e
+    }
+    setSaveState("saved")
     // New prompts default to the pack that last received one
     localStorage.setItem("lastPack", targetPack)
   }, [snippet.id])
 
   const scheduleSave = useCallback(() => {
+    setSaveState("saving")
     if (saveTimer.current) clearTimeout(saveTimer.current)
     // A failed save has already been toasted by updateSnippet
     saveTimer.current = setTimeout(() => void commit().catch(() => {}), 600)
@@ -414,7 +458,11 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const removeTag = (t: string) => {
     editTags(tagList.filter((x) => x !== t).join(", "))
   }
-  const tagSuggestions = m.allTags().filter((t) => !tagList.includes(t)).slice(0, 12)
+  // Pills for the library's most used tags the prompt lacks (allTags is by
+  // count, most first); every other tag completes in the "+ tag…" box as
+  // it is typed. Every tag as a pill grew the card past the editor.
+  const otherTags = m.allTags().filter((t) => !tagList.includes(t))
+  const tagSuggestions = otherTags.slice(0, MAX_TAG_PILLS)
 
   const customParams = new Set([
     ...[...configInText, ...runtimeInText].filter((t) => !BUILTIN_PARAMS.includes(t)),
@@ -576,6 +624,41 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             <option key={g} value={g} />
           ))}
         </datalist>
+        {/* Autosave feedback: the caption fades rather than vanishing, and the
+            live region announces only the landing, never each keystroke */}
+        <span
+          aria-hidden
+          className={cn(
+            "flex items-center gap-0.5 text-xs text-muted-foreground transition-opacity duration-300",
+            saveState === "idle" && "opacity-0"
+          )}
+        >
+          {saveState === "saving" ? (
+            "Saving…"
+          ) : (
+            <>
+              <RiCheckLine className="size-3.5" />
+              Saved
+            </>
+          )}
+        </span>
+        <span role="status" className="sr-only">
+          {saveState === "saved" ? "Saved" : ""}
+        </span>
+        {snippet.uses > 0 && (
+          <span className="text-xs tabular-nums text-muted-foreground">used {snippet.uses}×</span>
+        )}
+        {/* The prompt's own actions sit together in its header: pin, delete */}
+        <Button
+          variant="secondary"
+          size="sm"
+          aria-pressed={snippet.pinned}
+          title={snippet.pinned ? "Unpin from the popup's top slots" : "Pin to the popup's top slots"}
+          onClick={() => void togglePin()}
+          className={cn("min-w-14", snippet.pinned && "bg-(--warn)/15 text-(--warn) hover:bg-(--warn)/25")}
+        >
+          {snippet.pinned ? "Unpin" : "Pin"}
+        </Button>
         <Button
           variant="secondary"
           size="sm"
@@ -625,6 +708,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             <input
               placeholder="+ tag…"
               aria-label="Add a tag"
+              list={`tags-${snippet.id}`}
               spellCheck={false}
               className={cn(chipVariants({ tone: "neutral", size: "md" }), "w-24 focus-ring placeholder:text-muted-foreground")}
               onKeyDown={(e) => {
@@ -633,6 +717,12 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                 e.currentTarget.value = ""
               }}
             />
+            {/* Every other tag in the library, completed as it is typed */}
+            <datalist id={`tags-${snippet.id}`}>
+              {otherTags.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
           </div>
         )}
       </ParamSection>
@@ -745,20 +835,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             </span>
           )}
         </div>
-      </div>
-
-      <div className="mt-auto flex items-center gap-3">
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => void togglePin()}
-          className={cn("min-w-19", snippet.pinned && "bg-(--warn)/15 text-(--warn) hover:bg-(--warn)/25")}
-        >
-          {snippet.pinned ? "Unpin" : "Pin"}
-        </Button>
-        {snippet.uses > 0 && (
-          <span className="text-xs tabular-nums text-muted-foreground">used {snippet.uses}×</span>
-        )}
       </div>
     </div>
   )

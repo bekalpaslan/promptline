@@ -18,33 +18,15 @@ import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { SEGMENT_TRACK, SearchClear, searchBoxClass, segmentClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
-import { EmptyState } from "./EmptyState"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
 
-function loadCollapsed(key: string): Set<string> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(key) || "[]"))
-  } catch {
-    return new Set()
-  }
-}
-
-// A pack's prompts split into the ungrouped run, then its groups in order of
-// first appearance — so a custom arrangement holds, and any other sort order
-// carries through from the rows themselves.
-function splitGroups(items: Snippet[]): { ungrouped: Snippet[]; groups: [string, Snippet[]][] } {
-  const ungrouped: Snippet[] = []
-  const map = new Map<string, Snippet[]>()
-  for (const s of items) {
-    if (!s.group) ungrouped.push(s)
-    else {
-      if (!map.has(s.group)) map.set(s.group, [])
-      map.get(s.group)!.push(s)
-    }
-  }
-  return { ungrouped, groups: [...map.entries()] }
-}
+// One row of the tree as drawn. `key` is what the roving focus remembers
+// and what the row's data-key carries; `parent` is the key Left moves to.
+type TreeRow =
+  | { key: string; kind: "pack"; name: string; count: number; level: 1; expanded: boolean; hasChildren: boolean; parent?: undefined }
+  | { key: string; kind: "group"; pack: string; group: string; count: number; level: 2; expanded: boolean; hasChildren: boolean; parent: string }
+  | { key: string; kind: "prompt"; id: string; level: 1 | 2 | 3; parent?: string }
 
 // The filter's text, drawn under a transparent input so its #tag, @pack and
 // >group terms read as chips while the input stays a plain input (caret,
@@ -108,8 +90,10 @@ export function Sidebar() {
   const { orderBy, setOrderBy } = m
   // Group-by-pack is the default view
   const [grouped, setGrouped] = useState(localStorage.getItem("groupByPack") !== "0")
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsed("collapsedPacks"))
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => loadCollapsed("collapsedGroups"))
+  // The folds are the manager's (folds.ts): a rename or a New from the
+  // overview carries and opens them too
+  const { packs: collapsed, groups: collapsedGroups } = m.folds
+  const { togglePackFold: toggleCollapsed, toggleGroupFold: toggleCollapsedGroup, foldAll } = m
   // A search started while a pack or group is shown stays inside it until
   // the chip in the field is dismissed; clearing the search drops it
   const [scope, setScope] = useState<LibraryFocus | null>(null)
@@ -117,6 +101,9 @@ export function Sidebar() {
   const mirrorRef = useRef<HTMLDivElement>(null)
   const display = useCtxMenu()
   const visibleIdsRef = useRef<string[]>([])
+  const rowsRef = useRef<TreeRow[]>([])
+  // The row the keyboard is on (its key), so Tab comes back to it
+  const [focusKey, setFocusKey] = useState<string | null>(null)
   // A click on a pack or group title selects it: the pane beside the
   // sidebar shows what it holds (the overview), the way a prompt row shows
   // the prompt. The sidebar stays, so a double-click still reaches the rename.
@@ -184,39 +171,75 @@ export function Sidebar() {
     return () => document.removeEventListener("keydown", onKey)
   }, [])
 
-  const groups = useMemo(() => {
-    if (!grouped) return null
-    const map = new Map<string, Snippet[]>()
-    // Empty packs are real sections too — otherwise they exist only in the
-    // registry and can never be seen or deleted from the menu
-    // While searching, a pack without hits stays in the list, faded, so the
-    // tree keeps its shape and says where nothing matched
-    for (const name of m.packNames()) map.set(name, [])
-    for (const s of visible) {
-      const key = s.pack || DEFAULT_PACK
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(s)
-    }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, grouped, q, m.packNames])
+  // The tree is pure core (tested), the one shape the overview draws too:
+  // every pack name, even an empty one (it is real: it can be seen and
+  // deleted from the menu; while searching, a pack without hits stays
+  // listed, faded, so the tree keeps its shape and says where nothing
+  // matched), then in each pack the ungrouped run and the groups in order
+  // of first appearance, so a custom arrangement holds and any other order
+  // carries through from the rows
+  const { packNames } = m
+  const tree = useMemo(() => (grouped ? C.packTree(visible, packNames(), DEFAULT_PACK) : null), [visible, grouped, packNames])
 
-  // Flat id list in display order, for shift-range selection
-  const visibleIds: string[] = []
-  if (groups) {
-    for (const [name, items] of groups) {
-      if (q || !collapsed.has(name))
-        for (const s of items) if (q || !s.group || !collapsedGroups.has(groupKey(name, s.group))) visibleIds.push(s.id)
+  // Every row as drawn, in order: the keyboard's tree (one tabbable row,
+  // arrows move between them) and the flat id list for shift-range
+  // selection are both read off it. Searching forces every fold open; a
+  // pack with no hits is a faded header with nothing under it.
+  const rows: TreeRow[] = []
+  if (tree) {
+    for (const p of tree) {
+      const faded = !!q && p.count === 0
+      const open = !faded && (!!q || !collapsed.has(p.name))
+      const pk = `pack:${p.name}`
+      rows.push({ key: pk, kind: "pack", name: p.name, count: p.count, level: 1, expanded: open, hasChildren: p.count > 0 })
+      if (!open) continue
+      for (const s of p.ungrouped) rows.push({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 2, parent: pk })
+      for (const g of p.groups) {
+        const gk = `group:${groupKey(p.name, g.name)}`
+        const gopen = !!q || !collapsedGroups.has(groupKey(p.name, g.name))
+        rows.push({ key: gk, kind: "group", pack: p.name, group: g.name, count: g.items.length, level: 2, expanded: gopen, hasChildren: g.items.length > 0, parent: pk })
+        if (!gopen) continue
+        for (const s of g.items) rows.push({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 3, parent: gk })
+      }
     }
   } else {
-    for (const s of visible) visibleIds.push(s.id)
+    for (const s of visible) rows.push({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 1 })
   }
-  visibleIdsRef.current = visibleIds
+  const rowByKey = new Map(rows.map((r) => [r.key, r]))
+  rowsRef.current = rows
+  visibleIdsRef.current = rows.flatMap((r) => (r.kind === "prompt" ? [r.id] : []))
+
+  // Roving tabindex: the row last focused is the one Tab reaches, falling
+  // back to the open prompt, the shown pack or group, then the first row
+  const tabKey =
+    (focusKey && rowByKey.has(focusKey) && focusKey) ||
+    (m.activeId && rowByKey.has(`snip:${m.activeId}`) && `snip:${m.activeId}`) ||
+    (shown && rowByKey.has(shown.group ? `group:${groupKey(shown.pack, shown.group)}` : `pack:${shown.pack}`)
+      ? shown.group
+        ? `group:${groupKey(shown.pack, shown.group)}`
+        : `pack:${shown.pack}`
+      : null) ||
+    rows[0]?.key ||
+    null
+
+  // The library in the order the rows are drawn: sorted, and by pack (the
+  // ungrouped run, then each group) when the view is grouped. Under "custom"
+  // that is the array itself.
+  const displayedOrder = (list: Snippet[]) => {
+    if (orderBy === "custom") return [...list]
+    const sorted = C.sortPrompts(list, orderBy)
+    if (!grouped) return sorted
+    return C.packTree(sorted, [], DEFAULT_PACK).flatMap((p) => [...p.ungrouped, ...p.groups.flatMap((g) => g.items)])
+  }
 
   // Move the dragged snippet next to the drop target in the master array and
   // persist; relative order within every pack follows from the array order.
+  // The drop was aimed in the displayed order, so under "Most used" or
+  // "A–Z" the array is first rebased to that order: the switch to "Custom"
+  // that follows would otherwise reveal the array's own order, with every
+  // row but the dragged one reshuffled.
   const commitReorder = async (dragId: string, targetId: string, after: boolean) => {
-    const all = [...m.snippets]
+    const all = displayedOrder(m.snippets)
     const from = all.findIndex((s) => s.id === dragId)
     if (from === -1) return
     const [item] = all.splice(from, 1)
@@ -330,6 +353,105 @@ export function Sidebar() {
     m.select(sel.size === 1 ? [...sel][0] : null)
   }
 
+  // The keyboard on the tree, one handler for every row: Up/Down move,
+  // Home/End jump, Right unfolds a pack or group or steps into it, Left
+  // folds or steps out to the parent, Enter/Space is the click (with its
+  // modifiers, so Ctrl and Shift select), Alt+Up/Down is the drag, and
+  // the Menu key or Shift+F10 is the right-click. The chevron and the
+  // three dots are hidden from assistive tech because these keys reach
+  // the same actions.
+  const focusRow = (key: string) => {
+    setFocusKey(key)
+    listRef.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`)?.focus()
+  }
+  const toggleFold = (row: TreeRow) => {
+    if (row.kind === "pack") toggleCollapsed(row.name)
+    else if (row.kind === "group") toggleCollapsedGroup(groupKey(row.pack, row.group))
+  }
+  const openRowMenu = (el: HTMLElement, row: TreeRow) => {
+    const r = el.getBoundingClientRect()
+    if (row.kind === "pack") openPackCtx(r.left + 24, r.bottom, row.name, row.count)
+    else if (row.kind === "group") openGroupCtx(r.left + 24, r.bottom, row.pack, row.group, row.count)
+    else {
+      const ids = m.selection.has(row.id) ? m.selection : new Set([row.id])
+      if (!m.selection.has(row.id)) m.setSelection(ids, row.id)
+      openRowCtx(r.left + 24, r.bottom, ids)
+    }
+  }
+  const onTreeKey = (e: React.KeyboardEvent<HTMLElement>, row: TreeRow) => {
+    if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+      e.preventDefault()
+      openRowMenu(e.currentTarget, row)
+      return
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      if (row.kind === "prompt") handleRowClick(e, row.id)
+      else if (row.kind === "pack") m.openOverview({ pack: row.name })
+      else m.openOverview({ pack: row.pack, group: row.group })
+      return
+    }
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      if (row.kind !== "prompt") return
+      e.preventDefault()
+      moveRow(row.id, e.key === "ArrowUp" ? -1 : 1)
+      return
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+    const all = rowsRef.current
+    const at = all.findIndex((r) => r.key === row.key)
+    const go = (i: number) => {
+      const r = all[Math.max(0, Math.min(all.length - 1, i))]
+      if (r) focusRow(r.key)
+    }
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault()
+        go(at + 1)
+        break
+      case "ArrowUp":
+        e.preventDefault()
+        go(at - 1)
+        break
+      case "Home":
+        e.preventDefault()
+        go(0)
+        break
+      case "End":
+        e.preventDefault()
+        go(all.length - 1)
+        break
+      case "ArrowRight":
+        e.preventDefault()
+        if (row.kind === "prompt") break
+        // Searching holds every fold open, so there is nothing to unfold
+        if (!row.expanded) {
+          if (!q) toggleFold(row)
+        } else if (row.hasChildren) go(at + 1) // the first child is the next row
+        break
+      case "ArrowLeft":
+        e.preventDefault()
+        if (row.kind !== "prompt" && row.expanded && !q) toggleFold(row)
+        else if (row.parent) focusRow(row.parent)
+        break
+    }
+  }
+  // A click on a row's chevron or dots must not take focus off the row
+  // (they are hidden from assistive tech, so focus has no business there)
+  const keepRowFocus = (e: React.MouseEvent<HTMLElement>) => {
+    e.preventDefault()
+    e.currentTarget.closest<HTMLElement>("[data-key]")?.focus()
+  }
+  // Attributes every row shares: its place in the tree and the roving tab stop
+  const treeitemProps = (row: TreeRow) => ({
+    role: "treeitem" as const,
+    "data-key": row.key,
+    "aria-level": row.level,
+    tabIndex: tabKey === row.key ? 0 : -1,
+    onFocus: () => setFocusKey(row.key),
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => onTreeKey(e, row),
+  })
+
   // The pack, group and prompt menus, shared with the overview
   const {
     element: menus,
@@ -343,114 +465,40 @@ export function Sidebar() {
     openGroupCtx,
     openRowCtx,
     openNewMenu,
-    newPack,
-  } = useLibraryMenus({
-    // A group starts life on a prompt, drawn inside its pack: unfold it
-    onNewGroup: (name) => {
-      if (collapsed.has(name)) toggleCollapsed(name)
-    },
-    onNewPack: (name) => reveal(`[data-pack="${CSS.escape(name)}"]`),
-    // The draft lands inside the group: unfold it and its pack
-    onNewPromptInGroup: (pack, group) => {
-      if (collapsed.has(pack)) toggleCollapsed(pack)
-      if (collapsedGroups.has(groupKey(pack, group))) toggleCollapsedGroup(groupKey(pack, group))
-    },
-    moveRow,
-  })
+  } = useLibraryMenus({ surface: "sidebar", moveRow })
 
-  const toggleCollapsed = (name: string) => {
-    const next = new Set(collapsed)
-    if (next.has(name)) next.delete(name)
-    else next.add(name)
-    setCollapsed(next)
-    localStorage.setItem("collapsedPacks", JSON.stringify([...next]))
-  }
-
-  const foldAll = (fold: boolean) => {
-    const packs = fold ? new Set(m.packNames()) : new Set<string>()
-    const keys = fold
-      ? new Set(m.snippets.filter((s) => s.group).map((s) => groupKey(s.pack || DEFAULT_PACK, s.group)))
-      : new Set<string>()
-    setCollapsed(packs)
-    setCollapsedGroups(keys)
-    localStorage.setItem("collapsedPacks", JSON.stringify([...packs]))
-    localStorage.setItem("collapsedGroups", JSON.stringify([...keys]))
-  }
-
-  const toggleCollapsedGroup = (key: string) => {
-    const next = new Set(collapsedGroups)
-    if (next.has(key)) next.delete(key)
-    else next.add(key)
-    setCollapsedGroups(next)
-    localStorage.setItem("collapsedGroups", JSON.stringify([...next]))
-  }
-
-  // Folds are keyed by name, so a rename carries them over — here, and in
-  // the popup's stored keys (same shape), which it reads when it next loads
-  const rekey = (set: Set<string>, map: (k: string) => string) => new Set([...set].map(map))
-  const rekeyStored = (storageKey: string, map: (k: string) => string) => {
-    try {
-      const cur: string[] = JSON.parse(localStorage.getItem(storageKey) || "[]")
-      localStorage.setItem(storageKey, JSON.stringify(cur.map(map)))
-    } catch {
-      /* unreadable: nothing to carry */
-    }
-  }
-  const carryPackFolds = (from: string, to: string) => {
-    const packMap = (k: string) => (k === from ? to : k)
-    const groupMap = (k: string) => (k.startsWith(`${from}\u0000`) ? `${to}\u0000${k.slice(from.length + 1)}` : k)
-    const packs = rekey(collapsed, packMap)
-    const groups = rekey(collapsedGroups, groupMap)
-    setCollapsed(packs)
-    setCollapsedGroups(groups)
-    localStorage.setItem("collapsedPacks", JSON.stringify([...packs]))
-    localStorage.setItem("collapsedGroups", JSON.stringify([...groups]))
-    rekeyStored("popupCollapsedPacks", packMap)
-    rekeyStored("popupCollapsedGroups", groupMap)
-  }
-  const carryGroupFold = (pack: string, from: string, to: string) => {
-    const map = (k: string) => (k === groupKey(pack, from) ? groupKey(pack, to) : k)
-    const groups = rekey(collapsedGroups, map)
-    setCollapsedGroups(groups)
-    localStorage.setItem("collapsedGroups", JSON.stringify([...groups]))
-    rekeyStored("popupCollapsedGroups", map)
-  }
-
-  // A new prompt or pack can land below the fold of a long list: bring it
+  // A new prompt or pack can land below the fold of a long list, and a pack
+  // opened from the editor's crumbs may sit there too: bring what is shown
   // into view (the popup does the same for its selection)
   const listRef = useRef<HTMLDivElement>(null)
-  const reveal = (selector: string) =>
-    requestAnimationFrame(() => listRef.current?.querySelector(selector)?.scrollIntoView({ block: "nearest" }))
   useEffect(() => {
     if (m.activeId) listRef.current?.querySelector(`[data-id="${CSS.escape(m.activeId)}"]`)?.scrollIntoView({ block: "nearest" })
   }, [m.activeId])
+  const shownPack = shown && !shown.group ? shown.pack : null
+  useEffect(() => {
+    if (shownPack)
+      requestAnimationFrame(() =>
+        listRef.current?.querySelector(`[data-pack="${CSS.escape(shownPack)}"]`)?.scrollIntoView({ block: "nearest" })
+      )
+  }, [shownPack])
 
   // Group header: quieter than the pack title, sits among its rows
   const groupTitle = (pack: string, group: string, count: number, isCollapsed: boolean) => {
     const key = groupKey(pack, group)
     const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+    const selected = shown?.pack === pack && shown.group === group
     return (
       <div
-        role="button"
-        tabIndex={0}
+        {...treeitemProps(rowByKey.get(`group:${key}`)!)}
         aria-expanded={!isCollapsed}
-        aria-current={shown?.pack === pack && shown.group === group ? "true" : undefined}
-        title={`${group} — click shows its prompts, Enter folds it, right-click for actions`}
+        aria-selected={selected}
+        aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
+        title={`${group} — click or Enter shows its prompts · ← → fold · right-click or Shift+F10 for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-medium text-(--heading) hover:bg-hover",
-          shown?.pack === pack && shown.group === group && "bg-accent hover:bg-accent"
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-medium text-(--heading) hover:bg-hover focus-ring",
+          selected && "bg-accent hover:bg-accent"
         )}
         onClick={() => m.openOverview({ pack, group })}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            toggleCollapsedGroup(key)
-          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
-            e.preventDefault()
-            const r = e.currentTarget.getBoundingClientRect()
-            openGroupCtx(r.left + 24, r.bottom, pack, group, count)
-          }
-        }}
         onDoubleClick={(e) => {
           e.stopPropagation()
           setRenamingGroup(key)
@@ -461,12 +509,15 @@ export function Sidebar() {
           openGroupCtx(e.clientX, e.clientY, pack, group, count)
         }}
       >
-        {/* The chevron is the fold; the title selects */}
+        {/* The chevron is the fold; the title selects. Hidden from assistive
+            tech (← → fold), and a click on it keeps focus on the row */}
         <button
           type="button"
           tabIndex={-1}
-          aria-label={isCollapsed ? `Expand group ${group}` : `Collapse group ${group}`}
+          aria-hidden
+          title={isCollapsed ? "Expand" : "Collapse"}
           className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onMouseDown={keepRowFocus}
           onClick={(e) => {
             e.stopPropagation()
             toggleCollapsedGroup(key)
@@ -489,8 +540,7 @@ export function Sidebar() {
               e.stopPropagation()
               if (e.key === "Escape") setRenamingGroup(null)
               if (e.key === "Enter") {
-                const next = e.currentTarget.value.trim()
-                void renameGroup(pack, group, next).then((ok) => ok && carryGroupFold(pack, group, next))
+                void renameGroup(pack, group, e.currentTarget.value.trim())
               }
             }}
             // Enter commits, leaving the field cancels: a misclick must not rename
@@ -503,6 +553,7 @@ export function Sidebar() {
         <MenuDots
           label={`Actions for group ${group}`}
           reveal="group-hover:opacity-100"
+          decorative
           onOpen={(x, y) => openGroupCtx(x, y, pack, group, count)}
         />
         <Count>{count}</Count>
@@ -516,18 +567,18 @@ export function Sidebar() {
     const active = s.id === m.activeId && m.selection.size <= 1
     const lifted = drag?.id === s.id
     const mark = drag && drag.id !== s.id && over?.id === s.id ? over.after : null
+    const title = s.title || "(untitled)"
     return (
       <div
         key={s.id}
         data-id={s.id}
-        role="button"
-        tabIndex={0}
-        aria-current={active ? "true" : undefined}
-        aria-pressed={multi || undefined}
-        title={s.title || "(untitled)"}
+        {...treeitemProps(rowByKey.get(`snip:${s.id}`)!)}
+        aria-selected={active || multi}
+        aria-label={`${title}${s.pinned ? ", pinned" : ""}${where ? `, in ${where}` : ""}`}
+        title={title}
         data-snip-id={s.id}
         className={cn(
-          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui transition-[transform,box-shadow] duration-150",
+          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui transition-[transform,box-shadow] duration-150 focus-ring",
           active
             ? "bg-accent text-foreground"
             : "text-foreground hover:bg-hover",
@@ -557,23 +608,6 @@ export function Sidebar() {
           if (!drag) cancelHold()
         }}
         onClick={(e) => handleRowClick(e, s.id)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            handleRowClick(e, s.id)
-          } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-            // The keyboard's drag
-            e.preventDefault()
-            moveRow(s.id, e.key === "ArrowUp" ? -1 : 1)
-          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
-            // The keyboard's right-click: menu at the row, not at the pointer
-            e.preventDefault()
-            const r = e.currentTarget.getBoundingClientRect()
-            const ids = m.selection.has(s.id) ? m.selection : new Set([s.id])
-            if (!m.selection.has(s.id)) m.setSelection(ids, s.id)
-            openRowCtx(r.left + 24, r.bottom, ids)
-          }
-        }}
         onContextMenu={(e) => {
           e.preventDefault()
           const ids = m.selection.has(s.id) ? m.selection : new Set([s.id])
@@ -583,14 +617,14 @@ export function Sidebar() {
       >
         {/* Resting affordance for press-and-hold drag: a grip on hover */}
         <RiDraggable className="-ml-1 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
-        {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-(--warn)" aria-label="pinned" />}
+        {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-(--warn)" aria-hidden />}
         {where ? (
           <span className="flex min-w-0 flex-col">
-            <span className="truncate">{marked(s.title || "(untitled)", words)}</span>
+            <span className="truncate">{marked(title, words)}</span>
             <span className="truncate text-xs font-normal text-muted-foreground">{where}</span>
           </span>
         ) : (
-          <span className="truncate">{marked(s.title || "(untitled)", words)}</span>
+          <span className="truncate">{marked(title, words)}</span>
         )}
       </div>
     )
@@ -598,29 +632,21 @@ export function Sidebar() {
 
   const sectionTitle = (name: string, count: number, isCollapsed: boolean, faded = false) => {
     const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+    const selected = shown?.pack === name && !shown.group
+    const total = packTotals.get(name) ?? count
     return (
       <div
-        role="button"
-        tabIndex={0}
+        {...treeitemProps(rowByKey.get(`pack:${name}`)!)}
         aria-expanded={!isCollapsed}
-        aria-current={shown?.pack === name && !shown.group ? "true" : undefined}
-        title={`${name} — click shows its prompts, Enter folds it, right-click for actions`}
+        aria-selected={selected}
+        aria-label={`${name}, ${q ? `${count} of ${total}` : count} prompt${total === 1 ? "" : "s"}${m.isLocked(name) ? ", locked" : ""}`}
+        title={`${name} — click or Enter shows its prompts · ← → fold · right-click or Shift+F10 for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover",
-          shown?.pack === name && !shown.group && "bg-accent hover:bg-accent",
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover focus-ring",
+          selected && "bg-accent hover:bg-accent",
           faded && "opacity-45"
         )}
         onClick={() => m.openOverview({ pack: name })}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            toggleCollapsed(name)
-          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
-            e.preventDefault()
-            const r = e.currentTarget.getBoundingClientRect()
-            openPackCtx(r.left + 24, r.bottom, name, count)
-          }
-        }}
         onDoubleClick={(e) => {
           e.stopPropagation()
           setRenaming(name)
@@ -631,12 +657,14 @@ export function Sidebar() {
           openPackCtx(e.clientX, e.clientY, name, count)
         }}
       >
-        {/* The chevron is the fold; the title selects */}
+        {/* The chevron is the fold; the title selects (see the group's) */}
         <button
           type="button"
           tabIndex={-1}
-          aria-label={isCollapsed ? `Expand pack ${name}` : `Collapse pack ${name}`}
+          aria-hidden
+          title={isCollapsed ? "Expand" : "Collapse"}
           className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onMouseDown={keepRowFocus}
           onClick={(e) => {
             e.stopPropagation()
             toggleCollapsed(name)
@@ -658,8 +686,7 @@ export function Sidebar() {
               e.stopPropagation()
               if (e.key === "Escape") setRenaming(null)
               if (e.key === "Enter") {
-                const next = e.currentTarget.value.trim()
-                void renamePack(name, next).then((ok) => ok && carryPackFolds(name, next))
+                void renamePack(name, e.currentTarget.value.trim())
               }
             }}
             onBlur={() => setRenaming(null)}
@@ -670,11 +697,12 @@ export function Sidebar() {
         <MenuDots
           label={`Actions for pack ${name}`}
           reveal="group-hover:opacity-100"
+          decorative
           onOpen={(x, y) => openPackCtx(x, y, name, count)}
         />
-        {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
+        {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-hidden />}
         {/* While searching: the hits out of the pack's size */}
-        <Count>{q ? `${count} / ${packTotals.get(name) ?? count}` : count}</Count>
+        <Count>{q ? `${count} / ${total}` : count}</Count>
       </div>
     )
   }
@@ -800,14 +828,16 @@ export function Sidebar() {
         </div>
       )}
 
-      <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-3">
-        {/* Create bar: one dashed "empty slot" card, echoing the row shape.
-            New asks what and where — a pack, a group in a pack, a prompt in
-            a pack or group — so nothing lands in a default place */}
+      {/* Create bar: one dashed "empty slot" card, echoing the row shape.
+          New asks what and where — a pack, a group in a pack, a prompt in
+          a pack or group — so nothing lands in a default place. It sits
+          above the scrolling list, not in it, so the list's scrollbar
+          gutter never narrows it against the filter row. */}
+      <div className="px-3 pb-3">
         <button
           type="button"
           aria-haspopup="menu"
-          className="mb-3 flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          className="flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect()
             openNewMenu(r.left, r.bottom + 4)
@@ -816,54 +846,52 @@ export function Sidebar() {
           <RiAddLine className="size-4" />
           New
         </button>
-        {/* Nothing at all — not even an empty pack — gets a way in, not a blank */}
-        {m.snippets.length === 0 && m.packNames().length === 0 && (
-          <EmptyState
-            title="No prompts yet"
-            hint="A pack holds your prompts: start with one"
-            actions={[{ label: "New pack", onClick: () => void newPack(), primary: true }]}
-          />
-        )}
-        {groups ? (
-          groups.map(([name, items]) => {
-            // Searching: a pack with no hits is only its faded header
-            const faded = !!q && items.length === 0
-            const isCollapsed = faded || (!q && collapsed.has(name))
-            return (
-              <div key={name} data-pack={name} className="mb-2">
-                {sectionTitle(name, items.length, isCollapsed, faded)}
-                {!isCollapsed &&
-                  (() => {
-                    const { ungrouped, groups: gs } = splitGroups(items)
-                    return (
-                      <div className="mt-0.5 flex flex-col gap-0.5 pl-4">
-                        {ungrouped.map((s) => snipRow(s))}
-                        {gs.map(([g, rows]) => {
-                          const gc = !q && collapsedGroups.has(groupKey(name, g))
-                          return (
-                            <div key={g} className="flex flex-col gap-0.5">
-                              {groupTitle(name, g, rows.length, gc)}
-                              {/* The guide line ties a group's prompts to its header */}
-                              {!gc && (
-                                <div className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-2">
-                                  {rows.map((s) => snipRow(s))}
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })()}
-              </div>
-            )
-          })
-        ) : (
-          // One list: each row says where it lives, since no header does
-          <div className="flex flex-col gap-0.5">
-            {visible.map((s) => snipRow(s, s.group ? `${s.pack || DEFAULT_PACK} › ${s.group}` : s.pack || DEFAULT_PACK))}
-          </div>
-        )}
+      </div>
+      <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-3">
+        {/* An empty library says so in the pane, not here as well: the New
+            button above is the sidebar's way in */}
+        {/* One tree for assistive tech: packs at level 1, their prompts and
+            groups at 2, a group's prompts at 3 (a flat list at 1); the
+            wrappers between are presentation so each run of children is
+            owned by the row above it */}
+        <div role="tree" aria-label="Library" aria-multiselectable="true">
+          {tree ? (
+            tree.map((p) => {
+              // Searching: a pack with no hits is only its faded header
+              const faded = !!q && p.count === 0
+              const isCollapsed = faded || (!q && collapsed.has(p.name))
+              return (
+                <div key={p.name} data-pack={p.name} role="presentation" className="mb-2">
+                  {sectionTitle(p.name, p.count, isCollapsed, faded)}
+                  {!isCollapsed && (
+                    <div role="group" className="mt-0.5 flex flex-col gap-0.5 pl-4">
+                      {p.ungrouped.map((s) => snipRow(s))}
+                      {p.groups.map((g) => {
+                        const gc = !q && collapsedGroups.has(groupKey(p.name, g.name))
+                        return (
+                          <div key={g.name} role="presentation" className="flex flex-col gap-0.5">
+                            {groupTitle(p.name, g.name, g.items.length, gc)}
+                            {/* The guide line ties a group's prompts to its header */}
+                            {!gc && (
+                              <div role="group" className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-2">
+                                {g.items.map((s) => snipRow(s))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          ) : (
+            // One list: each row says where it lives, since no header does
+            <div role="presentation" className="flex flex-col gap-0.5">
+              {visible.map((s) => snipRow(s, s.group ? `${s.pack || DEFAULT_PACK} › ${s.group}` : s.pack || DEFAULT_PACK))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Light/Dark segmented mode toggle with the settings gear as a compact segment */}

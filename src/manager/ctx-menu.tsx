@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { RiCheckLine } from "@remixicon/react"
 import { cn } from "@/lib/utils"
@@ -112,8 +112,10 @@ export function useCtxMenu() {
   }, [state, sub, close])
 
   // Clamp into the viewport once rendered, then focus the first item so the
-  // keyboard can drive it (Shift+F10 / the Menu key open it with no pointer)
-  useEffect(() => {
+  // keyboard can drive it (Shift+F10 / the Menu key open it with no pointer).
+  // A layout effect, so the clamp lands before the frame is painted: in a
+  // plain effect a menu opened near an edge showed for a frame off-screen.
+  useLayoutEffect(() => {
     if (!state || !ref.current) return
     const rect = ref.current.getBoundingClientRect()
     const left = Math.min(state.x, window.innerWidth - rect.width - 8)
@@ -125,7 +127,7 @@ export function useCtxMenu() {
   }, [state])
 
   // Submenu opens to the right of its item, flipping left when it would overflow
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!sub || !subRef.current) return
     const rect = subRef.current.getBoundingClientRect()
     const left = sub.x + rect.width + 8 > window.innerWidth ? sub.x - rect.width - (ref.current?.offsetWidth ?? 0) : sub.x
@@ -137,10 +139,10 @@ export function useCtxMenu() {
   }, [sub])
 
   // One item renderer for both panels; `onSub` is only wired for the top level
-  const renderItem = (it: CtxItem, i: number, onSub?: (i: number, el: HTMLElement) => void) => {
+  const renderItem = (it: CtxItem, i: number, onSub?: (i: number, el: HTMLElement) => void, id?: string) => {
     if (it.kind === "header") {
       return (
-        <div key={i} className={cn(it.name ? "name-label truncate" : "section-label", "px-2 pb-0.5 pt-1.5")}>
+        <div key={i} id={id} className={cn(it.name ? "name-label truncate" : "section-label", "px-2 pb-0.5 pt-1.5")}>
           {it.text}
         </div>
       )
@@ -235,6 +237,38 @@ export function useCtxMenu() {
     )
   }
 
+  // A header followed by radio items (the Display menu's View and Order) is
+  // a labelled group, so assistive tech says which choice a radio belongs
+  // to; indices stay the items' own, which `armed` and `sub` are keyed by
+  const groupId = useId()
+  const renderPanel = (items: CtxItem[], onSub?: (i: number, el: HTMLElement) => void) => {
+    const out: React.ReactNode[] = []
+    for (let i = 0; i < items.length; ) {
+      const it = items[i]
+      let j = i + 1
+      if (it.kind === "header") {
+        for (; j < items.length; j++) {
+          const x = items[j]
+          if (x.kind !== "item" || x.checked === undefined) break
+        }
+      }
+      if (it.kind === "header" && j > i + 1) {
+        const id = `${groupId}-${i}`
+        out.push(
+          <div key={i} role="group" aria-labelledby={id}>
+            {renderItem(it, i, onSub, id)}
+            {items.slice(i + 1, j).map((x, k) => renderItem(x, i + 1 + k, onSub))}
+          </div>
+        )
+        i = j
+      } else {
+        out.push(renderItem(it, i, onSub))
+        i++
+      }
+    }
+    return out
+  }
+
   const openSub = (i: number, el: HTMLElement) => {
     const r = el.getBoundingClientRect()
     setSub({ index: i, x: r.right + 2, y: r.top - 4 })
@@ -250,7 +284,7 @@ export function useCtxMenu() {
             className={cn("fixed z-40 min-w-48", MENU_PANEL)}
             style={{ left: state.x, top: state.y }}
           >
-            {state.items.map((it, i) => renderItem(it, i, openSub))}
+            {renderPanel(state.items, openSub)}
           </div>
           {subItems?.kind === "submenu" && (
             <div
@@ -262,7 +296,7 @@ export function useCtxMenu() {
               className={cn("fixed z-40 max-h-[calc(100dvh-1rem)] min-w-40 overflow-y-auto", MENU_PANEL)}
               style={{ left: sub!.x, top: sub!.y }}
             >
-              {subItems.items.map((it, i) => renderItem(it, i))}
+              {renderPanel(subItems.items)}
             </div>
           )}
         </>,
