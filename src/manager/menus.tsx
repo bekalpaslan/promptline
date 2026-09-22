@@ -20,7 +20,7 @@ export const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 /**
  * The three-dot and right-click menus on packs, groups and prompts, with
  * the inline-rename state they drive and the delete-group dialog. One hook
- * for the sidebar and the library view, so the two surfaces offer the same
+ * for the sidebar and the overview, so the two surfaces offer the same
  * actions and can't drift. The surface renders `element` once and draws
  * the rename inputs from `renaming` / `renamingGroup`.
  */
@@ -70,6 +70,9 @@ export function useLibraryMenus(opts: {
     const merging = m.snippets.some((s) => (s.pack || DEFAULT_PACK) === pack && s.group === next)
     const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group === group).map((s) => s.id)
     await m.persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group: next } : s)))
+    // An overview on the renamed group follows it
+    if (m.view.kind === "overview" && m.view.focus.pack === pack && m.view.focus.group === group)
+      m.openOverview({ pack, group: next })
     if (merging) {
       // Merging is deliberate (BEHAVIOR.md) but the two groups can't be
       // told apart afterwards, so offer to split them again
