@@ -828,14 +828,16 @@ export function Sidebar() {
         </div>
       )}
 
-      <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-3">
-        {/* Create bar: one dashed "empty slot" card, echoing the row shape.
-            New asks what and where — a pack, a group in a pack, a prompt in
-            a pack or group — so nothing lands in a default place */}
+      {/* Create bar: one dashed "empty slot" card, echoing the row shape.
+          New asks what and where — a pack, a group in a pack, a prompt in
+          a pack or group — so nothing lands in a default place. It sits
+          above the scrolling list, not in it, so the list's scrollbar
+          gutter never narrows it against the filter row. */}
+      <div className="px-3 pb-3">
         <button
           type="button"
           aria-haspopup="menu"
-          className="mb-3 flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          className="flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect()
             openNewMenu(r.left, r.bottom + 4)
@@ -844,6 +846,8 @@ export function Sidebar() {
           <RiAddLine className="size-4" />
           New
         </button>
+      </div>
+      <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-3">
         {/* An empty library says so in the pane, not here as well: the New
             button above is the sidebar's way in */}
         {/* One tree for assistive tech: packs at level 1, their prompts and
