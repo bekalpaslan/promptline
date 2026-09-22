@@ -269,7 +269,9 @@ export function App() {
     if (sel >= visible.length && visible.length > 0) setSel(visible.length - 1)
   }, [sel, visible.length])
 
-  const packNames = useMemo(() => packNamesOf(packMeta, snippets, { always: true }), [packMeta, snippets])
+  // The packs that exist, plus the one the create form holds (an empty
+  // library has none, and the form still needs its choice listed)
+  const packNames = useMemo(() => packNamesOf(packMeta, snippets, { extra: create?.pack }), [packMeta, snippets, create?.pack])
   const isLocked = useCallback((name: string) => isLockedIn(packMeta, name), [packMeta])
 
   const hidePreview = useCallback(() => {

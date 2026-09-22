@@ -99,7 +99,9 @@ export function useLibraryMenus(opts: {
     if (!next || next === group) return false
     const merging = m.snippets.some((s) => (s.pack || DEFAULT_PACK) === pack && s.group === next)
     const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group === group).map((s) => s.id)
-    await m.persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group: next } : s)))
+    // Updaters, not this render's array: the Undo runs up to 12 s later and
+    // must not put back what the editor or the popup wrote meanwhile
+    await m.persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, group: next } : s)))
     // An overview on the renamed group follows it
     if (m.view.kind === "overview" && m.view.focus.pack === pack && m.view.focus.group === group)
       m.openOverview({ pack, group: next })
@@ -107,7 +109,7 @@ export function useLibraryMenus(opts: {
       // Merging is deliberate (BEHAVIOR.md) but the two groups can't be
       // told apart afterwards, so offer to split them again
       sayUndo(`Merged "${group}" into "${next}"`, () => {
-        void m.persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group } : s))).then(() => say("Restored"))
+        void m.persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, group } : s))).then(() => say("Restored"))
       })
     } else say(`Renamed to "${next}"`)
     return true
@@ -148,11 +150,11 @@ export function useLibraryMenus(opts: {
             .filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group === group)
             .map((s) => s.id)
           void m
-            .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group: "" } : s)))
+            .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, group: "" } : s)))
             .then(() =>
               sayUndo(`Ungrouped ${count} prompt${count === 1 ? "" : "s"} from "${group}"`, () => {
                 void m
-                  .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group } : s)))
+                  .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, group } : s)))
                   .then(() => say("Restored"))
               })
             )
@@ -197,7 +199,7 @@ export function useLibraryMenus(opts: {
                   ? m.packMeta.map((p) => (p.name === name ? { ...p, path } : p))
                   : [...m.packMeta, { name, locked: false, path }]
                 await m.persistPacks(next)
-                await m.persist([...m.snippets]) // triggers the sync that fills the fresh file
+                await m.persist((cur) => [...cur]) // triggers the sync that fills the fresh file
                 say(`"${name}" now has a file`)
               } catch (e) {
                 sayErr(`Couldn't create a file for "${name}": ${e}`)
@@ -321,7 +323,7 @@ export function useLibraryMenus(opts: {
         run: () => {
           if (allPinned) {
             void m
-              .persist(m.snippets.map((s) => (ids.includes(s.id) ? C.withPin(s, false) : s)))
+              .persist((cur) => cur.map((s) => (ids.includes(s.id) ? C.withPin(s, false) : s)))
               .then(() => say(n === 1 ? "Unpinned" : `Unpinned ${n}`))
             return
           }
@@ -334,7 +336,7 @@ export function useLibraryMenus(opts: {
             return
           }
           void m
-            .persist(m.snippets.map((s) => (ids.includes(s.id) ? C.withPin(s, true) : s)))
+            .persist((cur) => cur.map((s) => (ids.includes(s.id) ? C.withPin(s, true) : s)))
             .then(() => say(plan.toPin === 1 ? "Pinned" : `Pinned ${plan.toPin}`))
         },
       },
@@ -350,7 +352,7 @@ export function useLibraryMenus(opts: {
       )
     const moveTo = (pk: string, g: string) =>
       void m
-        .persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, pack: pk, group: g } : s)))
+        .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, pack: pk, group: g } : s)))
         .then(() => say(g ? `Moved ${n} to "${pk}" › "${g}"` : `Moved ${n} to "${pk}"`))
     for (const p of m.packNames()) {
       const locked = m.isLocked(p)
@@ -397,8 +399,8 @@ export function useLibraryMenus(opts: {
                 const tag = raw.toLowerCase().replace(/[^a-z0-9_-]+/g, "")
                 if (!tag) return
                 void m
-                  .persist(
-                    m.snippets.map((s) =>
+                  .persist((cur) =>
+                    cur.map((s) =>
                       ids.includes(s.id) && !(s.tags || []).includes(tag)
                         ? { ...s, tags: [...(s.tags || []), tag] }
                         : s
@@ -430,7 +432,7 @@ export function useLibraryMenus(opts: {
         label: `Delete ${n} prompt${n === 1 ? "" : "s"}…`,
         danger: true,
         confirm: `Really delete ${n} prompt${n === 1 ? "" : "s"}?`,
-        run: () => void m.deleteWithUndo(ids, `Deleted ${n} prompts`),
+        run: () => void m.deleteWithUndo(ids, `Deleted ${n} prompt${n === 1 ? "" : "s"}`),
       }
     )
     ctx.open(x, y, items)

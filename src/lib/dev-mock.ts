@@ -37,6 +37,17 @@ const GROUPED_PACK = {
   ],
 }
 
+// What a pack file "on disk" holds when the UI reads one: one prompt that is
+// new and one that duplicates a seeded prompt, so import curation has both
+// rows to show
+const MOCK_FILE_PACK = (path: string) => ({
+  name: "From file",
+  prompts: [
+    { title: `Read from ${path.split(/[\\/]/).pop()}`, tags: ["file"], text: "A prompt that only the file had.\n\n{clipboard}" },
+    { title: "Explain this error", tags: ["debug"], text: "Explain this error:\n\n{clipboard}" },
+  ],
+})
+
 function seed(empty: boolean): Snippet[] {
   if (empty) return []
   const files = import.meta.glob<string>("/packs/*.json", { query: "?raw", import: "default", eager: true })
@@ -132,8 +143,30 @@ export function installMock(mode: string | null) {
     save_prefs: (a) => void Object.assign(config, a),
     set_hotkey: (a) => void (config.hotkey = String(a.hotkey)),
     create_pack_file: (a) => `C:\\mock\\packs\\${String(a.name)}.json`,
-    // The paste itself can't happen here; `calls` shows what would be pasted
-    paste_snippet: () => null,
+    create_generated_file: () => `C:\\mock\\packs\\generated\\mock.json`,
+    // File readers answer with a small pack, so the import paths can be
+    // walked: Settings' "import from this pack's file" and the generate
+    // dialog's agent step both go through `read_pack_file`
+    read_pack_file: (a) => JSON.stringify(MOCK_FILE_PACK(String(a.path)), null, 2),
+    import_pack_file: () => JSON.stringify(MOCK_FILE_PACK("picked.json"), null, 2),
+    // Window and shell commands: nothing to do in a browser, but they must
+    // not read as unhandled (an unhandled `hide_popup` would be a real bug)
+    edit_in_manager: () => null,
+    hide_popup: () => null,
+    quit_now: () => null,
+    open_url: () => null,
+    show_in_folder: () => null,
+    set_autostart: () => null,
+    // The paste itself can't happen here; `calls` shows what would be pasted.
+    // The real one bumps `uses`, and the manager relies on the change event
+    paste_snippet: (a) => {
+      const s = lib.snippets.find((x) => x.id === a.id)
+      if (s) {
+        s.uses = (s.uses || 0) + 1
+        write(lib.snippets)
+      }
+      return null
+    },
     // @tauri-apps/api/event: listen / unlisten
     "plugin:event|listen": (a) => {
       const ids = listeners.get(String(a.event)) ?? []

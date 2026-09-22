@@ -37,8 +37,13 @@ export function isLockedIn(meta: PackMeta[], name: string): boolean {
   return !!meta.find((p) => p.name === name)?.locked
 }
 
-/** The pack a new prompt lands in when nothing chose one explicitly */
+/**
+ * The pack a new prompt lands in when nothing chose one explicitly. Only
+ * packs that exist are candidates; the default pack is not added to the
+ * list here, or a library without it would keep conjuring it (finding 4 of
+ * the 2026-09-22 audit).
+ */
 export function defaultPackFor(meta: PackMeta[], snippets: Snippet[]): string {
-  const names = packNames(meta, snippets, { always: true })
+  const names = packNames(meta, snippets)
   return C.defaultPackFor(localStorage.getItem("lastPack"), names, (n) => isLockedIn(meta, n), DEFAULT_PACK)
 }

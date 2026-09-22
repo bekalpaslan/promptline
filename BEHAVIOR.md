@@ -107,7 +107,11 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    has to return to a window that is still on screen: the popup shows it in
    its feedback strip and nothing else happens. Copy-only (Ctrl+Enter) leaves
    the popup up for a moment to say "Copied to clipboard"; the popup hides
-   itself afterwards.
+   itself afterwards. The `uses` bump is best effort in both halves, the
+   read as much as the write: the popup is already hidden by then, so an
+   error would reach nobody, and a library a sync client or scanner is
+   holding for a moment must not turn into a paste that never happens with
+   the prompt sitting on the clipboard.
 5. A detached thread waits 80 ms, calls `SetForegroundWindow` on the remembered
    window, waits another 80 ms, and sends Ctrl+V via `SendInput`.
 
@@ -203,9 +207,14 @@ the draft is swept (below).
 **Where a new prompt goes** when nothing chose — the popup's Ctrl+N, the
 editor's and overview's empty-state buttons — is one rule for both windows
 (`defaultPackFor` in `ui/core.js`): the pack that last received a prompt if it still exists and
-is unlocked, else the default pack if unlocked, else the first unlocked pack,
-else a fresh "Unsorted". Both windows used to have their own version and they
-disagreed once "My prompts" was locked.
+is unlocked, else the default pack if it exists and is unlocked, else the
+first unlocked pack, else a fresh "Unsorted"; a library with no packs at all
+starts with the default pack. Both windows used to have their own version
+and they disagreed once "My prompts" was locked. Only packs that exist are
+candidates: the rule used to skip that check for the default pack, so a
+library that had deleted "My prompts" saw Ctrl+N pre-select it and conjure
+it again on save. The popup's pack select lists the packs that exist plus
+the form's own choice, never a phantom default.
 
 **A group is the same kind of thing one level down**: `snippet.group`, a
 label scoped to its pack, empty meaning ungrouped. It has no metadata, no lock,
@@ -314,7 +323,15 @@ Every delete in the manager goes through one `deleteWithUndo`, and both the
 delete and the Undo read the *live* library, never the array captured by the
 render that started them. An Undo built from a render's snapshot re-added the
 deleted prompts on top of a list that still contained them, and the next
-autosave wrote the duplicates to disk.
+autosave wrote the duplicates to disk. The same rule covers every other
+write from a closure that outlives its render: context-menu actions (pin,
+move, tag, ungroup) and the Undo of a merge or a regroup pass `persist` an
+*updater* that is applied to the latest library. An array captured at
+`ctx.open` time carried the state of that moment back to disk up to 12 s
+later, reverting a title typed in the editor or a use count bumped by the
+popup in between — and the revision check could not see it, because the
+manager's own reloads had kept the revision current while the closure's
+array went stale.
 
 `snippets-changed` exists because the manager used to cache at startup: a prompt
 created in the popup stayed invisible until reload, and the manager's next
@@ -368,7 +385,21 @@ Migrations run on load in `apply_snippet_migrations` (v2 `category` becomes the
 first tag; packless prompts get a default pack) and via `#[serde(default)]` on
 every field added since. Old data must keep opening.
 
-## Quitting
+## Launching and quitting
+
+**One process.** `tauri-plugin-single-instance` hands a second launch's
+arguments to the running instance and exits it. Two processes over the same
+files each kept their own revision counter, so the stale-write check could
+not see the other's writes, and the second showed a second tray icon while
+the first kept the hotkey. A second launch with no arguments (the Start
+menu, the installer's finish page) opens the running instance's manager,
+the same as a tray click.
+
+**Autostart stays in the tray.** The autostart entry passes `--hidden`, and
+`setup` hides the main window before it paints when it sees that argument.
+The window is declared visible in `tauri.conf.json` so a normal launch shows
+the manager straight away; a login launch of a tray app that opened a
+1000×800 window over the desktop was the opposite of what autostart is for.
 
 Tray Quit is a handshake, not an `app.exit`: Rust emits `quit-requested`,
 the manager runs the editor's pending autosave (the 600 ms debounce would
@@ -402,7 +433,10 @@ A combination the OS refuses at startup — another program owns it — is a
 notice, not a fatal error: the tray and the manager still come up, because
 Settings is the only place the user could fix it. Changing the hotkey
 registers the new combination *before* releasing the old one, so a refusal
-leaves the old one working and the config unchanged.
+leaves the old one working and the config unchanged. The `hotkey` field is
+serde-defaulted like every other: a `config.json` without it (hand-edited,
+or half-written) used to fail to parse and be quarantined, taking every
+pack's lock and file path with it.
 
 ## Theming
 

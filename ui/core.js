@@ -51,6 +51,21 @@
     return `${stem}_${n}`;
   }
 
+  // Remove every {name} / {{name}} from the text, tidying only the
+  // whitespace the token leaves behind: a token between two spaces leaves
+  // one, a token alone on its line takes the line with it. Nothing else in
+  // the text is touched — an earlier version collapsed every run of spaces
+  // in the whole prompt, which flattened the indentation of any code in it.
+  // Names are [a-z0-9_] (isValidParam), so they need no escaping.
+  function removeParamToken(text, name) {
+    const token = `(?:\\{\\{${name}\\}\\}|\\{${name}\\})`;
+    return text
+      .replace(new RegExp(`^[^\\S\\n]*${token}[^\\S\\n]*(?:\\n|$)`, 'gm'), '')
+      .replace(new RegExp(`[^\\S\\n]+${token}(?=[^\\S\\n]|\\n|$)`, 'g'), '')
+      .replace(new RegExp(`${token}[^\\S\\n]?`, 'g'), '')
+      .replace(/\n{3,}/g, '\n\n');
+  }
+
   // Runtime fill-in fields (valid, non-reserved, single-brace), in order, unique.
   function customFields(text) {
     const fields = [];
@@ -372,12 +387,16 @@
 
   // ---- Where a new prompt goes ---------------------------------------------------
   // The pack that last received a prompt if it still exists and is unlocked,
-  // else the default pack if unlocked, else the first unlocked pack, else a
-  // fresh "Unsorted". One rule for both windows.
+  // else the default pack if it exists and is unlocked, else the first
+  // unlocked pack, else a fresh "Unsorted". An empty library (no packs at
+  // all) starts with the default pack. One rule for both windows. A pack
+  // that is not in `names` is never returned: it used to be, and Ctrl+N
+  // offered a "My prompts" nobody had made and conjured it on save.
   function defaultPackFor(lastPack, names, isLocked, defaultPack) {
     const usable = p => !!p && names.includes(p) && !isLocked(p);
     if (usable(lastPack)) return lastPack;
-    if (!isLocked(defaultPack)) return defaultPack;
+    if (!names.length) return defaultPack;
+    if (usable(defaultPack)) return defaultPack;
     return names.find(p => !isLocked(p)) || 'Unsorted';
   }
 
@@ -519,6 +538,7 @@
     tokenize,
     customFields,
     nextCopyName,
+    removeParamToken,
     configNames,
     expandConfig,
     downgradeUnsetConfig,

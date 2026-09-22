@@ -356,15 +356,9 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     })
   }
 
-  const removeParam = (name: string) => {
-    setTextAnd(
-      text
-        .replaceAll(`{{${name}}}`, "")
-        .replaceAll(`{${name}}`, "")
-        .replace(/[^\S\n]{2,}/g, " ")
-        .replace(/\n{3,}/g, "\n\n")
-    )
-  }
+  // Only the whitespace around the token is tidied (core), never the rest of
+  // the text: a global collapse flattened the indentation of code in prompts
+  const removeParam = (name: string) => setTextAnd(C.removeParamToken(text, name))
 
   const paramChip = (name: string, isBuiltin: boolean, inText: boolean, editing: boolean) => {
     if (!inText)
@@ -435,7 +429,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       sayErr(`Max ${MAX_PINS} pins — unpin something first`)
       return
     }
-    await m.persist(m.snippets.map((s) => (s.id === snippet.id ? C.withPin(s, !s.pinned) : s)))
+    await m.persist((cur) => cur.map((s) => (s.id === snippet.id ? C.withPin(s, !s.pinned) : s)))
     say(snippet.pinned ? "Unpinned" : "Pinned")
   }
 

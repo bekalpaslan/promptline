@@ -81,7 +81,13 @@ export function App() {
     }
   }, [])
 
-  const persist = useCallback(async (next: Snippet[]) => {
+  // An updater is applied to the *latest* library, not the render that
+  // built the closure: menu actions and Undo callbacks outlive their render,
+  // and an array captured then would carry the edits made since back to disk
+  // (the revision check can't catch it — the manager's own reloads keep the
+  // revision current while the closure's array goes stale)
+  const persist = useCallback(async (nextOrUpdate: Snippet[] | ((current: Snippet[]) => Snippet[])) => {
+    const next = typeof nextOrUpdate === "function" ? nextOrUpdate(snippetsRef.current) : nextOrUpdate
     setSnippets(next)
     snippetsRef.current = next
     try {

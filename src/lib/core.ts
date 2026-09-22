@@ -100,6 +100,7 @@ interface PromptlineCore {
   customFields(text: string): string[]
   /** Another copy of a field with its own value: the next free `<stem>_<n>`, from 2 */
   nextCopyName(name: string, text: string): string
+  removeParamToken(text: string, name: string): string
   configNames(text: string): string[]
   expandConfig(text: string, values?: Record<string, string>): string
   downgradeUnsetConfig(text: string): string

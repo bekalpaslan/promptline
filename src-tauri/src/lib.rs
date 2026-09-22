@@ -210,8 +210,16 @@ fn default_font() -> String {
     "system".into()
 }
 
+fn default_hotkey() -> String {
+    "ctrl+shift+v".into()
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 struct Config {
+    // Defaulted like every other field: a hand-edited config.json without it
+    // used to fail to parse and be quarantined, taking every pack's lock and
+    // file path with it
+    #[serde(default = "default_hotkey")]
     hotkey: String,
     // Explicit pack registry: allows empty packs and per-pack lock state.
     // Packs referenced by snippets but absent here are implicit and unlocked.
@@ -1242,12 +1250,17 @@ fn paste_snippet(
         }
     }
 
+    // The use count is best effort, all of it: the popup is already hidden
+    // here, so an error would reach nobody, and a library that is momentarily
+    // unreadable (a sync client or scanner holding the file) must not turn
+    // into a paste that never happens with the prompt sitting on the clipboard
     if let Some(id) = id {
-        let mut snippets = load_snippets_from_disk(&app)?;
-        if let Some(s) = snippets.iter_mut().find(|s| s.id == id) {
-            s.uses += 1;
-            let _ = write_snippets(&app, &snippets);
-            notify_manager_snippets_changed(&app);
+        if let Ok(mut snippets) = load_snippets_from_disk(&app) {
+            if let Some(s) = snippets.iter_mut().find(|s| s.id == id) {
+                s.uses += 1;
+                let _ = write_snippets(&app, &snippets);
+                notify_manager_snippets_changed(&app);
+            }
         }
     }
 
@@ -1290,12 +1303,6 @@ fn request_quit(app: &AppHandle) {
 #[tauri::command]
 fn quit_now(app: AppHandle) {
     app.exit(0);
-}
-
-/// Tray "Quit" and the manager's answer share one path.
-#[tauri::command]
-fn request_quit_cmd(app: AppHandle) {
-    request_quit(&app);
 }
 
 fn show_main(app: &AppHandle) {
@@ -1851,6 +1858,18 @@ mod tests {
     }
 
     #[test]
+    fn config_without_a_hotkey_still_parses_with_the_default() {
+        // A hand-edited or partially written config.json must not be
+        // quarantined over a missing field: the packs and their paths live
+        // in the same file
+        let config: Config = serde_json::from_str(r#"{"packs": [{"name": "Work", "locked": true}]}"#).unwrap();
+        assert_eq!(config.hotkey, Config::default().hotkey);
+        assert_eq!(config.packs.len(), 1);
+        let empty: Config = serde_json::from_str("{}").unwrap();
+        assert_eq!(empty.hotkey, "ctrl+shift+v");
+    }
+
+    #[test]
     fn store_error_serializes_with_a_kind_tag() {
         let json = serde_json::to_string(&StoreError::Stale { revision: 4 }).unwrap();
         assert_eq!(json, r#"{"kind":"stale","revision":4}"#);
@@ -1868,11 +1887,27 @@ mod tests {
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
+/// The argument the autostart entry passes so a login launch stays in the
+/// tray; a launch from the Start menu or the installer has no arguments and
+/// opens the manager as before.
+const HIDDEN_ARG: &str = "--hidden";
+
 pub fn run() {
     tauri::Builder::default()
+        // A second launch (autostart plus a Start-menu click, or the installer
+        // starting the app that was already running) hands its arguments to
+        // the first instance and exits. Two processes would each keep their
+        // own revision counter over the same files, so the stale-write check
+        // could not see the other's writes; and the second one would show a
+        // second tray icon and lose the hotkey to the first.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            if !args.iter().any(|a| a == HIDDEN_ARG) {
+                show_main(app);
+            }
+        }))
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
-            None,
+            Some(vec![HIDDEN_ARG]),
         ))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
@@ -1910,11 +1945,20 @@ pub fn run() {
             set_clipboard_text,
             hide_popup,
             paste_snippet,
-            quit_now,
-            request_quit_cmd
+            quit_now
         ])
         .setup(|app| {
             let handle = app.handle();
+
+            // Launched at login (the autostart entry passes --hidden): stay in
+            // the tray. The window is declared visible so a normal launch
+            // shows it without a flash of nothing; hiding it here is early
+            // enough that it never paints.
+            if std::env::args().any(|a| a == HIDDEN_ARG) {
+                if let Some(w) = handle.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
 
             migrate_v1_data(handle);
             // Catches packs that predate file backing, so they get their file
