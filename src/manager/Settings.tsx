@@ -485,7 +485,7 @@ export function Settings() {
         </div>
         {importRaw !== null && <ImportCuration raw={importRaw} onClose={() => setImportRaw(null)} />}
         <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
-          Click a pack to see its file. Pack files under %APPDATA%\com.promptline.app\packs\ are always current —
+          Click a pack to see its file. Pack files under %APPDATA%\io.github.bekalpaslan.promptline\packs\ are always current —
           copy one to share or back up. Imports are reviewed prompt-by-prompt before anything is added.
         </p>
       </Card>

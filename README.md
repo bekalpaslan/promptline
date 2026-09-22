@@ -107,7 +107,7 @@ them, plus config values and a live preview. Invisible until you want it.
 
 ## Data
 
-Everything lives in `%APPDATA%\com.promptline.app\` as plain JSON — snippets,
+Everything lives in `%APPDATA%\io.github.bekalpaslan.promptline\` as plain JSON — snippets,
 packs, and preferences. Pack format docs: [`packs/TEMPLATE.md`](packs/TEMPLATE.md);
 curated packs ship in [`packs/`](packs/). Older data formats migrate automatically.
 

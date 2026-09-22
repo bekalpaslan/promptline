@@ -278,7 +278,12 @@ of what was generated.
 
 ## State and where it lives
 
-`%APPDATA%\com.promptline.app\`:
+`%APPDATA%\io.github.bekalpaslan.promptline\` (the bundle identifier; it was
+`com.promptline.app` until 0.2.9, a domain the project never owned, and
+`migrate_data_dir` moves the old folder's contents into the new one on the
+first start after the change, rewriting the packs' absolute file paths in
+the moved config; a folder the move cannot touch stays where it is and
+raises a notice):
 
 | File | Holds |
 |---|---|
