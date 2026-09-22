@@ -187,6 +187,16 @@
   color: var(--muted-foreground);
 }
 
+/* The same slot holding a name the user wrote (a pack or prompt heading a
+   menu, the prompt a form is for): same size, weight and tone, shown as
+   typed. Uppercase is for the app's own labels only (BEHAVIOR.md) */
+@utility name-label {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+
 @utility module {
   border-radius: var(--radius-xl);
   border: 1px solid var(--module-border);

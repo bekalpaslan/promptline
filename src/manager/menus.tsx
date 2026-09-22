@@ -126,7 +126,7 @@ export function useLibraryMenus(opts: {
     // honours the pack's lock like "Delete pack…" does
     const locked = m.isLocked(pack)
     ctx.open(x, y, [
-      { kind: "header", text: `${pack} › ${group}` },
+      { kind: "header", text: `${pack} › ${group}`, name: true },
       {
         // A draft in this group, opened in the editor, like the overview's
         // "+ prompt" under the group's heading
@@ -224,7 +224,7 @@ export function useLibraryMenus(opts: {
   const openPackCtx = (x: number, y: number, name: string, count: number) => {
     const locked = m.isLocked(name)
     ctx.open(x, y, [
-      { kind: "header", text: name },
+      { kind: "header", text: name, name: true },
       { kind: "item", label: "Rename", run: () => setRenaming(name) },
       {
         kind: "item",
@@ -257,7 +257,7 @@ export function useLibraryMenus(opts: {
         hint: locked ? "Unlock the pack first (this menu → Unlock)" : undefined,
         run: () => {
           ctx.open(x, y, [
-            { kind: "header", text: `New group in ${name}` },
+            { kind: "header", text: `New group in ${name}`, name: true },
             {
               kind: "input",
               placeholder: "Group name — Enter creates a first prompt in it",
@@ -309,6 +309,7 @@ export function useLibraryMenus(opts: {
       {
         kind: "header",
         text: n === 1 ? m.snippets.find((s) => s.id === ids[0])?.title || "1 prompt" : `${n} prompts`,
+        name: n === 1,
       },
       // The keyboard's drag: one row at a time, where the surface has rows
       ...(n === 1 && moveRow
@@ -364,7 +365,7 @@ export function useLibraryMenus(opts: {
         hint: locked ? "Locked — unlock it from its header menu" : undefined,
         run: () => moveTo(p, ""),
         items: [
-          { kind: "header", text: p },
+          { kind: "header", text: p, name: true },
           { kind: "item", label: "No group", run: () => moveTo(p, "") },
           ...gs.map((g): CtxItem => ({ kind: "item", label: g, run: () => moveTo(p, g) })),
           { kind: "sep" },
@@ -373,7 +374,7 @@ export function useLibraryMenus(opts: {
             label: "New group…",
             run: () => {
               ctx.open(x, y, [
-                { kind: "header", text: `New group in ${p}` },
+                { kind: "header", text: `New group in ${p}`, name: true },
                 { kind: "input", placeholder: "Group name — Enter to move", onSubmit: (g) => g && moveTo(p, g) },
               ])
               return "keep"

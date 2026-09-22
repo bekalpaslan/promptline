@@ -43,9 +43,11 @@ function Hint({ k, children }: { k: string; children: React.ReactNode }) {
   )
 }
 
-function SectionHeader({ children }: { children: React.ReactNode }) {
+// `name`: the text is the user's (a prompt title), shown as typed; uppercase
+// is for the app's own labels only
+function SectionHeader({ children, name }: { children: React.ReactNode; name?: boolean }) {
   return (
-    <div className="section-label px-2 pb-0.5 pt-1.5">
+    <div className={cn(name ? "name-label truncate" : "section-label", "px-2 pb-0.5 pt-1.5")}>
       {children}
     </div>
   )
@@ -888,7 +890,7 @@ export function App() {
       <Shell hint={hint} notice={notice} announce={announce}>
         {/* Fields and preview scroll; the button stays in reach below them */}
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1">
-          <SectionHeader>{form.snippet.title}</SectionHeader>
+          <SectionHeader name>{form.snippet.title}</SectionHeader>
           {form.fields.map((f, i) => {
             const remembered = (form.snippet.fieldValues || {})[f]
             return (
@@ -1163,7 +1165,7 @@ export function App() {
           aria-label={`Actions for ${panelFor.title}`}
           className={cn("fixed inset-x-2 bottom-10 z-20", MENU_PANEL)}
         >
-          <SectionHeader>{panelFor.title}</SectionHeader>
+          <SectionHeader name>{panelFor.title}</SectionHeader>
           {panelNote && <div role="alert" className="px-2 pb-1 text-xs text-destructive">{panelNote}</div>}
           {panelActions.map((a, i) => (
             <button
