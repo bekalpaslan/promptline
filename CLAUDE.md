@@ -13,6 +13,49 @@ logic in `ui/core.js` (plain UMD, tested with bare `node --test`).
 - `BACKLOG.md` — deferred ideas. Add to it rather than widening a change.
 - `REVIEW.md`, `BUG-HUNT-*.md` — review and benchmark trackers with their own
   rules at the top of each file.
+- `docs/architecture/` — the architecture map, for the human managing the
+  project (see *Architecture map* below).
+
+## Architecture map
+
+An [archify](https://github.com/tt-a1i/archify) diagram of the runtime
+shape: `promptline.architecture.json` is the current map, and
+`alternatives/*.architecture.json` are proposals drawn against it. The JSON
+is the source; the rendered HTML, screenshots and receipts are gitignored
+(about 800 KB each), so render them to look. Archify is a global skill
+(`~/.claude/skills/archify`), not a dependency: installed inside the repo,
+`npm run lint` would walk its `.mjs`.
+
+Every box carries `sources` (file and line) read at the commit in
+`meta.repository.revision`, not the working tree. Keep that a pushed commit
+so the SRC links resolve on GitHub.
+
+- **Refresh** ("refresh the map") after a change to windows, commands,
+  events or storage: set `revision` to the new pushed commit, fix the
+  moved line numbers and any changed boxes or edges, then `validate`,
+  `deliver`, `visual-check` (all four viewports must pass containment) and
+  republish to the same artifact URL. A structural change updates the map in
+  its own commit, like `BEHAVIOR.md`.
+- **Propose** by copying the map into `alternatives/<idea>.architecture.json`,
+  keeping every id that doesn't change, and rendering `compare` against the
+  map for a Before / Delta / After page.
+
+Commands run from the skill directory, with `--repo-root` pointing at the
+checkout:
+
+```sh
+cd ~/.claude/skills/archify
+node bin/archify.mjs validate architecture <repo>/docs/architecture/promptline.architecture.json --quality showcase --repo-root <repo> --json
+node bin/archify.mjs deliver  architecture <json> <same-name>.html --quality showcase --repo-root <repo> --json
+node bin/archify.mjs visual-check <html> --json
+node bin/archify.mjs compare  architecture <map.json> <alternative.json> <alternative>.delta.html --repo-root <repo> --json
+```
+
+Published (private) as claude.ai artifacts: the map at
+https://claude.ai/artifact/WWYhTYdWQDFZeaHXBmwBbC, the direct-API
+generation delta at https://claude.ai/artifact/3ZgbonXsiQw7uxU55XPtHv. The
+Export menu does nothing inside claude.ai (no download permission); it
+works on the local HTML.
 
 ## Checks
 
