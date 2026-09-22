@@ -46,6 +46,17 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "publisher": "Alpaslan Bek",
+    "copyright": "© 2026 Alpaslan Bek, MIT",
+    "shortDescription": "Your prompt vocabulary, one hotkey away, in every window",
+    "longDescription": "A tray app for Windows that keeps your prompt library one hotkey away. Press the hotkey in any window, pick a prompt, and it is pasted where you were, with the clipboard already substituted for {clipboard}. Prompts live as plain JSON under %APPDATA%; packs are files you can share or let an agent write. No network, no telemetry.",
+    "homepage": "https://github.com/bekalpaslan/promptline",
+    "licenseFile": "../LICENSE",
+    "windows": {
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
