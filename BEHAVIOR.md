@@ -122,7 +122,18 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    holding for a moment must not turn into a paste that never happens with
    the prompt sitting on the clipboard.
 5. A detached thread waits 80 ms, calls `SetForegroundWindow` on the remembered
-   window, waits another 80 ms, and sends Ctrl+V via `SendInput`.
+   window, waits another 80 ms, and sends Ctrl+V via `SendInput`. Both
+   results are checked: a refused `SetForegroundWindow` (an elevated
+   window, a foreground lock held by another process) sends no Ctrl+V at
+   all, since it would land in whichever window is in front; that, or a
+   `SendInput` that inserted fewer events than asked, brings the popup
+   back where it was (`report_paste_failed`: shown and focused, without
+   re-recording `prev_window`) and emits `paste-failed` to it with
+   `{ "message": "Couldn't paste into that window — the prompt is on your
+   clipboard" }`, which the popup shows in its feedback strip. It used to
+   fail with nothing said and the prompt silently on the clipboard. One
+   case still passes silently: UIPI drops input aimed at an elevated
+   window without reporting it, so `SendInput` returns success there.
 
 The sleeps are load-bearing. Focus changes are asynchronous on Windows; sending
 the keystroke immediately delivers it to whatever had focus a moment ago.
