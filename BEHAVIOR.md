@@ -494,7 +494,11 @@ registers the new combination *before* releasing the old one, so a refusal
 leaves the old one working and the config unchanged. The `hotkey` field is
 serde-defaulted like every other: a `config.json` without it (hand-edited,
 or half-written) used to fail to parse and be quarantined, taking every
-pack's lock and file path with it.
+pack's lock and file path with it. A combination without a modifier is
+refused in both places (`parse_hotkey`): the parser takes a bare `a`, and
+a hand-edited config with one would capture that letter system-wide, so
+`set_hotkey` returns an error and `resolve_hotkey` falls back to the
+default, the same as for a string that doesn't parse at all.
 
 ## Theming
 
