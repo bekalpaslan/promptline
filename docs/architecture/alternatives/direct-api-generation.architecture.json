@@ -1,0 +1,301 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Promptline: direct API pack generation",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "repository": {
+      "url": "https://github.com/bekalpaslan/promptline",
+      "revision": "ad06b341a9f1d6fed3e8242ec920027f0e099ae5"
+    },
+    "viewBox": [1300, 740],
+    "views": [
+      {
+        "id": "paste-path",
+        "label": "Hotkey to pasted text",
+        "focus": ["hotkey", "rust", "popup", "clipboard", "target"],
+        "note": "The one flow everything else serves: hotkey, popup, paste_snippet, clipboard, Ctrl+V into the window you came from."
+      },
+      {
+        "id": "library",
+        "label": "Editing the library",
+        "focus": ["manager", "tray", "rust", "store", "packfiles"],
+        "note": "The tray opens the manager; edits go through Rust commands, which write the store and mirror pack files."
+      },
+      {
+        "id": "shared-logic",
+        "label": "Shared pure logic",
+        "focus": ["popup", "corejs", "manager"],
+        "note": "Both windows rank, filter and build the pack tree with the same UMD module, tested under bare node --test."
+      },
+      {
+        "id": "generation",
+        "label": "Direct generation",
+        "focus": ["manager", "rust", "claudeapi", "packfiles"],
+        "note": "Proposed: the manager asks Rust to generate a pack; Rust calls Claude and writes the result as a pack file."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "popup",
+      "type": "frontend",
+      "label": "Popup",
+      "sublabel": "popup.html · src/popup",
+      "pos": [300, 190],
+      "size": [160, 64],
+      "sources": [
+        { "path": "src/popup/App.tsx", "line": 84, "label": "Popup App" },
+        { "path": "src/popup/App.tsx", "line": 324, "label": "invoke paste_snippet" }
+      ]
+    },
+    {
+      "id": "corejs",
+      "type": "frontend",
+      "label": "ui/core.js",
+      "sublabel": "rank · filter · packTree",
+      "tag": "UMD, node --test",
+      "pos": [560, 60],
+      "size": [160, 60],
+      "sources": [
+        { "path": "ui/core.js", "line": 183, "label": "rankSnippets" },
+        { "path": "ui/core.js", "line": 469, "label": "packTree" },
+        { "path": "src/lib/core.ts", "line": 1, "end_line": 4, "label": "TS bridge" }
+      ]
+    },
+    {
+      "id": "manager",
+      "type": "frontend",
+      "label": "Manager",
+      "sublabel": "index.html · src/manager",
+      "pos": [720, 190],
+      "size": [160, 64],
+      "sources": [
+        { "path": "src/manager/App.tsx", "line": 25, "label": "Manager App" },
+        { "path": "src/manager/App.tsx", "line": 349, "label": "snippets-changed" }
+      ]
+    },
+    {
+      "id": "hotkey",
+      "type": "external",
+      "label": "Global hotkey",
+      "sublabel": "global-shortcut plugin",
+      "pos": [50, 363],
+      "size": [160, 64],
+      "sources": [
+        { "path": "src-tauri/src/lib.rs", "line": 1877, "end_line": 1885, "label": "shortcut handler" }
+      ]
+    },
+    {
+      "id": "tray",
+      "type": "external",
+      "label": "Tray icon",
+      "sublabel": "Open · Quit",
+      "pos": [50, 500],
+      "size": [160, 64],
+      "sources": [
+        { "path": "src-tauri/src/lib.rs", "line": 1948, "end_line": 1970, "label": "TrayIconBuilder" }
+      ]
+    },
+    {
+      "id": "rust",
+      "type": "backend",
+      "label": "Rust core",
+      "sublabel": "src-tauri/src/lib.rs · commands",
+      "pos": [440, 360],
+      "size": [400, 70],
+      "sources": [
+        { "path": "src-tauri/src/lib.rs", "line": 1871, "end_line": 2006, "label": "run()" },
+        { "path": "src-tauri/src/lib.rs", "line": 1309, "end_line": 1361, "label": "show_popup" },
+        { "path": "src-tauri/src/lib.rs", "line": 1207, "end_line": 1267, "label": "paste_snippet" }
+      ]
+    },
+    {
+      "id": "clipboard",
+      "type": "external",
+      "label": "Clipboard",
+      "sublabel": "{clipboard} expanded",
+      "pos": [910, 363],
+      "size": [140, 64],
+      "sources": [
+        { "path": "src-tauri/src/lib.rs", "line": 1207, "end_line": 1267, "label": "paste_snippet" }
+      ]
+    },
+    {
+      "id": "target",
+      "type": "external",
+      "label": "Target window",
+      "sublabel": "the app you came from",
+      "pos": [1100, 363],
+      "size": [160, 64],
+      "sources": [
+        { "path": "src-tauri/src/lib.rs", "line": 1408, "label": "send_ctrl_v" }
+      ]
+    },
+    {
+      "id": "claudeapi",
+      "type": "external",
+      "label": "Claude API",
+      "sublabel": "user-supplied key",
+      "tag": "proposed",
+      "pos": [1000, 490],
+      "size": [160, 64]
+    },
+    {
+      "id": "store",
+      "type": "database",
+      "label": "snippets.json",
+      "sublabel": "+ config.json",
+      "pos": [470, 590],
+      "size": [160, 64],
+      "sources": [
+        { "path": "src-tauri/src/lib.rs", "line": 258, "end_line": 273, "label": "data_dir paths" }
+      ]
+    },
+    {
+      "id": "packfiles",
+      "type": "database",
+      "label": "Pack files",
+      "sublabel": "packs/*.json",
+      "pos": [730, 590],
+      "size": [160, 64],
+      "sources": [
+        { "path": "src-tauri/src/lib.rs", "line": 489, "label": "write_pack_files" }
+      ]
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "WebView2 · two separate JS contexts",
+      "wraps": ["popup", "corejs", "manager"]
+    },
+    {
+      "kind": "region",
+      "label": "%APPDATA%\\com.promptline.app",
+      "wraps": ["store", "packfiles"]
+    }
+  ],
+  "connections": [
+    {
+      "id": "hotkey-press",
+      "from": "hotkey",
+      "to": "rust",
+      "label": "pressed",
+      "variant": "emphasis"
+    },
+    {
+      "id": "show-popup",
+      "from": "rust",
+      "to": "popup",
+      "label": "show · popup-shown",
+      "labelDx": 56,
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
+      "id": "paste-invoke",
+      "from": "popup",
+      "to": "rust",
+      "label": "paste_snippet",
+      "labelDx": -56,
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "write-clipboard",
+      "from": "rust",
+      "to": "clipboard",
+      "label": "write",
+      "variant": "emphasis"
+    },
+    {
+      "id": "send-paste",
+      "from": "clipboard",
+      "to": "target",
+      "label": "Ctrl+V",
+      "variant": "emphasis"
+    },
+    {
+      "id": "tray-click",
+      "from": "tray",
+      "to": "rust",
+      "label": "click"
+    },
+    {
+      "id": "manager-commands",
+      "from": "manager",
+      "to": "rust",
+      "label": "save · update · generate",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "popup-core",
+      "from": "popup",
+      "to": "corejs",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "manager-core",
+      "from": "manager",
+      "to": "corejs",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "id": "generate-call",
+      "from": "rust",
+      "to": "claudeapi",
+      "label": "HTTPS · generate",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "variant": "dashed"
+    },
+    {
+      "id": "store-write",
+      "from": "rust",
+      "to": "store",
+      "label": "atomic write",
+      "fromSide": "bottom",
+      "toSide": "top"
+    },
+    {
+      "id": "pack-mirror",
+      "from": "rust",
+      "to": "packfiles",
+      "label": "mirror",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Paste path",
+      "items": ["Foreground window recorded before the popup shows", "Clipboard written first; 80 ms waits around refocus", "Prompt stays on the clipboard after Ctrl+V"]
+    },
+    {
+      "dot": "emerald",
+      "title": "Two windows",
+      "items": ["Popup for daily use, manager for editing", "They share files and Tauri events, nothing else"]
+    },
+    {
+      "dot": "amber",
+      "title": "Storage",
+      "items": ["Library and settings as JSON in the config dir", "Each pack mirrored to its own file"]
+    },
+    {
+      "dot": "violet",
+      "title": "Proposal (BACKLOG)",
+      "items": ["Generate dialog calls Claude directly, no copy/paste loop", "Key and request stay in Rust, outside the webview"]
+    }
+  ]
+}
