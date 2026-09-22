@@ -45,7 +45,15 @@ are one hook too (`useLibraryMenus` in `menus.tsx`), with the inline
 rename and the delete-group dialog it drives, so both surfaces offer the
 same menu; only "Move up/down" is sidebar-only, since the overview's grid
 has no row order to move within. An overview follows a rename of its pack
-or group; one whose group is gone shows the pack.
+or group; one whose group is gone shows the pack. The folds and the
+inline-rename state are the manager's as well (`folds.ts`, `renaming` on
+the API), not the sidebar's: a rename from either surface carries the
+folds keyed by the old name, a prompt created anywhere unfolds the pack
+and group it lands in, and a New → Pack begun on any surface opens the
+new pack's name for typing in the overview it selects. Each surface used
+to hold its own copy of that state, so a rename from the overview left a
+fold behind under the old name and a group created there stayed hidden
+under a folded pack.
 
 **The tree tells its levels apart without colour.** A pack is a bold row
 with a box icon, a group a medium row in the secondary ink, a prompt a

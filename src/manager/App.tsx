@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button"
 import { Keys } from "@/components/prompt-bits"
 import { C, isStoreError, type Library, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
-import { ManagerCtx, type DeleteOpts, type LibraryFocus, type ManagerApi, type Prefs, type View } from "./state"
+import { ManagerCtx, groupKey, type DeleteOpts, type LibraryFocus, type ManagerApi, type Prefs, type Renaming, type View } from "./state"
 import { type Config, DEFAULT_PACK, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
+import { useFolds } from "./folds"
 import { say, sayErr, sayPersistent, sayUndo, undoLast } from "./status"
 import { Sidebar } from "./Sidebar"
 import { Editor } from "./Editor"
@@ -129,18 +130,25 @@ export function App() {
     }
   }, [refreshPacks])
 
+  // The sidebar's folds and the inline-rename state live here, not in the
+  // sidebar: a rename or a New from the overview has to reach them too
+  const { folds, togglePackFold, toggleGroupFold, setAll: setAllFolds, unfold, carryPackFolds, carryGroupFold } = useFolds()
+  const [renaming, setRenaming] = useState<Renaming | null>(null)
+  const [renamingGroup, setRenamingGroup] = useState<Renaming | null>(null)
+
   const renamePack = useCallback(async (from: string, to: string) => {
     try {
       applyLibrary(await invoke<Library>("rename_pack", { from, to }))
-      // An overview on the renamed pack follows it
+      // An overview on the renamed pack follows it, and so do its folds
       setView((v) => (v.kind === "overview" && v.focus.pack === from ? { ...v, focus: { ...v.focus, pack: to } } : v))
+      carryPackFolds(from, to)
     } catch (e) {
       sayErr(`Couldn't rename the pack: ${e}`)
       throw e
     } finally {
       await refreshPacks()
     }
-  }, [applyLibrary, refreshPacks])
+  }, [applyLibrary, refreshPacks, carryPackFolds])
 
   // Latest pack metadata for the same reason
   const packMetaRef = useRef(packMeta)
@@ -218,13 +226,16 @@ export function App() {
     // Default to the pack the user last saved a prompt into, not a fixed pack
     // (one rule with the popup: library.ts)
     const pack = into?.pack && !isLocked(into.pack) ? into.pack : defaultPackFor(packMeta, snippets)
+    const group = (into?.pack && !isLocked(into.pack) && into.group) || ""
+    // The draft lands inside: open the pack, and the group, so it is in view
+    unfold(pack, group || undefined)
     const s: Snippet = {
       id: crypto.randomUUID(),
       title: "New prompt",
       text: "",
       tags: [],
       pack,
-      group: (into?.pack && !isLocked(into.pack) && into.group) || "",
+      group,
       uses: 0,
       pinned: false,
       pinnedAt: 0,
@@ -242,7 +253,18 @@ export function App() {
     setSelectionAnchor(s.id)
     setActiveId(s.id)
     setView({ kind: "prompt" })
-  }, [isLocked, packMeta, snippets, applyLibrary, refreshPacks])
+  }, [isLocked, packMeta, snippets, applyLibrary, refreshPacks, unfold])
+
+  const foldAll = useCallback(
+    (fold: boolean) => {
+      if (!fold) return setAllFolds(new Set(), new Set())
+      setAllFolds(
+        new Set(packNames()),
+        new Set(snippets.filter((s) => s.group).map((s) => groupKey(s.pack || DEFAULT_PACK, s.group)))
+      )
+    },
+    [setAllFolds, packNames, snippets]
+  )
 
   const addPack = useCallback(
     async (name: string) => {
@@ -428,6 +450,15 @@ export function App() {
       select,
       setSelection,
       newPrompt,
+      folds,
+      togglePackFold,
+      toggleGroupFold,
+      foldAll,
+      carryGroupFold,
+      renaming,
+      setRenaming,
+      renamingGroup,
+      setRenamingGroup,
       addPack,
       savePrefs,
       setHotkey: setHotkeyState,
@@ -436,7 +467,7 @@ export function App() {
       showSettings,
       pendingFlush,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)

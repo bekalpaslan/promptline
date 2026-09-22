@@ -22,14 +22,6 @@ import { EmptyState } from "./EmptyState"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
 
-function loadCollapsed(key: string): Set<string> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(key) || "[]"))
-  } catch {
-    return new Set()
-  }
-}
-
 // A pack's prompts split into the ungrouped run, then its groups in order of
 // first appearance — so a custom arrangement holds, and any other sort order
 // carries through from the rows themselves.
@@ -108,8 +100,10 @@ export function Sidebar() {
   const { orderBy, setOrderBy } = m
   // Group-by-pack is the default view
   const [grouped, setGrouped] = useState(localStorage.getItem("groupByPack") !== "0")
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsed("collapsedPacks"))
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => loadCollapsed("collapsedGroups"))
+  // The folds are the manager's (folds.ts): a rename or a New from the
+  // overview carries and opens them too
+  const { packs: collapsed, groups: collapsedGroups } = m.folds
+  const { togglePackFold: toggleCollapsed, toggleGroupFold: toggleCollapsedGroup, foldAll } = m
   // A search started while a pack or group is shown stays inside it until
   // the chip in the field is dismissed; clearing the search drops it
   const [scope, setScope] = useState<LibraryFocus | null>(null)
@@ -358,86 +352,22 @@ export function Sidebar() {
     openRowCtx,
     openNewMenu,
     newPack,
-  } = useLibraryMenus({
-    // A group starts life on a prompt, drawn inside its pack: unfold it
-    onNewGroup: (name) => {
-      if (collapsed.has(name)) toggleCollapsed(name)
-    },
-    onNewPack: (name) => reveal(`[data-pack="${CSS.escape(name)}"]`),
-    // The draft lands inside the group: unfold it and its pack
-    onNewPromptInGroup: (pack, group) => {
-      if (collapsed.has(pack)) toggleCollapsed(pack)
-      if (collapsedGroups.has(groupKey(pack, group))) toggleCollapsedGroup(groupKey(pack, group))
-    },
-    moveRow,
-  })
+  } = useLibraryMenus({ surface: "sidebar", moveRow })
 
-  const toggleCollapsed = (name: string) => {
-    const next = new Set(collapsed)
-    if (next.has(name)) next.delete(name)
-    else next.add(name)
-    setCollapsed(next)
-    localStorage.setItem("collapsedPacks", JSON.stringify([...next]))
-  }
-
-  const foldAll = (fold: boolean) => {
-    const packs = fold ? new Set(m.packNames()) : new Set<string>()
-    const keys = fold
-      ? new Set(m.snippets.filter((s) => s.group).map((s) => groupKey(s.pack || DEFAULT_PACK, s.group)))
-      : new Set<string>()
-    setCollapsed(packs)
-    setCollapsedGroups(keys)
-    localStorage.setItem("collapsedPacks", JSON.stringify([...packs]))
-    localStorage.setItem("collapsedGroups", JSON.stringify([...keys]))
-  }
-
-  const toggleCollapsedGroup = (key: string) => {
-    const next = new Set(collapsedGroups)
-    if (next.has(key)) next.delete(key)
-    else next.add(key)
-    setCollapsedGroups(next)
-    localStorage.setItem("collapsedGroups", JSON.stringify([...next]))
-  }
-
-  // Folds are keyed by name, so a rename carries them over — here, and in
-  // the popup's stored keys (same shape), which it reads when it next loads
-  const rekey = (set: Set<string>, map: (k: string) => string) => new Set([...set].map(map))
-  const rekeyStored = (storageKey: string, map: (k: string) => string) => {
-    try {
-      const cur: string[] = JSON.parse(localStorage.getItem(storageKey) || "[]")
-      localStorage.setItem(storageKey, JSON.stringify(cur.map(map)))
-    } catch {
-      /* unreadable: nothing to carry */
-    }
-  }
-  const carryPackFolds = (from: string, to: string) => {
-    const packMap = (k: string) => (k === from ? to : k)
-    const groupMap = (k: string) => (k.startsWith(`${from}\u0000`) ? `${to}\u0000${k.slice(from.length + 1)}` : k)
-    const packs = rekey(collapsed, packMap)
-    const groups = rekey(collapsedGroups, groupMap)
-    setCollapsed(packs)
-    setCollapsedGroups(groups)
-    localStorage.setItem("collapsedPacks", JSON.stringify([...packs]))
-    localStorage.setItem("collapsedGroups", JSON.stringify([...groups]))
-    rekeyStored("popupCollapsedPacks", packMap)
-    rekeyStored("popupCollapsedGroups", groupMap)
-  }
-  const carryGroupFold = (pack: string, from: string, to: string) => {
-    const map = (k: string) => (k === groupKey(pack, from) ? groupKey(pack, to) : k)
-    const groups = rekey(collapsedGroups, map)
-    setCollapsedGroups(groups)
-    localStorage.setItem("collapsedGroups", JSON.stringify([...groups]))
-    rekeyStored("popupCollapsedGroups", map)
-  }
-
-  // A new prompt or pack can land below the fold of a long list: bring it
+  // A new prompt or pack can land below the fold of a long list, and a pack
+  // opened from the editor's crumbs may sit there too: bring what is shown
   // into view (the popup does the same for its selection)
   const listRef = useRef<HTMLDivElement>(null)
-  const reveal = (selector: string) =>
-    requestAnimationFrame(() => listRef.current?.querySelector(selector)?.scrollIntoView({ block: "nearest" }))
   useEffect(() => {
     if (m.activeId) listRef.current?.querySelector(`[data-id="${CSS.escape(m.activeId)}"]`)?.scrollIntoView({ block: "nearest" })
   }, [m.activeId])
+  const shownPack = shown && !shown.group ? shown.pack : null
+  useEffect(() => {
+    if (shownPack)
+      requestAnimationFrame(() =>
+        listRef.current?.querySelector(`[data-pack="${CSS.escape(shownPack)}"]`)?.scrollIntoView({ block: "nearest" })
+      )
+  }, [shownPack])
 
   // Group header: quieter than the pack title, sits among its rows
   const groupTitle = (pack: string, group: string, count: number, isCollapsed: boolean) => {
@@ -503,8 +433,7 @@ export function Sidebar() {
               e.stopPropagation()
               if (e.key === "Escape") setRenamingGroup(null)
               if (e.key === "Enter") {
-                const next = e.currentTarget.value.trim()
-                void renameGroup(pack, group, next).then((ok) => ok && carryGroupFold(pack, group, next))
+                void renameGroup(pack, group, e.currentTarget.value.trim())
               }
             }}
             // Enter commits, leaving the field cancels: a misclick must not rename
@@ -672,8 +601,7 @@ export function Sidebar() {
               e.stopPropagation()
               if (e.key === "Escape") setRenaming(null)
               if (e.key === "Enter") {
-                const next = e.currentTarget.value.trim()
-                void renamePack(name, next).then((ok) => ok && carryPackFolds(name, next))
+                void renamePack(name, e.currentTarget.value.trim())
               }
             }}
             onBlur={() => setRenaming(null)}
