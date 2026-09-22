@@ -29,15 +29,37 @@ export { groupKey } from "./state"
 // same menu right-click opens. `reveal` is the group-hover class of the
 // heading it sits in (the sidebar's rows and the overview's headings name
 // their groups differently).
-export function MenuDots({ label, reveal, onOpen }: { label: string; reveal: string; onOpen: (x: number, y: number) => void }) {
+// `decorative`: inside a treeitem, where the Menu key and Shift+F10 open the
+// same menu, the dots leave the accessibility tree and a click on them
+// keeps focus on the row.
+export function MenuDots({
+  label,
+  reveal,
+  decorative,
+  onOpen,
+}: {
+  label: string
+  reveal: string
+  decorative?: boolean
+  onOpen: (x: number, y: number) => void
+}) {
   return (
     <Button
       variant="ghost"
       size="icon-xs"
       tabIndex={-1}
-      aria-label={label}
+      aria-label={decorative ? undefined : label}
+      aria-hidden={decorative || undefined}
       title="Actions"
       className={cn("text-muted-foreground opacity-0 focus-visible:opacity-100", reveal)}
+      onMouseDown={
+        decorative
+          ? (e) => {
+              e.preventDefault()
+              e.currentTarget.closest<HTMLElement>("[data-key]")?.focus()
+            }
+          : undefined
+      }
       onClick={(e) => {
         e.stopPropagation()
         const r = e.currentTarget.getBoundingClientRect()

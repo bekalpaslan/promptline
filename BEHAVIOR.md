@@ -32,8 +32,8 @@ the editor, and a pack or group title shows its **overview** — the prompts
 it holds as preview cards (a pack's ungrouped prompts, then each group under
 a heading that opens that group), with the clipboard substituted as in every
 preview. Clicking a title selects it the way clicking a row selects a
-prompt; the chevron folds the tree, Enter folds too, and a double-click
-renames. The overview has no folds of its own and no mode to leave: a card
+prompt; the chevron folds the tree (← and → from the keyboard) and a
+double-click renames. The overview has no folds of its own and no mode to leave: a card
 click opens that prompt, the editor's crumbs (pack, group) open those
 overviews, and Escape goes up one level — from a prompt to its group (or
 pack), from a group to its pack. This replaced a full-window library view
@@ -54,6 +54,21 @@ new pack's name for typing in the overview it selects. Each surface used
 to hold its own copy of that state, so a rename from the overview left a
 fold behind under the old name and a group created there stayed hidden
 under a folded pack.
+
+**The sidebar is one tree to the keyboard.** The list is a `tree` and every
+row a `treeitem` carrying its level, its fold state and whether it is
+selected; one row is the tab stop (the last one focused, else the open
+prompt, the shown pack or group, or the first row), and Up/Down and
+Home/End move between rows, Right unfolds a pack or group or steps to its
+first child, Left folds or steps out to the parent, Enter or Space is the
+click (with Ctrl and Shift for the selection), Alt+Up/Down moves a prompt,
+and the Menu key or Shift+F10 opens the row's menu at it. While a search
+holds every fold open, Left and Right only move. The chevron and the three
+dots are hidden from assistive tech, since those keys reach the same
+actions, and a click on either keeps focus on the row. The rows used to be
+`role=button` tab stops with real buttons nested inside: about a hundred
+Tab presses to cross a library, no arrow keys, and a computed name that
+read the chevron and the dots out along with the title.
 
 **The tree tells its levels apart without colour.** A pack is a bold row
 with a box icon, a group a medium row in the secondary ink, a prompt a
