@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/dialog"
 import { C } from "@/lib/core"
 import { cn } from "@/lib/utils"
+import { Chip } from "@/components/prompt-bits"
 import { useManager } from "./state"
 import { ImportCuration } from "./ImportCuration"
 import { say, sayErr } from "./status"
@@ -126,15 +127,9 @@ function InstructionPreview({ segments }: { segments: Segment[] }) {
         typeof s === "string" ? (
           <span key={i}>{s}</span>
         ) : (
-          <span
-            key={i}
-            className={cn(
-              "rounded-sm px-1 font-semibold",
-              s.kind === "topic" ? "bg-(--param-field-bg) text-(--param-field)" : "bg-(--param-builtin-bg) text-(--param-builtin)"
-            )}
-          >
+          <Chip key={i} tone={s.kind === "topic" ? "field" : "builtin"} size="inline">
             {s.chip}
-          </span>
+          </Chip>
         )
       )}
     </div>

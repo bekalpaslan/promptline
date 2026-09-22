@@ -406,13 +406,18 @@ darken or fade it per theme — a `var(--tag)` inside a `:root` token would
 resolve at `:root`, where `--tag` is unset.
 
 What a prompt looks like in a list is drawn by one module for both windows,
-`src/components/prompt-bits.tsx`: the key cap, the #tag pill (the editor's is
-a size larger, level with its `{param}` chips, and otherwise the same), the
-`{N}` and `+N` badges, the underline that marks a search match, and the token
-preview (popup hover card, fill-in form, overview card, editor). They were
-copies once, and the copies drifted — the editor's tags grew a weight and a
-ground the popup's never had. A difference between the windows belongs in a
-prop on the shared piece, not in a second copy.
+`src/components/prompt-bits.tsx`: the key cap, the underline that marks a
+search match, the token preview (popup hover card, fill-in form, overview
+card, editor), and the Chip. Every small label is a Chip — #tags,
+`{placeholders}`, the `{N}` and `+N` badges, add-suggestions, the sidebar's
+search scope, the import badges — and its whole look is the `chipVariants`
+table there: a `tone` for what it is, a `size` for where it sits (16px in a
+row, 20px beside an editor input, inline in wrapping text). There were
+thirteen hand-styled versions once, in three text sizes and three weights,
+and they drifted. A difference between chips belongs in that table, never at
+a call site. Two lookalikes stay apart on purpose: a key cap is a key, not a
+label, and the sidebar's search-box chip draws under the input's text, so it
+cannot take padding.
 
 ## Windows-specific code
 

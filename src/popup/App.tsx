@@ -19,7 +19,7 @@ const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { type Entry, Row, derive } from "@/popup/Row"
-import { Kbd, PromptTokens } from "@/components/prompt-bits"
+import { Chip, Kbd, PromptTokens } from "@/components/prompt-bits"
 import { Button } from "@/components/ui/button"
 
 
@@ -893,7 +893,7 @@ export function App() {
               <div key={f} className="px-1">
                 <label htmlFor={`field-${f}`} className="mb-1 flex items-center gap-1.5 text-xs font-medium capitalize tracking-[0.04em] text-muted-foreground">
                   {f.replace(/_/g, " ")}
-                  {remembered && <Kbd>last used</Kbd>}
+                  {remembered && <Chip tone="muted" className="normal-case tracking-normal">last used</Chip>}
                   {empty && <span className="normal-case text-destructive">empty — pastes nothing</span>}
                 </label>
                 <textarea
