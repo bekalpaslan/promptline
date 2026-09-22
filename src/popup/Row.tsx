@@ -63,6 +63,13 @@ export const Row = memo(function Row({
   const tags = s.tags || []
   const { inputs, Icon } = derived
   const usesClip = clipEmpty && s.text.includes("{clipboard}")
+  // Up to three pills keep a line to itself; the rest fold into +N
+  const chips = (
+    <>
+      <TagList tags={tags} max={MAX_ROW_TAGS} activeTags={activeTags} onTag={onTag} />
+      <InputsBadge inputs={inputs} />
+    </>
+  )
   return (
     <div
       id={`row-${s.id}`}
@@ -90,12 +97,15 @@ export const Row = memo(function Row({
           <HighlightedTitle title={s.title} indices={indices} />
         </span>
         {!compact && (
-          <span className="truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
+          // The chips sit on the preview's line, level with its text, and
+          // leave the title the row's full width
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
+            {chips}
+          </span>
         )}
       </div>
-      {/* Up to three pills keep the row single-line; the rest fold into +N */}
-      <TagList tags={tags} max={MAX_ROW_TAGS} activeTags={activeTags} onTag={onTag} />
-      <InputsBadge inputs={inputs} />
+      {compact && chips}
       {slot && (
         <span className="flex shrink-0 gap-1">
           <Kbd>Ctrl</Kbd>
