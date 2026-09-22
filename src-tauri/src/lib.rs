@@ -88,10 +88,57 @@ fn take_notices(state: State<AppState>) -> Vec<Notice> {
 /// Write `bytes` to `path` by way of a sibling temp file and a rename, so a
 /// crash or power loss mid-write leaves the previous file intact rather than
 /// a truncated one. `rename` replaces the destination on Windows and POSIX.
+///
+/// The temp file is flushed to disk before the rename: the rename is only
+/// as atomic as the bytes behind it, and on NTFS a rename can reach the
+/// journal before the data does. The rename itself is retried briefly,
+/// because on Windows a sync client, an indexer or a scanner holds a
+/// just-changed file for tens of milliseconds and a rename in that window
+/// fails with a sharing violation or "access denied"; an autosave that hit
+/// it showed "Couldn't save" and threw the keystrokes away. If it still
+/// fails, the temp file is removed so nothing is left behind.
 fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let tmp = tmp_path(path);
-    fs::write(&tmp, bytes)?;
-    fs::rename(&tmp, path)
+    let result = write_synced(&tmp, bytes).and_then(|()| rename_with_retries(&tmp, path));
+    if result.is_err() {
+        let _ = fs::remove_file(&tmp);
+    }
+    result
+}
+
+fn write_synced(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut file = fs::File::create(path)?;
+    file.write_all(bytes)?;
+    file.sync_all()
+}
+
+/// Five tries, 20 ms then doubling: about 300 ms in all, longer than the
+/// holds seen from OneDrive and Defender, short enough that the manager's
+/// autosave never feels stuck.
+const RENAME_ATTEMPTS: u32 = 5;
+
+fn rename_with_retries(from: &Path, to: &Path) -> std::io::Result<()> {
+    let mut delay = Duration::from_millis(20);
+    let mut attempt = 1;
+    loop {
+        match fs::rename(from, to) {
+            Err(e) if attempt < RENAME_ATTEMPTS && is_transient_rename_error(&e) => {
+                std::thread::sleep(delay);
+                delay *= 2;
+                attempt += 1;
+            }
+            other => return other,
+        }
+    }
+}
+
+/// What "another program is holding the file" looks like: PermissionDenied
+/// (which is how std maps both), and on Windows the raw codes behind it,
+/// ERROR_ACCESS_DENIED (5) and ERROR_SHARING_VIOLATION (32). Anything else
+/// (a missing folder, a full disk) will not get better by waiting.
+fn is_transient_rename_error(e: &std::io::Error) -> bool {
+    e.kind() == std::io::ErrorKind::PermissionDenied || matches!(e.raw_os_error(), Some(5) | Some(32))
 }
 
 fn now_millis() -> u64 {
@@ -1974,6 +2021,50 @@ mod tests {
         assert!(!tmp_path(&path).exists());
         let names: Vec<_> = fs::read_dir(&dir).unwrap().map(|e| e.unwrap().file_name()).collect();
         assert_eq!(names.len(), 1);
+    }
+
+    #[test]
+    fn only_a_held_file_is_worth_retrying_the_rename_for() {
+        use std::io::{Error, ErrorKind};
+        assert!(is_transient_rename_error(&Error::from(ErrorKind::PermissionDenied)));
+        // ERROR_ACCESS_DENIED and ERROR_SHARING_VIOLATION, what Windows
+        // answers while a sync client or a scanner holds the destination
+        assert!(is_transient_rename_error(&Error::from_raw_os_error(5)));
+        assert!(is_transient_rename_error(&Error::from_raw_os_error(32)));
+        // A missing folder or a full disk will not get better by waiting
+        assert!(!is_transient_rename_error(&Error::from(ErrorKind::NotFound)));
+        assert!(!is_transient_rename_error(&Error::from_raw_os_error(2)));
+    }
+
+    #[test]
+    fn a_write_that_cannot_land_leaves_no_temp_file_behind() {
+        let dir = temp_dir("atomicfail");
+        // A directory where the file should go: the rename can never succeed
+        let path = dir.join("snippets.json");
+        fs::create_dir_all(&path).unwrap();
+        assert!(write_atomic(&path, b"[1]").is_err());
+        assert!(!tmp_path(&path).exists(), "the temp file is cleaned up");
+        assert!(path.is_dir(), "the obstacle is untouched");
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn a_write_outlasts_a_program_briefly_holding_the_file() {
+        use std::os::windows::fs::OpenOptionsExt;
+        let dir = temp_dir("atomicheld");
+        let path = dir.join("snippets.json");
+        write_atomic(&path, b"[1]").unwrap();
+        // Something else (a sync client, a scanner) opens the file with no
+        // sharing for 60 ms: a rename over it is a sharing violation
+        let held = fs::OpenOptions::new().read(true).share_mode(0).open(&path).unwrap();
+        let holder = std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(60));
+            drop(held);
+        });
+        write_atomic(&path, b"[1,2]").unwrap();
+        holder.join().unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), "[1,2]");
+        assert!(!tmp_path(&path).exists());
     }
 
     #[test]
