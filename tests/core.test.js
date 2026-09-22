@@ -597,8 +597,21 @@ test('matchesQuery applies #tag, @pack and >group terms before the text', () => 
 // ---- repeated fields: numbered copies -------------------------------------------
 test('names may hold digits after the first character; {0} and {Goal} stay text', () => {
   assert.deepEqual(core.customFields('{goal} {goal_2} {step3} {0} {1} {Goal}'), ['goal', 'goal_2', 'step3']);
+  // Only the near-miss is flagged; the numeric slot is plain text
   const bad = core.tokenize('{0}{Goal}').filter((t) => t.type === 'bad').map((t) => t.raw);
-  assert.deepEqual(bad, ['{0}', '{Goal}']);
+  assert.deepEqual(bad, ['{Goal}']);
+});
+
+test('tokenize keeps {0} / {1} as text, in one run with what surrounds them (M7)', () => {
+  // Format-string slots in pasted code drew one red "not a param" chip each
+  assert.deepEqual(core.tokenize('print("{0} of {1}")'), [{ type: 'text', value: 'print("{0} of {1}")' }]);
+  assert.deepEqual(core.tokenize('{0}'), [{ type: 'text', value: '{0}' }]);
+  assert.deepEqual(core.tokenize('{{2}} {goal}'), [
+    { type: 'text', value: '{{2}} ' },
+    { type: 'field', name: 'goal', raw: '{goal}' },
+  ]);
+  // {1st} still starts with a digit and is a near-miss, not a slot
+  assert.deepEqual(core.tokenize('{1st}').map((t) => t.type), ['bad']);
 });
 
 test('nextCopyName numbers from 2, skips taken names, and counts from the stem', () => {

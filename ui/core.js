@@ -7,7 +7,8 @@
   // {clipboard} expands in Rust at paste time; {date}/{time} expand in JS;
   // {{name}} is a config parameter (saved value, no prompt);
   // any other valid {name} is a runtime fill-in field.
-  // Invalid names (uppercase/digits) are flagged, never silently pasted.
+  // Invalid names (capitals, a leading digit) are flagged, never silently
+  // pasted; purely numeric ones ({0}) are text.
   const RESERVED = ['clipboard', 'date', 'time'];
   const TOKEN_RE_SRC = '\\{\\{([a-zA-Z0-9_]+)\\}\\}|\\{([a-zA-Z0-9_]+)\\}';
 
@@ -20,21 +21,30 @@
 
   // Tokenize prompt text into parts for preview rendering.
   // Returns [{type:'text',value} | {type:'builtin'|'field'|'config'|'bad', name, raw}]
+  // A purely numeric name ({0}, {{1}}) is text, merged into the run around
+  // it, so pasted code with format-string slots shows no chips at all; the
+  // other invalid names ({Goal}, {1st}) are near-misses worth flagging.
   function tokenize(text) {
     const parts = [];
+    const pushText = value => {
+      const last = parts[parts.length - 1];
+      if (last && last.type === 'text') last.value += value;
+      else parts.push({ type: 'text', value });
+    };
     const re = new RegExp(TOKEN_RE_SRC, 'g');
     let last = 0, m;
     while ((m = re.exec(text)) !== null) {
-      if (m.index > last) parts.push({ type: 'text', value: text.slice(last, m.index) });
+      if (m.index > last) pushText(text.slice(last, m.index));
       const name = m[1] || m[2];
       const raw = m[0];
-      if (!isValidParam(name)) parts.push({ type: 'bad', name, raw });
+      if (/^\d+$/.test(name)) pushText(raw);
+      else if (!isValidParam(name)) parts.push({ type: 'bad', name, raw });
       else if (m[1]) parts.push({ type: 'config', name, raw });
       else if (RESERVED.includes(name)) parts.push({ type: 'builtin', name, raw });
       else parts.push({ type: 'field', name, raw });
       last = re.lastIndex;
     }
-    if (last < text.length) parts.push({ type: 'text', value: text.slice(last) });
+    if (last < text.length) pushText(text.slice(last));
     return parts;
   }
 
