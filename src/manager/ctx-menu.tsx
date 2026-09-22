@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { RiCheckLine } from "@remixicon/react"
 import { cn } from "@/lib/utils"
 
 // Imperative context menu, ported from the legacy openCtx(): menus are built
@@ -20,6 +21,8 @@ export type CtxItem =
       hint?: string
       /** Second label shown after the first click; the second click runs. */
       confirm?: string
+      /** One choice of several (a radio item): set on every item of the set, true on the current one */
+      checked?: boolean
       /** Return "keep" to leave the menu open (e.g. to swap in a submenu). */
       run: () => void | "keep"
     }
@@ -28,7 +31,7 @@ type OpenState = { x: number; y: number; items: CtxItem[] } | null
 
 // Focusable entries of one panel, in visual order: enabled items and inputs
 const focusables = (root: HTMLElement | null): HTMLElement[] =>
-  root ? [...root.querySelectorAll<HTMLElement>('[role="menuitem"]:not(:disabled), input')] : []
+  root ? [...root.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled), input')] : []
 
 export function useCtxMenu() {
   const [state, setState] = useState<OpenState>(null)
@@ -193,12 +196,13 @@ export function useCtxMenu() {
       <button
         key={i}
         type="button"
-        role="menuitem"
+        role={it.checked === undefined ? "menuitem" : "menuitemradio"}
+        aria-checked={it.checked}
         tabIndex={-1}
         disabled={it.disabled}
         title={it.hint}
         className={cn(
-          "block w-full cursor-pointer whitespace-nowrap rounded-sm px-2 py-1 text-left text-ui text-foreground hover:bg-accent focus-visible:bg-accent focus-ring disabled:cursor-default disabled:opacity-50",
+          "flex w-full items-center gap-1.5 cursor-pointer whitespace-nowrap rounded-sm px-2 py-1 text-left text-ui text-foreground hover:bg-accent focus-visible:bg-accent focus-ring disabled:cursor-default disabled:opacity-50",
           it.danger && "text-destructive"
         )}
         onMouseEnter={() => {
@@ -214,6 +218,9 @@ export function useCtxMenu() {
           if (keep !== "keep") close()
         }}
       >
+        {it.checked !== undefined && (
+          <RiCheckLine className={cn("size-3.5 shrink-0", !it.checked && "invisible")} aria-hidden />
+        )}
         {it.confirm && armed === i ? it.confirm : it.label}
       </button>
     )

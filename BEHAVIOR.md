@@ -47,6 +47,30 @@ same menu; only "Move up/down" is sidebar-only, since the overview's grid
 has no row order to move within. An overview follows a rename of its pack
 or group; one whose group is gone shows the pack.
 
+**The tree tells its levels apart without colour.** A pack is a bold row
+with a box icon, a group a medium row in the secondary ink, a prompt a
+regular row; a group's prompts hang from a guide line under its header,
+and counts sit at the right in mono. Group names show as typed: uppercase
+is for the app's own section labels, never for names the user wrote. The
+accent hue marks state (the selected pack or group, focus, a search hit),
+not structure, per the design system's "ink first, hue second"; so the
+`heading` tokens are ink colours. In the overview a group is a heading over
+a hairline, not a panel, so it doesn't repeat its pack's look.
+
+**The sidebar's filter is always there, and apart from the display.** The
+field under the title takes the popup's syntax (`#tag`, `@pack`, `>group`,
+then free-text words anywhere in the prompt: `matchesQuery` in core), with
+Ctrl+F from anywhere in the manager and Escape clearing it. While it holds
+text the tree opens to its hits, a pack counts "hits / all", matched words
+are marked in titles, and a line under the field counts them. A search
+begun while a pack or group is shown stays inside it (a chip in the field;
+its × or "N more elsewhere" widens it) and clearing the search drops the
+scope. How the list is shown lives in the Display menu beside the field:
+Packs or One list (each row then says where it lives), the order, and
+collapse or expand all; a dot on the button means it is off the defaults
+(packs, most used). The filter narrows the list the sidebar already
+ordered; it never ranks, unlike the popup.
+
 ## The paste pipeline
 
 The one flow everything else exists to serve. Hotkey to pasted text:

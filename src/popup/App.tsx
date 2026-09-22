@@ -1132,7 +1132,8 @@ export function App() {
                             tabIndex={-1}
                             aria-expanded={!gc}
                             className={cn(
-                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-left text-xs font-semibold uppercase tracking-[0.06em]",
+                              // A group name is the user's words: shown as typed, never uppercased
+                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-left text-ui font-medium",
                               gc ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
                             )}
                             onClick={() => {
