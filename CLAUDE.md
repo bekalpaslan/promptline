@@ -70,6 +70,44 @@ show/hide and focus, file dialogs, and anything Rust does to the payload
   so dispatch `focusout`. Ctrl+Shift+V is taken by another tool on this
   machine; test hotkeys on a spare combination and restore the config.
 
+## Releasing
+
+Releases are GitHub releases carrying the two Windows installers, built
+locally. Only on the user's say-so; each step below is one they've approved.
+
+1. Everything is merged to `master`, pushed, and CI is green on it
+   (`gh run watch <id> --exit-status`). Don't tag over a red or running CI.
+2. Bump the version, a patch step unless told otherwise, in all five places,
+   as one commit titled `Bump to X.Y.Z`:
+   - `package.json`
+   - `package-lock.json`: twice, the root `"version"` and `packages[""]`
+     (missing it cost a separate sync commit in 0.2.7)
+   - `src-tauri/Cargo.toml`
+   - `src-tauri/Cargo.lock`: only the `name = "promptline"` entry. A blanket
+     replace hits other crates at the same version.
+   - `src-tauri/tauri.conf.json`
+3. `npm run build` (`tauri build`, several minutes; run it in the background).
+   It writes `src-tauri/target/release/bundle/nsis/Promptline_X.Y.Z_x64-setup.exe`
+   and `…/bundle/msi/Promptline_X.Y.Z_x64_en-US.msi`.
+4. `git tag -a vX.Y.Z -m "Promptline X.Y.Z"`, then push `master` and the tag.
+5. `gh release create vX.Y.Z --title "Promptline X.Y.Z" --notes-file <notes> --latest`
+   with both installers. Check with `gh release list` (`gh release view` has
+   no "latest" field).
+
+Release notes, as in every release since 0.2.3 (`gh release view v0.2.7`):
+one lead sentence linking the previous release, then a `###` section per
+area in the user's terms (what they see and press, not the code), a
+behaviour change that could surprise an existing library called out in
+its bullet, and this closing section with the version filled in:
+
+```md
+### Install
+
+`Promptline_X.Y.Z_x64-setup.exe` (NSIS) or `Promptline_X.Y.Z_x64_en-US.msi`.
+Still unsigned, so SmartScreen warns on first run: *More info → Run anyway*.
+Your prompts, packs and settings carry over untouched.
+```
+
 ## Conventions
 
 - Commit subjects are sentence case, often prefixed with the surface
