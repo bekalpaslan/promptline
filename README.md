@@ -81,8 +81,10 @@ them, plus config values and a live preview. Invisible until you want it.
   rename it, ungroup its prompts, or delete the group — deleting removes its prompts after a confirmation dialog
 - **Locked packs** (🔒) refuse new prompts and can't be deleted, nor can their
   groups, until unlocked
-- **New prompt** and **New pack** buttons sit above the list; **Generate pack
-  with Claude** takes a topic, hands you an instruction to paste into Claude,
+- **New** above the list makes a pack, a group or a prompt, and always asks
+  where: a group picks its pack, a prompt picks a pack or a group in one.
+  A new pack or group is selected with its name ready to type. **Generate pack
+  with Claude** (also under New) takes a topic, hands you an instruction to paste into Claude,
   and imports its reply — every prompt is reviewed in a checklist (bulk
   select, per-row pack names, and malformed JSON is editable in place) before
   anything is added. With a coding agent, leave the topic empty and it surveys

@@ -4,7 +4,8 @@ import { listen } from "@tauri-apps/api/event"
 import { SizeDebug } from "@/lib/SizeDebug"
 import { RiCloseLine } from "@remixicon/react"
 import { Toaster } from "@/components/ui/sonner"
-import { Kbd } from "@/components/prompt-bits"
+import { Button } from "@/components/ui/button"
+import { Keys } from "@/components/prompt-bits"
 import { C, isStoreError, type Library, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
 import { ManagerCtx, type DeleteOpts, type LibraryFocus, type ManagerApi, type Prefs, type View } from "./state"
@@ -441,20 +442,23 @@ export function App() {
         {firstRun !== "hidden" && (
           <div className="flex items-center gap-2 border-b border-border bg-primary/8 px-4 py-2 text-ui text-primary">
             {firstRun === "done" ? (
-              <span className="text-green-500">✓ That's it — pick a prompt and it pastes right where you were.</span>
+              <span className="text-(--success)">✓ That's it — pick a prompt and it pastes right where you were.</span>
             ) : (
               <span>
-                Press <Kbd>{fmtHotkey}</Kbd>{" "}
+                Press <Keys combo={fmtHotkey} />{" "}
                 in any app to open your prompts — try it now
               </span>
             )}
-            <button
-              className="ml-auto cursor-pointer text-muted-foreground hover:text-foreground"
+            <Button
+              variant="ghost"
+              size="icon-xs"
+              className="ml-auto text-muted-foreground"
               title="Dismiss"
+              aria-label="Dismiss"
               onClick={() => setFirstRun("hidden")}
             >
               <RiCloseLine className="size-4" />
-            </button>
+            </Button>
           </div>
         )}
 

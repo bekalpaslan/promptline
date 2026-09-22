@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { RiAddLine, RiArrowLeftSLine, RiFolderLine, RiLock2Fill, RiMoreLine, RiPushpinFill } from "@remixicon/react"
+import { RiAddLine, RiArrowLeftSLine, RiFolderLine, RiLock2Fill, RiPushpinFill } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { InputsBadge, PromptTokens, TagList } from "@/components/prompt-bits"
+import { Count, InputsBadge, PromptTokens, TagList } from "@/components/prompt-bits"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { EmptyState } from "./EmptyState"
-import { groupKey, useLibraryMenus } from "./menus"
+import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 
 // The overview: what a pack or group selected in the sidebar holds, in the
 // pane where the editor sits for a prompt. The sidebar stays beside it, so
@@ -102,26 +102,11 @@ function Heading({
           }}
         >
           <span className="truncate">{label}</span>
-          <span className={cn("shrink-0 font-medium tabular-nums text-muted-foreground", strong && "text-xs")}>
-            ({count})
-          </span>
+          <Count>{count}</Count>
         </button>
       )}
       {/* The sidebar's three dots: hover-revealed way into the same menu right-click opens */}
-      <button
-        type="button"
-        tabIndex={-1}
-        aria-label={`Actions for ${label}`}
-        title="Actions"
-        className="rounded-sm p-0.5 text-muted-foreground opacity-0 hover:bg-secondary hover:text-foreground group-hover/hdr:opacity-100 focus-visible:opacity-100"
-        onClick={(e) => {
-          e.stopPropagation()
-          const r = e.currentTarget.getBoundingClientRect()
-          onMenu(r.left, r.bottom)
-        }}
-      >
-        <RiMoreLine className="size-4" />
-      </button>
+      <MenuDots label={`Actions for ${label}`} reveal="group-hover/hdr:opacity-100" onOpen={onMenu} />
       {locked && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
       <span className="ml-auto flex shrink-0 items-center">{children}</span>
     </div>

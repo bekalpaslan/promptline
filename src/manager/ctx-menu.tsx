@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { RiCheckLine } from "@remixicon/react"
 import { cn } from "@/lib/utils"
+import { MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
+import { fieldVariants } from "@/components/field"
 
 // Imperative context menu, ported from the legacy openCtx(): menus are built
 // from data at open time (pack lists, selection counts), positioned at the
@@ -23,6 +25,8 @@ export type CtxItem =
       confirm?: string
       /** One choice of several (a radio item): set on every item of the set, true on the current one */
       checked?: boolean
+      /** Drawn one step in, under the item before it (a group under its pack) */
+      indent?: boolean
       /** Return "keep" to leave the menu open (e.g. to swap in a submenu). */
       run: () => void | "keep"
     }
@@ -134,7 +138,7 @@ export function useCtxMenu() {
   const renderItem = (it: CtxItem, i: number, onSub?: (i: number, el: HTMLElement) => void) => {
     if (it.kind === "header") {
       return (
-        <div key={i} className="px-2 py-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+        <div key={i} className="section-label px-2 pb-0.5 pt-1.5">
           {it.text}
         </div>
       )
@@ -148,7 +152,7 @@ export function useCtxMenu() {
           type="text"
           placeholder={it.placeholder}
           spellCheck={false}
-          className="w-full rounded-sm bg-secondary px-2 py-1 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
+          className={cn(fieldVariants({ size: "sm" }), "w-full")}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => {
             if (e.key === "Enter") {
@@ -173,7 +177,8 @@ export function useCtxMenu() {
           disabled={it.disabled}
           title={it.hint}
           className={cn(
-            "flex w-full cursor-pointer items-center justify-between gap-3 whitespace-nowrap rounded-sm px-2 py-1 text-left text-ui text-foreground hover:bg-accent focus-visible:bg-accent focus-ring disabled:cursor-default disabled:opacity-50",
+            MENU_ITEM,
+            "justify-between gap-3 hover:bg-hover focus-visible:bg-accent",
             onSub && sub?.index === i && "bg-accent"
           )}
           onMouseEnter={(e) => onSub?.(i, e.currentTarget)}
@@ -202,8 +207,10 @@ export function useCtxMenu() {
         disabled={it.disabled}
         title={it.hint}
         className={cn(
-          "flex w-full items-center gap-1.5 cursor-pointer whitespace-nowrap rounded-sm px-2 py-1 text-left text-ui text-foreground hover:bg-accent focus-visible:bg-accent focus-ring disabled:cursor-default disabled:opacity-50",
-          it.danger && "text-destructive"
+          MENU_ITEM,
+          "hover:bg-hover focus-visible:bg-accent",
+          it.danger && "text-destructive",
+          it.indent && "pl-5"
         )}
         onMouseEnter={() => {
           if (onSub) setSub(null) // moving onto a plain top-level item closes the submenu
@@ -238,7 +245,7 @@ export function useCtxMenu() {
           <div
             ref={ref}
             role="menu"
-            className="fixed z-40 min-w-48 rounded-md border border-border bg-popover p-1 shadow-lg"
+            className={cn("fixed z-40 min-w-48", MENU_PANEL)}
             style={{ left: state.x, top: state.y }}
           >
             {state.items.map((it, i) => renderItem(it, i, openSub))}
@@ -248,7 +255,9 @@ export function useCtxMenu() {
               ref={subRef}
               role="menu"
               aria-label={subItems.label}
-              className="fixed z-40 min-w-40 rounded-md border border-border bg-popover p-1 shadow-lg"
+              // A long library's pack and group list scrolls rather than
+              // running off the window
+              className={cn("fixed z-40 max-h-[calc(100dvh-1rem)] min-w-40 overflow-y-auto", MENU_PANEL)}
               style={{ left: sub!.x, top: sub!.y }}
             >
               {subItems.items.map((it, i) => renderItem(it, i))}
