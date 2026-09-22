@@ -77,8 +77,8 @@ them, plus config values and a live preview. Invisible until you want it.
   (debugging, review, docs…). Right-click a pack header → **New group** to
   start one with a fresh prompt; set a prompt's group in the editor or from
   the right-click menu; dragging a prompt into another group moves it there.
-  Right-click a group header to rename it, ungroup its prompts, or delete
-  the group — deleting removes its prompts after a confirmation dialog
+  Right-click a group header (or use its ⋯) to start a new prompt in it,
+  rename it, ungroup its prompts, or delete the group — deleting removes its prompts after a confirmation dialog
 - **Locked packs** (🔒) refuse new prompts and can't be deleted, nor can their
   groups, until unlocked
 - **New prompt** and **New pack** buttons sit above the list; **Generate pack
