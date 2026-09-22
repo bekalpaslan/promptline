@@ -223,8 +223,8 @@ problem.
 Tauri 2 (Rust) + React 19 + Vite + Tailwind v4 + [shadcn/ui](https://ui.shadcn.com)
 (Base UI primitives, Outfit font, Remix Icon). Windows-specific parts (focus
 restore via `SetForegroundWindow`, paste via `SendInput`) are isolated in the
-`platform` module in `src-tauri/src/lib.rs`; a macOS port only needs that
-module reimplemented (CGEventPost + Accessibility permission).
+`src-tauri/src/platform.rs`; a macOS port only needs that file
+reimplemented (CGEventPost + Accessibility permission).
 
 ## Credits
 

@@ -652,10 +652,24 @@ marks what is selected and nothing else.
 
 ## Windows-specific code
 
-Confined to the `platform` module in `lib.rs`: `foreground_window`,
-`focus_window`, `send_ctrl_v`, `left_button_down`, `open_url`. Everything
-else is portable. A macOS port reimplements that module (CGEventPost, plus
-the Accessibility permission) and nothing else.
+Confined to `platform.rs`: `foreground_window`, `focus_window`,
+`send_ctrl_v`, `left_button_down`, `open_url`. Everything else is portable.
+A macOS port reimplements that file (CGEventPost, plus the Accessibility
+permission) and nothing else.
+
+The rest of the crate is split by concern, each file with its own tests:
+`store.rs` (the data files: atomic writes, typed loads and quarantine, the
+revision, the intent-level merges, notices), `packs.rs` (pack metadata and
+paths, the reconciler, the file sync, adoption, retirement, the pack
+commands' pure halves), `commands.rs` (what the webviews invoke, the
+hotkey parser included), `paste.rs` (`show_popup`, `paste_snippet`, the
+clamp, the popup's hide paths), `migrations.rs` (the v1 folder, the
+pre-0.2.9 data folder, the v2 snippet shape), and `lib.rs` (`AppState`,
+the tray, the window events, `run`). One `first_free` numbers every file
+series (retired, quarantined, generated and pack files) and one
+`since_epoch` stamps every time; both used to be written out per call
+site. `AppState` also caches `popup_seen`, so a hotkey press no longer
+parses `config.json` to learn whether it is the first.
 
 **What the webview may point Rust at.** `read_pack_file` and
 `show_in_folder` take a path from the frontend and admit it only when it
@@ -685,13 +699,16 @@ npm run typecheck  # tsc over both windows
 placeholders, fuzzy search and ranking, pack parsing, the rules the two
 windows share (`defaultPackFor`, `removeParamToken`, pins). `tests/mock.test.js`
 checks command parity: it scans `src/**` for every `invoke("…")`, `lib.rs`
-for the `generate_handler![…]` list and `src/lib/dev-mock.ts` for the
+for the `generate_handler![…]` list (each entry named by its module,
+`commands::get_snippets`) and `src/lib/dev-mock.ts` for the
 commands the fake backend answers, and fails when the three disagree — a
 command the UI calls but the mock ignores hides a whole flow from the
 browser walk, and one Rust never registered fails at runtime.
 
-`npm run test:rust` is around 26 tests in `lib.rs`, covering the storage
-layer end to end: `write_atomic` (temp file, rename, nothing left behind),
+`npm run test:rust` is around 46 tests, each beside the module it covers
+(`store.rs`, `packs.rs`, `commands.rs`, `paste.rs`, `migrations.rs`, with
+the scratch folder and sample snippet they share in `lib.rs`), covering the
+storage layer end to end: `write_atomic` (temp file, rename, nothing left behind),
 loading with the missing / unparseable / I/O-error split and the byte-exact
 quarantine of an unreadable file, the snippet and config migrations with
 every field serde-defaulted (including a config without a hotkey), the
