@@ -1128,12 +1128,23 @@ fn save_config(app: &AppHandle, config: &Config) -> Result<(), String> {
     write_atomic(&config_path(app), json.as_bytes()).map_err(|e| e.to_string())
 }
 
-/// The shortcut a config string stands for; unparseable config falls back to
-/// the default rather than leaving the app without a hotkey.
+/// Parse a hotkey, refusing one without a modifier: the parser accepts a
+/// bare "a", and a hand-edited config would then capture that letter
+/// system-wide. The recorder in Settings never emits one, so this guards
+/// the file, not the UI.
+fn parse_hotkey(text: &str) -> Result<Shortcut, String> {
+    let shortcut: Shortcut = text.parse().map_err(|e| format!("Invalid hotkey \"{text}\": {e}"))?;
+    if shortcut.mods.is_empty() {
+        return Err(format!("Invalid hotkey \"{text}\": it needs a modifier (Ctrl, Alt, Shift or Win)"));
+    }
+    Ok(shortcut)
+}
+
+/// The shortcut a config string stands for; unparseable or modifier-less
+/// config falls back to the default rather than leaving the app without a
+/// hotkey, or with a single letter as one.
 fn resolve_hotkey(configured: &str) -> Shortcut {
-    configured
-        .parse()
-        .unwrap_or_else(|_| Config::default().hotkey.parse().unwrap())
+    parse_hotkey(configured).unwrap_or_else(|_| Config::default().hotkey.parse().unwrap())
 }
 
 /// Change the global hotkey. The new combination is registered *before* the
@@ -1142,9 +1153,7 @@ fn resolve_hotkey(configured: &str) -> Shortcut {
 /// showing what is actually bound.
 #[tauri::command]
 fn set_hotkey(app: AppHandle, state: State<AppState>, hotkey: String) -> Result<(), String> {
-    let shortcut: Shortcut = hotkey
-        .parse()
-        .map_err(|e| format!("Invalid hotkey \"{hotkey}\": {e}"))?;
+    let shortcut = parse_hotkey(&hotkey)?;
     let _guard = state.store.lock().unwrap();
     let mut config = load_config_from_disk(&app)?;
     let old = resolve_hotkey(&config.hotkey);
@@ -2316,6 +2325,24 @@ mod tests {
         assert_eq!(resolve_hotkey(""), default);
         assert_eq!(resolve_hotkey("ctrl+alt+v"), "ctrl+alt+v".parse::<Shortcut>().unwrap());
         assert_ne!(resolve_hotkey("ctrl+alt+v"), default);
+    }
+
+    #[test]
+    fn a_hotkey_without_a_modifier_is_refused_everywhere() {
+        // The parser itself takes a bare letter; a hand-edited config with
+        // one would capture it system-wide
+        assert!("a".parse::<Shortcut>().is_ok());
+        let err = parse_hotkey("a").unwrap_err();
+        assert!(err.contains("modifier"), "{err}");
+        assert!(parse_hotkey("f5").is_err());
+        assert!(parse_hotkey("").is_err());
+        assert!(parse_hotkey("ctrl+shift+v").is_ok());
+        assert!(parse_hotkey("alt+f5").is_ok());
+        // From the config it falls back to the default; from Settings it is
+        // an error the user sees
+        let default: Shortcut = Config::default().hotkey.parse().unwrap();
+        assert_eq!(resolve_hotkey("a"), default);
+        assert_eq!(resolve_hotkey("f5"), default);
     }
 
     #[test]
