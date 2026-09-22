@@ -5,10 +5,11 @@ const core = require('../ui/core.js');
 // ---- tokenize / field detection -------------------------------------------
 
 test('tokenize classifies builtin, field, config, bad, and text', () => {
-  const parts = core.tokenize('A {clipboard} B {goal} C {{cfg}} D {File} E {step1}');
+  // Digits are allowed after the first character ({step1}), never first ({1st})
+  const parts = core.tokenize('A {clipboard} B {goal} C {{cfg}} D {File} E {step1} F {1st}');
   const types = parts.map(p => p.type);
   assert.deepEqual(types, [
-    'text', 'builtin', 'text', 'field', 'text', 'config', 'text', 'bad', 'text', 'bad',
+    'text', 'builtin', 'text', 'field', 'text', 'config', 'text', 'bad', 'text', 'field', 'text', 'bad',
   ]);
   assert.equal(parts[1].name, 'clipboard');
   assert.equal(parts[3].name, 'goal');
@@ -560,4 +561,25 @@ test('matchesQuery applies #tag, @pack and >group terms before the text', () => 
   assert.ok(q('@"mock groups" >debug'));
   assert.ok(!q('#review err'), 'a failed tag term hides a text match');
   assert.ok(!q('@starter'));
+});
+
+// ---- repeated fields: numbered copies -------------------------------------------
+test('names may hold digits after the first character; {0} and {Goal} stay text', () => {
+  assert.deepEqual(core.customFields('{goal} {goal_2} {step3} {0} {1} {Goal}'), ['goal', 'goal_2', 'step3']);
+  const bad = core.tokenize('{0}{Goal}').filter((t) => t.type === 'bad').map((t) => t.raw);
+  assert.deepEqual(bad, ['{0}', '{Goal}']);
+});
+
+test('nextCopyName numbers from 2, skips taken names, and counts from the stem', () => {
+  assert.equal(core.nextCopyName('goal', 'Do {goal}'), 'goal_2');
+  assert.equal(core.nextCopyName('goal', '{goal} then {goal_2}'), 'goal_3');
+  assert.equal(core.nextCopyName('goal_2', '{goal} then {goal_2}'), 'goal_3', 'a copy of a copy shares the stem');
+  assert.equal(core.nextCopyName('goal', '{goal} {{goal_2}}'), 'goal_3', 'a config param holds its name too');
+});
+
+test('numbered names fill, expand and downgrade like any other (the paste path)', () => {
+  assert.equal(core.fillFields('{goal} / {goal_2}', { goal: 'a', goal_2: 'b' }), 'a / b');
+  assert.equal(core.expandConfig('{{repo_2}}', { repo_2: 'x' }), 'x');
+  assert.equal(core.downgradeUnsetConfig('{{repo_2}}'), '{repo_2}');
+  assert.deepEqual(core.requiredInputs({ text: '{goal} {goal_2} {goal}', configValues: {} }), ['goal', 'goal_2']);
 });

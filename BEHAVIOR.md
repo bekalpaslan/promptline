@@ -140,8 +140,8 @@ editor's preview can never disagree.
 | Token | Resolved |
 |---|---|
 | `{clipboard}` `{date}` `{time}` | At paste time, from the environment |
-| `{lowercase_word}` | Runtime field — the popup asks, remembering the last value in `fieldValues` |
-| `{{lowercase_word}}` | Config parameter — from `configValues`, silently |
+| `{lowercase_name}` | Runtime field — the popup asks, remembering the last value in `fieldValues` |
+| `{{lowercase_name}}` | Config parameter — from `configValues`, silently |
 
 **Previews show the clipboard, not the word "clipboard".** `{clipboard}`
 expands at paste time, so every preview — the editor's, the popup's card,
@@ -158,8 +158,21 @@ Two rules that exist because their absence was worse:
 - **An unset `{{config}}` downgrades to a runtime field** rather than pasting an
   empty hole. Silently pasting a gap into a prompt is the failure nobody notices
   until the AI answers the wrong question.
-- **Only lowercase names are parameters.** `{File}` and `{step1}` are shown as
-  near-misses in the preview rather than silently treated as literal text.
+- **A name is lowercase letters, digits and `_`, never starting with a digit**
+  (`isValidParam`). `{File}` and `{1st}` are shown as near-misses in the
+  preview rather than silently treated as literal text; `{0}` and `{1}` stay
+  text, so format-string slots in pasted code never turn into questions.
+  Every pattern that substitutes a name (`fillFields`, `expandConfig`,
+  `downgradeUnsetConfig`) uses this same rule, or a valid name would be
+  asked for and then never filled.
+
+**One name, one value; a numbered copy asks again.** Writing `{goal}` twice
+pastes the one value in both places. For a second value of the same kind,
+the editor's chip for a field already in the text carries a +, which
+inserts the next free numbered copy (`nextCopyName`: `{goal_2}`, then
+`{goal_3}`, all counted from the same stem, whichever copy's + is used).
+The first `{goal}` is never renamed, so its remembered value keeps working;
+the fill-in form labels the copy "Goal 2".
 
 ## Packs and their files
 
