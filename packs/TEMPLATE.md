@@ -1,9 +1,19 @@
 # Promptline prompt packs
 
-A pack is a set of prompts that travel together — import one via
-**Settings → Your library → Import pack** (copy the JSON, click the button,
-confirm the preview). Export a single pack from **Settings → Packs**, or the
-whole library from **Your library**.
+A pack is a set of prompts that travel together. Import one from
+**Settings → Your library**: **Import from clipboard** (copy the JSON first)
+or **Import from file…**; every import is reviewed prompt by prompt in a
+checklist before anything is added. Export a single pack from its header's
+menu in the sidebar (hover the pack, or right-click it), or from its row under
+**Your library** (**Export to clipboard**); **Export library** there exports
+everything.
+
+Every pack also owns a file under
+`%APPDATA%\io.github.bekalpaslan.promptline\packs\` that the app keeps
+current: click a pack's row under **Your library** to see its path, copy it,
+show it in the folder, or **Import from this file…** after something else
+wrote to it. That file is the simplest way to share a pack or hand it to an
+agent.
 
 ## Format
 
@@ -20,8 +30,8 @@ whole library from **Your library**.
 }
 ```
 
-- `name` — the pack's name; shown in the sidebar's "Group by pack" view and
-  manageable under Settings → Packs
+- `name` — the pack's name; the sidebar groups prompts under it, and its
+  header's menu renames, locks, exports or deletes it
 - `title` — short imperative name, unique within the pack
 - `tags` — 1–3 lowercase tags per prompt (searchable, shown as colored pills)
 - `group` — optional; a sub-heading within the pack (e.g. `"Debugging"`).
@@ -46,19 +56,27 @@ each user sets their own (e.g. `{{standing_instructions}}`) after importing.
 
 ## Generating packs with Claude
 
-Don't write packs by hand — in **Settings → Generate a pack with Claude**,
-type a topic, click **1 · Copy prompt for Claude**, paste it into Claude, then
-click **2 · Import Claude's reply** on its response. The copied instruction
-already carries your topic, your existing tags, and the format rules.
+Don't write packs by hand — open **New → Generate pack with Claude** in the
+manager (the same dialog is a button under **Settings → Your library**). It
+has two paths:
 
-The **Agent** path is for a coding agent that sits in a project (Claude Code,
-for example): it writes the pack straight into a file and the app picks it up.
-There the topic is optional. Leave it empty and the agent surveys the project it
-is running in — contributor docs, roadmap, git log, build commands, workflow
-commands like `/gsd:next` — and writes one pack named after the project, with
-a group per daily practice (orientation, development, debugging, verification,
-review, documentation, housekeeping). Give a topic to narrow the pack to one
-area instead.
+- **Chat Claude — copy & paste**: type a topic, then follow the three steps —
+  **Copy the prompt for Claude**, **Paste it to Claude, then copy its whole
+  reply** (the **Import reply from clipboard** button reads it), and **Review
+  & add**. The copied instruction already carries your topic, your existing
+  tags, and the format rules.
+- **Agent — writes the file**: for a coding agent that sits in a project
+  (Claude Code, for example). **Create the pack file & copy instructions**
+  makes the file and puts an instruction naming its path on the clipboard;
+  **Paste to your agent — the file reloads by itself** watches the file
+  until the agent has written it (a Stop button and **Import from file…**
+  cover an agent that took another route); then **Review & add** as before.
+  There the topic is optional. Leave it empty and the agent surveys the
+  project it is running in — contributor docs, roadmap, git log, build
+  commands, workflow commands like `/gsd:next` — and writes one pack named
+  after the project, with a group per daily practice (orientation,
+  development, debugging, verification, review, documentation, housekeeping).
+  Give a topic to narrow the pack to one area instead.
 
 Duplicate title+text pairs are skipped on import, so re-importing an updated
 pack only adds what's new.
