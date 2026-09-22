@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { RiCheckLine } from "@remixicon/react"
 import { cn } from "@/lib/utils"
@@ -112,8 +112,10 @@ export function useCtxMenu() {
   }, [state, sub, close])
 
   // Clamp into the viewport once rendered, then focus the first item so the
-  // keyboard can drive it (Shift+F10 / the Menu key open it with no pointer)
-  useEffect(() => {
+  // keyboard can drive it (Shift+F10 / the Menu key open it with no pointer).
+  // A layout effect, so the clamp lands before the frame is painted: in a
+  // plain effect a menu opened near an edge showed for a frame off-screen.
+  useLayoutEffect(() => {
     if (!state || !ref.current) return
     const rect = ref.current.getBoundingClientRect()
     const left = Math.min(state.x, window.innerWidth - rect.width - 8)
@@ -125,7 +127,7 @@ export function useCtxMenu() {
   }, [state])
 
   // Submenu opens to the right of its item, flipping left when it would overflow
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (!sub || !subRef.current) return
     const rect = subRef.current.getBoundingClientRect()
     const left = sub.x + rect.width + 8 > window.innerWidth ? sub.x - rect.width - (ref.current?.offsetWidth ?? 0) : sub.x
