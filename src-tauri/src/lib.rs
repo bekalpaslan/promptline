@@ -1467,9 +1467,11 @@ fn hide_popup(app: AppHandle, state: State<AppState>) {
 }
 
 /// Copy `text` to the clipboard (expanding `{clipboard}` from its current
-/// contents); if `paste` is set, refocus the previously active window and
-/// send Ctrl+V. The prompt stays on the clipboard afterwards (see the note in
-/// the body and BEHAVIOR.md). Bumps the snippet's use count.
+/// contents); if `paste` is set and there is a window to paste into, refocus
+/// it and send Ctrl+V. The prompt stays on the clipboard afterwards (see the
+/// note in the body and BEHAVIOR.md). Bumps the snippet's use count. Returns
+/// `"pasted"` when the paste thread was spawned and `"copied"` when it fell
+/// back to copy-only (asked for, or no target), so the popup can say so.
 #[tauri::command]
 fn paste_snippet(
     app: AppHandle,
@@ -1477,9 +1479,10 @@ fn paste_snippet(
     text: String,
     paste: bool,
     id: Option<String>,
-) -> Result<(), String> {
+) -> Result<String, String> {
     let _guard = state.store.lock().unwrap();
     let prev_window = *state.prev_window.lock().unwrap();
+    let mode = paste_mode(paste, prev_window);
     let prev_clipboard = arboard::Clipboard::new()
         .ok()
         .and_then(|mut c| c.get_text().ok());
@@ -1503,7 +1506,7 @@ fn paste_snippet(
     persist_popup_size(&app);
     // Copy-only leaves the popup up for a moment so it can confirm the copy;
     // the popup hides itself afterwards
-    if paste {
+    if mode == PasteMode::Pasted {
         if let Some(w) = app.get_webview_window("popup") {
             let _ = w.hide();
         }
@@ -1529,7 +1532,7 @@ fn paste_snippet(
     // lands if the window we return to has a focused text field; when it
     // doesn't, leaving the text there is the fallback — click into a field and
     // paste it yourself. Restoring the old clipboard would silently discard it.
-    if paste {
+    if mode == PasteMode::Pasted {
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(80));
             if !platform::focus_window(prev_window) {
@@ -1539,7 +1542,7 @@ fn paste_snippet(
             platform::send_ctrl_v();
         });
     }
-    Ok(())
+    Ok(mode.tag().into())
 }
 
 /// Quit, but let the manager flush a pending autosave first: the editor
@@ -1576,6 +1579,46 @@ fn show_main(app: &AppHandle) {
     }
 }
 
+/// The window a paste goes back to: the foreground window when it is
+/// someone else's, 0 (no target) when it is one of ours.
+fn paste_target(foreground: isize, ours: &[isize]) -> isize {
+    if ours.contains(&foreground) {
+        0
+    } else {
+        foreground
+    }
+}
+
+/// What `paste_snippet` reports back, so the popup can say "Copied" when it
+/// asked for a paste and none was possible.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum PasteMode {
+    /// The clipboard holds the text and the paste thread was spawned
+    Pasted,
+    /// The clipboard holds the text; the popup stays up to say so
+    Copied,
+}
+
+impl PasteMode {
+    fn tag(self) -> &'static str {
+        match self {
+            PasteMode::Pasted => "pasted",
+            PasteMode::Copied => "copied",
+        }
+    }
+}
+
+/// Copy-only when the popup asked for it (Ctrl+Enter), and when there is
+/// no window to paste into: `prev_window` is 0 after a summon over the
+/// manager, so Ctrl+V would have landed in the editor.
+fn paste_mode(paste: bool, prev_window: isize) -> PasteMode {
+    if paste && prev_window != 0 {
+        PasteMode::Pasted
+    } else {
+        PasteMode::Copied
+    }
+}
+
 fn show_popup(app: &AppHandle) {
     let Some(w) = app.get_webview_window("popup") else {
         return;
@@ -1584,17 +1627,23 @@ fn show_popup(app: &AppHandle) {
     // are held (RegisterHotKey has no autorepeat suppression) or tapped twice.
     // Recording the foreground window then would make the popup its own paste
     // target, so a repeat only makes sure the popup has focus (D1: ignore,
-    // not toggle). The same guard covers the foreground HWND being ours.
+    // not toggle).
     if w.is_visible().unwrap_or(false) {
         let _ = w.set_focus();
         return;
     }
-    let fg = platform::foreground_window();
-    let own = w.hwnd().map(|h| h.0 as isize).unwrap_or(0);
+    // Summoned over one of our own windows (the manager, or the popup itself
+    // in a race), there is nothing to paste into: Ctrl+V would land in the
+    // editor's textarea and autosave would keep it. Record "no target" and
+    // paste_snippet falls back to copy-only.
+    let ours: Vec<isize> = ["popup", "main"]
+        .iter()
+        .filter_map(|label| app.get_webview_window(label))
+        .filter_map(|w| w.hwnd().ok())
+        .map(|h| h.0 as isize)
+        .collect();
     let state = app.state::<AppState>();
-    if fg != own {
-        *state.prev_window.lock().unwrap() = fg;
-    }
+    *state.prev_window.lock().unwrap() = paste_target(platform::foreground_window(), &ours);
 
     // First-run: record that the user found the hotkey, tell the manager
     {
@@ -2200,6 +2249,27 @@ mod tests {
         assert!(!merge_delete(&mut list, "a"));
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].id, "b");
+    }
+
+    #[test]
+    fn a_summon_over_one_of_our_windows_records_no_paste_target() {
+        let ours = [0x10, 0x20];
+        assert_eq!(paste_target(0x30, &ours), 0x30);
+        // The manager's window, or the popup's own: nothing to paste into
+        assert_eq!(paste_target(0x10, &ours), 0);
+        assert_eq!(paste_target(0x20, &ours), 0);
+        assert_eq!(paste_target(0, &ours), 0);
+    }
+
+    #[test]
+    fn a_paste_with_no_target_falls_back_to_copy_only() {
+        assert_eq!(paste_mode(true, 0x30), PasteMode::Pasted);
+        assert_eq!(paste_mode(true, 0), PasteMode::Copied);
+        assert_eq!(paste_mode(false, 0x30), PasteMode::Copied);
+        assert_eq!(paste_mode(false, 0), PasteMode::Copied);
+        // The tags the popup switches on
+        assert_eq!(PasteMode::Pasted.tag(), "pasted");
+        assert_eq!(PasteMode::Copied.tag(), "copied");
     }
 
     #[test]

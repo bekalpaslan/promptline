@@ -89,6 +89,11 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    repeat would make the popup its own paste target: Ctrl+V would land on a
    window that has just been hidden. Toggling the popup closed on a repeat is
    a possible follow-up (BACKLOG).
+   A summon while the **manager** is the foreground window records no
+   target at all (`paste_target` answers 0 for any of our own HWNDs): the
+   user is editing prompt X, presses the hotkey to look at Y and hits
+   Enter, and Y's text used to land in X's textarea, where autosave kept
+   it. With no target, `paste_snippet` copies instead (below).
 2. The popup is positioned at the cursor, then clamped to the *work area* of
    the monitor under the cursor — not its full bounds — so it can't open half
    off-screen or under the taskbar.
@@ -107,7 +112,11 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    has to return to a window that is still on screen: the popup shows it in
    its feedback strip and nothing else happens. Copy-only (Ctrl+Enter) leaves
    the popup up for a moment to say "Copied to clipboard"; the popup hides
-   itself afterwards. The `uses` bump is best effort in both halves, the
+   itself afterwards. The command answers with a tag, `"pasted"` when the
+   paste thread was spawned and `"copied"` when it fell back to copy-only
+   (`paste_mode`): a paste asked for with no target (summoned over the
+   manager) is a copy, and the popup says "Copied to clipboard — the
+   manager was in front" instead of pasting into the editor. The `uses` bump is best effort in both halves, the
    read as much as the write: the popup is already hidden by then, so an
    error would reach nobody, and a library a sync client or scanner is
    holding for a moment must not turn into a paste that never happens with
