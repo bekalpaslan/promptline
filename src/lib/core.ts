@@ -95,7 +95,16 @@ export type PackDiagnosis =
   | { ok: true; packs: ParsedPack[] }
   | { ok: false; code: "empty" | "not-json" | "malformed" | "wrong-shape"; message: string }
 
+// Hand-written against ui/core.js. tests/interface.test.js parses the member
+// names out of this block and checks them against the module's exports, so
+// a renamed or added export fails `npm test` instead of both windows at
+// runtime; the signatures themselves are still by hand (audit M14). Keep one
+// member per line, name first.
 interface PromptlineCore {
+  /** The built-in placeholder names: clipboard, date, time */
+  RESERVED: readonly string[]
+  /** Lowercase letters, digits and `_`, never starting with a digit */
+  isValidParam(name: string): boolean
   tokenize(text: string): TokenPart[]
   customFields(text: string): string[]
   /** Another copy of a field with its own value: the next free `<stem>_<n>`, from 2 */
@@ -106,11 +115,14 @@ interface PromptlineCore {
   downgradeUnsetConfig(text: string): string
   requiredInputs(snippet: Pick<Snippet, "text" | "configValues">): string[]
   /** Substitute runtime {field} values literally (safe for `$` patterns) */
-  fillFields(text: string, values: Record<string, string>): string
-  expandBuiltins(text: string): string
+  fillFields(text: string, values?: Record<string, string>): string
+  /** {date} and {time} from `now` (the clock when omitted) */
+  expandBuiltins(text: string, now?: Date): string
   fuzzyScore(query: string, target: string): FuzzyResult | null
   /** How well a prompt body answers a query: contiguous, or every word a word-prefix. Lower is better; null is no match. */
   bodyScore(query: string, text: string): { score: number } | null
+  /** The title "+ New" gives a draft; with an empty body and no uses it is swept at startup */
+  DRAFT_TITLE: "New prompt"
   /** An untouched "+ New" draft: the manager's to finish, never the popup's to paste */
   isEmptyDraft(snippet: Pick<Snippet, "title" | "text" | "uses">): boolean
   /** The popup's list order: filters, then pins/uses or title>tag>body fuzzy tiers */
@@ -147,6 +159,10 @@ interface PromptlineCore {
   clipboardPreview(clip: string | null | undefined, max?: number): string
   /** What a paste would produce, minus the fill-in form: config and built-ins expanded, the clipboard substituted, {field}s kept */
   expandForCopy(text: string, configValues: Record<string, string>, clip: string | null | undefined): string
+  /** A tag as stored: lowercase, nothing outside [a-z0-9_-] */
+  normalizeTag(raw: string): string
+  /** "1 prompt", "2 prompts"; pass the plural for an irregular word */
+  plural(n: number, word: string, pluralWord?: string): string
   fmtHotkey(combo: string): string
 }
 
