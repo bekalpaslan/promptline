@@ -18,6 +18,7 @@ import {
 } from "@remixicon/react"
 import { C, type OrderBy, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
+import { MATCH_HIT } from "@/components/prompt-bits"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
 import { EmptyState } from "./EmptyState"
@@ -93,9 +94,9 @@ function marked(title: string, words: string[]): React.ReactNode {
     const from = Math.max(a, at)
     if (from > at) out.push(title.slice(at, from))
     out.push(
-      <mark key={from} className="rounded-[2px] bg-(--link)/15 text-(--link)">
+      <span key={from} className={MATCH_HIT}>
         {title.slice(from, b)}
-      </mark>
+      </span>
     )
     at = b
   }

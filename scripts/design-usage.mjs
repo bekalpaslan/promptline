@@ -15,10 +15,16 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
 /** Card → the source functions that draw it: [file, exported name] */
 export const SOURCES = {
-  Row: [["src/popup/Row.tsx", "Row"], ["src/popup/Row.tsx", "HighlightedTitle"]],
+  Row: [
+    ["src/popup/Row.tsx", "Row"],
+    ["src/components/prompt-bits.tsx", "HighlightedTitle"],
+    ["src/components/prompt-bits.tsx", "TagList"],
+    ["src/components/prompt-bits.tsx", "InputsBadge"],
+    ["src/components/prompt-bits.tsx", "PILL"],
+  ],
   Button: [["src/components/ui/button.tsx", "buttonVariants"]],
-  Kbd: [["src/popup/Row.tsx", "Kbd"], ["src/components/ui/kbd.tsx", "Kbd"]],
-  TagPill: [["src/popup/Row.tsx", "TagPill"]],
+  Kbd: [["src/components/prompt-bits.tsx", "Kbd"], ["src/components/ui/kbd.tsx", "Kbd"]],
+  TagPill: [["src/components/prompt-bits.tsx", "TagPill"], ["src/components/prompt-bits.tsx", "PILL"]],
 }
 
 /** CSS variable → artifact tokens (MAP inverted), plus the few the app

@@ -43,15 +43,30 @@ export type ButtonVariant = "default" | "outline" | "secondary" | "ghost" | "des
 export type ButtonSize = "default" | "xs" | "sm" | "compact" | "lg" | "icon" | "icon-xs" | "icon-sm" | "icon-lg"
 export interface ButtonProps { variant?: ButtonVariant; size?: ButtonSize; disabled?: boolean; children?: ReactNode; onClick?: () => void }
 
-export interface TagPillProps { tag: string; active?: boolean; onClick?: (tag: string) => void }
+export interface TagPillProps {
+  tag: string
+  active?: boolean
+  /** Makes the pill a filter button; without it the pill is plain text */
+  onClick?: (tag: string) => void
+  /** `md` is the editor's size, level with its {param} chips */
+  size?: "sm" | "md"
+  title?: string
+  children?: ReactNode
+}
 
 export declare const Button: ComponentType<ButtonProps>
-/** The popup's 16px key */
+/** The 16px key both windows use */
 export declare const Kbd: ComponentType<{ children?: ReactNode }>
 /** shadcn's kit kbd, for surfaces outside the popup */
 export declare const UiKbd: ComponentType<{ className?: string; children?: ReactNode }>
 export declare const TagPill: ComponentType<TagPillProps>
+/** Up to `max` tag pills, the rest folded into a +N pill */
+export declare const TagList: ComponentType<{ tags: readonly string[]; max: number; activeTags?: readonly string[]; onTag?: (tag: string) => void }>
+/** {N}: the prompt asks for N values before it pastes */
+export declare const InputsBadge: ComponentType<{ inputs: readonly string[] }>
 export declare const HighlightedTitle: ComponentType<{ title: string; indices: number[] | null }>
+/** Prompt text with its placeholders as typed chips */
+export declare const PromptTokens: ComponentType<{ text: string; clipboard: string | null; configValues?: Record<string, string>; fieldValues?: Record<string, string> }>
 export declare const Row: ComponentType<RowProps>
 
 /** A complete snippet from the few fields a preview cares about */

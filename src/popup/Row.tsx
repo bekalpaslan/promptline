@@ -2,69 +2,19 @@ import { memo } from "react"
 import { RiClipboardLine, RiEdit2Line, RiFileTextLine, RiPushpinFill } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { Kbd as UiKbd } from "@/components/ui/kbd"
+import { HighlightedTitle, InputsBadge, Kbd, TagList } from "@/components/prompt-bits"
 
-// The popup's list row and the pieces it is made of. Its own module so the
-// design-system bundle (design/entry.tsx) can render the real row, not a copy.
+// The popup's list row. Its own module so the design-system bundle
+// (design/entry.tsx) can render the real row, not a copy; the pieces it is
+// made of are shared with the manager (components/prompt-bits).
 
 export type Entry = { s: Snippet; indices: number[] | null }
 
 // Tag pills shown on a row before the rest fold into a "+N" overflow pill
 const MAX_ROW_TAGS = 3
 
-// The shared Kbd in the kit's 16px bordered-square idiom
-export function Kbd({ children }: { children: React.ReactNode }) {
-  return (
-    <UiKbd className="h-4 min-w-4 shrink-0 rounded-sm border border-border bg-background px-0.5 font-mono text-[11px] font-normal text-muted-foreground">
-      {children}
-    </UiKbd>
-  )
-}
-
-
-// One #tag pill; `active` when the tag is a filter term in the query
-export function TagPill({ tag, active, onClick }: { tag: string; active?: boolean; onClick?: (tag: string) => void }) {
-  const c = C.tagColor(tag)
-  return (
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-pressed={active}
-      className={cn(
-        "flex h-4 shrink-0 cursor-pointer items-center whitespace-nowrap rounded-sm border px-1 text-xs tag-text tag-border dark:tag-text-dark dark:tag-border-dark",
-        active && "tag-fill",
-      )}
-      style={{ "--tag": c } as React.CSSProperties}
-      title={active ? `Clear #${tag} filter` : `Filter by #${tag}`}
-      aria-label={active ? `Clear #${tag} filter` : `Filter by #${tag}`}
-      onClick={(e) => {
-        e.stopPropagation()
-        onClick?.(tag)
-      }}
-    >
-      {tag}
-    </button>
-  )
-}
-
-
-// The kit highlights matched characters with an underline. Segments come
-// from core so UTF-16 match indices line up with code points (emoji).
-export function HighlightedTitle({ title, indices }: { title: string; indices: number[] | null }) {
-  if (!indices?.length) return <span className="truncate">{title}</span>
-  return (
-    <span className="truncate">
-      {C.highlightSegments(title, indices).map((seg, i) => (
-        <span key={i} className={seg.hit ? "underline decoration-solid underline-offset-2" : undefined}>
-          {seg.text}
-        </span>
-      ))}
-    </span>
-  )
-}
-
-
-// library load, not once per row per keystroke
+// What a row shows beyond its snippet, worked out once per library load,
+// not once per row per keystroke
 export type Derived = { inputs: string[]; Icon: typeof RiFileTextLine }
 export function derive(s: Snippet): Derived {
   const inputs = C.requiredInputs(s)
@@ -144,25 +94,8 @@ export const Row = memo(function Row({
         )}
       </div>
       {/* Up to three pills keep the row single-line; the rest fold into +N */}
-      {tags.slice(0, MAX_ROW_TAGS).map((tag) => (
-        <TagPill key={tag} tag={tag} active={activeTags.includes(tag.toLowerCase())} onClick={onTag} />
-      ))}
-      {tags.length > MAX_ROW_TAGS && (
-        <span
-          className="flex h-4 shrink-0 items-center whitespace-nowrap rounded-sm border border-border px-1 text-xs tabular-nums text-muted-foreground"
-          title={tags.slice(MAX_ROW_TAGS).map((t) => `#${t}`).join(", ")}
-        >
-          +{tags.length - MAX_ROW_TAGS}
-        </span>
-      )}
-      {inputs.length > 0 && (
-        <span
-          className="flex h-4 shrink-0 items-center rounded-sm border border-(--warn)/40 px-1 text-xs tabular-nums text-(--warn)"
-          title={`Asks for ${inputs.length} value${inputs.length === 1 ? "" : "s"} before pasting: ${inputs.join(", ")}`}
-        >
-          {"{"}{inputs.length}{"}"}
-        </span>
-      )}
+      <TagList tags={tags} max={MAX_ROW_TAGS} activeTags={activeTags} onTag={onTag} />
+      <InputsBadge inputs={inputs} />
       {slot && (
         <span className="flex shrink-0 gap-1">
           <Kbd>Ctrl</Kbd>

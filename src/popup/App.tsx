@@ -13,12 +13,14 @@ import {
 } from "@remixicon/react"
 import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
 import { applyPrefs, isCompact } from "@/lib/prefs"
-import { type Config, DEFAULT_PACK, MAX_PINS, TOKEN_CHIP, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
+import { type Config, DEFAULT_PACK, MAX_PINS, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 // Same key shape as the sidebar, so a group folds independently per pack
 const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
-import { type Entry, Kbd, Row, derive } from "@/popup/Row"
+import { type Entry, Row, derive } from "@/popup/Row"
+import { Kbd, PromptTokens } from "@/components/prompt-bits"
+import { Button } from "@/components/ui/button"
 
 
 type FormState = { snippet: Snippet; base: string; fields: string[]; paste: boolean }
@@ -48,39 +50,6 @@ function SectionHeader({ children }: { children: React.ReactNode }) {
   )
 }
 
-// Tokenized prompt text: placeholders render as typed chips, except that
-// {clipboard} shows the clipboard as it is now (BEHAVIOR.md: it expands at
-// paste time, so the preview must show what would go in), on the builtin's
-// tint so it still reads as a placeholder
-function Tokens({ text, clip }: { text: string; clip: string }) {
-  return (
-    <>
-      {C.tokenize(text).map((part, i) => {
-        if (part.type === "text") return <span key={i}>{part.value}</span>
-        if (part.type === "builtin" && part.name === "clipboard") {
-          return (
-            <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground" title="The clipboard as it is now">
-              {C.clipboardPreview(clip)}
-            </span>
-          )
-        }
-        const label =
-          part.type === "builtin" ? part.name :
-          part.type === "field" ? `${part.name} — fill-in` :
-          part.type === "config" ? `${part.name} — config` :
-          `${part.name} — invalid`
-        return (
-          <span
-            key={i}
-            className={cn("rounded-sm px-1 text-xs font-semibold", TOKEN_CHIP[part.type])}
-          >
-            {label}
-          </span>
-        )
-      })}
-    </>
-  )
-}
 export function App() {
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [clip, setClip] = useState("")
@@ -502,7 +471,7 @@ export function App() {
       { label: panelFor.pinned ? "Unpin" : "Pin", run: () => void togglePin(panelFor) },
       { label: "Edit in manager", run: () => void invoke("edit_in_manager", { id: panelFor.id }) },
       {
-        label: deleteArmed ? "Confirm delete?" : "Delete",
+        label: deleteArmed ? "Really delete?" : "Delete",
         danger: true,
         run: () => (deleteArmed ? void deleteSnippet(panelFor) : setDeleteArmed(true)),
       },
@@ -896,13 +865,9 @@ export function App() {
           {!clip && (
             <div className="px-1 text-xs text-destructive">Copy something first — the clipboard is the prompt body</div>
           )}
-          <button
-            onClick={() => void saveCreate()}
-            disabled={!clip}
-            className="h-8 cursor-pointer rounded-lg bg-primary text-ui font-medium text-primary-foreground hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+          <Button size="lg" onClick={() => void saveCreate()} disabled={!clip}>
             Save prompt
-          </button>
+          </Button>
         </div>
       </Shell>
     )
@@ -961,26 +926,11 @@ export function App() {
           })}
           <SectionHeader>Will paste</SectionHeader>
           <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-ui leading-relaxed text-muted-foreground">
-            {C.tokenize(C.expandBuiltins(form.base)).map((part, i) => {
-              if (part.type === "text") return <span key={i}>{part.value}</span>
-              if (part.type === "field" && formValues[part.name]) {
-                return <span key={i} className="rounded-sm bg-(--param-field-bg) px-0.5 text-foreground">{formValues[part.name]}</span>
-              }
-              if (part.type === "builtin" && part.name === "clipboard") {
-                return <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground">{C.clipboardPreview(clip)}</span>
-              }
-              if (part.type === "field") {
-                return <span key={i} className={cn("rounded-sm px-1 text-xs font-semibold", TOKEN_CHIP.field)}>{part.name}</span>
-              }
-              return <span key={i}>{part.raw}</span>
-            })}
+            <PromptTokens text={C.expandBuiltins(form.base)} clipboard={clip} fieldValues={formValues} />
           </div>
-          <button
-            onClick={(e) => void submitForm(e.ctrlKey)}
-            className="h-8 cursor-pointer rounded-lg bg-primary text-ui font-medium text-primary-foreground hover:bg-primary/90"
-          >
+          <Button size="lg" onClick={(e) => void submitForm(e.ctrlKey)}>
             {submitLabel}
-          </button>
+          </Button>
         </div>
       </Shell>
     )
@@ -1193,7 +1143,11 @@ export function App() {
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
             onMouseLeave={onItemMouseLeave}
           >
-            <Tokens text={visible[previewIdx].s.text} clip={clip} />
+            <PromptTokens
+              text={visible[previewIdx].s.text}
+              clipboard={clip}
+              configValues={visible[previewIdx].s.configValues}
+            />
             {/* The same copy-only path as Ctrl+↵: asks for fill-ins first */}
             <button
               type="button"

@@ -405,6 +405,15 @@ utility (`focus-ring`, keyboard focus only). Tag hues stay dark-tuned in
 darken or fade it per theme — a `var(--tag)` inside a `:root` token would
 resolve at `:root`, where `--tag` is unset.
 
+What a prompt looks like in a list is drawn by one module for both windows,
+`src/components/prompt-bits.tsx`: the key cap, the #tag pill (the editor's is
+a size larger, level with its `{param}` chips, and otherwise the same), the
+`{N}` and `+N` badges, the underline that marks a search match, and the token
+preview (popup hover card, fill-in form, overview card, editor). They were
+copies once, and the copies drifted — the editor's tags grew a weight and a
+ground the popup's never had. A difference between the windows belongs in a
+prop on the shared piece, not in a second copy.
+
 ## Windows-specific code
 
 Confined to the `platform` module in `lib.rs`: `foreground_window`,
