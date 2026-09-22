@@ -21,22 +21,6 @@ import { useCtxMenu } from "./ctx-menu"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
 
-// A pack's prompts split into the ungrouped run, then its groups in order of
-// first appearance — so a custom arrangement holds, and any other sort order
-// carries through from the rows themselves.
-function splitGroups(items: Snippet[]): { ungrouped: Snippet[]; groups: [string, Snippet[]][] } {
-  const ungrouped: Snippet[] = []
-  const map = new Map<string, Snippet[]>()
-  for (const s of items) {
-    if (!s.group) ungrouped.push(s)
-    else {
-      if (!map.has(s.group)) map.set(s.group, [])
-      map.get(s.group)!.push(s)
-    }
-  }
-  return { ungrouped, groups: [...map.entries()] }
-}
-
 // The filter's text, drawn under a transparent input so its #tag, @pack and
 // >group terms read as chips while the input stays a plain input (caret,
 // selection, undo). Colour and a ground only, never padding: the mirror has
@@ -177,29 +161,24 @@ export function Sidebar() {
     return () => document.removeEventListener("keydown", onKey)
   }, [])
 
-  const groups = useMemo(() => {
-    if (!grouped) return null
-    const map = new Map<string, Snippet[]>()
-    // Empty packs are real sections too — otherwise they exist only in the
-    // registry and can never be seen or deleted from the menu
-    // While searching, a pack without hits stays in the list, faded, so the
-    // tree keeps its shape and says where nothing matched
-    for (const name of m.packNames()) map.set(name, [])
-    for (const s of visible) {
-      const key = s.pack || DEFAULT_PACK
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(s)
-    }
-    return [...map.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, grouped, q, m.packNames])
+  // The tree is pure core (tested), the one shape the overview draws too:
+  // every pack name, even an empty one (it is real: it can be seen and
+  // deleted from the menu; while searching, a pack without hits stays
+  // listed, faded, so the tree keeps its shape and says where nothing
+  // matched), then in each pack the ungrouped run and the groups in order
+  // of first appearance, so a custom arrangement holds and any other order
+  // carries through from the rows
+  const { packNames } = m
+  const tree = useMemo(() => (grouped ? C.packTree(visible, packNames(), DEFAULT_PACK) : null), [visible, grouped, packNames])
 
   // Flat id list in display order, for shift-range selection
   const visibleIds: string[] = []
-  if (groups) {
-    for (const [name, items] of groups) {
-      if (q || !collapsed.has(name))
-        for (const s of items) if (q || !s.group || !collapsedGroups.has(groupKey(name, s.group))) visibleIds.push(s.id)
+  if (tree) {
+    for (const p of tree) {
+      if (!q && collapsed.has(p.name)) continue
+      for (const s of p.ungrouped) visibleIds.push(s.id)
+      for (const g of p.groups)
+        if (q || !collapsedGroups.has(groupKey(p.name, g.name))) for (const s of g.items) visibleIds.push(s.id)
     }
   } else {
     for (const s of visible) visibleIds.push(s.id)
@@ -758,37 +737,33 @@ export function Sidebar() {
         </button>
         {/* An empty library says so in the pane, not here as well: the New
             button above is the sidebar's way in */}
-        {groups ? (
-          groups.map(([name, items]) => {
+        {tree ? (
+          tree.map((p) => {
             // Searching: a pack with no hits is only its faded header
-            const faded = !!q && items.length === 0
-            const isCollapsed = faded || (!q && collapsed.has(name))
+            const faded = !!q && p.count === 0
+            const isCollapsed = faded || (!q && collapsed.has(p.name))
             return (
-              <div key={name} data-pack={name} className="mb-2">
-                {sectionTitle(name, items.length, isCollapsed, faded)}
-                {!isCollapsed &&
-                  (() => {
-                    const { ungrouped, groups: gs } = splitGroups(items)
-                    return (
-                      <div className="mt-0.5 flex flex-col gap-0.5 pl-4">
-                        {ungrouped.map((s) => snipRow(s))}
-                        {gs.map(([g, rows]) => {
-                          const gc = !q && collapsedGroups.has(groupKey(name, g))
-                          return (
-                            <div key={g} className="flex flex-col gap-0.5">
-                              {groupTitle(name, g, rows.length, gc)}
-                              {/* The guide line ties a group's prompts to its header */}
-                              {!gc && (
-                                <div className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-2">
-                                  {rows.map((s) => snipRow(s))}
-                                </div>
-                              )}
+              <div key={p.name} data-pack={p.name} className="mb-2">
+                {sectionTitle(p.name, p.count, isCollapsed, faded)}
+                {!isCollapsed && (
+                  <div className="mt-0.5 flex flex-col gap-0.5 pl-4">
+                    {p.ungrouped.map((s) => snipRow(s))}
+                    {p.groups.map((g) => {
+                      const gc = !q && collapsedGroups.has(groupKey(p.name, g.name))
+                      return (
+                        <div key={g.name} className="flex flex-col gap-0.5">
+                          {groupTitle(p.name, g.name, g.items.length, gc)}
+                          {/* The guide line ties a group's prompts to its header */}
+                          {!gc && (
+                            <div className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-2">
+                              {g.items.map((s) => snipRow(s))}
                             </div>
-                          )
-                        })}
-                      </div>
-                    )
-                  })()}
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
           })
