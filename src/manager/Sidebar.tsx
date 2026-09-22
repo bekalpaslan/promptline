@@ -276,6 +276,46 @@ export function Sidebar() {
     localStorage.setItem("collapsedGroups", JSON.stringify([...next]))
   }
 
+  // Folds are keyed by name, so a rename carries them over — here, and in
+  // the popup's stored keys (same shape), which it reads when it next loads
+  const rekey = (set: Set<string>, map: (k: string) => string) => new Set([...set].map(map))
+  const rekeyStored = (storageKey: string, map: (k: string) => string) => {
+    try {
+      const cur: string[] = JSON.parse(localStorage.getItem(storageKey) || "[]")
+      localStorage.setItem(storageKey, JSON.stringify(cur.map(map)))
+    } catch {
+      /* unreadable: nothing to carry */
+    }
+  }
+  const carryPackFolds = (from: string, to: string) => {
+    const packMap = (k: string) => (k === from ? to : k)
+    const groupMap = (k: string) => (k.startsWith(`${from}\u0000`) ? `${to}\u0000${k.slice(from.length + 1)}` : k)
+    const packs = rekey(collapsed, packMap)
+    const groups = rekey(collapsedGroups, groupMap)
+    setCollapsed(packs)
+    setCollapsedGroups(groups)
+    localStorage.setItem("collapsedPacks", JSON.stringify([...packs]))
+    localStorage.setItem("collapsedGroups", JSON.stringify([...groups]))
+    rekeyStored("popupCollapsedPacks", packMap)
+    rekeyStored("popupCollapsedGroups", groupMap)
+  }
+  const carryGroupFold = (pack: string, from: string, to: string) => {
+    const map = (k: string) => (k === groupKey(pack, from) ? groupKey(pack, to) : k)
+    const groups = rekey(collapsedGroups, map)
+    setCollapsedGroups(groups)
+    localStorage.setItem("collapsedGroups", JSON.stringify([...groups]))
+    rekeyStored("popupCollapsedGroups", map)
+  }
+
+  // A new prompt or pack can land below the fold of a long list: bring it
+  // into view (the popup does the same for its selection)
+  const listRef = useRef<HTMLDivElement>(null)
+  const reveal = (selector: string) =>
+    requestAnimationFrame(() => listRef.current?.querySelector(selector)?.scrollIntoView({ block: "nearest" }))
+  useEffect(() => {
+    if (m.activeId) listRef.current?.querySelector(`[data-id="${CSS.escape(m.activeId)}"]`)?.scrollIntoView({ block: "nearest" })
+  }, [m.activeId])
+
   // Group header: quieter than the pack title, sits among its rows
   const groupTitle = (pack: string, group: string, count: number, isCollapsed: boolean) => {
     const key = groupKey(pack, group)
@@ -323,7 +363,10 @@ export function Sidebar() {
               // The header above toggles on Enter / Space; typing must not reach it
               e.stopPropagation()
               if (e.key === "Escape") setRenamingGroup(null)
-              if (e.key === "Enter") void renameGroup(pack, group, e.currentTarget.value.trim())
+              if (e.key === "Enter") {
+                const next = e.currentTarget.value.trim()
+                void renameGroup(pack, group, next).then((ok) => ok && carryGroupFold(pack, group, next))
+              }
             }}
             // Enter commits, leaving the field cancels: a misclick must not rename
             onBlur={() => setRenamingGroup(null)}
@@ -375,6 +418,7 @@ export function Sidebar() {
     return (
       <div
         key={s.id}
+        data-id={s.id}
         role="button"
         tabIndex={0}
         aria-current={active ? "true" : undefined}
@@ -488,7 +532,10 @@ export function Sidebar() {
             onKeyDown={(e) => {
               e.stopPropagation()
               if (e.key === "Escape") setRenaming(null)
-              if (e.key === "Enter") void renamePack(name, e.currentTarget.value.trim())
+              if (e.key === "Enter") {
+                const next = e.currentTarget.value.trim()
+                void renamePack(name, next).then((ok) => ok && carryPackFolds(name, next))
+              }
             }}
             onBlur={() => setRenaming(null)}
           />
@@ -600,7 +647,7 @@ export function Sidebar() {
         </button>
       )}
 
-      <div className="flex-1 overflow-y-auto px-3 pb-3">
+      <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-3">
         {/* Create bar: two dashed "empty slot" cards, echoing the row shape */}
         {newPackInput ? (
           <div className="mb-3 flex flex-col gap-1.5">
@@ -614,7 +661,7 @@ export function Sidebar() {
                 if (e.key === "Enter") {
                   const name = e.currentTarget.value.trim()
                   setNewPackInput(false)
-                  if (name) void m.addPack(name)
+                  if (name) void m.addPack(name).then(() => reveal(`[data-pack="${CSS.escape(name)}"]`))
                 }
               }}
               onBlur={() => setNewPackInput(false)}
@@ -660,7 +707,7 @@ export function Sidebar() {
           groups.map(([name, items]) => {
             const isCollapsed = !q && collapsed.has(name)
             return (
-              <div key={name} className="mb-3">
+              <div key={name} data-pack={name} className="mb-3">
                 {sectionTitle(name, items.length, isCollapsed)}
                 {!isCollapsed &&
                   (() => {

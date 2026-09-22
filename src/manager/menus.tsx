@@ -40,23 +40,33 @@ export function useLibraryMenus(opts: {
   // ---- Pack operations ----
   // One Rust step: metadata and prompts together, or the reconciler in
   // between conjures a second pack under one of the two names
-  const renamePack = async (name: string, next: string) => {
+  // Resolves true when the rename went through, so a caller can carry over
+  // state it keeps by name (the sidebar's folds)
+  const renamePack = async (name: string, next: string): Promise<boolean> => {
     setRenaming(null)
-    if (!next || next === name) return
-    if (m.packNames().includes(next)) {
-      sayErr(`Pack "${next}" already exists`)
-      return
+    if (!next || next === name) return false
+    // Case variants read as one pack; the pack's own name may change case
+    const taken = m.packNames().find((p) => p !== name && p.toLowerCase() === next.toLowerCase())
+    if (taken) {
+      sayErr(`Pack "${taken}" already exists`)
+      return false
     }
-    await m.renamePack(name, next).then(() => say(`Renamed to "${next}"`), () => {})
+    return m.renamePack(name, next).then(
+      () => {
+        say(`Renamed to "${next}"`)
+        return true
+      },
+      () => false
+    )
   }
 
   const packToJson = (name: string) =>
     C.packToJson(name, m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name))
 
   // ---- Group operations: a group is a label, so these rewrite the prompts that carry it ----
-  const renameGroup = async (pack: string, group: string, next: string) => {
+  const renameGroup = async (pack: string, group: string, next: string): Promise<boolean> => {
     setRenamingGroup(null)
-    if (!next || next === group) return
+    if (!next || next === group) return false
     const merging = m.snippets.some((s) => (s.pack || DEFAULT_PACK) === pack && s.group === next)
     const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group === group).map((s) => s.id)
     await m.persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group: next } : s)))
@@ -67,6 +77,7 @@ export function useLibraryMenus(opts: {
         void m.persist(m.snippets.map((s) => (ids.includes(s.id) ? { ...s, group } : s))).then(() => say("Restored"))
       })
     } else say(`Renamed to "${next}"`)
+    return true
   }
 
   const deleteGroup = async (pack: string, group: string) => {

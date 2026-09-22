@@ -235,8 +235,11 @@ export function App() {
   const addPack = useCallback(
     async (name: string) => {
       if (!name) return
-      if (packNames().includes(name)) {
-        sayErr(`Pack "${name}" already exists`)
+      // Case variants would read as one pack (and share a file name on
+      // Windows), so they count as the same pack
+      const taken = packNames().find((p) => p.toLowerCase() === name.toLowerCase())
+      if (taken) {
+        sayErr(`Pack "${taken}" already exists`)
         return
       }
       // New packs are file-backed: they own a .json under the profile that the
@@ -370,9 +373,11 @@ export function App() {
         if (undoLast()) e.preventDefault()
       } else if (e.key === "Escape" && !typing(e.target) && !e.defaultPrevented) {
         // An armed delete takes the Escape first (capture-phase listeners);
-        // a dialog closing on it must not also switch the mode behind it
+        // a dialog or a context menu closing on it must not also switch the
+        // mode behind it (the menu's own listener registers later, so it
+        // runs after this one and its preventDefault comes too late)
         if (settingsOpen) setSettingsOpen(false)
-        else if (document.querySelector('[role="dialog"]')) return
+        else if (document.querySelector('[role="dialog"], [role="menu"]')) return
         else if (view.kind === "library") setView({ kind: "prompt" })
         else {
           const s = activeId ? snippetsRef.current.find((x) => x.id === activeId) : undefined

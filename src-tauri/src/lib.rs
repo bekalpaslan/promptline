@@ -361,6 +361,29 @@ fn pack_file_name(path: &Path) -> Option<String> {
     doc.get("name")?.as_str().map(|s| s.to_owned())
 }
 
+/// The manager's untouched "New prompt" draft: title as created, no body,
+/// never used (the same test `isEmptyDraft` makes in core.js).
+fn is_empty_draft(s: &Snippet) -> bool {
+    s.title == "New prompt" && s.text.trim().is_empty() && s.uses == 0
+}
+
+/// Every pack in play: declared metadata, plus whatever prompts reference.
+/// Migrations have already filled in empty pack fields by this point. An
+/// empty draft references no pack for this purpose: "New prompt" lands in
+/// the default pack, and declaring that pack the moment the draft is written
+/// left a permanent empty "My prompts" behind once the draft was moved to
+/// the pack the user meant, or swept. The pack is declared by the first save
+/// that gives the draft a body or a title, like any other prompt's pack.
+fn packs_in_play(config: &Config, snippets: &[Snippet]) -> Vec<String> {
+    let mut names: Vec<String> = config.packs.iter().map(|p| p.name.clone()).collect();
+    for s in snippets.iter().filter(|s| !is_empty_draft(s)) {
+        if !names.contains(&s.pack) {
+            names.push(s.pack.clone());
+        }
+    }
+    names
+}
+
 // Give every pack that exists a PackMeta and a file of its own, whatever route
 // it came into being by. A pack needs no metadata to exist — naming one on a
 // prompt conjures it, which is how imports and moves create them — so backing
@@ -371,17 +394,8 @@ fn ensure_packs_backed(app: &AppHandle) {
         return;
     };
 
-    // Every name in play: declared metadata, plus whatever prompts reference.
-    // Migrations have already filled in empty pack fields by this point.
-    let mut names: Vec<String> = config.packs.iter().map(|p| p.name.clone()).collect();
-    for s in &snippets {
-        if !names.contains(&s.pack) {
-            names.push(s.pack.clone());
-        }
-    }
-
     let mut changed = false;
-    for name in names {
+    for name in packs_in_play(&config, &snippets) {
         match config.packs.iter_mut().find(|p| p.name == name) {
             // Known pack, already backed
             Some(pm) if !pm.path.is_empty() => {}
@@ -956,7 +970,11 @@ fn rename_pack_in(config: &mut Config, snippets: &mut [Snippet], from: &str, to:
     if to.trim().is_empty() {
         return Err("A pack needs a name".into());
     }
-    if config.packs.iter().any(|p| p.name == to) || snippets.iter().any(|s| s.pack == to) {
+    // Names differing only by case would read as one pack (and share a file
+    // name on Windows), so they count as taken — except the pack's own,
+    // which a case-only rename ("general" to "General") is allowed to keep
+    let taken = |name: &str| name != from && name.eq_ignore_ascii_case(to);
+    if config.packs.iter().any(|p| taken(&p.name)) || snippets.iter().any(|s| taken(&s.pack)) {
         return Err(format!("Pack \"{to}\" already exists"));
     }
     let mut renamed = false;
@@ -1768,6 +1786,39 @@ mod tests {
         assert_eq!(resolve_hotkey(""), default);
         assert_eq!(resolve_hotkey("ctrl+alt+v"), "ctrl+alt+v".parse::<Shortcut>().unwrap());
         assert_ne!(resolve_hotkey("ctrl+alt+v"), default);
+    }
+
+    #[test]
+    fn an_empty_draft_backs_no_pack() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta { name: "Work".into(), locked: false, path: String::new() });
+        let mut draft = snip("New prompt", "", "");
+        draft.pack = "My prompts".into();
+        draft.uses = 0;
+        let mut kept = snip("Kept", "", "");
+        kept.pack = "Notes".into();
+        // The draft's pack is not in play; a real prompt's is
+        assert_eq!(packs_in_play(&config, &[draft.clone(), kept]), vec!["Work".to_string(), "Notes".to_string()]);
+        // Typing a body (or a title) makes it a prompt like any other
+        draft.text = "hello".into();
+        assert_eq!(packs_in_play(&config, &[draft.clone()]), vec!["Work".to_string(), "My prompts".to_string()]);
+        draft.text.clear();
+        draft.title = "Standup".into();
+        assert_eq!(packs_in_play(&config, &[draft]), vec!["Work".to_string(), "My prompts".to_string()]);
+    }
+
+    #[test]
+    fn rename_pack_treats_case_variants_as_taken_except_its_own() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta { name: "General".into(), locked: false, path: String::new() });
+        let mut s = snip("A", "", "x");
+        s.pack = "Other".into();
+        let mut snippets = vec![s];
+        assert!(rename_pack_in(&mut config, &mut snippets, "Other", "general").is_err());
+        assert!(rename_pack_in(&mut config, &mut snippets, "Other", "OTHER").is_ok());
+        assert_eq!(snippets[0].pack, "OTHER");
+        assert!(rename_pack_in(&mut config, &mut snippets, "General", "GENERAL").is_ok());
+        assert_eq!(config.packs[0].name, "GENERAL");
     }
 
     #[test]
