@@ -369,8 +369,10 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
           {pack.count === 0 && <div className="text-ui text-muted-foreground">Empty pack</div>}
           {pack.ungrouped.length > 0 && cards(pack.ungrouped)}
           {pack.groups.map((g) => (
-            <section key={g.name} className="module flex flex-col gap-3 bg-secondary/50" aria-label={g.name}>
-              {groupHeading(g.name, g.items.length, false)}
+            // A group is a heading over a hairline, not a panel: the pack is
+            // the one container here, so nothing repeats its title's look
+            <section key={g.name} className="mt-2 flex flex-col gap-2" aria-label={g.name}>
+              <div className="border-b border-border pb-1.5">{groupHeading(g.name, g.items.length, false)}</div>
               {cards(g.items)}
             </section>
           ))}

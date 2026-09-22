@@ -37,6 +37,11 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 
 ## Manager
 
+- **Pack colour, as a setting** — a colour per pack (a swatch on its header,
+  carried by its groups' guide lines and in the popup) for telling packs
+  apart where their prompts mix. Direction B of the 2026-09-22 sidebar
+  mockups; the ink hierarchy (A) shipped instead, colour-free by default.
+
 - **Flush the editor on Windows shutdown** — tray Quit now flushes a
   pending autosave (BEHAVIOR.md "Quitting"); `WM_QUERYENDSESSION` does not.
 - **"Saving… / Saved" caption in the editor** — there is no visible signal
