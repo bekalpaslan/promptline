@@ -41,7 +41,7 @@ sleeps, `prev_window` before show, the prompt staying on the clipboard,
 | **Total** | **7** | **15** | **25** | **2** | **49** |
 
 Open: L3 (`save_packs` intent-level) and L8 (splitting `lib.rs`), plus the
-partial items noted inline (M7 chip wording, M14/L6/L10 manager call sites,
+partial items noted inline (L10 manager call sites,
 L20's two leftovers, L13's type-checked lint). The second wave ran as four
 parallel agents in worktrees (Rust, manager, popup and core, docs and
 release) merged into master on 2026-09-22.
@@ -327,7 +327,7 @@ mouse.
 - *Docs:* `BEHAVIOR.md` "The popup's list folds from the keyboard too".
 
 ### M7. `{0}` / `{1}` are shown as red "not a param" chips
-**Status:** DONE (core); chip wording open
+**Status:** DONE
 **Where:** `ui/core.js` `tokenize` (marks every invalid name `bad`), editor
 preview. Pass `U`.
 **What:** the comment and `BEHAVIOR.md` say numeric names stay literal, but
@@ -338,7 +338,7 @@ near-miss chip and state the rule once in the legend.
 **Resolution:**
 - *Implementation:* `tokenize` keeps purely numeric names as text in one run with their surroundings; `{Goal}`/`{1st}` stay `bad`.
 - *Tests added:* `{0}`/`{1}` as text; the near-miss test expects only `{Goal}`.
-- *Open:* the near-miss chip in `src/components/prompt-bits.tsx` still repeats the full rule per chip; state it once in the legend.
+- *Chip wording (wave 3):* the near-miss chip reads "Goal — not a field"; the editor's preview footer states the rule once, naming the offending tokens.
 
 ### M8. Mock backend missed nine of the 26 commands the UI calls
 **Status:** DONE
@@ -413,7 +413,7 @@ button as a sibling of the row.
 - *Manual verification:* six pills, twelve datalist options, the prompt's own tag skipped.
 
 ### M14. `PromptlineCore` interface is hand-written and drifting
-**Status:** DONE (core); manager call sites open
+**Status:** DONE
 **Where:** `src/lib/core.ts:101-150` vs `ui/core.js`. Passes `T` and `F`.
 **What:** `core.js` is neither typechecked nor linted; `expandBuiltins`
 omits the `now` parameter and `fillFields` requires `values` in TS while JS
@@ -427,7 +427,7 @@ export `DRAFT_TITLE`, `RESERVED`, `normalizeTag` and use them.
 **Resolution:**
 - *Implementation:* `core.ts` fixed (`expandBuiltins(text, now?)`, `fillFields(text, values?)`, `expandForCopy(…, now?)`, `RESERVED`, `isValidParam`); core exports `DRAFT_TITLE`, `normalizeTag` (lowercase, strip everything outside `[a-z0-9_-]`, the strictest of the three rules), `plural`, `titleFromClipboard`, `slotEntries`.
 - *Tests added:* `tests/interface.test.js` asserts the interface's member names equal `Object.keys(core)` both ways.
-- *Open:* adopt `DRAFT_TITLE`, `C.isEmptyDraft`, `normalizeTag` and `plural` in `manager/App.tsx`, `Editor.tsx`, `Overview.tsx`, `menus.tsx`, `Settings.tsx`, `ImportCuration.tsx`; note `normalizeTag` in `packsFromData` collapses "code review" to "codereview" on import.
+- *Manager call sites (wave 3):* `App.tsx` uses `C.DRAFT_TITLE`; the editor's draft check is `C.isEmptyDraft`; the editor's tag field, "Add tag…" and `parsePacks` share `C.normalizeTag` (documented in `BEHAVIOR.md` "One tag rule everywhere", with a test that an imported "Code Review" becomes `codereview`); the plural slips in the editor footer, Settings' export toast and the import curation count use `C.plural`.
 
 ### M15. CI never builds the shipped artefact and toolchains are unpinned
 **Status:** DONE (validated, not run)
@@ -502,7 +502,7 @@ finding's other half) is fixed, with a test.
 - *Docs:* `BEHAVIOR.md` "Closing a window hides it"; the `AppState.store` comment.
 
 ### L6. Plural and copy slips
-**Status:** DONE (popup); manager sites open
+**Status:** DONE
 **Where:** `menus.tsx:407` ("Deleted 1 prompts"), `menus.tsx:93`,
 `menus.tsx:328` ("Moved 1 to …"), `Settings.tsx:459`,
 `ImportCuration.tsx:148`; `Editor.tsx:753` ("1 fill-in field stay as
@@ -511,7 +511,7 @@ typed"). Passes `F` and `U`.
 word)` helper in core (with M14).
 **Resolution:**
 - *Implementation:* `C.plural(n, word, pluralWord?)`; the popup's live region and form labels use it; the delete label was fixed earlier.
-- *Open:* `menus.tsx`, `Settings.tsx`, `ImportCuration.tsx`, `Editor.tsx` sites (with M14).
+- *Manager sites (wave 3):* the editor footer, Settings' export toast and the import count use `C.plural`; the remaining `${n} prompts` strings only ever render for n > 1.
 
 ### L7. `open_url` and `show_in_folder` spawn `explorer` with a caller-supplied path
 **Status:** DONE
