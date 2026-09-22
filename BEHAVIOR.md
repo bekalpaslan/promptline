@@ -168,6 +168,18 @@ list and there is no row left to unfold from. It used to clear pack folds
 only, and only while one was folded, so a group folded with ← could only be
 reopened with the mouse.
 
+**The preview card never covers the row it describes.** → (or a hover)
+opens it below the row when it fits there, above the row otherwise, and on
+whichever side has more room, capped to that room and scrolling, when
+neither fits; clamping it into the window used to slide it up over the
+row near the bottom of the list. The hint bar drops its least-used hints
+(actions, preview, newline) below 360 px, because at the 320 px minimum
+width it wrapped to two lines and ate a row. Ctrl+N's pre-filled title is
+the clipboard's first line cut at a word boundary within 40 characters
+(`titleFromClipboard`), not mid-word. Title ties everywhere — the popup's
+ranking and the manager's orders — compare numerically, so "Bulk prompt
+2" comes before "Bulk prompt 10".
+
 ## Placeholders
 
 Handled in `ui/core.js`, shared by both windows so the popup's preview and the

@@ -359,6 +359,27 @@ test('diagnosePack: valid JSON, wrong shape', () => {
   assert.equal(d.code, 'wrong-shape');
 });
 
+// ---- new prompt from the clipboard --------------------------------------------------
+
+test('titleFromClipboard cuts at a word boundary within 40 characters (L20)', () => {
+  const err = "TypeError: cannot read properties of undefined (reading 'id')";
+  // Used to be "TypeError: cannot read properties of und"
+  assert.equal(core.titleFromClipboard(err), 'TypeError: cannot read properties of');
+  assert.ok(core.titleFromClipboard(err).length <= 40);
+  // A line that fits comes back whole; the boundary may sit exactly at the limit
+  assert.equal(core.titleFromClipboard('Short title'), 'Short title');
+  assert.equal(core.titleFromClipboard('a'.repeat(40)), 'a'.repeat(40));
+  assert.equal(core.titleFromClipboard('a'.repeat(39) + ' b'), 'a'.repeat(39));
+  // One long word: a hard cut is all there is
+  assert.equal(core.titleFromClipboard('x'.repeat(50)), 'x'.repeat(40));
+  // The first non-empty line, trimmed; `max` is a parameter
+  assert.equal(core.titleFromClipboard('\n\n  Fix the build  \nsecond line'), 'Fix the build');
+  assert.equal(core.titleFromClipboard('one two three four', 9), 'one two');
+  assert.equal(core.titleFromClipboard(''), '');
+  assert.equal(core.titleFromClipboard('  \n '), '');
+  assert.equal(core.titleFromClipboard(undefined), '');
+});
+
 // ---- misc ------------------------------------------------------------------------
 
 test('normalizeTag: lowercase, nothing outside [a-z0-9_-] (M14)', () => {
@@ -517,6 +538,17 @@ test('sortPrompts: custom is the array order itself, pins included', () => {
   const out = core.sortPrompts(list, 'custom');
   assert.deepEqual(out.map(s => s.id), ['b', 'a']);
   assert.notEqual(out, list);
+});
+
+test('title ties sort numerically: 0, 1, 2, 10, not 0, 1, 10, 2 (L20)', () => {
+  const titles = ['Bulk prompt 10', 'Bulk prompt 2', 'Bulk prompt 0', 'Bulk prompt 1', 'Bulk prompt 11'];
+  const list = titles.map((t, i) => snip(`s${i}`, { title: t, uses: 3 }));
+  const want = ['Bulk prompt 0', 'Bulk prompt 1', 'Bulk prompt 2', 'Bulk prompt 10', 'Bulk prompt 11'];
+  assert.deepEqual(core.sortPrompts(list, 'title').map(s => s.title), want);
+  assert.deepEqual(core.sortPrompts(list, 'uses').map(s => s.title), want, 'equal uses, title breaks the tie');
+  assert.deepEqual(core.rankSnippets('', list).map(e => e.s.title), want, 'the popup agrees');
+  const pins = list.map(s => ({ ...s, pinned: true }));
+  assert.deepEqual(core.rankSnippets('', pins).map(e => e.s.title), want, 'legacy pins too');
 });
 
 test('sortPrompts falls back to uses for an unknown order', () => {
