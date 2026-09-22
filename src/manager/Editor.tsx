@@ -3,7 +3,6 @@ import { invoke } from "@tauri-apps/api/core"
 import {
   RiAddLine,
   RiArrowDownSLine,
-  RiArrowLeftSLine,
   RiArrowRightSLine,
   RiCloseLine,
   RiDeleteBinLine,
@@ -212,9 +211,6 @@ export function Editor() {
         }
         actions={[
           { label: "New prompt", onClick: () => void m.newPrompt(), primary: true },
-          ...(m.snippets.length || m.packNames().length
-            ? [{ label: "Browse the library", onClick: () => m.openLibrary(null) }]
-            : []),
           { label: "Generate pack with Claude…", onClick: () => m.openGenerate() },
         ]}
       />
@@ -506,24 +502,28 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
-      {/* Where this prompt sits; the crumb opens the library view on it
-          (Escape outside a field does the same) */}
+      {/* Where this prompt sits; each crumb shows that pack's or group's
+          prompts beside the sidebar (Escape goes to the nearest one) */}
       <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
         <button
           type="button"
-          className="flex cursor-pointer items-center gap-0.5 rounded-sm font-medium hover:text-foreground focus-ring"
-          title="Open the library on this prompt's pack (Esc)"
-          onClick={() => m.openLibrary({ pack: pack.trim() || DEFAULT_PACK, group: group.trim() || undefined })}
+          className="min-w-0 cursor-pointer truncate rounded-sm font-medium hover:text-foreground focus-ring"
+          title={`Show the prompts in ${pack.trim() || DEFAULT_PACK}${group.trim() ? "" : " (Esc)"}`}
+          onClick={() => m.openOverview({ pack: pack.trim() || DEFAULT_PACK })}
         >
-          <RiArrowLeftSLine className="size-3.5" />
-          Library
+          {pack.trim() || DEFAULT_PACK}
         </button>
-        <span aria-hidden>›</span>
-        <span className="truncate">{pack}</span>
         {group.trim() && (
           <>
             <span aria-hidden>›</span>
-            <span className="truncate">{group.trim()}</span>
+            <button
+              type="button"
+              className="min-w-0 cursor-pointer truncate rounded-sm font-medium hover:text-foreground focus-ring"
+              title={`Show the prompts in ${group.trim()} (Esc)`}
+              onClick={() => m.openOverview({ pack: pack.trim() || DEFAULT_PACK, group: group.trim() })}
+            >
+              {group.trim()}
+            </button>
           </>
         )}
       </div>
