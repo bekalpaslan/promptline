@@ -48,6 +48,35 @@ function splitGroups(items: Snippet[]): { ungrouped: Snippet[]; groups: [string,
   return { ungrouped, groups: [...map.entries()] }
 }
 
+// The filter's text, drawn under a transparent input so its #tag, @pack and
+// >group terms read as chips while the input stays a plain input (caret,
+// selection, undo). Colour and a ground only, never padding: the mirror has
+// to lay out exactly like the input's own text, or the caret drifts.
+function QueryMirror({ query }: { query: string }) {
+  const parts = query.match(/[#@>]"[^"]*"|\s+|\S+/g) || []
+  return (
+    <>
+      {parts.map((part, i) => {
+        const prefix = part[0]
+        const value = part.slice(1).replace(/^"|"$/g, "")
+        if (!/^[#@>]/.test(part) || !value) return <span key={i}>{part}</span>
+        return (
+          <span
+            key={i}
+            className={cn(
+              "rounded-[2px] shadow-[0_0_0_1px_var(--border)]",
+              prefix === "#" ? "tag-text dark:tag-text-dark bg-secondary" : "bg-secondary text-foreground"
+            )}
+            style={prefix === "#" ? ({ "--tag": C.tagColor(value) } as React.CSSProperties) : undefined}
+          >
+            {part}
+          </span>
+        )
+      })}
+    </>
+  )
+}
+
 // A title with the filter's free-text words marked: each word's first
 // occurrence, overlaps merged, case-insensitive like the match itself
 function marked(title: string, words: string[]): React.ReactNode {
@@ -88,6 +117,7 @@ export function Sidebar() {
   // the chip in the field is dismissed; clearing the search drops it
   const [scope, setScope] = useState<LibraryFocus | null>(null)
   const searchRef = useRef<HTMLInputElement>(null)
+  const mirrorRef = useRef<HTMLDivElement>(null)
   const display = useCtxMenu()
   const visibleIdsRef = useRef<string[]>([])
   // A click on a pack or group title selects it: the pane beside the
@@ -162,7 +192,9 @@ export function Sidebar() {
     const map = new Map<string, Snippet[]>()
     // Empty packs are real sections too — otherwise they exist only in the
     // registry and can never be seen or deleted from the menu
-    if (!q) for (const name of m.packNames()) map.set(name, [])
+    // While searching, a pack without hits stays in the list, faded, so the
+    // tree keeps its shape and says where nothing matched
+    for (const name of m.packNames()) map.set(name, [])
     for (const s of visible) {
       const key = s.pack || DEFAULT_PACK
       if (!map.has(key)) map.set(key, [])
@@ -556,7 +588,7 @@ export function Sidebar() {
     )
   }
 
-  const sectionTitle = (name: string, count: number, isCollapsed: boolean) => {
+  const sectionTitle = (name: string, count: number, isCollapsed: boolean, faded = false) => {
     const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
     return (
       <div
@@ -567,7 +599,8 @@ export function Sidebar() {
         title={`${name} — click shows its prompts, Enter folds it, right-click for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover",
-          shown?.pack === name && !shown.group && "bg-accent hover:bg-accent"
+          shown?.pack === name && !shown.group && "bg-accent hover:bg-accent",
+          faded && "opacity-45"
         )}
         onClick={() => m.openOverview({ pack: name })}
         onKeyDown={(e) => {
@@ -679,10 +712,25 @@ export function Sidebar() {
               </button>
             </span>
           )}
+          <span className="relative flex min-w-0 flex-1">
+          {/* Same font and box as the input; scrolled with it when the text runs long */}
+          <div
+            ref={mirrorRef}
+            aria-hidden
+            className="pointer-events-none absolute inset-0 overflow-hidden whitespace-pre text-foreground"
+          >
+            <QueryMirror query={query} />
+          </div>
           <input
             ref={searchRef}
             value={query}
             onChange={(e) => setSearch(e.target.value)}
+            onScroll={(e) => {
+              if (mirrorRef.current) mirrorRef.current.scrollLeft = e.currentTarget.scrollLeft
+            }}
+            onSelect={(e) => {
+              if (mirrorRef.current) mirrorRef.current.scrollLeft = e.currentTarget.scrollLeft
+            }}
             onKeyDown={(e) => {
               // Esc clears the filter first, then leaves the field
               if (e.key === "Escape") {
@@ -695,8 +743,9 @@ export function Sidebar() {
             aria-label="Filter prompts"
             title="Filter (Ctrl+F) · #tag, @pack and >group narrow it, Esc clears"
             spellCheck={false}
-            className="min-w-0 flex-1 bg-transparent text-foreground outline-none placeholder:text-muted-foreground"
+            className="relative min-w-0 flex-1 bg-transparent text-transparent caret-foreground outline-none selection:bg-(--link)/30 selection:text-transparent placeholder:text-muted-foreground"
           />
+          </span>
           {query ? (
             <button
               type="button"
@@ -829,10 +878,12 @@ export function Sidebar() {
         )}
         {groups ? (
           groups.map(([name, items]) => {
-            const isCollapsed = !q && collapsed.has(name)
+            // Searching: a pack with no hits is only its faded header
+            const faded = !!q && items.length === 0
+            const isCollapsed = faded || (!q && collapsed.has(name))
             return (
               <div key={name} data-pack={name} className="mb-2">
-                {sectionTitle(name, items.length, isCollapsed)}
+                {sectionTitle(name, items.length, isCollapsed, faded)}
                 {!isCollapsed &&
                   (() => {
                     const { ungrouped, groups: gs } = splitGroups(items)
