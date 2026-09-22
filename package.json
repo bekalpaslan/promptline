@@ -18,7 +18,7 @@
     "tokens:check": "node scripts/tokens.mjs --check",
     "design:build": "node scripts/tokens.mjs --shim design/dist/shim.css && vite build --config design/vite.config.ts && node scripts/design-pack.mjs",
     "test:rust": "cargo test --manifest-path src-tauri/Cargo.toml",
-    "lint": "eslint ."
+    "lint": "eslint . --max-warnings 0"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
