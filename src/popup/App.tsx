@@ -876,34 +876,36 @@ export function App() {
   // --- Form mode ----------------------------------------------------------------
   if (form) {
     // An empty field pastes an empty hole — allowed (a deliberate blank is
-    // legitimate) but never silent: the field is outlined and the button
-    // says so
+    // legitimate) but never silent: the field says so in its placeholder, the
+    // preview keeps its chip, and the button counts them. Quietly: red on
+    // every field of a new form shouted at a state that is only unfinished.
     const emptyCount = form.fields.filter((f) => !(formValues[f] ?? "").trim()).length
     const verb = form.paste ? "Paste" : "Copy"
     const submitLabel =
       emptyCount === 0 ? verb : `${verb} with ${emptyCount} field${emptyCount === 1 ? "" : "s"} empty`
     return (
       <Shell hint={hint} notice={notice} announce={announce}>
-        <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-1">
+        {/* Fields and preview scroll; the button stays in reach below them */}
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1">
           <SectionHeader>{form.snippet.title}</SectionHeader>
           {form.fields.map((f, i) => {
             const remembered = (form.snippet.fieldValues || {})[f]
-            const empty = !(formValues[f] ?? "").trim()
             return (
               <div key={f} className="px-1">
-                <label htmlFor={`field-${f}`} className="mb-1 flex items-center gap-1.5 text-xs font-medium capitalize tracking-[0.04em] text-muted-foreground">
+                <label htmlFor={`field-${f}`} className="mb-0.5 flex items-center gap-1.5 text-xs font-medium capitalize tracking-[0.04em] text-muted-foreground">
                   {f.replace(/_/g, " ")}
                   {remembered && <Chip tone="muted" className="normal-case tracking-normal">last used</Chip>}
-                  {empty && <span className="normal-case text-destructive">empty — pastes nothing</span>}
                 </label>
                 <textarea
                   id={`field-${f}`}
-                  aria-invalid={empty || undefined}
                   autoFocus={i === 0}
-                  // Grows with what is being typed, capped at four lines: taken
-                  // from the stored value alone, a Shift+Enter newline was invisible
-                  rows={Math.min(4, (formValues[f] ?? "").split("\n").length)}
+                  // Sized by its content (wrapped lines too, not just
+                  // newlines) from one line to exactly three, then scrolls;
+                  // the padding above the first line and below the last is
+                  // the same at every height
+                  rows={1}
                   value={formValues[f] ?? ""}
+                  placeholder="Empty — pastes nothing"
                   spellCheck={false}
                   onFocus={(e) => { if (remembered) e.currentTarget.select() }}
                   onChange={(e) => setFormValues((v) => ({ ...v, [f]: e.target.value }))}
@@ -916,10 +918,7 @@ export function App() {
                       void submitForm(e.ctrlKey)
                     }
                   }}
-                  className={cn(
-                    "min-h-8 w-full resize-none rounded-lg border-2 bg-background px-2 py-1.5 text-ui text-foreground outline-none placeholder:text-muted-foreground focus:border-(--focus)",
-                    empty ? "border-destructive/60" : "border-input"
-                  )}
+                  className="block field-sizing-content max-h-[calc(3lh+1rem+2px)] min-h-[calc(1lh+1rem+2px)] w-full resize-none overflow-y-auto rounded-lg border border-input bg-background px-2 py-2 text-ui leading-5 text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-(--focus)"
                 />
               </div>
             )
@@ -928,10 +927,10 @@ export function App() {
           <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-ui leading-relaxed text-muted-foreground">
             <PromptTokens text={C.expandBuiltins(form.base)} clipboard={clip} fieldValues={formValues} />
           </div>
-          <Button size="lg" onClick={(e) => void submitForm(e.ctrlKey)}>
-            {submitLabel}
-          </Button>
         </div>
+        <Button size="lg" className="shrink-0" onClick={(e) => void submitForm(e.ctrlKey)}>
+          {submitLabel}
+        </Button>
       </Shell>
     )
   }
