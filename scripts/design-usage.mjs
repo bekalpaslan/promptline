@@ -20,11 +20,12 @@ export const SOURCES = {
     ["src/components/prompt-bits.tsx", "HighlightedTitle"],
     ["src/components/prompt-bits.tsx", "TagList"],
     ["src/components/prompt-bits.tsx", "InputsBadge"],
-    ["src/components/prompt-bits.tsx", "PILL"],
+    ["src/components/prompt-bits.tsx", "chipVariants"],
   ],
   Button: [["src/components/ui/button.tsx", "buttonVariants"]],
   Kbd: [["src/components/prompt-bits.tsx", "Kbd"], ["src/components/ui/kbd.tsx", "Kbd"]],
-  TagPill: [["src/components/prompt-bits.tsx", "TagPill"], ["src/components/prompt-bits.tsx", "PILL"]],
+  TagPill: [["src/components/prompt-bits.tsx", "TagPill"], ["src/components/prompt-bits.tsx", "chipVariants"]],
+  Chip: [["src/components/prompt-bits.tsx", "chipVariants"], ["src/components/prompt-bits.tsx", "Chip"]],
 }
 
 /** CSS variable → artifact tokens (MAP inverted), plus the few the app

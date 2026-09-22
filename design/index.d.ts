@@ -43,6 +43,26 @@ export type ButtonVariant = "default" | "outline" | "secondary" | "ghost" | "des
 export type ButtonSize = "default" | "xs" | "sm" | "compact" | "lg" | "icon" | "icon-xs" | "icon-sm" | "icon-lg"
 export interface ButtonProps { variant?: ButtonVariant; size?: ButtonSize; disabled?: boolean; children?: ReactNode; onClick?: () => void }
 
+export type ChipTone = "neutral" | "muted" | "tag" | "builtin" | "field" | "config" | "bad" | "warn" | "primary"
+export interface ChipProps {
+  tone?: ChipTone
+  /** sm 16px (rows, cards), md 20px (editor), inline (inside wrapping text) */
+  size?: "sm" | "md" | "inline"
+  /** tone="tag": filled, as an active filter */
+  active?: boolean
+  /** tone="tag": the tag's hue */
+  hue?: string
+  /** A + segment behind a divider: a suggestion to add */
+  add?: boolean
+  onClick?: () => void
+  /** An inline × after the label */
+  onRemove?: () => void
+  removeLabel?: string
+  title?: string
+  className?: string
+  children?: ReactNode
+}
+
 export interface TagPillProps {
   tag: string
   active?: boolean
@@ -59,6 +79,8 @@ export declare const Button: ComponentType<ButtonProps>
 export declare const Kbd: ComponentType<{ children?: ReactNode }>
 /** shadcn's kit kbd, for surfaces outside the popup */
 export declare const UiKbd: ComponentType<{ className?: string; children?: ReactNode }>
+/** Every small label in both windows */
+export declare const Chip: ComponentType<ChipProps>
 export declare const TagPill: ComponentType<TagPillProps>
 /** Up to `max` tag pills, the rest folded into a +N pill */
 export declare const TagList: ComponentType<{ tags: readonly string[]; max: number; activeTags?: readonly string[]; onTag?: (tag: string) => void }>

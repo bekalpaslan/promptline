@@ -2,6 +2,7 @@ import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { C, type Snippet } from "@/lib/core"
+import { Chip } from "@/components/prompt-bits"
 import { useManager } from "./state"
 import { say, sayErr } from "./status"
 
@@ -200,16 +201,16 @@ export function ImportCuration({
               <Checkbox checked={r.include} className="pointer-events-none" tabIndex={-1} aria-hidden />
               <span className="min-w-0 max-w-[50%] truncate font-semibold text-foreground" title={r.title}>{r.title}</span>
               {multiPack && (
-                <span className="shrink-0 rounded-full bg-primary/15 px-1.5 text-xs text-foreground" title="Pack">
+                <Chip tone="primary" title="Pack">
                   {r.packName}
-                </span>
+                </Chip>
               )}
               {r.group && (
-                <span className="shrink-0 rounded-full bg-secondary px-1.5 text-xs">{r.group}</span>
+                <Chip>{r.group}</Chip>
               )}
               <span className="min-w-0 flex-1 truncate">{r.text.replace(/\s+/g, " ").slice(0, 80)}</span>
               {r.dupe && (
-                <span className="shrink-0 rounded-full bg-secondary px-1.5 text-xs">dupe</span>
+                <Chip>dupe</Chip>
               )}
             </div>
           )

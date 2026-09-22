@@ -1,14 +1,16 @@
+import { cva, type VariantProps } from "class-variance-authority"
+import { RiAddLine, RiCloseLine } from "@remixicon/react"
 import { C } from "@/lib/core"
-import { TOKEN_CHIP } from "@/lib/library"
 import { cn } from "@/lib/utils"
 import { Kbd as UiKbd } from "@/components/ui/kbd"
 
-// The small pieces both windows draw for a prompt: key caps, #tag pills, the
-// {N} and +N badges, match highlights, tokenized prompt text. One definition
-// each, so the popup and the manager cannot drift apart; the design-system
-// bundle (design/entry.tsx) renders these same components.
+// The small pieces both windows draw for a prompt: key caps, chips (#tags,
+// placeholders, badges), match highlights, tokenized prompt text. One
+// definition each, so the popup and the manager cannot drift apart; the
+// design-system bundle (design/entry.tsx) renders these same components.
 
-// The shared Kbd in the kit's 16px bordered-square idiom
+// The shared Kbd in the kit's 16px bordered-square idiom. A key, not a
+// label: a label is a Chip.
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
     <UiKbd className="h-4 min-w-4 shrink-0 rounded-sm border border-border bg-background px-0.5 font-mono text-[11px] font-normal text-muted-foreground">
@@ -17,12 +19,115 @@ export function Kbd({ children }: { children: React.ReactNode }) {
   )
 }
 
-const PILL = "flex shrink-0 items-center whitespace-nowrap rounded-sm border text-xs"
+// Every small label in the app is a Chip: #tags, {placeholders}, the {N} and
+// +N badges, add-suggestions, the sidebar's scope, the import badges. The
+// whole look lives in this table — change a chip here, never at a call site.
+// `tone` says what the chip is, `size` where it sits: `sm` in a row or card,
+// `md` level with an input in the editor, `inline` inside wrapping text.
+export const chipVariants = cva(
+  "rounded-sm border text-xs font-medium",
+  {
+    variants: {
+      tone: {
+        neutral: "border-transparent bg-secondary text-foreground",
+        muted: "border-border text-muted-foreground",
+        // hue from `--tag`, set by the Chip's `hue`
+        tag: "tag-text tag-border dark:tag-text-dark dark:tag-border-dark",
+        builtin: "border-transparent bg-(--param-builtin-bg) text-(--param-builtin)",
+        field: "border-transparent bg-(--param-field-bg) text-(--param-field)",
+        config: "border-transparent bg-(--param-config-bg) text-(--param-config)",
+        bad: "border-transparent bg-destructive/15 text-destructive",
+        warn: "border-(--warn)/40 text-(--warn)",
+        primary: "border-transparent bg-primary/15 text-foreground",
+      },
+      size: {
+        sm: "flex h-4 shrink-0 items-center gap-0.5 whitespace-nowrap px-1",
+        md: "flex h-5 shrink-0 items-center gap-1 whitespace-nowrap px-2",
+        inline: "box-decoration-clone px-1",
+      },
+      /** A filter term that is on */
+      active: { true: "", false: "" },
+      /** Offers to add itself: a + segment, muted until hovered */
+      add: { true: "cursor-pointer gap-0 overflow-hidden px-0 text-muted-foreground transition-colors hover:border-primary", false: "" },
+    },
+    compoundVariants: [{ tone: "tag", active: true, className: "tag-fill" }],
+    defaultVariants: { tone: "neutral", size: "sm", active: false, add: false },
+  }
+)
 
-// One #tag pill. With `onClick` it is a filter button (`active` when the tag
-// is a filter term in the query, drawn filled); without, plain text, so it can
-// sit inside another button. `md` is the editor's size, level with the
-// {param} chips beside it; the look is otherwise the same everywhere.
+export type ChipTone = NonNullable<VariantProps<typeof chipVariants>["tone"]>
+
+export function Chip({
+  tone,
+  size,
+  active,
+  hue,
+  onClick,
+  add,
+  onRemove,
+  removeLabel = "Remove",
+  title,
+  className,
+  children,
+  ...aria
+}: VariantProps<typeof chipVariants> & {
+  /** The tag hue, for tone="tag" */
+  hue?: string
+  /** Makes the chip a button; without it the chip is text, so it can sit inside one */
+  onClick?: (e: React.MouseEvent) => void
+  /** An inline × after the label */
+  onRemove?: () => void
+  removeLabel?: string
+  title?: string
+  className?: string
+  children?: React.ReactNode
+  "aria-label"?: string
+  "aria-pressed"?: boolean
+}) {
+  const cls = cn(chipVariants({ tone, size, active, add }), onClick && "cursor-pointer", className)
+  const style = hue ? ({ "--tag": hue } as React.CSSProperties) : undefined
+  const body = add ? (
+    <>
+      <span className="flex items-center self-stretch px-1.5">
+        <RiAddLine className="size-3" />
+      </span>
+      <span className="w-px self-stretch bg-border" />
+      <span className="flex items-center pl-1.5 pr-2">{children}</span>
+    </>
+  ) : (
+    <>
+      {children}
+      {onRemove && (
+        <button
+          type="button"
+          aria-label={removeLabel}
+          title={removeLabel}
+          className="-mr-1 flex shrink-0 cursor-pointer rounded-sm opacity-70 hover:opacity-100"
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove()
+          }}
+        >
+          <RiCloseLine className="size-3.5" />
+        </button>
+      )}
+    </>
+  )
+  if (!onClick)
+    return (
+      <span className={cls} style={style} title={title} {...aria}>
+        {body}
+      </span>
+    )
+  return (
+    <button type="button" className={cls} style={style} title={title} onClick={onClick} {...aria}>
+      {body}
+    </button>
+  )
+}
+
+// One #tag chip. With `onClick` it is a filter button (`active` when the tag
+// is a filter term in the query, drawn filled); without, plain text.
 export function TagPill({
   tag,
   active,
@@ -39,43 +144,33 @@ export function TagPill({
   /** Extra content after the name, such as the editor's delete badge */
   children?: React.ReactNode
 }) {
-  const className = cn(
-    PILL,
-    "relative tag-text tag-border dark:tag-text-dark dark:tag-border-dark",
-    size === "sm" ? "h-4 px-1" : "select-none px-2.5 py-0.5",
-    active && "tag-fill"
-  )
-  const style = { "--tag": C.tagColor(tag) } as React.CSSProperties
-  if (!onClick)
-    return (
-      <span className={className} style={style} title={title}>
-        {tag}
-        {children}
-      </span>
-    )
   const label = active ? `Clear #${tag} filter` : `Filter by #${tag}`
   return (
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-pressed={active}
-      className={cn(className, "cursor-pointer")}
-      style={style}
-      title={title ?? label}
-      aria-label={label}
-      onClick={(e) => {
-        e.stopPropagation()
-        onClick(tag)
-      }}
+    <Chip
+      tone="tag"
+      size={size}
+      hue={C.tagColor(tag)}
+      active={active}
+      className="relative"
+      title={title ?? (onClick ? label : undefined)}
+      aria-label={onClick ? label : undefined}
+      aria-pressed={onClick ? !!active : undefined}
+      onClick={
+        onClick &&
+        ((e) => {
+          e.stopPropagation()
+          onClick(tag)
+        })
+      }
     >
       {tag}
       {children}
-    </button>
+    </Chip>
   )
 }
 
-// A prompt's first `max` tags as pills, the rest folded into a +N pill whose
-// tooltip names them. A fragment, so the pills lay out in the caller's row.
+// A prompt's first `max` tags as chips, the rest folded into a +N chip whose
+// tooltip names them. A fragment, so the chips lay out in the caller's row.
 export function TagList({
   tags,
   max,
@@ -84,7 +179,7 @@ export function TagList({
 }: {
   tags: readonly string[]
   max: number
-  /** Lower-cased #terms in the query; a matching pill renders filled */
+  /** Lower-cased #terms in the query; a matching chip renders filled */
   activeTags?: readonly string[]
   onTag?: (tag: string) => void
 }) {
@@ -94,12 +189,9 @@ export function TagList({
         <TagPill key={tag} tag={tag} active={activeTags?.includes(tag.toLowerCase())} onClick={onTag} />
       ))}
       {tags.length > max && (
-        <span
-          className={cn(PILL, "h-4 border-border px-1 tabular-nums text-muted-foreground")}
-          title={tags.slice(max).map((t) => `#${t}`).join(", ")}
-        >
+        <Chip tone="muted" className="tabular-nums" title={tags.slice(max).map((t) => `#${t}`).join(", ")}>
           +{tags.length - max}
-        </span>
+        </Chip>
       )}
     </>
   )
@@ -109,12 +201,13 @@ export function TagList({
 export function InputsBadge({ inputs }: { inputs: readonly string[] }) {
   if (!inputs.length) return null
   return (
-    <span
-      className={cn(PILL, "h-4 border-(--warn)/40 px-1 tabular-nums text-(--warn)")}
+    <Chip
+      tone="warn"
+      className="tabular-nums"
       title={`Asks for ${inputs.length} value${inputs.length === 1 ? "" : "s"} before pasting: ${inputs.join(", ")}`}
     >
       {"{"}{inputs.length}{"}"}
-    </span>
+    </Chip>
   )
 }
 
@@ -141,7 +234,8 @@ export function HighlightedTitle({ title, indices }: { title: string; indices: n
 // preview. {clipboard} shows the clipboard as it is now (BEHAVIOR.md: it
 // expands at paste time, so a preview must show what would go in), on the
 // builtin's tint so it still reads as a placeholder; so does a filled-in
-// field. A config parameter shows its saved value when there is one.
+// field. Those are the prompt's own words, not labels, so not chips. A config
+// parameter shows its saved value when there is one.
 export function PromptTokens({
   text,
   clipboard,
@@ -189,9 +283,9 @@ export function PromptTokens({
           label = `${part.name} — fill-in`
         }
         return (
-          <span key={i} className={cn("rounded-sm px-1 text-xs font-semibold", TOKEN_CHIP[part.type])}>
+          <Chip key={i} tone={part.type} size="inline">
             {label}
-          </span>
+          </Chip>
         )
       })}
     </>
