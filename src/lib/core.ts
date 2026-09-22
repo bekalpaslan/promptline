@@ -160,7 +160,7 @@ interface PromptlineCore {
   /** What a preview shows for {clipboard}: one line, cut at `max` (240), or "(clipboard is empty)" */
   clipboardPreview(clip: string | null | undefined, max?: number): string
   /** What a paste would produce, minus the fill-in form: config and built-ins expanded, the clipboard substituted, {field}s kept */
-  expandForCopy(text: string, configValues: Record<string, string>, clip: string | null | undefined): string
+  expandForCopy(text: string, configValues: Record<string, string>, clip: string | null | undefined, now?: Date): string
   /** Ctrl+N's pre-filled title: the first line, cut at a word boundary within `max` (40); "" when empty */
   titleFromClipboard(text: string | null | undefined, max?: number): string
   /** A tag as stored: lowercase, nothing outside [a-z0-9_-] */

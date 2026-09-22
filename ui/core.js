@@ -541,7 +541,12 @@
     const limit = max || CLIP_PREVIEW_MAX;
     const flat = (clip || '').replace(/\s+/g, ' ').trim();
     if (!flat) return '(clipboard is empty)';
-    return flat.length > limit ? flat.slice(0, limit).trimEnd() + '\u2026' : flat;
+    if (flat.length <= limit) return flat;
+    // Never cut between the halves of a surrogate pair: an emoji at the
+    // limit would leave a lone high surrogate in the preview
+    let cut = flat.slice(0, limit);
+    if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1);
+    return cut.trimEnd() + '\u2026';
   }
 
   // What the editor's Copy button puts on the clipboard: config values in,
@@ -549,9 +554,10 @@
   // replaced by the clipboard as it is now — the same steps as a paste,
   // minus the fill-in form the editor has no place for, so {field} tokens
   // stay as typed for the user to fill in by hand.
-  function expandForCopy(text, configValues, clip) {
+  // `now` is for the tests; the clock otherwise.
+  function expandForCopy(text, configValues, clip, now) {
     const base = downgradeUnsetConfig(expandConfig(text, configValues));
-    return expandBuiltins(base).split('{clipboard}').join(clip || '');
+    return expandBuiltins(base, now).split('{clipboard}').join(clip || '');
   }
 
   // ---- New prompt from the clipboard ----------------------------------------------
