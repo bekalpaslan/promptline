@@ -102,7 +102,9 @@ export function App() {
       // change that didn't land
       await reloadLibrary()
       if (isStoreError(e) && e.kind === "stale") {
-        sayErr("The library changed in the popup meanwhile — reloaded it; please redo that change")
+        // Whoever wrote (the popup, a second window, a migration) is not
+        // known here: a refusal means the change event has not landed yet
+        sayErr("The library changed meanwhile — reloaded it; please redo that change")
       } else {
         sayErr(`Couldn't save: ${isStoreError(e) && e.kind === "failed" ? e.message : e}`)
       }
@@ -320,11 +322,16 @@ export function App() {
 
   // ---- Init ----
   useEffect(() => {
+    // StrictMode runs this twice in development; a run whose effect was
+    // cleaned up applies nothing, or the second draft sweep would be refused
+    // as stale by the first one's save and toast "Couldn't load"
+    let cancelled = false
     void (async () => {
       try {
         const lib = await invoke<Library>("get_snippets")
+        if (cancelled) return
         // GC abandoned "+ New" drafts (default title, no text, never used)
-        const snips = lib.snippets.filter((s) => !(s.title === "New prompt" && !s.text.trim() && !s.uses))
+        const snips = lib.snippets.filter((s) => !C.isEmptyDraft(s))
         if (snips.length !== lib.snippets.length) {
           lib.revision = await invoke<number>("save_snippets", { snippets: snips, baseRevision: lib.revision })
           lib.snippets = snips
@@ -332,6 +339,7 @@ export function App() {
         applyLibrary(lib)
 
         const config = await invoke<Config>("get_config")
+        if (cancelled) return
         setHotkeyState(config.hotkey)
         setPackMeta(Array.isArray(config.packs) ? config.packs : [])
         const theme = config.theme === "light" ? "light" : "dark"
@@ -349,13 +357,27 @@ export function App() {
         applyPrefs()
         if (!config.popupSeen) setFirstRun("show")
       } catch (e) {
+        if (cancelled) return
         sayPersistent(`Couldn't load the library: ${e}`)
       }
       // Anything Rust hit before this window was listening (a quarantined
       // file, a refused hotkey) is shown now and stays until dismissed
-      for (const n of await invoke<Notice[]>("take_notices").catch(() => [] as Notice[])) sayPersistent(n.message)
+      const notices = await invoke<Notice[]>("take_notices").catch(() => [] as Notice[])
+      if (cancelled) return
+      for (const n of notices) sayPersistent(n.message)
     })()
+    return () => {
+      cancelled = true
+    }
   }, [applyLibrary])
+
+  // The first-run banner's "done" state fades on its own; the timer lives
+  // here rather than inside a state updater, which must stay pure
+  useEffect(() => {
+    if (firstRun !== "done") return
+    const t = setTimeout(() => setFirstRun("hidden"), 6000)
+    return () => clearTimeout(t)
+  }, [firstRun])
 
   // ---- Events from the Rust side ----
   useEffect(() => {
@@ -367,13 +389,7 @@ export function App() {
       setView({ kind: "prompt" })
     })
     const unNotice = listen<Notice>("notice", ({ payload }) => sayPersistent(payload.message))
-    const unFirst = listen("first-popup", () => {
-      setFirstRun((state) => {
-        if (state !== "show") return state
-        setTimeout(() => setFirstRun("hidden"), 6000)
-        return "done"
-      })
-    })
+    const unFirst = listen("first-popup", () => setFirstRun((state) => (state === "show" ? "done" : state)))
     // The popup writes too (create-from-clipboard, pins, use counts) — refresh
     const unChanged = listen<number>("snippets-changed", () => void reloadLibrary())
     // Tray Quit asks first so a pending autosave reaches disk; Rust exits on
