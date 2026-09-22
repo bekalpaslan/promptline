@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -29,6 +30,10 @@ struct AppState {
     // revision it was based on; if the file moved on since, the save is
     // refused rather than allowed to overwrite what it never saw.
     revision: Mutex<u64>,
+    // A pack file that can't be written is reported once per session, not
+    // on every autosave: the failure repeats on every write until the user
+    // fixes the folder, and a toast per keystroke would bury the manager.
+    pack_write_reported: AtomicBool,
 }
 
 /// The library plus the revision it was read at — what every snippet
@@ -188,8 +193,11 @@ struct PackMeta {
     name: String,
     #[serde(default)]
     locked: bool,
-    // File-backed packs: absolute path of the pack's own .json file. The app
-    // auto-writes shareable content there on every save; empty = not file-backed.
+    // File-backed packs: the pack's own .json file. On disk this is relative
+    // to `packs/` (`work.json`) so a restored, moved or roamed profile keeps
+    // every pack's file; a path outside `packs/` stays absolute. The frontend
+    // only ever sees it resolved (`get_config`) and may hand it back either
+    // way (`save_packs`). Empty = not file-backed.
     #[serde(default)]
     path: String,
 }
@@ -286,6 +294,53 @@ fn packs_dir(app: &AppHandle) -> PathBuf {
     dir
 }
 
+/// The file a `PackMeta.path` points at, as a path to open: a relative
+/// path lives under `packs/`, an absolute one is used as is, and an empty
+/// one (not file-backed) stays empty.
+fn resolve_pack_path(packs_dir: &Path, stored: &str) -> PathBuf {
+    let path = Path::new(stored);
+    if stored.is_empty() || path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        packs_dir.join(path)
+    }
+}
+
+/// The on-disk form of a pack file path: relative to `packs/` when the file
+/// lives there, absolute otherwise. Absolute paths used to be stored, and a
+/// profile restored under another user name or moved to another drive
+/// pointed every pack at a folder that no longer existed.
+fn relativize_pack_path(packs_dir: &Path, path: &Path) -> String {
+    match path.strip_prefix(packs_dir) {
+        Ok(rel) if !rel.as_os_str().is_empty() => rel.to_string_lossy().into_owned(),
+        _ => path.to_string_lossy().into_owned(),
+    }
+}
+
+/// Bring every pack path in `config` to its on-disk form. Returns whether
+/// anything changed, so a config written before 0.2.9 (absolute paths) is
+/// rewritten once and then left alone.
+fn normalize_pack_paths(config: &mut Config, packs_dir: &Path) -> bool {
+    let mut changed = false;
+    for pack in config.packs.iter_mut().filter(|p| !p.path.is_empty()) {
+        let stored = relativize_pack_path(packs_dir, &resolve_pack_path(packs_dir, &pack.path));
+        if stored != pack.path {
+            pack.path = stored;
+            changed = true;
+        }
+    }
+    changed
+}
+
+/// `config` as the frontend sees it: every pack path resolved to an
+/// absolute one it can display, read and show in a folder.
+fn with_resolved_pack_paths(mut config: Config, packs_dir: &Path) -> Config {
+    for pack in config.packs.iter_mut().filter(|p| !p.path.is_empty()) {
+        pack.path = resolve_pack_path(packs_dir, &pack.path).to_string_lossy().into_owned();
+    }
+    config
+}
+
 fn sanitize_pack_filename(name: &str) -> String {
     let mut s = String::new();
     for c in name.chars() {
@@ -319,22 +374,29 @@ fn is_reserved_device_name(stem: &str) -> bool {
 
 /// Create a pack's .json file and return its absolute path, without touching
 /// any file that already exists.
-fn new_pack_file(app: &AppHandle, name: &str) -> Result<String, String> {
+fn new_pack_file(app: &AppHandle, name: &str) -> Result<PathBuf, String> {
     let claimed = claimed_pack_paths(app);
     let (path, adopted) = pack_file_slot(&packs_dir(app), name, &claimed);
     // An adopted file already holds this pack's document, and may hold prompts
     // an agent wrote that are not in the library yet: never write over it
     if !adopted {
         let json = pack_doc_json(name, Vec::new()).map_err(|e| e.to_string())?;
-        write_atomic(&path, json.as_bytes()).map_err(|e| e.to_string())?;
+        write_atomic(&path, json.as_bytes()).map_err(|e| format!("{}: {e}", path.display()))?;
     }
-    Ok(path.to_string_lossy().into_owned())
+    Ok(path)
 }
 
-/// Every file some pack's metadata already points at.
+/// Every file some pack's metadata already points at, resolved.
 fn claimed_pack_paths(app: &AppHandle) -> Vec<String> {
+    let dir = packs_dir(app);
     load_config_from_disk(app)
-        .map(|c| c.packs.iter().filter(|p| !p.path.is_empty()).map(|p| p.path.clone()).collect())
+        .map(|c| {
+            c.packs
+                .iter()
+                .filter(|p| !p.path.is_empty())
+                .map(|p| resolve_pack_path(&dir, &p.path).to_string_lossy().into_owned())
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -402,28 +464,38 @@ fn ensure_packs_backed(app: &AppHandle) {
         return;
     };
 
+    let dir = packs_dir(app);
     let mut changed = false;
     for name in packs_in_play(&config, &snippets) {
         match config.packs.iter_mut().find(|p| p.name == name) {
             // Known pack, already backed
             Some(pm) if !pm.path.is_empty() => {}
             // Known pack that predates this, or whose file creation failed before
-            Some(pm) => {
-                if let Ok(path) = new_pack_file(app, &name) {
-                    pm.path = path;
+            Some(pm) => match new_pack_file(app, &name) {
+                Ok(path) => {
+                    pm.path = relativize_pack_path(&dir, &path);
                     changed = true;
                 }
-            }
+                Err(e) => eprintln!("[promptline] couldn't create the file for pack \"{name}\": {e}"),
+            },
             // Exists only as a name on a prompt — give it real metadata
             None => {
-                let path = new_pack_file(app, &name).unwrap_or_default();
+                let path = match new_pack_file(app, &name) {
+                    Ok(path) => relativize_pack_path(&dir, &path),
+                    Err(e) => {
+                        eprintln!("[promptline] couldn't create the file for pack \"{name}\": {e}");
+                        String::new()
+                    }
+                };
                 config.packs.push(PackMeta { name, locked: false, path });
                 changed = true;
             }
         }
     }
     if changed {
-        let _ = save_config(app, &config);
+        if let Err(e) = save_config(app, &config) {
+            eprintln!("[promptline] couldn't save the pack registry: {e}");
+        }
     }
 }
 
@@ -440,7 +512,40 @@ fn sync_pack_files(app: &AppHandle) {
     let Ok(snippets) = load_snippets_from_disk(app) else {
         return;
     };
-    write_pack_files(&config.packs, &snippets);
+    let dir = packs_dir(app);
+    let result = write_pack_files(&dir, &config.packs, &snippets);
+    if result.failed.is_empty() {
+        return;
+    }
+    for failure in &result.failed {
+        eprintln!("[promptline] pack file not written: {failure}");
+    }
+    // Once per session: the failure repeats on every autosave until the
+    // folder is fixed, and the library itself is safe in snippets.json
+    let reported = app
+        .try_state::<AppState>()
+        .map(|s| s.pack_write_reported.swap(true, Ordering::Relaxed))
+        .unwrap_or(true);
+    if !reported {
+        notify(
+            app,
+            "pack-write-failed",
+            format!(
+                "Couldn't write {} pack file(s) under {} ({}). Your prompts are safe in the library; the pack files are out of date until the folder can be written to.",
+                result.failed.len(),
+                dir.display(),
+                result.failed[0]
+            ),
+        );
+    }
+}
+
+/// What one pass of `write_pack_files` did: how many files changed, and
+/// which could not be written (`path: error`, for the log and the notice).
+#[derive(Default, Debug)]
+struct PackWrites {
+    written: usize,
+    failed: Vec<String>,
 }
 
 /// The shareable JSON for one pack, or None when the pack is empty.
@@ -491,19 +596,21 @@ fn pack_file_holds_only_drafts(path: &Path) -> bool {
 }
 
 /// Write every file-backed pack whose shareable content differs from what
-/// its file already holds; returns how many files were written. An autosave
-/// touches one prompt, so rewriting every pack file on every save only fed
-/// file watchers (the Generate dialog polls, editors and sync clients watch).
-fn write_pack_files(packs: &[PackMeta], snippets: &[Snippet]) -> usize {
-    let mut written = 0;
+/// its file already holds. An autosave touches one prompt, so rewriting
+/// every pack file on every save only fed file watchers (the Generate
+/// dialog polls, editors and sync clients watch). A file that can't be
+/// written is reported back, never silently skipped: the caller decides
+/// how loudly to say so.
+fn write_pack_files(packs_dir: &Path, packs: &[PackMeta], snippets: &[Snippet]) -> PackWrites {
+    let mut result = PackWrites::default();
     for pm in packs.iter().filter(|p| !p.path.is_empty()) {
-        let path = Path::new(&pm.path);
+        let path = resolve_pack_path(packs_dir, &pm.path);
         let json = match pack_file_json(pm, snippets) {
             Some(json) => json,
             // The pack is empty in the library. Leave the file alone (see
             // pack_file_json) unless all it holds is swept drafts, which
             // would otherwise linger there for good.
-            None => match pack_file_holds_only_drafts(path) {
+            None => match pack_file_holds_only_drafts(&path) {
                 true => match pack_doc_json(&pm.name, Vec::new()) {
                     Ok(json) => json,
                     Err(_) => continue,
@@ -511,14 +618,15 @@ fn write_pack_files(packs: &[PackMeta], snippets: &[Snippet]) -> usize {
                 false => continue,
             },
         };
-        if fs::read(path).map(|cur| cur == json.as_bytes()).unwrap_or(false) {
+        if fs::read(&path).map(|cur| cur == json.as_bytes()).unwrap_or(false) {
             continue;
         }
-        if write_atomic(path, json.as_bytes()).is_ok() {
-            written += 1;
+        match write_atomic(&path, json.as_bytes()) {
+            Ok(()) => result.written += 1,
+            Err(e) => result.failed.push(format!("{}: {e}", path.display())),
         }
     }
-    written
+    result
 }
 
 /// One-time migration from the v1 EasyPaste data directory: keep user-created
@@ -552,8 +660,10 @@ fn migrate_data_dir(app: &AppHandle) {
 
 /// Move every entry of `old_dir` into `new_dir`, skipping names the new
 /// folder already has (a second run, or a fresh library started before the
-/// move), then point the moved config's pack file paths, which are stored
-/// absolute, at the new folder. The old folder goes only once it is empty.
+/// move), then bring the moved config's pack file paths, which a config from
+/// before 0.2.9 stores absolute under the old folder, to their on-disk form
+/// (relative to `packs/`, see `relativize_pack_path`). The old folder goes
+/// only once it is empty.
 fn move_data_dir(old_dir: &Path, new_dir: &Path) -> std::io::Result<()> {
     fs::create_dir_all(new_dir)?;
     for entry in fs::read_dir(old_dir)? {
@@ -567,11 +677,17 @@ fn move_data_dir(old_dir: &Path, new_dir: &Path) -> std::io::Result<()> {
     let config_path = new_dir.join("config.json");
     if let Ok(text) = fs::read_to_string(&config_path) {
         if let Ok(mut config) = serde_json::from_str::<Config>(&text) {
+            let old_packs = old_dir.join("packs");
             let old_prefix = old_dir.to_string_lossy().to_string();
             let new_prefix = new_dir.to_string_lossy().to_string();
             let mut changed = false;
             for pack in &mut config.packs {
-                if let Some(rest) = pack.path.strip_prefix(&old_prefix) {
+                if let Ok(rel) = Path::new(&pack.path).strip_prefix(&old_packs) {
+                    pack.path = rel.to_string_lossy().into_owned();
+                    changed = true;
+                } else if let Some(rest) = pack.path.strip_prefix(&old_prefix) {
+                    // A file under the old folder but outside packs/ keeps an
+                    // absolute path, pointed at where it now is
                     pack.path = format!("{new_prefix}{rest}");
                     changed = true;
                 }
@@ -874,7 +990,15 @@ fn delete_snippet(
 fn load_config_from_disk(app: &AppHandle) -> Result<Config, String> {
     let path = config_path(app);
     match load_json_file::<Config>(&path)? {
-        Loaded::Present(c) => Ok(c),
+        Loaded::Present(mut c) => {
+            // A config from before 0.2.9 stores absolute pack paths; bring
+            // them to the relative form once, so the next move of the
+            // profile needs no rewrite at all
+            if normalize_pack_paths(&mut c, &packs_dir(app)) {
+                save_config(app, &c)?;
+            }
+            Ok(c)
+        }
         Loaded::Missing => Ok(Config::default()),
         Loaded::Quarantined { moved_to, error } => {
             notify(
@@ -939,10 +1063,13 @@ fn save_snippets(
     Ok(current_revision(&app))
 }
 
+/// The config with every pack path resolved: the frontend displays it,
+/// reads the file and shows it in its folder, and never sees the relative
+/// on-disk form.
 #[tauri::command]
 fn get_config(app: AppHandle, state: State<AppState>) -> Result<Config, String> {
     let _guard = state.store.lock().unwrap();
-    load_config_from_disk(&app)
+    Ok(with_resolved_pack_paths(load_config_from_disk(&app)?, &packs_dir(&app)))
 }
 
 fn save_config(app: &AppHandle, config: &Config) -> Result<(), String> {
@@ -989,13 +1116,25 @@ fn set_hotkey(app: AppHandle, state: State<AppState>, hotkey: String) -> Result<
 fn save_packs(app: AppHandle, state: State<AppState>, packs: Vec<PackMeta>) -> Result<(), String> {
     let _guard = state.store.lock().unwrap();
     let mut config = load_config_from_disk(&app)?;
+    let dir = packs_dir(&app);
+    // The frontend hands paths back as it got them (resolved) or as
+    // `create_pack_file` returned them (absolute); store the on-disk form
+    let packs: Vec<PackMeta> = packs
+        .into_iter()
+        .map(|mut p| {
+            if !p.path.is_empty() {
+                p.path = relativize_pack_path(&dir, &resolve_pack_path(&dir, &p.path));
+            }
+            p
+        })
+        .collect();
 
     // A pack whose file is no longer claimed by any pack has been deleted, so
     // its file goes to packs/deleted/. Compared by path, not by name: renaming
     // a pack drops its old name from this list while keeping the same file.
     for old in &config.packs {
         if !old.path.is_empty() && !packs.iter().any(|p| p.path == old.path) {
-            retire_pack_file(&app, &old.path);
+            retire_pack_file(&app, &resolve_pack_path(&dir, &old.path));
         }
     }
 
@@ -1009,8 +1148,7 @@ fn save_packs(app: AppHandle, state: State<AppState>, packs: Vec<PackMeta>) -> R
 /// file can hold prompts an agent wrote that were never imported — the same
 /// content sync_pack_files refuses to clobber — so deleting a pack in the app
 /// must not be able to destroy them.
-fn retire_pack_file(app: &AppHandle, path: &str) {
-    let src = PathBuf::from(path);
+fn retire_pack_file(app: &AppHandle, src: &Path) {
     if !src.is_file() {
         return;
     }
@@ -1027,7 +1165,7 @@ fn retire_pack_file(app: &AppHandle, path: &str) {
         dest = dir.join(format!("{stem}-{i}.json"));
         i += 1;
     }
-    let _ = fs::rename(&src, &dest);
+    let _ = fs::rename(src, &dest);
 }
 
 /// Rename a pack on its metadata and on every prompt in one step. Done in
@@ -1085,7 +1223,7 @@ fn rename_pack(
 /// Create a fresh file-backed pack file and return its absolute path.
 #[tauri::command]
 fn create_pack_file(app: AppHandle, name: String) -> Result<String, String> {
-    new_pack_file(&app, &name)
+    new_pack_file(&app, &name).map(|p| p.to_string_lossy().into_owned())
 }
 
 /// Create an empty scratch file under packs/generated/ for an agent to fill
@@ -1634,9 +1772,10 @@ mod tests {
     #[test]
     fn pack_files_are_written_only_when_their_content_changed() {
         let dir = temp_dir("packsync");
-        let path = dir.join("p.json").to_string_lossy().into_owned();
+        // P is stored the on-disk way, relative to packs/; the file is resolved
+        let path = dir.join("p.json");
         let packs = vec![
-            PackMeta { name: "P".into(), locked: false, path: path.clone() },
+            PackMeta { name: "P".into(), locked: false, path: "p.json".into() },
             PackMeta { name: "Empty".into(), locked: false, path: dir.join("empty.json").to_string_lossy().into_owned() },
             PackMeta { name: "Unbacked".into(), locked: false, path: String::new() },
         ];
@@ -1644,45 +1783,109 @@ mod tests {
         a.pack = "P".into();
         let mut snippets = vec![a];
         // First sync writes P; the empty pack never gets a file written
-        assert_eq!(write_pack_files(&packs, &snippets), 1);
+        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 1);
         assert!(!dir.join("empty.json").exists());
         let first = fs::read_to_string(&path).unwrap();
         assert!(first.contains("\"title\": \"A\""));
         // Nothing changed: nothing written
-        assert_eq!(write_pack_files(&packs, &snippets), 0);
+        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 0);
         assert_eq!(fs::read_to_string(&path).unwrap(), first);
         // A change to a P prompt writes P again (and only P)
         snippets[0].text = "changed".into();
-        assert_eq!(write_pack_files(&packs, &snippets), 1);
+        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 1);
         assert!(fs::read_to_string(&path).unwrap().contains("changed"));
         // Personal state never reaches the file
         snippets[0].uses = 9;
         snippets[0].pinned = true;
-        assert_eq!(write_pack_files(&packs, &snippets), 0);
+        assert_eq!(write_pack_files(&dir, &packs, &snippets).written, 0);
     }
 
     #[test]
     fn a_pack_file_left_holding_only_swept_drafts_is_emptied() {
         let dir = temp_dir("packdrafts");
-        let path = dir.join("d.json").to_string_lossy().into_owned();
-        let packs = vec![PackMeta { name: "D".into(), locked: false, path: path.clone() }];
+        let path = dir.join("d.json");
+        let packs = vec![PackMeta { name: "D".into(), locked: false, path: "d.json".into() }];
         let mut draft = snip("New prompt", "", "");
         draft.pack = "D".into();
         draft.tags.clear();
-        assert_eq!(write_pack_files(&packs, &[draft]), 1);
+        assert_eq!(write_pack_files(&dir, &packs, &[draft]).written, 1);
         assert!(fs::read_to_string(&path).unwrap().contains("New prompt"));
         // The manager's sweep removed the draft: the file follows
-        assert_eq!(write_pack_files(&packs, &[]), 1);
+        assert_eq!(write_pack_files(&dir, &packs, &[]).written, 1);
         let after: serde_json::Value = serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(after["prompts"].as_array().unwrap().len(), 0);
-        assert_eq!(write_pack_files(&packs, &[]), 0);
+        assert_eq!(write_pack_files(&dir, &packs, &[]).written, 0);
         // But a file with real content (an agent's, or a user-emptied pack)
         // is still never overwritten by an empty library view
         let mut real = snip("Real", "t", "body");
         real.pack = "D".into();
-        assert_eq!(write_pack_files(&packs, &[real]), 1);
-        assert_eq!(write_pack_files(&packs, &[]), 0);
+        assert_eq!(write_pack_files(&dir, &packs, &[real]).written, 1);
+        assert_eq!(write_pack_files(&dir, &packs, &[]).written, 0);
         assert!(fs::read_to_string(&path).unwrap().contains("Real"));
+    }
+
+    #[test]
+    fn a_pack_file_that_cannot_be_written_is_reported_not_skipped() {
+        let dir = temp_dir("packfail");
+        // The pack's folder is gone (a moved profile, a deleted subfolder)
+        let packs = vec![
+            PackMeta { name: "Gone".into(), locked: false, path: dir.join("missing").join("gone.json").to_string_lossy().into_owned() },
+            PackMeta { name: "Fine".into(), locked: false, path: "fine.json".into() },
+        ];
+        let mut gone = snip("A", "t", "body");
+        gone.pack = "Gone".into();
+        let mut fine = snip("B", "t", "body");
+        fine.pack = "Fine".into();
+        let result = write_pack_files(&dir, &packs, &[gone, fine]);
+        // The good file is still written; the bad one is named with its error
+        assert_eq!(result.written, 1);
+        assert!(dir.join("fine.json").exists());
+        assert_eq!(result.failed.len(), 1);
+        assert!(result.failed[0].contains("gone.json"), "{}", result.failed[0]);
+    }
+
+    #[test]
+    fn pack_paths_are_stored_relative_to_packs_and_resolved_back() {
+        let packs = PathBuf::from(if cfg!(windows) { "C:\\data\\packs" } else { "/data/packs" });
+        let elsewhere = PathBuf::from(if cfg!(windows) { "D:\\shared\\team.json" } else { "/shared/team.json" });
+        // Under packs/: relative on disk, the same file when resolved
+        assert_eq!(relativize_pack_path(&packs, &packs.join("work.json")), "work.json");
+        assert_eq!(resolve_pack_path(&packs, "work.json"), packs.join("work.json"));
+        let nested = packs.join("generated").join("g.json");
+        let rel = relativize_pack_path(&packs, &nested);
+        assert_eq!(resolve_pack_path(&packs, &rel), nested);
+        // Elsewhere: absolute both ways
+        assert_eq!(relativize_pack_path(&packs, &elsewhere), elsewhere.to_string_lossy());
+        assert_eq!(resolve_pack_path(&packs, &elsewhere.to_string_lossy()), elsewhere);
+        // Not file-backed stays empty, and packs/ itself is never "relative to itself"
+        assert_eq!(resolve_pack_path(&packs, ""), PathBuf::new());
+        assert_eq!(relativize_pack_path(&packs, &packs), packs.to_string_lossy());
+    }
+
+    #[test]
+    fn absolute_pack_paths_under_packs_migrate_to_relative_once() {
+        let packs = PathBuf::from(if cfg!(windows) { "C:\\data\\packs" } else { "/data/packs" });
+        let elsewhere = if cfg!(windows) { "D:\\shared\\team.json" } else { "/shared/team.json" };
+        let mut config = Config::default();
+        config.packs.push(PackMeta { name: "Work".into(), locked: false, path: packs.join("work.json").to_string_lossy().into_owned() });
+        config.packs.push(PackMeta { name: "Team".into(), locked: true, path: elsewhere.into() });
+        config.packs.push(PackMeta { name: "Already".into(), locked: false, path: "already.json".into() });
+        config.packs.push(PackMeta { name: "None".into(), locked: false, path: String::new() });
+        // A config from before 0.2.9: the path under packs/ becomes relative,
+        // the one elsewhere is kept absolute, the rest are untouched
+        assert!(normalize_pack_paths(&mut config, &packs));
+        assert_eq!(config.packs[0].path, "work.json");
+        assert_eq!(config.packs[1].path, elsewhere);
+        assert_eq!(config.packs[2].path, "already.json");
+        assert_eq!(config.packs[3].path, "");
+        // Once migrated, a load changes nothing (and so writes nothing)
+        assert!(!normalize_pack_paths(&mut config, &packs));
+        // The frontend always gets absolute paths, whatever is stored
+        let resolved = with_resolved_pack_paths(config, &packs);
+        assert_eq!(resolved.packs[0].path, packs.join("work.json").to_string_lossy());
+        assert_eq!(resolved.packs[1].path, elsewhere);
+        assert_eq!(resolved.packs[2].path, packs.join("already.json").to_string_lossy());
+        assert_eq!(resolved.packs[3].path, "");
     }
 
     #[test]
@@ -1727,8 +1930,10 @@ mod tests {
         assert!(new.join("packs").join("work.json").exists());
         assert!(!old.exists(), "the emptied old folder goes");
         let moved: Config = serde_json::from_str(&fs::read_to_string(new.join("config.json")).unwrap()).unwrap();
-        let expected = new.join("packs").join("work.json").to_string_lossy().to_string();
-        assert_eq!(moved.packs[0].path, expected);
+        // The old absolute path becomes the on-disk form, which resolves to
+        // the moved file
+        assert_eq!(moved.packs[0].path, "work.json");
+        assert_eq!(resolve_pack_path(&new.join("packs"), &moved.packs[0].path), new.join("packs").join("work.json"));
 
         // A second run never overwrites what the new folder already holds
         fs::create_dir_all(&old).unwrap();
