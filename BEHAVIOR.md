@@ -600,6 +600,14 @@ a hand-edited config with one would capture that letter system-wide, so
 `set_hotkey` returns an error and `resolve_hotkey` falls back to the
 default, the same as for a string that doesn't parse at all.
 
+The recorder in Settings emits only what `parse_hotkey` reads
+(`hotkeyFromEvent` in `ui/core.js`: the held modifiers in a fixed order,
+then a letter, digit, F1–F12, punctuation or named key such as `space` or
+`arrowup`), and a Rust test parses every entry of that vocabulary with
+every modifier. A keydown whose key the parser has no name for — Shift+1
+arrives as `!`, a dead key as `Dead` — is refused at the recorder with a
+message; it used to be recorded and fail at Apply.
+
 ## Theming
 
 `.dark` on `<html>` swaps CSS custom properties. It also sets `color-scheme`,

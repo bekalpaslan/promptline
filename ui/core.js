@@ -605,6 +605,69 @@
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
   }
 
+  // ---- Import curation -------------------------------------------------------------
+  // The review list an import shows: one row per prompt of every pack
+  // parsed, marked `dupe` when the library already holds a prompt with the
+  // same title and text. A dupe starts excluded; everything else included.
+  function importRows(packs, library) {
+    const isDupe = p => library.some(s => s.title === p.title && s.text === p.text);
+    const rows = [];
+    for (const pk of packs) {
+      for (const p of pk.prompts) {
+        const dupe = isDupe(p);
+        rows.push({ packName: pk.name, title: p.title, text: p.text, tags: p.tags, group: p.group, dupe, include: !dupe });
+      }
+    }
+    return rows;
+  }
+
+  // What the import adds: the included rows as prompts (without ids or
+  // personal state, which the caller supplies), each in its pack — or in
+  // `targetName` when the user renamed a single-pack import — skipping and
+  // counting the ones bound for a locked pack.
+  function curateImport(rows, isLocked, targetName) {
+    const target = (targetName || '').trim();
+    const prompts = [];
+    let skippedLocked = 0;
+    for (const r of rows) {
+      if (!r.include) continue;
+      const pack = target || r.packName;
+      if (isLocked(pack)) { skippedLocked++; continue; }
+      prompts.push({ title: r.title, text: r.text, tags: r.tags, pack, group: r.group });
+    }
+    return { prompts, skippedLocked };
+  }
+
+  // ---- The hotkey recorder ---------------------------------------------------------
+  // The combination a keydown stands for, in the form config.json holds
+  // and Rust's parse_hotkey reads ("ctrl+shift+v"): the held modifiers in
+  // a fixed order, then the key. Null when there is nothing to record: no
+  // key, a modifier alone, no modifier at all (a bare key would fire while
+  // typing), or a key the parser has no name for. The key vocabulary is
+  // exactly what global-hotkey accepts (lib.rs tests parse every entry
+  // of it), so Apply can never be refused for a key the recorder emitted:
+  // letters and digits, F1–F12, the punctuation keys, and the named keys
+  // below. Shift+1 arrives as "!" and Shift+, as "<", which no parser
+  // names, so those are refused rather than recorded.
+  const HOTKEY_NAMED_KEYS = [
+    'space', 'enter', 'backspace', 'delete', 'insert', 'home', 'end', 'pageup', 'pagedown',
+    'arrowup', 'arrowdown', 'arrowleft', 'arrowright',
+  ];
+  const HOTKEY_PUNCTUATION = ",.;/-='`[]\\";
+  function hotkeyKeyName(key) {
+    if (!key) return null;
+    const k = key === ' ' ? 'space' : key.toLowerCase();
+    if (/^[a-z0-9]$/.test(k) || /^f([1-9]|1[0-2])$/.test(k) || HOTKEY_NAMED_KEYS.includes(k)) return k;
+    if (k.length === 1 && HOTKEY_PUNCTUATION.includes(k)) return k;
+    return null;
+  }
+  function hotkeyFromEvent(e) {
+    const mods = [e.ctrlKey && 'ctrl', e.altKey && 'alt', e.shiftKey && 'shift', e.metaKey && 'super'].filter(Boolean);
+    const key = hotkeyKeyName(e.key);
+    if (!mods.length || !key) return null;
+    return [...mods, key].join('+');
+  }
+
   // ---- Clipboard in previews --------------------------------------------------
   // What a preview shows in place of {clipboard}: the clipboard as it is
   // now, whitespace collapsed to one line and cut at `max` characters with
@@ -715,6 +778,10 @@
     freeName,
     groupsIn,
     tagsByCount,
+    importRows,
+    curateImport,
+    hotkeyKeyName,
+    hotkeyFromEvent,
     clipboardPreview,
     expandForCopy,
     titleFromClipboard,

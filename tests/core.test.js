@@ -883,3 +883,73 @@ test('groupKey is a pack and a label with a separator no name can hold', () => {
   assert.equal(core.groupKey('Work', 'G'), 'Work\u0000G');
   assert.notEqual(core.groupKey('Work G', ''), core.groupKey('Work', 'G'));
 });
+
+// ---- import curation ------------------------------------------------------------------
+
+test('importRows marks a prompt the library already holds as a dupe, unticked', () => {
+  const library = [{ title: 'Same', text: 'body' }, { title: 'Same title', text: 'other body' }];
+  const packs = [
+    { name: 'A', prompts: [{ title: 'Same', text: 'body', tags: ['t'], group: 'G' }, { title: 'Same title', text: 'body', tags: [], group: '' }] },
+    { name: 'B', prompts: [{ title: 'New', text: 'x', tags: [], group: '' }] },
+  ];
+  const rows = core.importRows(packs, library);
+  assert.deepEqual(rows.map((r) => [r.packName, r.title, r.dupe, r.include]), [
+    ['A', 'Same', true, false],
+    ['A', 'Same title', false, true], // same title, different text: not a dupe
+    ['B', 'New', false, true],
+  ]);
+  assert.deepEqual(rows[0], { packName: 'A', title: 'Same', text: 'body', tags: ['t'], group: 'G', dupe: true, include: false });
+});
+
+test('curateImport adds the ticked rows, renames a single-pack import, and skips locked packs', () => {
+  const rows = [
+    { packName: 'A', title: 'a1', text: 'x', tags: ['t'], group: 'G', dupe: false, include: true },
+    { packName: 'A', title: 'a2', text: 'x', tags: [], group: '', dupe: true, include: false },
+    { packName: 'Locked', title: 'l1', text: 'x', tags: [], group: '', dupe: false, include: true },
+  ];
+  const isLocked = (p) => p === 'Locked';
+  // Every row keeps its own pack; the unticked one stays out, the locked one is counted
+  assert.deepEqual(core.curateImport(rows, isLocked), {
+    prompts: [{ title: 'a1', text: 'x', tags: ['t'], pack: 'A', group: 'G' }],
+    skippedLocked: 1,
+  });
+  // A target name (single-pack import) takes every row, so a locked target skips them all
+  assert.deepEqual(core.curateImport(rows, isLocked, ' Mine ').prompts.map((p) => p.pack), ['Mine', 'Mine']);
+  assert.deepEqual(core.curateImport(rows, isLocked, 'Locked'), { prompts: [], skippedLocked: 2 });
+  // A blank target means "as named"
+  assert.equal(core.curateImport(rows, isLocked, '  ').prompts[0].pack, 'A');
+});
+
+// ---- the hotkey recorder ---------------------------------------------------------------
+
+test('hotkeyFromEvent emits modifiers in a fixed order, then the key, or null', () => {
+  const ev = (key, mods = {}) => ({ ctrlKey: false, altKey: false, shiftKey: false, metaKey: false, key, ...mods });
+  assert.equal(core.hotkeyFromEvent(ev('V', { ctrlKey: true, shiftKey: true })), 'ctrl+shift+v');
+  assert.equal(core.hotkeyFromEvent(ev('v', { shiftKey: true, ctrlKey: true, altKey: true, metaKey: true })), 'ctrl+alt+shift+super+v');
+  assert.equal(core.hotkeyFromEvent(ev(' ', { ctrlKey: true, altKey: true })), 'ctrl+alt+space');
+  assert.equal(core.hotkeyFromEvent(ev('F5', { altKey: true })), 'alt+f5');
+  assert.equal(core.hotkeyFromEvent(ev('ArrowUp', { metaKey: true })), 'super+arrowup');
+  assert.equal(core.hotkeyFromEvent(ev(',', { ctrlKey: true })), 'ctrl+,');
+  // Nothing to record: a bare key, a modifier alone, no key
+  assert.equal(core.hotkeyFromEvent(ev('a')), null);
+  assert.equal(core.hotkeyFromEvent(ev('Control', { ctrlKey: true })), null);
+  assert.equal(core.hotkeyFromEvent(ev('', { ctrlKey: true })), null);
+  assert.equal(core.hotkeyFromEvent(ev(undefined, { ctrlKey: true })), null);
+  // A key the parser has no name for: Shift+1 arrives as "!", a dead key as "Dead"
+  assert.equal(core.hotkeyFromEvent(ev('!', { ctrlKey: true, shiftKey: true })), null);
+  assert.equal(core.hotkeyFromEvent(ev('Dead', { ctrlKey: true })), null);
+  assert.equal(core.hotkeyFromEvent(ev('ü', { ctrlKey: true })), null);
+  assert.equal(core.hotkeyFromEvent(ev('Tab', { ctrlKey: true })), null);
+});
+
+test('hotkeyKeyName is the vocabulary lib.rs parses: letters, digits, F1–F12, punctuation, named keys', () => {
+  for (const k of 'abcdefghijklmnopqrstuvwxyz0123456789') assert.equal(core.hotkeyKeyName(k), k);
+  assert.equal(core.hotkeyKeyName('Q'), 'q');
+  for (let n = 1; n <= 12; n++) assert.equal(core.hotkeyKeyName(`F${n}`), `f${n}`);
+  assert.equal(core.hotkeyKeyName('F13'), null);
+  for (const k of ",.;/-='`[]\\") assert.equal(core.hotkeyKeyName(k), k);
+  for (const k of ['Space', 'Enter', 'Backspace', 'Delete', 'Insert', 'Home', 'End', 'PageUp', 'PageDown', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'])
+    assert.equal(core.hotkeyKeyName(k), k.toLowerCase());
+  assert.equal(core.hotkeyKeyName(' '), 'space');
+  for (const k of ['!', '<', 'Escape', 'Tab', 'CapsLock', 'Unidentified', '', undefined]) assert.equal(core.hotkeyKeyName(k), null);
+});

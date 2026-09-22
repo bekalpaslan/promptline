@@ -98,15 +98,19 @@ export function Settings() {
       setRecordPreview(held ? held + "+…" : "")
       return
     }
-    const parts = [e.ctrlKey && "ctrl", e.altKey && "alt", e.shiftKey && "shift", e.metaKey && "super"].filter(
-      (p): p is string => !!p
-    )
-    const key = e.key === " " ? "space" : e.key.toLowerCase()
-    parts.push(key)
-    const combo = parts.join("+")
-    if (parts.length < 2) {
-      setRecordPreview(C.fmtHotkey(combo))
-      sayErr("Add a modifier (Ctrl/Alt/Shift) — bare keys would fire while typing")
+    // The combination in the form Rust registers (C.hotkeyFromEvent); null
+    // is a bare key, or a key the parser has no name for (Shift+1 arrives
+    // as "!"), which is refused here rather than at Apply
+    const combo = C.hotkeyFromEvent(e)
+    if (!combo) {
+      const key = C.hotkeyKeyName(e.key)
+      if (!key) {
+        setRecordPreview("")
+        sayErr(`"${e.key}" can't be part of a hotkey — use a letter, digit, F-key, arrow or punctuation key`)
+      } else {
+        setRecordPreview(C.fmtHotkey(key))
+        sayErr("Add a modifier (Ctrl/Alt/Shift) — bare keys would fire while typing")
+      }
       return
     }
     // Recorded, not applied: Apply registers it, Cancel drops it

@@ -1,22 +1,12 @@
 import { useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
-import { C, type Snippet } from "@/lib/core"
+import { C, type ImportRow as Row, type Snippet } from "@/lib/core"
 import { Chip } from "@/components/prompt-bits"
 import { fieldVariants } from "@/components/field"
 import { cn } from "@/lib/utils"
 import { useManager } from "./state"
 import { say, sayErr } from "./status"
-
-interface Row {
-  packName: string
-  title: string
-  text: string
-  tags: string[]
-  group: string
-  dupe: boolean
-  include: boolean
-}
 
 // Import preview as a curation list: every prompt is reviewed (and can be
 // excluded) before anything lands in the library. Shared by Settings → library
@@ -47,18 +37,8 @@ export function ImportCuration({
     const name = diag.packs[0].name
     return name === "Imported" && defaultName ? defaultName : name
   })
-  const rowsFor = (d: typeof diag): Row[] => {
-    if (!d.ok) return []
-    const isDupe = (p: { title: string; text: string }) =>
-      m.snippets.some((s) => s.title === p.title && s.text === p.text)
-    const out: Row[] = []
-    for (const pk of d.packs)
-      for (const p of pk.prompts) {
-        const dupe = isDupe(p)
-        out.push({ packName: pk.name, ...p, dupe, include: !dupe })
-      }
-    return out
-  }
+  // One row per prompt; a dupe (same title and text in the library) starts unticked
+  const rowsFor = (d: typeof diag): Row[] => (d.ok ? C.importRows(d.packs, m.snippets) : [])
   const [rows, setRows] = useState<Row[]>(() => rowsFor(diag))
 
   if (!diag.ok) {
@@ -97,37 +77,24 @@ export function ImportCuration({
 
   const confirm = async () => {
     if (busy) return
-    const target = (name: string) => (singlePack ? packName.trim() || name : name)
     if (singlePack && m.isLocked(packName.trim())) {
       sayErr(`Pack "${packName.trim()}" is locked — pick another name`)
       return
     }
     setBusy(true)
-    let added = 0
-    let skippedLocked = 0
-    const fresh: Snippet[] = []
-    for (const r of rows) {
-      if (!r.include) continue
-      const pack = target(r.packName)
-      if (m.isLocked(pack)) {
-        skippedLocked++
-        continue
-      }
-      fresh.push({
-        id: crypto.randomUUID(),
-        title: r.title,
-        text: r.text,
-        tags: r.tags,
-        pack,
-        group: r.group,
-        uses: 0,
-        pinned: false,
-        pinnedAt: 0,
-        fieldValues: {},
-        configValues: {},
-      })
-      added++
-    }
+    // A single-pack import lands in the name typed above; a prompt bound
+    // for a locked pack is skipped and counted (C.curateImport)
+    const { prompts, skippedLocked } = C.curateImport(rows, m.isLocked, singlePack ? packName : undefined)
+    const added = prompts.length
+    const fresh: Snippet[] = prompts.map((p) => ({
+      id: crypto.randomUUID(),
+      ...p,
+      uses: 0,
+      pinned: false,
+      pinnedAt: 0,
+      fieldValues: {},
+      configValues: {},
+    }))
     try {
       // Appended to the current library, not this render's copy
       await m.persist((cur) => [...cur, ...fresh])

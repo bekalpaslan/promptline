@@ -82,6 +82,16 @@ export type TreeRow =
   | { key: string; kind: "group"; pack: string; group: string; count: number; level: 2; expanded: boolean; hasChildren: boolean; parent: string }
   | { key: string; kind: "prompt"; id: string; level: 1 | 2 | 3; parent?: string }
 
+/** One prompt of an import under review: where it goes, whether the library has it, whether it is ticked */
+export interface ImportRow extends ParsedPrompt {
+  packName: string
+  dupe: boolean
+  include: boolean
+}
+
+/** The modifier flags and key of a keydown, as the hotkey recorder reads them */
+export type HotkeyEvent = Pick<KeyboardEvent, "ctrlKey" | "altKey" | "shiftKey" | "metaKey" | "key">
+
 /** A removed item and the index it sat at, for Undo */
 export interface Removed<T> {
   item: T
@@ -185,6 +195,14 @@ interface PromptlineCore {
   groupsIn(snippets: Pick<Snippet, "pack" | "group">[], pack: string, defaultPack: string): string[]
   /** Every tag in the library, most used first */
   tagsByCount(snippets: Pick<Snippet, "tags">[]): string[]
+  /** An import's review rows: a prompt the library already has (same title and text) is a dupe, unticked */
+  importRows(packs: ParsedPack[], library: Pick<Snippet, "title" | "text">[]): ImportRow[]
+  /** The ticked rows as prompts to add, renamed into `targetName` when given, minus those bound for a locked pack */
+  curateImport(rows: ImportRow[], isLocked: (pack: string) => boolean, targetName?: string): { prompts: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">[]; skippedLocked: number }
+  /** A keydown's key in the hotkey vocabulary (" " is "space"), or null for one the parser has no name for */
+  hotkeyKeyName(key: string | undefined): string | null
+  /** The combination a keydown stands for ("ctrl+shift+v"), or null: no key, a modifier alone, no modifier, or an unnameable key */
+  hotkeyFromEvent(e: HotkeyEvent): string | null
   /** What a preview shows for {clipboard}: one line, cut at `max` (240), or "(clipboard is empty)" */
   clipboardPreview(clip: string | null | undefined, max?: number): string
   /** What a paste would produce, minus the fill-in form: config and built-ins expanded, the clipboard substituted, {field}s kept */

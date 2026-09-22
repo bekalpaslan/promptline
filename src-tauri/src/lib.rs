@@ -3259,6 +3259,47 @@ mod tests {
     }
 
     #[test]
+    fn every_key_the_recorder_can_emit_parses_as_a_hotkey() {
+        // The vocabulary of hotkeyKeyName in ui/core.js, kept in step by
+        // hand: the recorder refuses anything outside it, so Apply can never
+        // be refused for a key the recorder handed over
+        let mut keys: Vec<String> = ('a'..='z').map(String::from).collect();
+        keys.extend(('0'..='9').map(String::from));
+        keys.extend((1..=12).map(|n| format!("f{n}")));
+        keys.extend(",.;/-='`[]\\".chars().map(String::from));
+        keys.extend(
+            [
+                "space",
+                "enter",
+                "backspace",
+                "delete",
+                "insert",
+                "home",
+                "end",
+                "pageup",
+                "pagedown",
+                "arrowup",
+                "arrowdown",
+                "arrowleft",
+                "arrowright",
+            ]
+            .map(String::from),
+        );
+        assert_eq!(keys.len(), 26 + 10 + 12 + 11 + 13);
+        for key in &keys {
+            for mods in ["ctrl", "alt", "shift", "super", "ctrl+alt+shift+super"] {
+                let combo = format!("{mods}+{key}");
+                assert!(parse_hotkey(&combo).is_ok(), "{combo}");
+            }
+        }
+        // What the recorder refuses (Shift+1 arrives as "!", a dead key as
+        // "Dead") would have been refused here
+        for combo in ["ctrl+!", "ctrl+<", "ctrl+dead", "ctrl+ü", "ctrl+tab+"] {
+            assert!(parse_hotkey(combo).is_err(), "{combo}");
+        }
+    }
+
+    #[test]
     fn an_empty_draft_backs_no_pack() {
         let mut config = Config::default();
         config.packs.push(PackMeta {
