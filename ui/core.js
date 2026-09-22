@@ -11,8 +11,11 @@
   const RESERVED = ['clipboard', 'date', 'time'];
   const TOKEN_RE_SRC = '\\{\\{([a-zA-Z0-9_]+)\\}\\}|\\{([a-zA-Z0-9_]+)\\}';
 
+  // A name is lowercase letters, digits and underscores, never starting with
+  // a digit: {goal_2} is a field, while {0} and {1} (format-string slots in
+  // pasted code) stay literal text, as do capitals ({Goal}).
   function isValidParam(name) {
-    return /^[a-z_]+$/.test(name);
+    return /^[a-z_][a-z0-9_]*$/.test(name);
   }
 
   // Tokenize prompt text into parts for preview rendering.
@@ -33,6 +36,19 @@
     }
     if (last < text.length) parts.push({ type: 'text', value: text.slice(last) });
     return parts;
+  }
+
+  // The name for another copy of a field that asks for its own value: the
+  // same stem with the next free number, from 2 ({goal} -> {goal_2}, and
+  // {goal_2} -> {goal_3} while {goal_2} is taken). The stem is the name less
+  // a trailing _<n>, so every copy counts from the same first. Every name in
+  // the text (fields and config params) counts as taken.
+  function nextCopyName(name, text) {
+    const stem = name.replace(/_\d+$/, '') || name;
+    const taken = new Set(tokenize(text || '').filter(t => t.type !== 'text').map(t => t.name));
+    let n = 2;
+    while (taken.has(`${stem}_${n}`)) n++;
+    return `${stem}_${n}`;
   }
 
   // Runtime fill-in fields (valid, non-reserved, single-brace), in order, unique.
@@ -57,12 +73,12 @@
   // so callers can downgrade them to fill-in fields instead of pasting holes.
   function expandConfig(text, configValues) {
     const values = configValues || {};
-    return text.replace(/\{\{([a-z_]+)\}\}/g, (match, name) => (values[name] ? values[name] : match));
+    return text.replace(/\{\{([a-z_][a-z0-9_]*)\}\}/g, (match, name) => (values[name] ? values[name] : match));
   }
 
   // Unset config params become runtime fields for this paste.
   function downgradeUnsetConfig(text) {
-    return text.replace(/\{\{([a-z_]+)\}\}/g, '{$1}');
+    return text.replace(/\{\{([a-z_][a-z0-9_]*)\}\}/g, '{$1}');
   }
 
   // Fields the popup will actually ask for when this snippet is picked:
@@ -77,7 +93,7 @@
   // replacement pattern. Names without a value are left as they are.
   function fillFields(text, values) {
     const v = values || {};
-    return text.replace(/\{([a-z_]+)\}/g, (match, name) =>
+    return text.replace(/\{([a-z_][a-z0-9_]*)\}/g, (match, name) =>
       Object.prototype.hasOwnProperty.call(v, name) ? v[name] : match);
   }
 
@@ -502,6 +518,7 @@
     isValidParam,
     tokenize,
     customFields,
+    nextCopyName,
     configNames,
     expandConfig,
     downgradeUnsetConfig,

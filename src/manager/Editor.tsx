@@ -98,10 +98,12 @@ function DeleteBadge({ onDelete }: { onDelete: () => void }) {
   )
 }
 
-// A parameter name is lowercase letters and underscores (BEHAVIOR.md); what
-// the user typed is folded into that, and the fold is shown before Enter
-// rather than discovered in the chip afterwards
-const paramName = (raw: string) => raw.trim().toLowerCase().replace(/[^a-z_]+/g, "_").replace(/^_+|_+$/g, "")
+// A parameter name is lowercase letters, digits and underscores, never
+// starting with a digit (isValidParam in core); what the user typed is folded
+// into that, and the fold is shown before Enter rather than discovered in
+// the chip afterwards
+const paramName = (raw: string) =>
+  raw.trim().toLowerCase().replace(/[^a-z0-9_]+/g, "_").replace(/^[_0-9]+|_+$/g, "")
 
 function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name: string) => void }) {
   const [raw, setRaw] = useState("")
@@ -125,7 +127,7 @@ function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name:
       />
       {differs && (
         <span className="text-xs text-muted-foreground" role="status">
-          {name ? `will insert {${name}}` : "lowercase letters and _ only"}
+          {name ? `will insert {${name}}` : "lowercase letters, digits and _ only"}
         </span>
       )}
     </span>
@@ -159,7 +161,7 @@ function TokenPreview({
         let label: string
         const cls = TOKEN_CHIP[part.type]
         if (part.type === "bad") {
-          label = `${part.name} — not a param (lowercase letters/_ only)`
+          label = `${part.name} — not a param (lowercase letters, digits and _, not starting with a digit)`
         } else if (part.type === "builtin" && part.name === "clipboard" && clipboard !== null) {
           // {clipboard} expands at paste time (BEHAVIOR.md): the preview
           // shows what would go in now, on the builtin's tint so it still
@@ -411,16 +413,31 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           onAdd={() => insertParam(name, false)}
         />
       )
+    // Writing {goal} twice pastes one value in both places; a field that
+    // should ask again gets a numbered copy ({goal_2}), which + inserts
+    const copy = isBuiltin ? null : C.nextCopyName(name, text)
     return (
       <span
         key={name}
         title={`{${name}} is in the prompt — Edit to remove`}
         className={cn(
-          "relative select-none rounded-sm border border-transparent px-2.5 py-0.5 text-xs font-medium",
+          "relative flex select-none items-center gap-1 rounded-sm border border-transparent py-0.5 text-xs font-medium",
+          copy && !editing ? "pr-1 pl-2.5" : "px-2.5",
           isBuiltin ? TOKEN_CHIP.builtin : TOKEN_CHIP.field
         )}
       >
         {`{${name}}`}
+        {copy && !editing && (
+          <button
+            type="button"
+            title={`Insert {${copy}}: another ${copy.replace(/_\d+$/, "")} with its own value (writing {${name}} again reuses the same one)`}
+            aria-label={`Insert {${copy}}`}
+            className="flex cursor-pointer rounded-sm opacity-70 hover:bg-background/40 hover:opacity-100"
+            onClick={() => insertParam(copy, false)}
+          >
+            <RiAddLine className="size-3" />
+          </button>
+        )}
         {editing && <DeleteBadge onDelete={() => removeParam(name)} />}
       </span>
     )
@@ -764,7 +781,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         <p className="text-ui leading-relaxed text-muted-foreground">
           <code>{"{clipboard}"}</code> <code>{"{date}"}</code> <code>{"{time}"}</code> fill themselves ·{" "}
           <code>{"{field}"}</code> asks each time · <code>{"{{config}}"}</code> uses the value saved under
-          Advanced options · names are lowercase letters and _ only
+          Advanced options · names are lowercase letters, digits and _
         </p>
         {/* The field's gray fills the card below the header, edge to edge */}
         <TokenPreview text={text} configValues={configValues} clipboard={clip} className="-mx-3 rounded-none" />
