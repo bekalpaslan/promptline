@@ -200,9 +200,11 @@ npm run test:rust  # Rust unit tests (cargo test)
 npm run lint       # ESLint over the whole tree (`npx eslint src` for the app alone)
 ```
 
-CI (`.github/workflows/ci.yml`) runs lint, typecheck, the frontend build and
-both test suites on every push and pull request. See [Install](#install) for
-the unsigned-installer caveat.
+CI (`.github/workflows/ci.yml`) runs lint, typecheck, the frontend build,
+`cargo fmt`/`clippy` and both test suites on every push and pull request; a
+`v*` tag also builds both installers and keeps them as workflow artefacts
+(the release itself is still made by hand). See [Install](#install) for the
+unsigned-installer caveat.
 
 The frontend is a two-entry Vite app (`index.html` → manager window,
 `popup.html` → popup window) under `src/`. Shared pure logic lives in
