@@ -553,9 +553,18 @@ marks what is selected and nothing else.
 ## Windows-specific code
 
 Confined to the `platform` module in `lib.rs`: `foreground_window`,
-`focus_window`, `send_ctrl_v`, `left_button_down`. Everything else is portable.
-A macOS port reimplements that module (CGEventPost, plus the Accessibility
-permission) and nothing else.
+`focus_window`, `send_ctrl_v`, `left_button_down`, `open_url`. Everything
+else is portable. A macOS port reimplements that module (CGEventPost, plus
+the Accessibility permission) and nothing else.
+
+**What the webview may point Rust at.** `read_pack_file` and
+`show_in_folder` take a path from the frontend and admit it only when it
+canonicalises to a file under the data folder (`path_within`, so `..` and
+junctions can't escape); every path the frontend can know comes from
+there. `open_url` takes https only and hands the URL to `ShellExecuteW` as
+one string, where the earlier `explorer <url>` let explorer parse the
+string as its own command line. None of this matters unless the bundle
+is compromised, which is the case it is for.
 
 One oddity lives outside it: the popup hides on blur, but starting a
 border-resize drag on an undecorated window *is* a blur, which would slam the

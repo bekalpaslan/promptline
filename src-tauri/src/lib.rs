@@ -1312,37 +1312,58 @@ fn create_generated_file(app: AppHandle) -> Result<String, String> {
     Ok(path.to_string_lossy().into_owned())
 }
 
-#[tauri::command]
-fn read_pack_file(path: String) -> Result<String, String> {
-    fs::read_to_string(&path).map_err(|e| format!("{path}: {e}"))
+/// `path`, canonicalised, when it is an existing file under `base`; an error
+/// naming the reason otherwise. Canonicalising first is what makes `..` and
+/// a junction unable to escape. Windows' canonical form carries a `\\?\`
+/// prefix that explorer.exe does not take, so it is stripped again.
+fn path_within(base: &Path, path: &str) -> Result<PathBuf, String> {
+    let full = fs::canonicalize(path).map_err(|e| format!("{path}: {e}"))?;
+    let base = fs::canonicalize(base).map_err(|e| format!("{}: {e}", base.display()))?;
+    if !full.starts_with(&base) {
+        return Err(format!("{path} is outside the Promptline data folder"));
+    }
+    let text = full.to_string_lossy();
+    Ok(PathBuf::from(text.strip_prefix(r"\\?\").unwrap_or(&text)))
+}
+
+/// A path the frontend hands back, admitted only when it is under the data
+/// folder: every path it can know comes from there (`get_config`,
+/// `create_pack_file`, `create_generated_file`), and a webview that had
+/// been compromised must not be able to read or reveal anything else.
+fn data_file(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
+    path_within(&data_dir(app), path)
 }
 
 #[tauri::command]
-fn show_in_folder(path: String) {
+fn read_pack_file(app: AppHandle, path: String) -> Result<String, String> {
+    let path = data_file(&app, &path)?;
+    fs::read_to_string(&path).map_err(|e| format!("{}: {e}", path.display()))
+}
+
+#[tauri::command]
+fn show_in_folder(app: AppHandle, path: String) -> Result<(), String> {
+    let path = data_file(&app, &path)?;
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("explorer")
-            .args(["/select,", &path])
-            .spawn();
+        std::process::Command::new("explorer")
+            .args(["/select,", &path.to_string_lossy()])
+            .spawn()
+            .map_err(|e| e.to_string())?;
     }
-    #[cfg(not(windows))]
-    let _ = path;
+    Ok(())
 }
 
 /// Open an https URL in the user's default browser. Restricted to https so a
-/// URL can never turn into a command or a local executable.
+/// URL can never turn into a command or a local executable, and handed to
+/// the shell as one string rather than to an `explorer` command line that
+/// would parse it itself.
 #[tauri::command]
 fn open_url(url: String) -> Result<(), String> {
     if !url.starts_with("https://") {
         return Err("Only https links can be opened".into());
     }
     #[cfg(windows)]
-    {
-        std::process::Command::new("explorer")
-            .arg(&url)
-            .spawn()
-            .map_err(|e| e.to_string())?;
-    }
+    platform::open_url(&url)?;
     Ok(())
 }
 
@@ -1768,10 +1789,30 @@ mod platform {
         KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_MENU,
         VK_SHIFT, VK_V,
     };
-    use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
+    use windows::core::{w, HSTRING, PCWSTR};
+    use windows::Win32::UI::Shell::ShellExecuteW;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetForegroundWindow, SetForegroundWindow, SW_SHOWNORMAL,
+    };
 
     pub fn foreground_window() -> isize {
         unsafe { GetForegroundWindow().0 as isize }
+    }
+
+    /// Hand a URL to whatever the shell has registered for it (the default
+    /// browser). `ShellExecuteW` answers with a value above 32 on success
+    /// and an error code otherwise.
+    pub fn open_url(url: &str) -> Result<(), String> {
+        let url = HSTRING::from(url);
+        let result = unsafe {
+            ShellExecuteW(HWND::default(), w!("open"), &url, PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL)
+        };
+        let code = result.0 as usize;
+        if code > 32 {
+            Ok(())
+        } else {
+            Err(format!("The shell couldn't open the link (error {code})"))
+        }
     }
 
     pub fn left_button_down() -> bool {
@@ -2333,6 +2374,29 @@ mod tests {
         assert!(!merge_delete(&mut list, "a"));
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].id, "b");
+    }
+
+    #[test]
+    fn only_files_under_the_data_folder_are_admitted() {
+        let root = temp_dir("within");
+        let data = root.join("data");
+        fs::create_dir_all(data.join("packs")).unwrap();
+        fs::write(data.join("packs").join("work.json"), "{}").unwrap();
+        fs::write(root.join("outside.json"), "{}").unwrap();
+        let inside = data.join("packs").join("work.json");
+        // A file under the folder comes back as a plain path explorer takes
+        let admitted = path_within(&data, &inside.to_string_lossy()).unwrap();
+        assert!(!admitted.to_string_lossy().starts_with(r"\\?\"), "{}", admitted.display());
+        assert_eq!(fs::read_to_string(&admitted).unwrap(), "{}");
+        // A sibling of the folder, and a traversal out of it, are refused
+        let outside = root.join("outside.json");
+        assert!(path_within(&data, &outside.to_string_lossy()).unwrap_err().contains("outside"));
+        let traversal = data.join("packs").join("..").join("..").join("outside.json");
+        assert!(path_within(&data, &traversal.to_string_lossy()).unwrap_err().contains("outside"));
+        // A file that isn't there is an error naming it, not a false refusal
+        let missing = data.join("packs").join("missing.json");
+        assert!(path_within(&data, &missing.to_string_lossy()).unwrap_err().contains("missing.json"));
+        let _ = fs::remove_dir_all(&root);
     }
 
     #[test]
