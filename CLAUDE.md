@@ -11,10 +11,11 @@ logic in `ui/core.js` (plain UMD, tested with bare `node --test`).
   changes.
 - `README.md` — the app as a user sees it.
 - `BACKLOG.md` — deferred ideas. Add to it rather than widening a change.
-- `REVIEW.md`, `RELEASE-AUDIT.md`, `BUG-HUNT-*.md` — review, audit and
-  benchmark trackers with their own rules at the top of each file.
-  `RELEASE-AUDIT.md` (2026-09-22) holds what is still open before a public
-  release.
+- `docs/history/` — the review, audit and benchmark trackers (`REVIEW.md`,
+  `RELEASE-AUDIT.md`, `BUG-HUNT-*.md`) and the 2026-07 UI rework roadmap,
+  each with its own rules at the top. `RELEASE-AUDIT.md` (2026-09-22) holds
+  what is still open before a public release. Test names cite these files'
+  finding ids (H1, M7, BH3-1), so they stay in the repo.
 - `docs/architecture/` — the architecture map, for the human managing the
   project (see *Architecture map* below).
 
@@ -115,7 +116,7 @@ show/hide and focus, file dialogs, and anything Rust does to the payload
   it shares the WebView2 profile, and a second instance with other browser
   args never opens the debug port. Restart it detached with `Start-Process`
   when done.
-- Back up `%APPDATA%\com.promptline.app` first and restore it after.
+- Back up `%APPDATA%\io.github.bekalpaslan.promptline` first and restore it after.
 - Run `npm run ui:dev` (port 5173), then launch
   `src-tauri/target/debug/promptline.exe` with
   `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223` from a
