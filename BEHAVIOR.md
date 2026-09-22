@@ -93,7 +93,13 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    the monitor under the cursor — not its full bounds — so it can't open half
    off-screen or under the taskbar.
 3. The user picks a prompt. If it needs runtime `{field}` values, the popup
-   switches to form mode first, pre-filled from `snippet.fieldValues`.
+   switches to form mode first, pre-filled from `snippet.fieldValues`. Each
+   field grows with its text, wrapped lines included, from one line to three,
+   then scrolls; the fields and preview scroll together while the button stays
+   in reach. An empty field is allowed and never silent, but quiet: its
+   placeholder says it pastes nothing, the preview keeps its chip, and the
+   button counts the empties. It used to be outlined in red, which shouted
+   at every field of a form the user had only just opened.
 4. **`paste_snippet`** reads the current clipboard, expands `{clipboard}`
    from it, writes the result to the clipboard, and only then hides the popup
    and bumps `uses`. The clipboard write comes first because it is the step
