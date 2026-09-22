@@ -61,7 +61,8 @@ node bin/archify.mjs compare  architecture <map.json> <alternative.json> <altern
 
 Published (private) as claude.ai artifacts: the map at
 https://claude.ai/artifact/WWYhTYdWQDFZeaHXBmwBbC, the direct-API
-generation delta at https://claude.ai/artifact/3ZgbonXsiQw7uxU55XPtHv. The
+generation delta at https://claude.ai/artifact/3ZgbonXsiQw7uxU55XPtHv, the
+tray-select-tag story at https://claude.ai/artifact/Ro7g4r6zpgc6DLqSzFPAtv. The
 Export menu does nothing inside claude.ai (no download permission); it
 works on the local HTML.
 
