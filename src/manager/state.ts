@@ -1,5 +1,5 @@
 import { createContext, useContext } from "react"
-import type { OrderBy, PackMeta, Snippet, SnippetEdit } from "@/lib/core"
+import { C, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 
 export { DEFAULT_PACK, MAX_PINS } from "@/lib/library"
 
@@ -30,7 +30,8 @@ export interface LibraryFocus {
 export type View = { kind: "prompt" } | { kind: "overview"; focus: LibraryFocus }
 
 // Groups are labels on prompts, scoped to a pack; this is their identity key
-export const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
+// (core's, so the sidebar's rows and the folds agree on it)
+export const groupKey = C.groupKey
 
 /** Which surface draws a rename field: the sidebar's row or the overview's heading */
 export type Surface = "sidebar" | "overview" | "editor"

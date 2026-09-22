@@ -784,3 +784,102 @@ test('parsePacks normalises tags the way "Add tag…" and the editor do', () => 
   const packs = core.parsePacks(JSON.stringify({ name: 'P', prompts: [{ title: 't', text: 'x', tags: [' Code Review ', 'ok_tag', '', 'a-b'] }] }));
   assert.deepEqual(packs[0].prompts[0].tags, ['codereview', 'ok_tag', 'a-b']);
 });
+
+// ---- the manager's helpers (audit L10) ---------------------------------------------
+
+test('freeName takes the base, then numbers from 2, case-insensitively', () => {
+  assert.equal(core.freeName('New pack', []), 'New pack');
+  assert.equal(core.freeName('New pack', ['new PACK']), 'New pack 2');
+  assert.equal(core.freeName('New pack', ['New pack', 'New pack 2', 'new pack 3']), 'New pack 4');
+  // A gap is filled before the series is extended
+  assert.equal(core.freeName('New group', ['New group', 'New group 3']), 'New group 2');
+});
+
+test('groupsIn lists a pack\'s groups once, A–Z, with packless prompts in the default pack', () => {
+  const snippets = [
+    { pack: 'Work', group: 'Review' },
+    { pack: 'Work', group: 'Debug' },
+    { pack: 'Work', group: 'Review' },
+    { pack: 'Work', group: '' },
+    { pack: '', group: 'Loose' },
+    { pack: 'Other', group: 'Elsewhere' },
+  ];
+  assert.deepEqual(core.groupsIn(snippets, 'Work', 'My prompts'), ['Debug', 'Review']);
+  assert.deepEqual(core.groupsIn(snippets, 'My prompts', 'My prompts'), ['Loose']);
+  assert.deepEqual(core.groupsIn(snippets, 'Empty', 'My prompts'), []);
+});
+
+test('tagsByCount orders tags by use, first seen first among ties', () => {
+  const snippets = [{ tags: ['b', 'a'] }, { tags: ['a'] }, { tags: [] }, {}, { tags: ['c', 'a'] }];
+  assert.deepEqual(core.tagsByCount(snippets), ['a', 'b', 'c']);
+  assert.deepEqual(core.tagsByCount([]), []);
+});
+
+const prompt = (id, pack, group, extra = {}) => ({ id, title: id, text: 'x', tags: [], pack, group, uses: 0, pinned: false, pinnedAt: 0, ...extra });
+
+test('displayOrder is the array under custom, sorted otherwise, and by pack when grouped', () => {
+  const list = [
+    prompt('w2', 'Work', 'G', { uses: 2 }),
+    prompt('a1', 'Alpha', '', { uses: 1 }),
+    prompt('w9', 'Work', '', { uses: 9 }),
+    prompt('a5', 'Alpha', 'G', { uses: 5, pinned: true }),
+  ];
+  const ids = (rows) => rows.map((s) => s.id);
+  assert.deepEqual(ids(core.displayOrder(list, 'custom', true, [], 'My prompts')), ['w2', 'a1', 'w9', 'a5']);
+  // One list: pins first, then most used
+  assert.deepEqual(ids(core.displayOrder(list, 'uses', false, [], 'My prompts')), ['a5', 'w9', 'w2', 'a1']);
+  // Grouped: packs A–Z, each pack's ungrouped run first, then its groups
+  assert.deepEqual(ids(core.displayOrder(list, 'uses', true, ['Alpha', 'Work', 'Empty'], 'My prompts')), ['a1', 'a5', 'w9', 'w2']);
+  // The ungrouped run comes before the groups whatever the order within
+  assert.deepEqual(ids(core.displayOrder(list, 'title', true, [], 'My prompts')), ['a1', 'a5', 'w9', 'w2']);
+  assert.deepEqual(ids(core.displayOrder(list, 'title', false, [], 'My prompts')), ['a5', 'a1', 'w2', 'w9']);
+  // Never the same array
+  assert.notEqual(core.displayOrder(list, 'custom', true, [], 'My prompts'), list);
+});
+
+test('treeRows walks packs, their ungrouped run and their groups, folds applied', () => {
+  const list = [prompt('u1', 'Work', ''), prompt('g1', 'Work', 'G'), prompt('g2', 'Work', 'G'), prompt('o1', 'Other', 'H')];
+  const tree = core.packTree(list, ['Empty', 'Other', 'Work'], 'My prompts');
+  const noFolds = { packs: new Set(), groups: new Set() };
+  const rows = core.treeRows(tree, noFolds, false);
+  // Roving focus walks this order: pack, its prompts, each group and its prompts
+  assert.deepEqual(rows.map((r) => r.key), [
+    'pack:Empty',
+    'pack:Other', `group:${core.groupKey('Other', 'H')}`, 'snip:o1',
+    'pack:Work', 'snip:u1', `group:${core.groupKey('Work', 'G')}`, 'snip:g1', 'snip:g2',
+  ]);
+  assert.deepEqual(rows.map((r) => r.level), [1, 1, 2, 3, 1, 2, 2, 3, 3]);
+  // An empty pack is a row with nothing to open; Right on it goes nowhere
+  assert.deepEqual(rows[0], { key: 'pack:Empty', kind: 'pack', name: 'Empty', count: 0, level: 1, expanded: true, hasChildren: false });
+  // Left targets: a prompt's parent is its pack or group, a group's is its pack
+  assert.equal(rows[5].parent, 'pack:Work');
+  assert.equal(rows[6].parent, 'pack:Work');
+  assert.equal(rows[7].parent, `group:${core.groupKey('Work', 'G')}`);
+  assert.equal(rows[4].parent, undefined);
+  // Right on an open pack or group with children steps to the next row, its first child
+  assert.ok(rows[4].expanded && rows[4].hasChildren && rows[5].parent === rows[4].key);
+  assert.ok(rows[6].expanded && rows[6].hasChildren && rows[7].parent === rows[6].key);
+  assert.equal(rows[6].count, 2);
+  assert.equal(rows[4].count, 3);
+});
+
+test('treeRows hides a folded pack\'s or group\'s rows, and a search opens every fold', () => {
+  const list = [prompt('u1', 'Work', ''), prompt('g1', 'Work', 'G'), prompt('o1', 'Other', '')];
+  const tree = core.packTree(list, [], 'My prompts');
+  const folds = { packs: new Set(['Other']), groups: new Set([core.groupKey('Work', 'G')]) };
+  const rows = core.treeRows(tree, folds, false);
+  assert.deepEqual(rows.map((r) => r.key), ['pack:Other', 'pack:Work', 'snip:u1', `group:${core.groupKey('Work', 'G')}`]);
+  // A folded row says so, and still has children to open with Right
+  assert.deepEqual([rows[0].expanded, rows[0].hasChildren], [false, true]);
+  assert.deepEqual([rows[3].expanded, rows[3].hasChildren], [false, true]);
+  // Searching: every fold open; a pack with no hits is a closed header with nothing under it
+  const searched = core.treeRows(core.packTree(list.filter((s) => s.id !== 'o1'), ['Other'], 'My prompts'), folds, true);
+  assert.deepEqual(searched.map((r) => r.key), ['pack:Other', 'pack:Work', 'snip:u1', `group:${core.groupKey('Work', 'G')}`, 'snip:g1']);
+  assert.deepEqual([searched[0].expanded, searched[0].hasChildren], [false, false]);
+  assert.ok(searched[3].expanded);
+});
+
+test('groupKey is a pack and a label with a separator no name can hold', () => {
+  assert.equal(core.groupKey('Work', 'G'), 'Work\u0000G');
+  assert.notEqual(core.groupKey('Work G', ''), core.groupKey('Work', 'G'));
+});

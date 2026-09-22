@@ -117,6 +117,8 @@ export function useLibraryMenus(opts: {
 
   const packToJson = (name: string) =>
     C.packToJson(name, m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name))
+  // The groups a pack holds, A–Z, for the New and Move-to menus
+  const groupsIn = (pack: string) => C.groupsIn(m.snippets, pack, DEFAULT_PACK)
 
   // ---- Group operations: a group is a label, so these rewrite the prompts that carry it ----
   const renameGroup = async (pack: string, group: string, next: string): Promise<boolean> => {
@@ -350,17 +352,13 @@ export function useLibraryMenus(opts: {
     // pack, so moving into one moves across packs too); clicking the pack
     // itself moves there ungrouped
     const homePack = selected[0]?.pack || DEFAULT_PACK
-    const groupsOf = (pk: string) =>
-      [...new Set(m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pk && s.group).map((s) => s.group))].sort(
-        (a, b) => a.localeCompare(b)
-      )
     const moveTo = (pk: string, g: string) =>
       void m
         .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, pack: pk, group: g } : s)))
         .then(() => say(g ? `Moved ${n} to "${pk}" › "${g}"` : `Moved ${n} to "${pk}"`))
     for (const p of m.packNames()) {
       const locked = m.isLocked(p)
-      const gs = groupsOf(p)
+      const gs = groupsIn(p)
       items.push({
         kind: "submenu",
         label: (locked ? "🔒 " : "") + p,
@@ -443,24 +441,13 @@ export function useLibraryMenus(opts: {
   }
 
   // ---- New: pack, group or prompt, always placed by the user ----
-  const groupsIn = (pack: string) =>
-    [...new Set(m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group).map((s) => s.group))].sort(
-      (a, b) => a.localeCompare(b)
-    )
-  // "New pack", then "New pack 2", … — case-insensitively free, like every name
-  const freeName = (base: string, taken: string[]) => {
-    const lower = new Set(taken.map((t) => t.toLowerCase()))
-    for (let n = 1; ; n++) {
-      const name = n === 1 ? base : `${base} ${n}`
-      if (!lower.has(name.toLowerCase())) return name
-    }
-  }
   const lockedHint = "Unlock the pack first (its header menu → Unlock)"
 
   // The new pack is selected, so its overview is what opens: its name is
-  // open for typing there, whichever surface asked for it
+  // open for typing there, whichever surface asked for it. "New pack",
+  // then "New pack 2", … (C.freeName, case-insensitive like every name)
   const newPack = async () => {
-    const name = freeName("New pack", m.packNames())
+    const name = C.freeName("New pack", m.packNames())
     await m.addPack(name, { quiet: true })
     m.openOverview({ pack: name })
     m.setRenaming({ name, surface: "overview", fresh: true })
@@ -468,7 +455,7 @@ export function useLibraryMenus(opts: {
   // A group is a label, so it starts life on a first (draft) prompt; the
   // group is what is selected and named, the draft waits inside it
   const newGroup = async (pack: string) => {
-    const group = freeName("New group", groupsIn(pack))
+    const group = C.freeName("New group", groupsIn(pack))
     await m.newPrompt({ pack, group })
     m.openOverview({ pack, group })
     m.setRenamingGroup({ name: groupKey(pack, group), surface: "overview" })
