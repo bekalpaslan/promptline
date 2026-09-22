@@ -233,7 +233,7 @@ export function App() {
     unfold(pack, group || undefined)
     const s: Snippet = {
       id: crypto.randomUUID(),
-      title: "New prompt",
+      title: C.DRAFT_TITLE,
       text: "",
       tags: [],
       pack,

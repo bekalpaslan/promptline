@@ -307,7 +307,7 @@ export function PromptTokens({
         }
         let label: string
         if (part.type === "bad") {
-          label = `${part.name} — not a param (lowercase letters, digits and _, not starting with a digit)`
+          label = `${part.name} — not a field`
         } else if (part.type === "config") {
           const v = (configValues?.[part.name] || "").replace(/\s+/g, " ")
           label = v ? (v.length > 40 ? v.slice(0, 40) + "…" : v) : `${part.name} — config (unset)`

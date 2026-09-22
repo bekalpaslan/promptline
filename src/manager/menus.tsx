@@ -418,7 +418,7 @@ export function useLibraryMenus(opts: {
               kind: "input",
               placeholder: "Tag name — Enter to add",
               onSubmit: (raw) => {
-                const tag = raw.toLowerCase().replace(/[^a-z0-9_-]+/g, "")
+                const tag = C.normalizeTag(raw)
                 if (!tag) return
                 void m
                   .persist((cur) =>

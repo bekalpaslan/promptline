@@ -334,6 +334,14 @@ dialog polls its file, editors and sync clients watch the folder). Pack files
 are a supported interchange surface: an agent can write one and the user
 imports it.
 
+**One tag rule everywhere** (`normalizeTag` in `ui/core.js`): lowercase,
+with everything outside `[a-z0-9_-]` dropped. The editor's tag field, the
+menu's "Add tag…" and `parsePacks` on import all apply it. They used to
+differ: the editor and imports only trimmed and lowercased, so a pack could
+carry "code review" as a tag that `#code review` could never find (the
+filter parses it as `#code`); on import such a tag now becomes
+`codereview`, which is what "Add tag…" already made of it.
+
 Two guards follow from that:
 
 - **An empty pack never overwrites its file.** The library's view of a pack is

@@ -148,7 +148,7 @@ export function ImportCuration({
     <div className="mt-3 flex max-h-75 flex-col rounded-md bg-secondary/60 text-ui text-muted-foreground">
       <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-2">
         <span>
-          {rows.length} prompts
+          {C.plural(rows.length, "prompt")}
           {dupes ? ` (${dupes} already in library)` : ""}
         </span>
         {singlePack && (

@@ -364,7 +364,7 @@
       return {
         title: p.title,
         text: p.text,
-        tags: tags.map(t => t.trim().toLowerCase()).filter(Boolean),
+        tags: tags.map(normalizeTag).filter(Boolean),
         group: typeof p.group === 'string' ? p.group.trim() : '',
       };
     };

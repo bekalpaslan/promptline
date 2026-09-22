@@ -456,7 +456,7 @@ export function Settings() {
             onClick={() => {
               const packs = m.packNames().map(packToJson).filter((p) => p.prompts.length)
               void invoke("set_clipboard_text", { text: JSON.stringify(packs, null, 2) }).then(() =>
-                say(`Exported ${packs.length} packs (${m.snippets.length} prompts) to clipboard`)
+                say(`Exported ${C.plural(packs.length, "pack")} (${C.plural(m.snippets.length, "prompt")}) to clipboard`)
               )
             }}
           >

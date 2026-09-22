@@ -777,3 +777,10 @@ test('numbered names fill, expand and downgrade like any other (the paste path)'
   assert.equal(core.downgradeUnsetConfig('{{repo_2}}'), '{repo_2}');
   assert.deepEqual(core.requiredInputs({ text: '{goal} {goal_2} {goal}', configValues: {} }), ['goal', 'goal_2']);
 });
+
+// ---- one tag rule ---------------------------------------------------------------------
+
+test('parsePacks normalises tags the way "Add tag…" and the editor do', () => {
+  const packs = core.parsePacks(JSON.stringify({ name: 'P', prompts: [{ title: 't', text: 'x', tags: [' Code Review ', 'ok_tag', '', 'a-b'] }] }));
+  assert.deepEqual(packs[0].prompts[0].tags, ['codereview', 'ok_tag', 'a-b']);
+});

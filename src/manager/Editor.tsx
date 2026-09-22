@@ -24,7 +24,8 @@ import { say, sayErr } from "./status"
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
 // The stored form of the tags field, so a save and the refresh that follows it
 // compare the same way
-const storedTags = (raw: string) => raw.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
+// One tag rule for the editor, the menus and imports: core's normalizeTag
+const storedTags = (raw: string) => raw.split(",").map((t) => C.normalizeTag(t)).filter(Boolean)
 const SUGGESTED_PARAMS = ["goal", "feature", "task", "error", "file"]
 // Tag pills offered under a prompt's own tags: the most used ones it lacks
 const MAX_TAG_PILLS = 6
@@ -223,7 +224,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const [advOpen, setAdvOpen] = useState(localStorage.getItem("advancedOpen") === "1")
   const [deleteArmed, setDeleteArmed] = useState(false)
   const textRef = useRef<HTMLTextAreaElement>(null)
-  const isDraft = snippet.title === "New prompt" && !snippet.text && !snippet.uses
+  const isDraft = C.isEmptyDraft(snippet)
 
   // The clipboard for the preview: read when the editor opens, again when
   // the window comes back (the user copied something elsewhere), and after
@@ -443,7 +444,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   }
 
   // ---- Tags ----
-  const tagList = tags.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
+  const tagList = storedTags(tags)
   const addTag = (t: string) => {
     if (tagList.includes(t)) return
     editTags([...tagList, t].join(", "))
@@ -470,6 +471,9 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     ...SUGGESTED_PARAMS,
   ])
   const configNames = C.configNames(text)
+  // Near-miss tokens ({Goal}, {1st}): each chip says only "not a field"; the
+  // rule is stated once, here, instead of on every chip
+  const badNames = [...new Set(C.tokenize(text).flatMap((p) => (p.type === "bad" ? [p.name] : [])))]
 
   // ---- Actions ----
   const togglePin = async () => {
@@ -831,7 +835,13 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           </Button>
           {fields.length > 0 && (
             <span className="text-xs text-muted-foreground">
-              {fields.length === 1 ? "1 fill-in field" : `${fields.length} fill-in fields`} stay as typed — the popup asks for them
+              {C.plural(fields.length, "fill-in field")} {fields.length === 1 ? "stays" : "stay"} as typed — the popup asks for them
+            </span>
+          )}
+          {badNames.length > 0 && (
+            <span className="text-xs text-muted-foreground">
+              {badNames.map((n) => `{${n}}`).join(", ")} {badNames.length === 1 ? "is" : "are"} plain text: a field name is lowercase letters, digits and _, not
+              starting with a digit
             </span>
           )}
         </div>
