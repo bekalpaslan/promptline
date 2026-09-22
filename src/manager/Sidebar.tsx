@@ -327,9 +327,13 @@ export function Sidebar() {
   // the Menu key or Shift+F10 is the right-click. The chevron and the
   // three dots are hidden from assistive tech because these keys reach
   // the same actions.
+  // Found by comparing keys, not by a selector: a group's key holds a NUL
+  // (groupKey), which CSS.escape turns into U+FFFD, so a selector never
+  // matched a group row and Left from a grouped prompt went nowhere
   const focusRow = (key: string) => {
     setFocusKey(key)
-    listRef.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`)?.focus()
+    const rows = listRef.current?.querySelectorAll<HTMLElement>("[data-key]") ?? []
+    for (const el of rows) if (el.dataset.key === key) return el.focus()
   }
   const toggleFold = (row: TreeRow) => {
     if (row.kind === "pack") toggleCollapsed(row.name)
