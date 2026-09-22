@@ -1,1 +1,0 @@
-{"default":{"identifier":"default","description":"Default capability for the Promptline windows","local":true,"windows":["main","popup"],"permissions":["core:default"]}}
