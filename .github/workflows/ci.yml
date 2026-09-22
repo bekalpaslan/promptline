@@ -1,8 +1,9 @@
 name: CI
 
+# Every pushed branch, not just master: feature branches are merged locally,
+# so a master-only trigger only ever ran after the merge had landed
 on:
   push:
-    branches: [master]
   pull_request:
 
 jobs:
