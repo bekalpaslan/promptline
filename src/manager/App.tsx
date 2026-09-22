@@ -12,7 +12,7 @@ import { type Config, DEFAULT_PACK, defaultPackFor, isLockedIn, packNames as pac
 import { say, sayErr, sayPersistent, sayUndo, undoLast } from "./status"
 import { Sidebar } from "./Sidebar"
 import { Editor } from "./Editor"
-import { Library as LibraryView } from "./Library"
+import { Overview } from "./Overview"
 import { Settings } from "./Settings"
 import { GenerateDialog } from "./GenerateDialog"
 
@@ -125,6 +125,8 @@ export function App() {
   const renamePack = useCallback(async (from: string, to: string) => {
     try {
       applyLibrary(await invoke<Library>("rename_pack", { from, to }))
+      // An overview on the renamed pack follows it
+      setView((v) => (v.kind === "overview" && v.focus.pack === from ? { ...v, focus: { ...v.focus, pack: to } } : v))
     } catch (e) {
       sayErr(`Couldn't rename the pack: ${e}`)
       throw e
@@ -180,17 +182,20 @@ export function App() {
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map((e) => e[0])
   }, [snippets])
 
-  // Opening a prompt is what brings the editor back from library view
+  // Opening a prompt is what brings the editor back from an overview
   const select = useCallback((id: string | null) => {
     setActiveId(id)
     if (id !== null) setView({ kind: "prompt" })
   }, [])
 
-  const openLibrary = useCallback((focus: LibraryFocus | null) => {
+  // A pack or group is selected the way a prompt is: the pane shows it and
+  // no prompt stays highlighted beside it
+  const openOverview = useCallback((focus: LibraryFocus) => {
     setSettingsOpen(false)
-    setView({ kind: "library", focus })
+    setActiveId(null)
+    setSelectionState(new Set())
+    setView({ kind: "overview", focus })
   }, [])
-  const closeLibrary = useCallback(() => setView({ kind: "prompt" }), [])
   const showSettings = useCallback((open: boolean) => {
     setSettingsOpen(open)
     if (open) setView({ kind: "prompt" })
@@ -363,8 +368,8 @@ export function App() {
   }, [reloadLibrary])
 
   // Ctrl+Z outside a text field takes the Undo on offer. Escape leaves
-  // Settings; otherwise it switches modes: from the editor to the library
-  // opened on that prompt's pack and group, and from the library back.
+  // Settings; otherwise it goes up a level: from the editor to the
+  // overview of the prompt's group (or pack), from a group to its pack.
   useEffect(() => {
     const typing = (t: EventTarget | null) =>
       t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable)
@@ -378,16 +383,17 @@ export function App() {
         // runs after this one and its preventDefault comes too late)
         if (settingsOpen) setSettingsOpen(false)
         else if (document.querySelector('[role="dialog"], [role="menu"]')) return
-        else if (view.kind === "library") setView({ kind: "prompt" })
-        else {
+        else if (view.kind === "overview") {
+          if (view.focus.group) openOverview({ pack: view.focus.pack })
+        } else {
           const s = activeId ? snippetsRef.current.find((x) => x.id === activeId) : undefined
-          setView({ kind: "library", focus: s ? { pack: s.pack || DEFAULT_PACK, group: s.group || undefined } : null })
+          if (s) openOverview({ pack: s.pack || DEFAULT_PACK, group: s.group || undefined })
         }
       }
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [settingsOpen, view.kind, activeId])
+  }, [settingsOpen, view, activeId, openOverview])
 
   const api = useMemo<ManagerApi>(
     () => ({
@@ -399,8 +405,7 @@ export function App() {
       hotkey,
       prefs,
       view,
-      openLibrary,
-      closeLibrary,
+      openOverview,
       orderBy,
       setOrderBy,
       isLocked,
@@ -422,7 +427,7 @@ export function App() {
       showSettings,
       pendingFlush,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openLibrary, closeLibrary, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, persistPacks, renamePack, deleteWithUndo, select, setSelection, newPrompt, addPack, savePrefs, settingsOpen]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)
@@ -452,14 +457,13 @@ export function App() {
         )}
 
         <main className="flex min-h-0 flex-1 overflow-hidden">
-          {view.kind === "library" ? (
-            // Keyed on the focus so a fresh entry opens on what was clicked
-            <LibraryView key={JSON.stringify(view.focus)} focus={view.focus} />
+          <Sidebar />
+          {settingsOpen ? (
+            <Settings />
+          ) : view.kind === "overview" ? (
+            <Overview focus={view.focus} />
           ) : (
-            <>
-              <Sidebar />
-              {settingsOpen ? <Settings /> : <Editor key={activeId ?? "none"} />}
-            </>
+            <Editor key={activeId ?? "none"} />
           )}
         </main>
 

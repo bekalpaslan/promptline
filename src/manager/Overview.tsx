@@ -1,44 +1,33 @@
 import { useEffect, useMemo, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import {
-  RiAddLine,
-  RiArrowDownSLine,
-  RiArrowLeftSLine,
-  RiArrowRightSLine,
-  RiLock2Fill,
-  RiMoreLine,
-  RiPushpinFill,
-} from "@remixicon/react"
-import { Kbd } from "@/components/ui/kbd"
+import { RiAddLine, RiArrowLeftSLine, RiFolderLine, RiLock2Fill, RiMoreLine, RiPushpinFill } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
+import { EmptyState } from "./EmptyState"
 import { groupKey, useLibraryMenus } from "./menus"
 
-// Library view: the library spanning the window, drawn as what it is —
-// packs holding groups holding prompts — with the room to show each prompt
-// as a preview card. It opens on the pack or group that was clicked in the
-// sidebar, expanded one level down (a pack shows its prompts and its group
-// headers; a group shows its prompts) with everything else folded, so the
-// view answers "what is in here" without a wall of text. Each container
-// folds like the editor's Advanced options card. Folds live only as long as
-// the view: the next entry opens on whatever was clicked then.
-//
-// Clicking a prompt card opens it in the editor, which is prompt view; that
-// is the way back, along with the Prompts button and Escape.
+// The overview: what a pack or group selected in the sidebar holds, in the
+// pane where the editor sits for a prompt. The sidebar stays beside it, so
+// this is one more thing a selection can show, not a place to go: no folds
+// of its own and no way back to find. Each prompt is a preview card (the
+// clipboard substituted, as everywhere); a click opens it in the editor. A
+// pack lists its ungrouped prompts, then each group under a heading that
+// opens that group; a group lists its prompts.
 
 // Tag pills on a card before the rest fold into a "+N" pill
 const MAX_CARD_TAGS = 3
 
-// A container's header: the Advanced-options toggle idiom (title, chevron),
-// with the count beside it and the pack's lock where there is one
-function Fold({
-  open,
-  onToggle,
+// A title with the sidebar header's affordances: double-click renames,
+// right-click, the Menu key and the hover-revealed dots open its menu, and a
+// click opens it where there is somewhere to open (a group heading in a
+// pack's overview)
+function Heading({
   label,
   count,
   strong,
   locked,
+  onOpen,
   onMenu,
   renaming,
   onStartRename,
@@ -46,13 +35,12 @@ function Fold({
   onRenameCancel,
   children,
 }: {
-  open: boolean
-  onToggle: () => void
   label: string
   count: number
-  /** Pack titles are a step deeper than group titles, as in the sidebar */
+  /** The overview's own title, a step bigger than a group heading in it */
   strong?: boolean
   locked?: boolean
+  onOpen?: () => void
   /** Opens the three-dot menu at a point: the ⋯ button, a right-click, the Menu key */
   onMenu: (x: number, y: number) => void
   /** The title is being renamed inline (double-click, or Rename in the menu) */
@@ -60,10 +48,9 @@ function Fold({
   onStartRename: () => void
   onRename: (next: string) => void
   onRenameCancel: () => void
-  /** What sits at the right of the header (an add action) */
+  /** What sits at the right of the heading (an add action) */
   children?: React.ReactNode
 }) {
-  const Chev = open ? RiArrowDownSLine : RiArrowRightSLine
   return (
     <div
       className="group/hdr flex min-w-0 items-center gap-2"
@@ -81,7 +68,7 @@ function Fold({
           aria-label={`Rename ${label}`}
           className={cn(
             "section-title min-w-0 flex-1 rounded-sm bg-secondary px-1 py-0.5 text-foreground focus-ring",
-            strong && "text-base"
+            strong && "text-xl font-bold"
           )}
           onKeyDown={(e) => {
             e.stopPropagation()
@@ -94,14 +81,13 @@ function Fold({
       ) : (
         <button
           type="button"
-          aria-expanded={open}
-          title={`${label} — click folds, double-click renames, right-click for actions`}
+          title={`${label} — ${onOpen ? "click shows only this group, " : ""}double-click renames, right-click for actions`}
           className={cn(
-            "section-title flex min-w-0 cursor-pointer items-center gap-1 hover:text-primary focus-ring rounded-sm",
-            strong ? "text-base text-(--heading-strong)" : "text-(--heading)",
-            !open && "opacity-70 hover:opacity-100"
+            "flex min-w-0 items-baseline gap-1.5 rounded-sm focus-ring",
+            strong ? "text-xl font-bold" : "section-title text-(--heading)",
+            onOpen ? "cursor-pointer hover:text-primary" : "cursor-default"
           )}
-          onClick={onToggle}
+          onClick={onOpen}
           onDoubleClick={(e) => {
             e.stopPropagation()
             onStartRename()
@@ -115,8 +101,9 @@ function Fold({
           }}
         >
           <span className="truncate">{label}</span>
-          <span className="shrink-0 font-medium text-muted-foreground">({count})</span>
-          <Chev className="size-3.5 shrink-0" />
+          <span className={cn("shrink-0 font-medium tabular-nums text-muted-foreground", strong && "text-xs")}>
+            ({count})
+          </span>
         </button>
       )}
       {/* The sidebar's three dots: hover-revealed way into the same menu right-click opens */}
@@ -245,7 +232,7 @@ function PromptCard({
   )
 }
 
-export function Library({ focus }: { focus: LibraryFocus | null }) {
+export function Overview({ focus }: { focus: LibraryFocus }) {
   const m = useManager()
   const { snippets, orderBy, packNames } = m
   // The same menus as the sidebar's three dots (rename, lock, export, file,
@@ -274,154 +261,121 @@ export function Library({ focus }: { focus: LibraryFocus | null }) {
     () => C.packTree(C.sortPrompts(snippets, orderBy), packNames(), DEFAULT_PACK),
     [snippets, orderBy, packNames]
   )
-  const allPacks = useMemo(() => tree.map((p) => p.name), [tree])
-  const allGroups = useMemo(
-    () => tree.flatMap((p) => p.groups.map((g) => groupKey(p.name, g.name))),
-    [tree]
-  )
+  const pack = tree.find((p) => p.name === focus.pack)
+  // A group that is gone (deleted, ungrouped, emptied by moves) leaves its
+  // pack's overview in its place
+  const group = focus.group ? pack?.groups.find((g) => g.name === focus.group) : undefined
 
-  // Opened one level down on the focus, everything else folded (the App
-  // keys this component on the focus, so these initialisers see the entry)
-  const [collapsed, setCollapsed] = useState<Set<string>>(
-    () => new Set(allPacks.filter((n) => n !== focus?.pack))
-  )
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(
-    () => new Set(allGroups.filter((k) => !(focus?.group && k === groupKey(focus.pack, focus.group))))
-  )
-
-  const togglePack = (name: string) =>
-    setCollapsed((prev) => {
-      const next = new Set(prev)
-      if (next.has(name)) next.delete(name)
-      else next.add(name)
-      return next
-    })
-  const toggleGroup = (key: string) =>
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev)
-      if (next.has(key)) next.delete(key)
-      else next.add(key)
-      return next
-    })
-  const anyFolded = collapsed.size > 0 || collapsedGroups.size > 0
-  const foldAll = () => {
-    setCollapsed(new Set(allPacks))
-    setCollapsedGroups(new Set(allGroups))
-  }
-  const unfoldAll = () => {
-    setCollapsed(new Set())
-    setCollapsedGroups(new Set())
+  if (!pack) {
+    return (
+      <EmptyState
+        icon={RiFolderLine}
+        title="That pack is gone"
+        hint="Select a pack or a prompt in the sidebar"
+        actions={[{ label: "New prompt", onClick: () => void m.newPrompt(), primary: true }]}
+      />
+    )
   }
 
+  const locked = m.isLocked(pack.name)
   const open = (s: Snippet) => {
     m.setSelection(new Set([s.id]), s.id)
     m.select(s.id)
   }
   // A card's menu acts on that card: the selection is set to it first, the
-  // way a sidebar right-click does, so the menu and the pane agree
+  // way a sidebar right-click does, so the menu and the sidebar agree
   const cardMenu = (s: Snippet, x: number, y: number) => {
     m.setSelection(new Set([s.id]), s.id)
     menus.openRowCtx(x, y, new Set([s.id]))
   }
   const cards = (items: Snippet[]) => (
-    <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
+    <div className="grid gap-2 @xl:grid-cols-2 @4xl:grid-cols-3">
       {items.map((s) => (
         <PromptCard key={s.id} s={s} clipboard={clipboard} onOpen={() => open(s)} onMenu={(x, y) => cardMenu(s, x, y)} />
       ))}
     </div>
   )
-  const groupCount = allGroups.length
+  // A group's heading: the overview's title when the group is what's shown,
+  // a way into it when it sits in its pack's overview
+  const groupHeading = (name: string, count: number, isTitle: boolean) => {
+    const key = groupKey(pack.name, name)
+    return (
+      <Heading
+        label={name}
+        count={count}
+        strong={isTitle}
+        onOpen={isTitle ? undefined : () => m.openOverview({ pack: pack.name, group: name })}
+        onMenu={(x, y) => menus.openGroupCtx(x, y, pack.name, name, count)}
+        renaming={menus.renamingGroup === key}
+        onStartRename={() => menus.setRenamingGroup(key)}
+        onRename={(next) => void menus.renameGroup(pack.name, name, next)}
+        onRenameCancel={() => menus.setRenamingGroup(null)}
+      >
+        {!locked && (
+          <AddPrompt where={`${pack.name} › ${name}`} onClick={() => void m.newPrompt({ pack: pack.name, group: name })} />
+        )}
+      </Heading>
+    )
+  }
 
   return (
     <div
-      className="flex min-w-0 flex-1 flex-col animate-in fade-in slide-in-from-left-4 duration-200"
+      className="@container flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 animate-in fade-in duration-150"
       role="region"
-      aria-label="Library"
+      aria-label={group ? `${pack.name} › ${group.name}` : pack.name}
     >
-      {/* Title row: the way back, the page title, the counts, one fold toggle */}
-      <div className="flex flex-wrap items-center gap-3 border-b border-border px-3 py-2">
-        <button
-          type="button"
-          className="flex h-7 cursor-pointer items-center gap-1 rounded-md px-1.5 text-ui font-medium text-muted-foreground hover:bg-secondary hover:text-foreground focus-ring"
-          title="Back to the prompt view (Esc)"
-          onClick={m.closeLibrary}
-        >
-          <RiArrowLeftSLine className="size-4" />
-          Prompts
-          <Kbd className="ml-0.5">Esc</Kbd>
-        </button>
-        <h1 className="text-xl font-bold">Library</h1>
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {m.snippets.length} prompt{m.snippets.length === 1 ? "" : "s"} · {tree.length} pack{tree.length === 1 ? "" : "s"}
-          {groupCount > 0 && ` · ${groupCount} group${groupCount === 1 ? "" : "s"}`}
-        </span>
-        <button
-          type="button"
-          className="ml-auto cursor-pointer text-xs font-medium text-muted-foreground hover:text-foreground focus-ring rounded-sm"
-          onClick={anyFolded ? unfoldAll : foldAll}
-        >
-          {anyFolded ? "Expand all" : "Collapse all"}
-        </button>
+      {/* Where this sits, as the editor shows a prompt's place; a group's
+          crumb goes up to its pack (Escape does the same) */}
+      <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+        {group ? (
+          <>
+            <button
+              type="button"
+              className="flex min-w-0 cursor-pointer items-center gap-0.5 rounded-sm font-medium hover:text-foreground focus-ring"
+              title={`Show all of ${pack.name} (Esc)`}
+              onClick={() => m.openOverview({ pack: pack.name })}
+            >
+              <RiArrowLeftSLine className="size-3.5 shrink-0" />
+              <span className="truncate">{pack.name}</span>
+            </button>
+            <span aria-hidden>›</span>
+            <span>Group</span>
+          </>
+        ) : (
+          <span>Pack</span>
+        )}
       </div>
 
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto p-3">
-        {tree.map((pack) => {
-          const isOpen = !collapsed.has(pack.name)
-          const locked = m.isLocked(pack.name)
-          return (
-            <section key={pack.name} className="module flex flex-col" aria-label={pack.name}>
-              <Fold
-                open={isOpen}
-                onToggle={() => togglePack(pack.name)}
-                label={pack.name}
-                count={pack.count}
-                strong
-                locked={locked}
-                onMenu={(x, y) => menus.openPackCtx(x, y, pack.name, pack.count)}
-                renaming={menus.renaming === pack.name}
-                onStartRename={() => menus.setRenaming(pack.name)}
-                onRename={(next) => void menus.renamePack(pack.name, next)}
-                onRenameCancel={() => menus.setRenaming(null)}
-              >
-                {!locked && <AddPrompt where={pack.name} onClick={() => void m.newPrompt({ pack: pack.name })} />}
-              </Fold>
-              {isOpen && (
-                <div className="mt-3 flex flex-col gap-3">
-                  {pack.count === 0 && <div className="px-1 text-ui text-muted-foreground">Empty pack</div>}
-                  {pack.ungrouped.length > 0 && cards(pack.ungrouped)}
-                  {pack.groups.map((g) => {
-                    const key = groupKey(pack.name, g.name)
-                    const gOpen = !collapsedGroups.has(key)
-                    return (
-                      <section key={g.name} className="module flex flex-col bg-secondary/50" aria-label={g.name}>
-                        <Fold
-                          open={gOpen}
-                          onToggle={() => toggleGroup(key)}
-                          label={g.name}
-                          count={g.items.length}
-                          onMenu={(x, y) => menus.openGroupCtx(x, y, pack.name, g.name, g.items.length)}
-                          renaming={menus.renamingGroup === key}
-                          onStartRename={() => menus.setRenamingGroup(key)}
-                          onRename={(next) => void menus.renameGroup(pack.name, g.name, next)}
-                          onRenameCancel={() => menus.setRenamingGroup(null)}
-                        >
-                          {!locked && (
-                            <AddPrompt
-                              where={`${pack.name} › ${g.name}`}
-                              onClick={() => void m.newPrompt({ pack: pack.name, group: g.name })}
-                            />
-                          )}
-                        </Fold>
-                        {gOpen && <div className="mt-3">{cards(g.items)}</div>}
-                      </section>
-                    )
-                  })}
-                </div>
-              )}
+      {group ? (
+        <>
+          {groupHeading(group.name, group.items.length, true)}
+          {cards(group.items)}
+        </>
+      ) : (
+        <>
+          <Heading
+            label={pack.name}
+            count={pack.count}
+            strong
+            locked={locked}
+            onMenu={(x, y) => menus.openPackCtx(x, y, pack.name, pack.count)}
+            renaming={menus.renaming === pack.name}
+            onStartRename={() => menus.setRenaming(pack.name)}
+            onRename={(next) => void menus.renamePack(pack.name, next)}
+            onRenameCancel={() => menus.setRenaming(null)}
+          >
+            {!locked && <AddPrompt where={pack.name} onClick={() => void m.newPrompt({ pack: pack.name })} />}
+          </Heading>
+          {pack.count === 0 && <div className="text-ui text-muted-foreground">Empty pack</div>}
+          {pack.ungrouped.length > 0 && cards(pack.ungrouped)}
+          {pack.groups.map((g) => (
+            <section key={g.name} className="module flex flex-col gap-3 bg-secondary/50" aria-label={g.name}>
+              {groupHeading(g.name, g.items.length, false)}
+              {cards(g.items)}
             </section>
-          )
-        })}
-      </div>
+          ))}
+        </>
+      )}
       {menus.element}
     </div>
   )

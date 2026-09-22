@@ -57,21 +57,10 @@ export function Sidebar() {
   const [configOpen, setConfigOpen] = useState(false)
   const [newPackInput, setNewPackInput] = useState(false)
   const visibleIdsRef = useRef<string[]>([])
-  // A click on a pack or group title opens the library view on it, after a
-  // beat: a double-click renames instead, and the view switching away on the
-  // first click would unmount the input before the second one landed
-  const openTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const openLibraryLater = (focus: { pack: string; group?: string }) => {
-    if (openTimer.current) clearTimeout(openTimer.current)
-    openTimer.current = setTimeout(() => {
-      openTimer.current = null
-      m.openLibrary(focus)
-    }, 220)
-  }
-  const cancelOpen = () => {
-    if (openTimer.current) clearTimeout(openTimer.current)
-    openTimer.current = null
-  }
+  // A click on a pack or group title selects it: the pane beside the
+  // sidebar shows what it holds (the overview), the way a prompt row shows
+  // the prompt. The sidebar stays, so a double-click still reaches the rename.
+  const shown = m.view.kind === "overview" ? m.view.focus : null
 
   // Drag-to-reorder: a short press-and-hold lifts the row (so the gesture is
   // discoverable), then moving it slides an insertion mark between rows.
@@ -240,7 +229,7 @@ export function Sidebar() {
     m.select(sel.size === 1 ? [...sel][0] : null)
   }
 
-  // The pack, group and prompt menus, shared with the library view
+  // The pack, group and prompt menus, shared with the overview
   const {
     element: menus,
     renaming,
@@ -325,12 +314,14 @@ export function Sidebar() {
         role="button"
         tabIndex={0}
         aria-expanded={!isCollapsed}
-        title={`${group} — click opens it in the library, Enter folds it, right-click for actions`}
+        aria-current={shown?.pack === pack && shown.group === group ? "true" : undefined}
+        title={`${group} — click shows its prompts, Enter folds it, right-click for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-xs font-semibold uppercase tracking-[0.06em]",
-          isCollapsed ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
+          isCollapsed ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)",
+          shown?.pack === pack && shown.group === group && "bg-secondary text-(--heading)"
         )}
-        onClick={() => openLibraryLater({ pack, group })}
+        onClick={() => m.openOverview({ pack, group })}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
@@ -343,7 +334,6 @@ export function Sidebar() {
         }}
         onDoubleClick={(e) => {
           e.stopPropagation()
-          cancelOpen()
           setRenamingGroup(key)
         }}
         onContextMenu={(e) => {
@@ -391,7 +381,7 @@ export function Sidebar() {
         >
           <RiMoreLine className="size-3.5" />
         </button>
-        {/* The chevron is the fold; the title is the way into the library */}
+        {/* The chevron is the fold; the title selects */}
         <button
           type="button"
           tabIndex={-1}
@@ -495,12 +485,14 @@ export function Sidebar() {
         role="button"
         tabIndex={0}
         aria-expanded={!isCollapsed}
-        title={`${name} — click opens it in the library, Enter folds it, right-click for actions`}
+        aria-current={shown?.pack === name && !shown.group ? "true" : undefined}
+        title={`${name} — click shows its prompts, Enter folds it, right-click for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-base font-semibold",
-          isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
+          isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)",
+          shown?.pack === name && !shown.group && "bg-secondary text-(--heading-strong)"
         )}
-        onClick={() => openLibraryLater({ pack: name })}
+        onClick={() => m.openOverview({ pack: name })}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault()
@@ -513,7 +505,6 @@ export function Sidebar() {
         }}
         onDoubleClick={(e) => {
           e.stopPropagation()
-          cancelOpen()
           setRenaming(name)
         }}
         onContextMenu={(e) => {
@@ -559,7 +550,7 @@ export function Sidebar() {
           <RiMoreLine className="size-4" />
         </button>
         {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
-        {/* The chevron is the fold; the title is the way into the library */}
+        {/* The chevron is the fold; the title selects */}
         <button
           type="button"
           tabIndex={-1}
