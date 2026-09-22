@@ -95,6 +95,9 @@ export function useLibraryMenus(opts: {
   // Resolves true when the rename went through (the manager's renamePack
   // carries the sidebar's folds over itself)
   const renamePack = async (name: string, next: string): Promise<boolean> => {
+    // A pack New made under a placeholder name is announced once, here,
+    // when its real name is committed — not "created" and then "renamed"
+    const fresh = !!m.renaming?.fresh && m.renaming.name === name
     setRenaming(null)
     if (!next || next === name) return false
     // Case variants read as one pack; the pack's own name may change case
@@ -105,7 +108,7 @@ export function useLibraryMenus(opts: {
     }
     return m.renamePack(name, next).then(
       () => {
-        say(`Renamed to "${next}"`)
+        say(fresh ? `Pack "${next}" created` : `Renamed to "${next}"`)
         return true
       },
       () => false
@@ -476,9 +479,9 @@ export function useLibraryMenus(opts: {
   // open for typing there, whichever surface asked for it
   const newPack = async () => {
     const name = freeName("New pack", m.packNames())
-    await m.addPack(name)
+    await m.addPack(name, { quiet: true })
     m.openOverview({ pack: name })
-    m.setRenaming({ name, surface: "overview" })
+    m.setRenaming({ name, surface: "overview", fresh: true })
   }
   // A group is a label, so it starts life on a first (draft) prompt; the
   // group is what is selected and named, the draft waits inside it

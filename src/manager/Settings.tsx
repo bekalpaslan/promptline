@@ -445,7 +445,7 @@ export function Settings() {
               variant="secondary"
               onClick={() => setNewPackMode(true)}
             >
-              + New
+              New pack
             </Button>
           )}
         </div>
@@ -493,25 +493,24 @@ export function Settings() {
       {/* Buy Me a Coffee, rendered locally rather than by their CDN script:
           a desktop webview holding the user's clipboard and prompt library has
           no business running remote JS, and this way it still works offline.
-          Colours mirror the button's own config (#d97757 / #FFDD00): brand
-          values on purpose, outside the token system; text-black on #d97757
-          is 6.7:1. */}
+          A secondary button: the pane's one primary is Generate, and a
+          donation link in the same orange read as a second call to action. */}
       <div className="mb-2 flex flex-wrap items-center justify-center gap-3 self-center">
         <span className="max-w-72 text-ui leading-relaxed text-muted-foreground">
           This app is open source. If you find it useful, I'd appreciate it if you'd consider:
         </span>
-        <button
-          className="flex shrink-0 cursor-pointer items-center gap-2 rounded-lg border border-black px-4 py-2 text-ui font-semibold text-black transition-transform hover:scale-[1.03]"
-          style={{ background: "#d97757" }}
+        <Button
+          size="compact"
+          variant="secondary"
           onClick={() => {
             void invoke("open_url", { url: "https://buymeacoffee.com/hurryupbob" }).catch((e) =>
               sayErr(`Couldn't open the link: ${e}`)
             )
           }}
         >
-          <span style={{ color: "#FFDD00" }}>☕</span>
+          <span aria-hidden>☕</span>
           Buy me a coffee
-        </button>
+        </Button>
       </div>
     </div>
   )

@@ -126,7 +126,7 @@ function AddPrompt({ where, onClick }: { where: string; onClick: () => void }) {
       onClick={onClick}
     >
       <RiAddLine className="size-3.5" />
-      prompt
+      New prompt
     </button>
   )
 }

@@ -269,7 +269,7 @@ export function App() {
   )
 
   const addPack = useCallback(
-    async (name: string) => {
+    async (name: string, opts?: { quiet?: boolean }) => {
       if (!name) return
       // Case variants would read as one pack (and share a file name on
       // Windows), so they count as the same pack
@@ -288,11 +288,13 @@ export function App() {
         fileError = String(e)
       }
       // A pack is just a name, so it exists either way; but say one thing,
-      // not a failure and a success at once
+      // not a failure and a success at once — and nothing at all when the
+      // caller opens the name for typing straight away (New → Pack), which
+      // announces the pack once its real name is committed
       await persistPacks([...packMeta, { name, locked: false, path }])
       if (fileError)
         sayErr(`Pack "${name}" created, but its file couldn't be written (${fileError}) — use "Give this pack a file…" to retry`)
-      else say(`Pack "${name}" created`)
+      else if (!opts?.quiet) say(`Pack "${name}" created`)
     },
     [packMeta, packNames, persistPacks]
   )
