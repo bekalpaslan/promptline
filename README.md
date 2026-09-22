@@ -83,7 +83,7 @@ Your library** (see [Data](#data)).
 
 Promptline has no network code and no telemetry: it never phones home, and
 the only thing that leaves your machine is what you paste. If something
-goes wrong it writes a log file under the data folder; attach it to a bug
+goes wrong it writes `promptline.log` under the data folder; attach it to a bug
 report.
 
 ## Placeholders
