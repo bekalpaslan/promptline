@@ -6,7 +6,6 @@ import {
   RiAddLine,
   RiArrowDownSLine,
   RiArrowRightSLine,
-  RiCloseLine,
   RiFileCopyLine,
   RiFilterLine,
   RiSearchLine,
@@ -19,8 +18,10 @@ const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { type Entry, Row, derive } from "@/popup/Row"
-import { Chip, Kbd, PromptTokens } from "@/components/prompt-bits"
+import { Chip, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { Button } from "@/components/ui/button"
+import { MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
+import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
 
 
 type FormState = { snippet: Snippet; base: string; fields: string[]; paste: boolean }
@@ -33,10 +34,10 @@ type Notice = { text: string; kind: "error" | "info" }
 
 // window (125% scale, the mono font) wraps between hints instead of being
 // clipped by the shell's overflow, and never splits a key from its label.
-function Hint({ k, children }: { k: React.ReactNode; children: React.ReactNode }) {
+function Hint({ k, children }: { k: string; children: React.ReactNode }) {
   return (
     <span className="flex shrink-0 items-center gap-1">
-      <Kbd>{k}</Kbd>
+      <Keys combo={k} />
       {children}
     </span>
   )
@@ -44,7 +45,7 @@ function Hint({ k, children }: { k: React.ReactNode; children: React.ReactNode }
 
 function SectionHeader({ children }: { children: React.ReactNode }) {
   return (
-    <div className="px-2 pb-0.5 pt-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+    <div className="section-label px-2 pb-0.5 pt-1.5">
       {children}
     </div>
   )
@@ -815,22 +816,21 @@ export function App() {
               spellCheck={false}
               onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => setCreate((c) => c && { ...c, title: e.target.value })}
-              className="w-full rounded-lg border border-input bg-background px-2 py-1.5 text-ui text-foreground outline-none focus:border-(--focus)"
+              className={cn(fieldVariants(), "w-full")}
             />
           </div>
           <div className="px-1">
             <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Pack</label>
-            <select
+            <Select
               value={create.pack}
               onChange={(e) => setCreate((c) => c && { ...c, pack: e.target.value, group: "" })}
-              className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-1.5 text-ui text-foreground focus-ring"
             >
               {packNames.map((p) => (
                 <option key={p} value={p} disabled={isLocked(p)}>
                   {isLocked(p) ? `🔒 ${p}` : p}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
           {(() => {
             // Groups already in the chosen pack; a group is a label so any is fine
@@ -841,10 +841,9 @@ export function App() {
             return (
               <div className="px-1">
                 <label className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Group</label>
-                <select
+                <Select
                   value={create.group}
                   onChange={(e) => setCreate((c) => c && { ...c, group: e.target.value })}
-                  className="w-full cursor-pointer rounded-lg bg-secondary px-2 py-1.5 text-ui text-foreground focus-ring"
                 >
                   <option value="">No group</option>
                   {gs.map((g) => (
@@ -852,12 +851,12 @@ export function App() {
                       {g}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             )
           })()}
           <SectionHeader>Prompt body — current clipboard</SectionHeader>
-          <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-ui leading-relaxed text-muted-foreground">
+          <div className={cn(PREVIEW_BOX, "min-h-15 flex-1 overflow-y-auto")}>
             {clip || "(clipboard is empty)"}
           </div>
           {/* The clipboard is the body: with nothing copied there is nothing
@@ -918,13 +917,16 @@ export function App() {
                       void submitForm(e.ctrlKey)
                     }
                   }}
-                  className="block field-sizing-content max-h-[calc(3lh+1rem+2px)] min-h-[calc(1lh+1rem+2px)] w-full resize-none overflow-y-auto rounded-lg border border-input bg-background px-2 py-2 text-ui leading-5 text-foreground outline-none placeholder:text-muted-foreground/70 focus:border-(--focus)"
+                  className={cn(
+                    fieldVariants(),
+                    "block field-sizing-content max-h-[calc(3lh+1rem)] min-h-[calc(1lh+1rem)] w-full resize-none overflow-y-auto py-2 leading-5 placeholder:text-muted-foreground/70"
+                  )}
                 />
               </div>
             )
           })}
           <SectionHeader>Will paste</SectionHeader>
-          <div className="min-h-15 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2 text-ui leading-relaxed text-muted-foreground">
+          <div className={cn(PREVIEW_BOX, "min-h-15 flex-1 overflow-y-auto")}>
             <PromptTokens text={C.expandBuiltins(form.base)} clipboard={clip} fieldValues={formValues} />
           </div>
         </div>
@@ -958,17 +960,14 @@ export function App() {
 
   return (
     <Shell hint={hint} notice={notice} announce={announce}>
-      {/* Search — kit "Active" state: 36px boxed input, 2px focus border */}
-      <div
-        role="search"
-        className="flex h-8 shrink-0 items-center gap-1 rounded-lg border border-input bg-background py-1.5 pl-2 pr-1.5 focus-within:border-(--focus)"
-      >
-        <RiSearchLine className="size-4 shrink-0 text-muted-foreground" />
+      {/* Search: the same box as the manager's filter */}
+      <div role="search" className={searchBoxClass()}>
+        <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         <input
           ref={inputRef}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Type to search…  (#tag, @pack, >group)"
+          placeholder="Search  #tag @pack >group"
           spellCheck={false}
           autoComplete="off"
           role="combobox"
@@ -980,17 +979,13 @@ export function App() {
           className="min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground"
         />
         {query && (
-          <button
-            type="button"
-            aria-label="Clear search"
-            className="cursor-pointer rounded-sm p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+          <SearchClear
+            label="Clear search"
             onClick={() => {
               setQuery("")
               inputRef.current?.focus()
             }}
-          >
-            <RiCloseLine className="size-4" />
-          </button>
+          />
         )}
       </div>
 
@@ -1036,9 +1031,8 @@ export function App() {
           )
           const headerBody = (
             <>
-              <span className="min-w-0 flex-1 truncate">
-                {sec.name} <span className="font-semibold text-muted-foreground">({sec.count})</span>
-              </span>
+              <span className="min-w-0 flex-1 truncate">{sec.name}</span>
+              <Count>{sec.count}</Count>
               {sec.collapsible && <Chev className="size-4 shrink-0 text-muted-foreground" />}
             </>
           )
@@ -1092,9 +1086,8 @@ export function App() {
                               inputRef.current?.focus()
                             }}
                           >
-                            <span className="min-w-0 flex-1 truncate">
-                              {g} <span className="font-medium">({es.length})</span>
-                            </span>
+                            <span className="min-w-0 flex-1 truncate">{g}</span>
+                            <Count>{es.length}</Count>
                             <GChev className="size-4 shrink-0" />
                           </button>
                           {funnel(">", g, gf)}
@@ -1113,14 +1106,11 @@ export function App() {
       {/* Fixed create action — pinned below the list, above the meta bars */}
       <button
         onClick={openCreate}
-        className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-t border-border px-2 py-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+        className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-t border-border px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
       >
         <RiAddLine className="size-4 shrink-0" />
         <span className="min-w-0 flex-1 truncate text-left text-ui">New prompt from clipboard…</span>
-        <span className="flex shrink-0 gap-1">
-          <Kbd>Ctrl</Kbd>
-          <Kbd>N</Kbd>
-        </span>
+        <Keys combo="Ctrl+N" />
       </button>
 
       {previewIdx !== null && visible[previewIdx] && (() => {
@@ -1148,18 +1138,19 @@ export function App() {
               configValues={visible[previewIdx].s.configValues}
             />
             {/* The same copy-only path as Ctrl+↵: asks for fill-ins first */}
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="sm"
               tabIndex={-1}
-              className="mt-2 flex h-6 cursor-pointer items-center gap-1 rounded-md border border-border bg-background px-1.5 text-xs font-medium text-muted-foreground hover:border-primary hover:text-foreground"
+              className="mt-2"
               onClick={(e) => {
                 e.stopPropagation()
                 pick(visible[previewIdx].s, false)
               }}
             >
-              <RiFileCopyLine className="size-3.5" aria-hidden />
+              <RiFileCopyLine aria-hidden />
               Copy
-            </button>
+            </Button>
           </div>
         )
       })()}
@@ -1168,7 +1159,7 @@ export function App() {
         <div
           role="menu"
           aria-label={`Actions for ${panelFor.title}`}
-          className="fixed inset-x-2 bottom-10 z-20 rounded-xl border border-border bg-popover p-2 shadow-(--shadow-pop)"
+          className={cn("fixed inset-x-2 bottom-10 z-20", MENU_PANEL)}
         >
           <SectionHeader>{panelFor.title}</SectionHeader>
           {panelNote && <div role="alert" className="px-2 pb-1 text-xs text-destructive">{panelNote}</div>}
@@ -1180,7 +1171,8 @@ export function App() {
               tabIndex={-1}
               aria-current={i === panelSel || undefined}
               className={cn(
-                "flex h-[30px] w-full cursor-pointer select-none items-center justify-between rounded-lg px-2 text-ui",
+                MENU_ITEM,
+                "justify-between",
                 i === panelSel && "bg-accent",
                 a.danger && "text-destructive"
               )}

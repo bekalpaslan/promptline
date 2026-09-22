@@ -3,12 +3,10 @@ import {
   RiAddLine,
   RiArrowDownSLine,
   RiArrowRightSLine,
-  RiCloseLine,
   RiDraggable,
   RiEqualizer2Line,
   RiLock2Fill,
   RiMoonClearLine,
-  RiMoreLine,
   RiPushpinFill,
   RiSearchLine,
   RiSettings3Line,
@@ -16,11 +14,12 @@ import {
 } from "@remixicon/react"
 import { C, type OrderBy, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { Chip, MATCH_HIT } from "@/components/prompt-bits"
+import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
+import { SEGMENT_TRACK, SearchClear, searchBoxClass, segmentClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
 import { EmptyState } from "./EmptyState"
-import { groupKey, useLibraryMenus } from "./menus"
+import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
 
 function loadCollapsed(key: string): Set<string> {
@@ -489,21 +488,12 @@ export function Sidebar() {
           <span className="min-w-0 flex-1 truncate">{group}</span>
         )}
         {/* Hover-revealed way into the same menu right-click opens */}
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={`Actions for group ${group}`}
-          title="Actions"
-          className="rounded-sm p-0.5 opacity-0 hover:bg-secondary group-hover:opacity-100 focus-visible:opacity-100"
-          onClick={(e) => {
-            e.stopPropagation()
-            const r = e.currentTarget.getBoundingClientRect()
-            openGroupCtx(r.left, r.bottom, pack, group, count)
-          }}
-        >
-          <RiMoreLine className="size-3.5" />
-        </button>
-        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{count}</span>
+        <MenuDots
+          label={`Actions for group ${group}`}
+          reveal="group-hover:opacity-100"
+          onOpen={(x, y) => openGroupCtx(x, y, pack, group, count)}
+        />
+        <Count>{count}</Count>
       </div>
     )
   }
@@ -663,25 +653,14 @@ export function Sidebar() {
         ) : (
           <span className="min-w-0 flex-1 truncate">{name}</span>
         )}
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={`Actions for pack ${name}`}
-          title="Actions"
-          className="rounded-sm p-0.5 text-muted-foreground opacity-0 hover:bg-secondary hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
-          onClick={(e) => {
-            e.stopPropagation()
-            const r = e.currentTarget.getBoundingClientRect()
-            openPackCtx(r.left, r.bottom, name, count)
-          }}
-        >
-          <RiMoreLine className="size-4" />
-        </button>
+        <MenuDots
+          label={`Actions for pack ${name}`}
+          reveal="group-hover:opacity-100"
+          onOpen={(x, y) => openPackCtx(x, y, name, count)}
+        />
         {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
         {/* While searching: the hits out of the pack's size */}
-        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-          {q ? `${count} / ${packTotals.get(name) ?? count}` : count}
-        </span>
+        <Count>{q ? `${count} / ${packTotals.get(name) ?? count}` : count}</Count>
       </div>
     )
   }
@@ -694,12 +673,7 @@ export function Sidebar() {
 
       {/* What is shown (the filter) apart from how it is shown (Display) */}
       <div className="flex gap-1.5 px-3 pb-2">
-        <label
-          className={cn(
-            "flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-lg border bg-background px-2 text-ui focus-within:border-ring",
-            q ? "border-ring" : "border-input"
-          )}
-        >
+        <label className={cn(searchBoxClass(!!q), "min-w-0 flex-1")}>
           <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           {scope && (
             <Chip size="md" className="max-w-[45%]" onRemove={() => setScope(null)} removeLabel="Search everywhere">
@@ -743,18 +717,14 @@ export function Sidebar() {
           />
           </span>
           {query ? (
-            <button
-              type="button"
-              aria-label="Clear the filter"
+            <SearchClear
+              label="Clear the filter"
               title="Clear (Esc)"
-              className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:text-foreground"
               onClick={() => {
                 clearSearch()
                 searchRef.current?.focus()
               }}
-            >
-              <RiCloseLine className="size-4" />
-            </button>
+            />
           ) : null}
         </label>
         <button
@@ -762,7 +732,7 @@ export function Sidebar() {
           title="Display: packs or one list, order, folding"
           aria-label="Display options"
           aria-haspopup="menu"
-          className="relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-hover hover:text-foreground"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect()
             const orders: [OrderBy, string][] = [["uses", "Most used"], ["title", "A–Z"], ["custom", "Custom — drag to arrange"]]
@@ -884,7 +854,7 @@ export function Sidebar() {
 
       {/* Light/Dark segmented mode toggle with the settings gear as a compact segment */}
       <div className="p-3">
-        <div className="flex items-center gap-1 rounded-lg bg-(--segment-track) p-1">
+        <div className={SEGMENT_TRACK}>
           {(["light", "dark"] as const).map((t) => {
             const Icon = t === "light" ? RiSunLine : RiMoonClearLine
             const active = m.prefs.theme === t
@@ -893,12 +863,7 @@ export function Sidebar() {
                 key={t}
                 type="button"
                 aria-pressed={active}
-                className={cn(
-                  "flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-ui font-semibold capitalize",
-                  active
-                    ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)"
-                    : "text-muted-foreground"
-                )}
+                className={cn(segmentClass(active), "flex-1 capitalize")}
                 onClick={() => void m.savePrefs({ theme: t })}
               >
                 <Icon className="size-4" />
@@ -911,12 +876,7 @@ export function Sidebar() {
             aria-label="Settings"
             aria-pressed={m.settingsOpen}
             title={`Settings — popup hotkey: ${C.fmtHotkey(m.hotkey)}`}
-            className={cn(
-              "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm",
-              m.settingsOpen
-                ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+            className={cn(segmentClass(m.settingsOpen), "w-8 shrink-0")}
             onClick={() => m.showSettings(!m.settingsOpen)}
           >
             <RiSettings3Line className="size-4" />

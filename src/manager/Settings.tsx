@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { RiArrowDownSLine, RiArrowRightSLine, RiCloseLine, RiLock2Fill } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
+import { Select, fieldVariants } from "@/components/field"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { C } from "@/lib/core"
@@ -36,9 +37,6 @@ function Row({ label, htmlFor, children }: { label: string; htmlFor?: string; ch
     </div>
   )
 }
-
-const selectCls =
-  "cursor-pointer rounded-md bg-secondary px-2 py-1 text-ui text-foreground focus-ring"
 
 export function Settings() {
   const m = useManager()
@@ -158,15 +156,16 @@ export function Settings() {
       {/* The pane replaces the editor; say so, and give it a way out */}
       <div className="flex w-full max-w-160 items-center gap-2 self-center px-1">
         <h1 className="flex-1 text-base font-semibold">Settings</h1>
-        <button
-          type="button"
+        <Button
+          variant="ghost"
+          size="icon-sm"
           aria-label="Close settings"
           title="Close settings (Esc)"
-          className="cursor-pointer rounded-md p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="text-muted-foreground"
           onClick={() => m.showSettings(false)}
         >
           <RiCloseLine className="size-4" />
-        </button>
+        </Button>
       </div>
       <Card title="General">
         <Row label="Global hotkey" htmlFor="setting-hotkey">
@@ -179,7 +178,8 @@ export function Settings() {
             aria-describedby="setting-hotkey-help"
             spellCheck={false}
             className={cn(
-              "w-50 rounded-md bg-secondary px-3 py-1.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground",
+              fieldVariants(),
+              "w-50",
               recording && "ring-2 ring-(--warn)/60",
               pending && !recording && "ring-2 ring-primary/50"
             )}
@@ -235,49 +235,49 @@ export function Settings() {
 
       <Card title="Appearance">
         <Row label="Popup density" htmlFor="setting-density">
-          <select
+          <Select
+            size="sm"
             id="setting-density"
             value={m.prefs.density}
             onChange={(e) => {
               void m.savePrefs({ density: e.target.value }).then(() => say("Density updated — applies next popup"))
             }}
-            className={selectCls}
           >
             <option value="comfortable">Comfortable — title + preview line</option>
             <option value="compact">Compact — titles only, twice the rows</option>
-          </select>
+          </Select>
         </Row>
         <Row label="Font" htmlFor="setting-font">
-          <select
+          <Select
+            size="sm"
             id="setting-font"
             value={m.prefs.font}
             style={{ fontFamily: fontStack(m.prefs.font) }}
             onChange={(e) => {
               void m.savePrefs({ font: e.target.value }).then(() => say("Font updated"))
             }}
-            className={selectCls}
           >
             {FONTS.map((f) => (
               <option key={f.id} value={f.id} style={{ fontFamily: f.stack }}>
                 {f.label}
               </option>
             ))}
-          </select>
+          </Select>
         </Row>
         <Row label="UI scale" htmlFor="setting-scale">
-          <select
+          <Select
+            size="sm"
             id="setting-scale"
             value={m.prefs.scale}
             onChange={(e) => {
               void m.savePrefs({ scale: e.target.value }).then(() => say("UI scale updated"))
             }}
-            className={selectCls}
           >
             <option value="90">90%</option>
             <option value="100">100%</option>
             <option value="110">110%</option>
             <option value="125">125%</option>
-          </select>
+          </Select>
         </Row>
         <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
           Font and scale apply everywhere immediately (popup on its next open); density applies to the popup
@@ -428,7 +428,7 @@ export function Settings() {
               autoFocus
               placeholder="Pack name — Enter to create"
               spellCheck={false}
-              className="min-w-40 flex-1 rounded-md bg-secondary px-3 py-1 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
+              className={cn(fieldVariants({ size: "sm" }), "min-w-40 flex-1")}
               onKeyDown={(e) => {
                 if (e.key === "Escape") setNewPackMode(false)
                 if (e.key === "Enter") {

@@ -19,6 +19,19 @@ export function Kbd({ children }: { children: React.ReactNode }) {
   )
 }
 
+// A key combination, one cap per key, set closer together than a key is to
+// its label. "Ctrl+Alt+Space" and "Ctrl ↵" both split.
+export function Keys({ combo }: { combo: string }) {
+  const keys = combo.split(/\+|\s+/).filter(Boolean)
+  return (
+    <span className="inline-flex shrink-0 items-center gap-0.5 align-middle">
+      {keys.map((k, i) => (
+        <Kbd key={i}>{k}</Kbd>
+      ))}
+    </span>
+  )
+}
+
 // Every small label in the app is a Chip: #tags, {placeholders}, the {N} and
 // +N badges, add-suggestions, the sidebar's scope, the import badges. The
 // whole look lives in this table — change a chip here, never at a call site.
@@ -219,6 +232,12 @@ export function InputsBadge({ inputs }: { inputs: readonly string[] }) {
   )
 }
 
+// How many prompts a pack or group holds, beside its name in either window:
+// the bare number, muted, in tabular digits so a column of them lines up
+export function Count({ children }: { children: React.ReactNode }) {
+  return <span className="shrink-0 text-xs font-normal tabular-nums text-muted-foreground">{children}</span>
+}
+
 // How a search match is marked in a title, in either window: the kit's
 // underline, which leaves the text's own colour alone
 export const MATCH_HIT = "underline decoration-solid underline-offset-2"
@@ -237,6 +256,13 @@ export function HighlightedTitle({ title, indices }: { title: string; indices: n
     </span>
   )
 }
+
+// The box a preview of pasted text sits in, in every window: a grey ground
+// (the accent is kept for selection) and the app's 13px text. Height and
+// scrolling are the caller's; so is padding where a preview must line up
+// with an editor beside it.
+export const PREVIEW_BOX =
+  "whitespace-pre-wrap break-words rounded-lg bg-secondary/50 p-2.5 text-ui leading-relaxed text-muted-foreground"
 
 // Prompt text with its placeholders as typed chips, the one renderer for every
 // preview. {clipboard} shows the clipboard as it is now (BEHAVIOR.md: it

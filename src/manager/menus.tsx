@@ -9,7 +9,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { RiMoreLine } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
+import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr, sayUndo } from "./status"
@@ -24,6 +26,30 @@ export const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
  * actions and can't drift. The surface renders `element` once and draws
  * the rename inputs from `renaming` / `renamingGroup`.
  */
+// The three dots on a pack or group heading: a hover-revealed way into the
+// same menu right-click opens. `reveal` is the group-hover class of the
+// heading it sits in (the sidebar's rows and the overview's headings name
+// their groups differently).
+export function MenuDots({ label, reveal, onOpen }: { label: string; reveal: string; onOpen: (x: number, y: number) => void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon-xs"
+      tabIndex={-1}
+      aria-label={label}
+      title="Actions"
+      className={cn("text-muted-foreground opacity-0 focus-visible:opacity-100", reveal)}
+      onClick={(e) => {
+        e.stopPropagation()
+        const r = e.currentTarget.getBoundingClientRect()
+        onOpen(r.left, r.bottom)
+      }}
+    >
+      <RiMoreLine className="size-4" />
+    </Button>
+  )
+}
+
 export function useLibraryMenus(opts: {
   /** Before a "New group…" creates its first prompt: the sidebar unfolds the pack */
   onNewGroup?: (pack: string) => void

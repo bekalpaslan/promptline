@@ -175,6 +175,18 @@
   color: var(--heading);
 }
 
+/* The two heading roles: section-title heads a panel in the manager
+   (Prompt, Tags); section-label heads a run of items inside a list or a
+   menu (the popup's PINNED and WILL PASTE, a menu's IN PACK) */
+@utility section-label {
+  font-size: var(--text-xs);
+  line-height: var(--text-xs--line-height);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+}
+
 @utility module {
   border-radius: var(--radius-xl);
   border: 1px solid var(--module-border);

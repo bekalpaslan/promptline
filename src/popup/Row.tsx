@@ -2,7 +2,7 @@ import { memo } from "react"
 import { RiClipboardLine, RiEdit2Line, RiFileTextLine, RiPushpinFill } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { HighlightedTitle, InputsBadge, Kbd, TagList } from "@/components/prompt-bits"
+import { HighlightedTitle, InputsBadge, Keys, TagList } from "@/components/prompt-bits"
 
 // The popup's list row. Its own module so the design-system bundle
 // (design/entry.tsx) can render the real row, not a copy; the pieces it is
@@ -107,10 +107,7 @@ export const Row = memo(function Row({
       </div>
       {compact && chips}
       {slot && (
-        <span className="flex shrink-0 gap-1">
-          <Kbd>Ctrl</Kbd>
-          <Kbd>{slot}</Kbd>
-        </span>
+        <Keys combo={`Ctrl+${slot}`} />
       )}
     </div>
   )
