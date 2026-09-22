@@ -58,7 +58,15 @@ export function App() {
   const [clip, setClip] = useState("")
   const [query, setQuery] = useState("")
   const [sel, setSel] = useState(0)
+  // The prompt whose paste is in flight: its row is tinted, and no other
+  // pick is taken until it lands. Mirrored in a ref because a second Enter
+  // arrives before React has re-rendered with the state (L14).
   const [pickedId, setPickedId] = useState<string | null>(null)
+  const pickedRef = useRef<string | null>(null)
+  const setPicked = useCallback((id: string | null) => {
+    pickedRef.current = id
+    setPickedId(id)
+  }, [])
   const [form, setForm] = useState<FormState | null>(null)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
   const [panelSel, setPanelSel] = useState(0)
@@ -293,21 +301,31 @@ export function App() {
     setNotice({ text: `Couldn't ${what}: ${e instanceof Error ? e.message : String(e)}`, kind: "error" })
   }, [])
 
+  // paste_snippet answers "pasted" (the paste thread is running and the
+  // popup is hidden), "copied" (the manager was the foreground window when
+  // the popup was summoned, so Rust copied only and left the popup up), or
+  // null from an older Rust, which means pasted.
   const send = useCallback(async (snippet: Snippet, text: string, paste: boolean) => {
+    let result: string | null
     try {
-      await invoke("paste_snippet", { text, paste, id: snippet.id })
+      result = await invoke<string | null>("paste_snippet", { text, paste, id: snippet.id })
     } catch (e) {
       // Rust writes the clipboard before hiding, so on failure the popup is
-      // still on screen to show this
+      // still on screen to show this; the pick is over, so a retry is allowed
       fail(paste ? "paste" : "copy", e)
+      setPicked(null)
       return
     }
-    if (!paste) {
+    if (!paste || result === "copied") {
       // Copy-only: Rust leaves the popup up; confirm, then hide
-      setNotice({ text: "Copied to clipboard", kind: "info" })
+      setNotice({
+        text: result === "copied" && paste ? "Copied to clipboard — the manager was in front" : "Copied to clipboard",
+        kind: "info",
+      })
+      setPicked(null)
       setTimeout(() => void invoke("hide_popup"), 600)
     }
-  }, [fail])
+  }, [fail, setPicked])
 
   // --- Create prompt from clipboard -------------------------------------------
   const openCreate = useCallback(() => {
@@ -387,6 +405,9 @@ export function App() {
   }, [refreshClip])
 
   const pick = useCallback((snippet: Snippet, paste: boolean) => {
+    // One paste at a time: a second Enter inside the ~150 ms before Rust
+    // hides the window used to run paste_snippet twice (two Ctrl+V, uses +2)
+    if (pickedRef.current) return
     hidePreview()
     closePanel()
     let base = C.expandConfig(snippet.text, snippet.configValues)
@@ -401,24 +422,27 @@ export function App() {
       if (base.includes("{clipboard}")) refreshClip()
       return
     }
-    setPickedId(snippet.id)
+    setPicked(snippet.id)
     setTimeout(() => send(snippet, C.expandBuiltins(base), paste), 90)
-  }, [hidePreview, closePanel, send, refreshClip])
+  }, [hidePreview, closePanel, send, refreshClip, setPicked])
 
   const submitForm = useCallback(async (forceCopy: boolean) => {
-    if (!form) return
+    // The same guard as pick: the form's Enter fires again before React has
+    // unmounted the textarea, and once it has, the list's Enter is next
+    if (!form || pickedRef.current) return
     // A function replacer in core: a value containing `$&` or `$$` must paste
     // as typed, not as a replacement pattern
     const text = C.fillFields(form.base, formValues)
     const { snippet } = form
     const paste = forceCopy ? false : form.paste
+    setPicked(snippet.id)
     setForm(null)
     // Remember entered values so next time the form is pre-filled.
     // Sequenced: paste_snippet re-reads the file to bump the use count. A
     // failed save is reported but must not stop the paste.
     await patch(snippet.id, { fieldValues: { ...formValues } })
     await send(snippet, C.expandBuiltins(text), paste)
-  }, [form, formValues, patch, send])
+  }, [form, formValues, patch, send, setPicked])
 
   const togglePin = useCallback(async (s: Snippet) => {
     if (!s.pinned && snippets.filter((x) => x.pinned).length >= MAX_PINS) {
@@ -493,7 +517,7 @@ export function App() {
     if (lastDeleted.current) clearTimeout(lastDeleted.current.timer)
     lastDeleted.current = null
     hidePreview()
-    setPickedId(null)
+    setPicked(null)
     setQuery("")
     setSel(0)
     mouseSeeded.current = false
@@ -516,7 +540,7 @@ export function App() {
     } catch (e) {
       fail("load the library", e)
     }
-  }, [closePanel, hidePreview, fail])
+  }, [closePanel, hidePreview, fail, setPicked])
 
   useEffect(() => {
     const un = listen("popup-shown", () => void reload())

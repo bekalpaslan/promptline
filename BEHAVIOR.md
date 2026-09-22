@@ -107,7 +107,15 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    has to return to a window that is still on screen: the popup shows it in
    its feedback strip and nothing else happens. Copy-only (Ctrl+Enter) leaves
    the popup up for a moment to say "Copied to clipboard"; the popup hides
-   itself afterwards. The `uses` bump is best effort in both halves, the
+   itself afterwards. The command answers `"pasted"` or `"copied"`: when the
+   manager was the foreground window at summon time there is nothing sane to
+   paste into (Enter would land the prompt in whatever editor field had
+   focus), so Rust copies only, leaves the popup up, and the popup says
+   "Copied to clipboard — the manager was in front" and hides itself the
+   way Ctrl+Enter does. One pick at a time: the popup ignores a second Enter
+   while a paste is in flight (the row stays tinted until the popup is
+   hidden or the paste fails), because a fast double Enter used to run the
+   command twice, two Ctrl+V and `uses` +2. The `uses` bump is best effort in both halves, the
    read as much as the write: the popup is already hidden by then, so an
    error would reach nobody, and a library a sync client or scanner is
    holding for a moment must not turn into a paste that never happens with
