@@ -1533,16 +1533,48 @@ fn paste_snippet(
     // doesn't, leaving the text there is the fallback — click into a field and
     // paste it yourself. Restoring the old clipboard would silently discard it.
     if mode == PasteMode::Pasted {
+        let app = app.clone();
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(80));
-            if !platform::focus_window(prev_window) {
-                log::warn!("SetForegroundWindow refused window {prev_window:#x}");
+            // No Ctrl+V without the focus: it would land in whatever window
+            // happens to be in front, which is not the one the user meant
+            let focused = platform::focus_window(prev_window);
+            if !focused {
+                log::warn!("SetForegroundWindow refused window {prev_window:#x}; the paste was not sent");
             }
-            std::thread::sleep(Duration::from_millis(80));
-            platform::send_ctrl_v();
+            let sent = focused && {
+                std::thread::sleep(Duration::from_millis(80));
+                platform::send_ctrl_v()
+            };
+            if focused && !sent {
+                log::warn!("SendInput did not deliver Ctrl+V to window {prev_window:#x}");
+            }
+            if !sent {
+                report_paste_failed(&app);
+            }
         });
     }
     Ok(mode.tag().into())
+}
+
+/// What the popup shows when the paste thread could not deliver. The
+/// popup listens for `paste-failed` with exactly this payload shape.
+const PASTE_FAILED_MESSAGE: &str = "Couldn't paste into that window — the prompt is on your clipboard";
+
+/// The paste thread could not deliver (an elevated window, a foreground
+/// lock held elsewhere, a blocked input queue): bring the popup back where
+/// it was, without re-recording `prev_window` — the target is still the
+/// one the user came from — and tell it, so the user learns the prompt is
+/// on the clipboard rather than wondering why nothing happened.
+fn report_paste_failed(app: &AppHandle) {
+    if let Some(w) = app.get_webview_window("popup") {
+        let _ = w.show();
+        let _ = w.set_focus();
+    }
+    let payload = serde_json::json!({ "message": PASTE_FAILED_MESSAGE });
+    if let Err(e) = app.emit_to("popup", "paste-failed", payload) {
+        log::warn!("couldn't tell the popup the paste failed: {e}");
+    }
 }
 
 /// Quit, but let the manager flush a pending autosave first: the editor
@@ -1727,7 +1759,11 @@ mod platform {
         }
     }
 
-    pub fn send_ctrl_v() {
+    /// Send Ctrl+V; false when SendInput inserted fewer events than asked
+    /// (the input queue is blocked, or another thread holds it). UIPI drops
+    /// input aimed at an elevated window without saying so, so a paste into
+    /// one still comes back true.
+    pub fn send_ctrl_v() -> bool {
         // Release modifiers the user may still be holding from the hotkey,
         // then send a clean Ctrl+V.
         let inputs = [
@@ -1739,9 +1775,8 @@ mod platform {
             key(VK_V, true),
             key(VK_CONTROL, true),
         ];
-        unsafe {
-            SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
-        }
+        let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+        sent as usize == inputs.len()
     }
 }
 
@@ -1753,7 +1788,9 @@ mod platform {
     pub fn focus_window(_hwnd: isize) -> bool {
         false
     }
-    pub fn send_ctrl_v() {}
+    pub fn send_ctrl_v() -> bool {
+        false
+    }
     pub fn left_button_down() -> bool {
         false
     }
