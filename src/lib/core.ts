@@ -98,6 +98,8 @@ export type PackDiagnosis =
 interface PromptlineCore {
   tokenize(text: string): TokenPart[]
   customFields(text: string): string[]
+  /** Another copy of a field with its own value: the next free `<stem>_<n>`, from 2 */
+  nextCopyName(name: string, text: string): string
   configNames(text: string): string[]
   expandConfig(text: string, values?: Record<string, string>): string
   downgradeUnsetConfig(text: string): string
