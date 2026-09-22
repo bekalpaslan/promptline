@@ -39,6 +39,14 @@ so the SRC links resolve on GitHub.
 - **Propose** by copying the map into `alternatives/<idea>.architecture.json`,
   keeping every id that doesn't change, and rendering `compare` against the
   map for a Before / Delta / After page.
+- **Stories** are one user scenario end to end, as a `sequence` diagram in
+  `stories/<scenario>.sequence.json`, with lanes for the surfaces and files
+  and function names in the message labels (sequence has no `sources`, and
+  `--repo-root` is architecture-only). Trace the scenario in the code
+  first; it routinely differs from the obvious guess. The viewer caps the
+  width by the window height (about 930 px at 1440×900), so keep the
+  viewBox about 1080 wide and at most about 610 high, and cut return
+  arrows that add nothing before squeezing messages below 28 px apart.
 
 Commands run from the skill directory, with `--repo-root` pointing at the
 checkout:
