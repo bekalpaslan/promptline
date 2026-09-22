@@ -21,6 +21,13 @@ import { useCtxMenu } from "./ctx-menu"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
 
+// One row of the tree as drawn. `key` is what the roving focus remembers
+// and what the row's data-key carries; `parent` is the key Left moves to.
+type TreeRow =
+  | { key: string; kind: "pack"; name: string; count: number; level: 1; expanded: boolean; hasChildren: boolean; parent?: undefined }
+  | { key: string; kind: "group"; pack: string; group: string; count: number; level: 2; expanded: boolean; hasChildren: boolean; parent: string }
+  | { key: string; kind: "prompt"; id: string; level: 1 | 2 | 3; parent?: string }
+
 // The filter's text, drawn under a transparent input so its #tag, @pack and
 // >group terms read as chips while the input stays a plain input (caret,
 // selection, undo). Colour and a ground only, never padding: the mirror has
@@ -94,6 +101,9 @@ export function Sidebar() {
   const mirrorRef = useRef<HTMLDivElement>(null)
   const display = useCtxMenu()
   const visibleIdsRef = useRef<string[]>([])
+  const rowsRef = useRef<TreeRow[]>([])
+  // The row the keyboard is on (its key), so Tab comes back to it
+  const [focusKey, setFocusKey] = useState<string | null>(null)
   // A click on a pack or group title selects it: the pane beside the
   // sidebar shows what it holds (the overview), the way a prompt row shows
   // the prompt. The sidebar stays, so a double-click still reaches the rename.
@@ -171,19 +181,46 @@ export function Sidebar() {
   const { packNames } = m
   const tree = useMemo(() => (grouped ? C.packTree(visible, packNames(), DEFAULT_PACK) : null), [visible, grouped, packNames])
 
-  // Flat id list in display order, for shift-range selection
-  const visibleIds: string[] = []
+  // Every row as drawn, in order: the keyboard's tree (one tabbable row,
+  // arrows move between them) and the flat id list for shift-range
+  // selection are both read off it. Searching forces every fold open; a
+  // pack with no hits is a faded header with nothing under it.
+  const rows: TreeRow[] = []
   if (tree) {
     for (const p of tree) {
-      if (!q && collapsed.has(p.name)) continue
-      for (const s of p.ungrouped) visibleIds.push(s.id)
-      for (const g of p.groups)
-        if (q || !collapsedGroups.has(groupKey(p.name, g.name))) for (const s of g.items) visibleIds.push(s.id)
+      const faded = !!q && p.count === 0
+      const open = !faded && (!!q || !collapsed.has(p.name))
+      const pk = `pack:${p.name}`
+      rows.push({ key: pk, kind: "pack", name: p.name, count: p.count, level: 1, expanded: open, hasChildren: p.count > 0 })
+      if (!open) continue
+      for (const s of p.ungrouped) rows.push({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 2, parent: pk })
+      for (const g of p.groups) {
+        const gk = `group:${groupKey(p.name, g.name)}`
+        const gopen = !!q || !collapsedGroups.has(groupKey(p.name, g.name))
+        rows.push({ key: gk, kind: "group", pack: p.name, group: g.name, count: g.items.length, level: 2, expanded: gopen, hasChildren: g.items.length > 0, parent: pk })
+        if (!gopen) continue
+        for (const s of g.items) rows.push({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 3, parent: gk })
+      }
     }
   } else {
-    for (const s of visible) visibleIds.push(s.id)
+    for (const s of visible) rows.push({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 1 })
   }
-  visibleIdsRef.current = visibleIds
+  const rowByKey = new Map(rows.map((r) => [r.key, r]))
+  rowsRef.current = rows
+  visibleIdsRef.current = rows.flatMap((r) => (r.kind === "prompt" ? [r.id] : []))
+
+  // Roving tabindex: the row last focused is the one Tab reaches, falling
+  // back to the open prompt, the shown pack or group, then the first row
+  const tabKey =
+    (focusKey && rowByKey.has(focusKey) && focusKey) ||
+    (m.activeId && rowByKey.has(`snip:${m.activeId}`) && `snip:${m.activeId}`) ||
+    (shown && rowByKey.has(shown.group ? `group:${groupKey(shown.pack, shown.group)}` : `pack:${shown.pack}`)
+      ? shown.group
+        ? `group:${groupKey(shown.pack, shown.group)}`
+        : `pack:${shown.pack}`
+      : null) ||
+    rows[0]?.key ||
+    null
 
   // The library in the order the rows are drawn: sorted, and by pack (the
   // ungrouped run, then each group) when the view is grouped. Under "custom"
@@ -316,6 +353,105 @@ export function Sidebar() {
     m.select(sel.size === 1 ? [...sel][0] : null)
   }
 
+  // The keyboard on the tree, one handler for every row: Up/Down move,
+  // Home/End jump, Right unfolds a pack or group or steps into it, Left
+  // folds or steps out to the parent, Enter/Space is the click (with its
+  // modifiers, so Ctrl and Shift select), Alt+Up/Down is the drag, and
+  // the Menu key or Shift+F10 is the right-click. The chevron and the
+  // three dots are hidden from assistive tech because these keys reach
+  // the same actions.
+  const focusRow = (key: string) => {
+    setFocusKey(key)
+    listRef.current?.querySelector<HTMLElement>(`[data-key="${CSS.escape(key)}"]`)?.focus()
+  }
+  const toggleFold = (row: TreeRow) => {
+    if (row.kind === "pack") toggleCollapsed(row.name)
+    else if (row.kind === "group") toggleCollapsedGroup(groupKey(row.pack, row.group))
+  }
+  const openRowMenu = (el: HTMLElement, row: TreeRow) => {
+    const r = el.getBoundingClientRect()
+    if (row.kind === "pack") openPackCtx(r.left + 24, r.bottom, row.name, row.count)
+    else if (row.kind === "group") openGroupCtx(r.left + 24, r.bottom, row.pack, row.group, row.count)
+    else {
+      const ids = m.selection.has(row.id) ? m.selection : new Set([row.id])
+      if (!m.selection.has(row.id)) m.setSelection(ids, row.id)
+      openRowCtx(r.left + 24, r.bottom, ids)
+    }
+  }
+  const onTreeKey = (e: React.KeyboardEvent<HTMLElement>, row: TreeRow) => {
+    if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
+      e.preventDefault()
+      openRowMenu(e.currentTarget, row)
+      return
+    }
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault()
+      if (row.kind === "prompt") handleRowClick(e, row.id)
+      else if (row.kind === "pack") m.openOverview({ pack: row.name })
+      else m.openOverview({ pack: row.pack, group: row.group })
+      return
+    }
+    if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
+      if (row.kind !== "prompt") return
+      e.preventDefault()
+      moveRow(row.id, e.key === "ArrowUp" ? -1 : 1)
+      return
+    }
+    if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
+    const all = rowsRef.current
+    const at = all.findIndex((r) => r.key === row.key)
+    const go = (i: number) => {
+      const r = all[Math.max(0, Math.min(all.length - 1, i))]
+      if (r) focusRow(r.key)
+    }
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault()
+        go(at + 1)
+        break
+      case "ArrowUp":
+        e.preventDefault()
+        go(at - 1)
+        break
+      case "Home":
+        e.preventDefault()
+        go(0)
+        break
+      case "End":
+        e.preventDefault()
+        go(all.length - 1)
+        break
+      case "ArrowRight":
+        e.preventDefault()
+        if (row.kind === "prompt") break
+        // Searching holds every fold open, so there is nothing to unfold
+        if (!row.expanded) {
+          if (!q) toggleFold(row)
+        } else if (row.hasChildren) go(at + 1) // the first child is the next row
+        break
+      case "ArrowLeft":
+        e.preventDefault()
+        if (row.kind !== "prompt" && row.expanded && !q) toggleFold(row)
+        else if (row.parent) focusRow(row.parent)
+        break
+    }
+  }
+  // A click on a row's chevron or dots must not take focus off the row
+  // (they are hidden from assistive tech, so focus has no business there)
+  const keepRowFocus = (e: React.MouseEvent<HTMLElement>) => {
+    e.preventDefault()
+    e.currentTarget.closest<HTMLElement>("[data-key]")?.focus()
+  }
+  // Attributes every row shares: its place in the tree and the roving tab stop
+  const treeitemProps = (row: TreeRow) => ({
+    role: "treeitem" as const,
+    "data-key": row.key,
+    "aria-level": row.level,
+    tabIndex: tabKey === row.key ? 0 : -1,
+    onFocus: () => setFocusKey(row.key),
+    onKeyDown: (e: React.KeyboardEvent<HTMLElement>) => onTreeKey(e, row),
+  })
+
   // The pack, group and prompt menus, shared with the overview
   const {
     element: menus,
@@ -350,28 +486,19 @@ export function Sidebar() {
   const groupTitle = (pack: string, group: string, count: number, isCollapsed: boolean) => {
     const key = groupKey(pack, group)
     const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+    const selected = shown?.pack === pack && shown.group === group
     return (
       <div
-        role="button"
-        tabIndex={0}
+        {...treeitemProps(rowByKey.get(`group:${key}`)!)}
         aria-expanded={!isCollapsed}
-        aria-current={shown?.pack === pack && shown.group === group ? "true" : undefined}
-        title={`${group} — click shows its prompts, Enter folds it, right-click for actions`}
+        aria-selected={selected}
+        aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
+        title={`${group} — click or Enter shows its prompts · ← → fold · right-click or Shift+F10 for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-medium text-(--heading) hover:bg-hover",
-          shown?.pack === pack && shown.group === group && "bg-accent hover:bg-accent"
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-medium text-(--heading) hover:bg-hover focus-ring",
+          selected && "bg-accent hover:bg-accent"
         )}
         onClick={() => m.openOverview({ pack, group })}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            toggleCollapsedGroup(key)
-          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
-            e.preventDefault()
-            const r = e.currentTarget.getBoundingClientRect()
-            openGroupCtx(r.left + 24, r.bottom, pack, group, count)
-          }
-        }}
         onDoubleClick={(e) => {
           e.stopPropagation()
           setRenamingGroup(key)
@@ -382,12 +509,15 @@ export function Sidebar() {
           openGroupCtx(e.clientX, e.clientY, pack, group, count)
         }}
       >
-        {/* The chevron is the fold; the title selects */}
+        {/* The chevron is the fold; the title selects. Hidden from assistive
+            tech (← → fold), and a click on it keeps focus on the row */}
         <button
           type="button"
           tabIndex={-1}
-          aria-label={isCollapsed ? `Expand group ${group}` : `Collapse group ${group}`}
+          aria-hidden
+          title={isCollapsed ? "Expand" : "Collapse"}
           className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onMouseDown={keepRowFocus}
           onClick={(e) => {
             e.stopPropagation()
             toggleCollapsedGroup(key)
@@ -423,6 +553,7 @@ export function Sidebar() {
         <MenuDots
           label={`Actions for group ${group}`}
           reveal="group-hover:opacity-100"
+          decorative
           onOpen={(x, y) => openGroupCtx(x, y, pack, group, count)}
         />
         <Count>{count}</Count>
@@ -436,18 +567,18 @@ export function Sidebar() {
     const active = s.id === m.activeId && m.selection.size <= 1
     const lifted = drag?.id === s.id
     const mark = drag && drag.id !== s.id && over?.id === s.id ? over.after : null
+    const title = s.title || "(untitled)"
     return (
       <div
         key={s.id}
         data-id={s.id}
-        role="button"
-        tabIndex={0}
-        aria-current={active ? "true" : undefined}
-        aria-pressed={multi || undefined}
-        title={s.title || "(untitled)"}
+        {...treeitemProps(rowByKey.get(`snip:${s.id}`)!)}
+        aria-selected={active || multi}
+        aria-label={`${title}${s.pinned ? ", pinned" : ""}${where ? `, in ${where}` : ""}`}
+        title={title}
         data-snip-id={s.id}
         className={cn(
-          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui transition-[transform,box-shadow] duration-150",
+          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui transition-[transform,box-shadow] duration-150 focus-ring",
           active
             ? "bg-accent text-foreground"
             : "text-foreground hover:bg-hover",
@@ -477,23 +608,6 @@ export function Sidebar() {
           if (!drag) cancelHold()
         }}
         onClick={(e) => handleRowClick(e, s.id)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            handleRowClick(e, s.id)
-          } else if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-            // The keyboard's drag
-            e.preventDefault()
-            moveRow(s.id, e.key === "ArrowUp" ? -1 : 1)
-          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
-            // The keyboard's right-click: menu at the row, not at the pointer
-            e.preventDefault()
-            const r = e.currentTarget.getBoundingClientRect()
-            const ids = m.selection.has(s.id) ? m.selection : new Set([s.id])
-            if (!m.selection.has(s.id)) m.setSelection(ids, s.id)
-            openRowCtx(r.left + 24, r.bottom, ids)
-          }
-        }}
         onContextMenu={(e) => {
           e.preventDefault()
           const ids = m.selection.has(s.id) ? m.selection : new Set([s.id])
@@ -503,14 +617,14 @@ export function Sidebar() {
       >
         {/* Resting affordance for press-and-hold drag: a grip on hover */}
         <RiDraggable className="-ml-1 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
-        {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-(--warn)" aria-label="pinned" />}
+        {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-(--warn)" aria-hidden />}
         {where ? (
           <span className="flex min-w-0 flex-col">
-            <span className="truncate">{marked(s.title || "(untitled)", words)}</span>
+            <span className="truncate">{marked(title, words)}</span>
             <span className="truncate text-xs font-normal text-muted-foreground">{where}</span>
           </span>
         ) : (
-          <span className="truncate">{marked(s.title || "(untitled)", words)}</span>
+          <span className="truncate">{marked(title, words)}</span>
         )}
       </div>
     )
@@ -518,29 +632,21 @@ export function Sidebar() {
 
   const sectionTitle = (name: string, count: number, isCollapsed: boolean, faded = false) => {
     const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+    const selected = shown?.pack === name && !shown.group
+    const total = packTotals.get(name) ?? count
     return (
       <div
-        role="button"
-        tabIndex={0}
+        {...treeitemProps(rowByKey.get(`pack:${name}`)!)}
         aria-expanded={!isCollapsed}
-        aria-current={shown?.pack === name && !shown.group ? "true" : undefined}
-        title={`${name} — click shows its prompts, Enter folds it, right-click for actions`}
+        aria-selected={selected}
+        aria-label={`${name}, ${q ? `${count} of ${total}` : count} prompt${total === 1 ? "" : "s"}${m.isLocked(name) ? ", locked" : ""}`}
+        title={`${name} — click or Enter shows its prompts · ← → fold · right-click or Shift+F10 for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover",
-          shown?.pack === name && !shown.group && "bg-accent hover:bg-accent",
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover focus-ring",
+          selected && "bg-accent hover:bg-accent",
           faded && "opacity-45"
         )}
         onClick={() => m.openOverview({ pack: name })}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" || e.key === " ") {
-            e.preventDefault()
-            toggleCollapsed(name)
-          } else if (e.key === "ContextMenu" || (e.key === "F10" && e.shiftKey)) {
-            e.preventDefault()
-            const r = e.currentTarget.getBoundingClientRect()
-            openPackCtx(r.left + 24, r.bottom, name, count)
-          }
-        }}
         onDoubleClick={(e) => {
           e.stopPropagation()
           setRenaming(name)
@@ -551,12 +657,14 @@ export function Sidebar() {
           openPackCtx(e.clientX, e.clientY, name, count)
         }}
       >
-        {/* The chevron is the fold; the title selects */}
+        {/* The chevron is the fold; the title selects (see the group's) */}
         <button
           type="button"
           tabIndex={-1}
-          aria-label={isCollapsed ? `Expand pack ${name}` : `Collapse pack ${name}`}
+          aria-hidden
+          title={isCollapsed ? "Expand" : "Collapse"}
           className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          onMouseDown={keepRowFocus}
           onClick={(e) => {
             e.stopPropagation()
             toggleCollapsed(name)
@@ -589,11 +697,12 @@ export function Sidebar() {
         <MenuDots
           label={`Actions for pack ${name}`}
           reveal="group-hover:opacity-100"
+          decorative
           onOpen={(x, y) => openPackCtx(x, y, name, count)}
         />
-        {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
+        {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-hidden />}
         {/* While searching: the hits out of the pack's size */}
-        <Count>{q ? `${count} / ${packTotals.get(name) ?? count}` : count}</Count>
+        <Count>{q ? `${count} / ${total}` : count}</Count>
       </div>
     )
   }
@@ -737,42 +846,48 @@ export function Sidebar() {
         </button>
         {/* An empty library says so in the pane, not here as well: the New
             button above is the sidebar's way in */}
-        {tree ? (
-          tree.map((p) => {
-            // Searching: a pack with no hits is only its faded header
-            const faded = !!q && p.count === 0
-            const isCollapsed = faded || (!q && collapsed.has(p.name))
-            return (
-              <div key={p.name} data-pack={p.name} className="mb-2">
-                {sectionTitle(p.name, p.count, isCollapsed, faded)}
-                {!isCollapsed && (
-                  <div className="mt-0.5 flex flex-col gap-0.5 pl-4">
-                    {p.ungrouped.map((s) => snipRow(s))}
-                    {p.groups.map((g) => {
-                      const gc = !q && collapsedGroups.has(groupKey(p.name, g.name))
-                      return (
-                        <div key={g.name} className="flex flex-col gap-0.5">
-                          {groupTitle(p.name, g.name, g.items.length, gc)}
-                          {/* The guide line ties a group's prompts to its header */}
-                          {!gc && (
-                            <div className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-2">
-                              {g.items.map((s) => snipRow(s))}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            )
-          })
-        ) : (
-          // One list: each row says where it lives, since no header does
-          <div className="flex flex-col gap-0.5">
-            {visible.map((s) => snipRow(s, s.group ? `${s.pack || DEFAULT_PACK} › ${s.group}` : s.pack || DEFAULT_PACK))}
-          </div>
-        )}
+        {/* One tree for assistive tech: packs at level 1, their prompts and
+            groups at 2, a group's prompts at 3 (a flat list at 1); the
+            wrappers between are presentation so each run of children is
+            owned by the row above it */}
+        <div role="tree" aria-label="Library" aria-multiselectable="true">
+          {tree ? (
+            tree.map((p) => {
+              // Searching: a pack with no hits is only its faded header
+              const faded = !!q && p.count === 0
+              const isCollapsed = faded || (!q && collapsed.has(p.name))
+              return (
+                <div key={p.name} data-pack={p.name} role="presentation" className="mb-2">
+                  {sectionTitle(p.name, p.count, isCollapsed, faded)}
+                  {!isCollapsed && (
+                    <div role="group" className="mt-0.5 flex flex-col gap-0.5 pl-4">
+                      {p.ungrouped.map((s) => snipRow(s))}
+                      {p.groups.map((g) => {
+                        const gc = !q && collapsedGroups.has(groupKey(p.name, g.name))
+                        return (
+                          <div key={g.name} role="presentation" className="flex flex-col gap-0.5">
+                            {groupTitle(p.name, g.name, g.items.length, gc)}
+                            {/* The guide line ties a group's prompts to its header */}
+                            {!gc && (
+                              <div role="group" className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-2">
+                                {g.items.map((s) => snipRow(s))}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })
+          ) : (
+            // One list: each row says where it lives, since no header does
+            <div role="presentation" className="flex flex-col gap-0.5">
+              {visible.map((s) => snipRow(s, s.group ? `${s.pack || DEFAULT_PACK} › ${s.group}` : s.pack || DEFAULT_PACK))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Light/Dark segmented mode toggle with the settings gear as a compact segment */}
