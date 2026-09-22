@@ -143,25 +143,25 @@
     --module-border: color-mix(in srgb, var(--heading) 40%, transparent);
 }
 
-/* Tag hues are tuned for dark surfaces (ui/core.js). A pill sets --tag to
-   its hue; as text on a light surface the hue is darkened, as an edge it is
-   carried at 35 %. (A var() inside a :root token would resolve at :root,
-   where --tag is unset, hence utilities on the pill itself.) */
+/* Tag hues are tuned for dark surfaces (ui/core.js). A chip sets --tag to
+   its hue; as text on a light surface the hue is darkened, as a ground it is
+   a faint tint. (A var() inside a :root token would resolve at :root,
+   where --tag is unset, hence utilities on the chip itself.) */
 @utility tag-text {
   color: color-mix(in oklch, var(--tag), black 40%);
 }
 @utility tag-text-dark {
   color: var(--tag);
 }
-@utility tag-border {
-  border-color: color-mix(in srgb, var(--tag) 35%, transparent);
+@utility tag-tint {
+  background-color: color-mix(in srgb, var(--tag) 12%, transparent);
 }
-@utility tag-border-dark {
-  border-color: color-mix(in srgb, var(--tag) 45%, transparent);
+@utility tag-tint-dark {
+  background-color: color-mix(in srgb, var(--tag) 16%, transparent);
 }
-/* A pill whose #term is in the query: tinted fill and a solid edge */
+/* A chip whose #term is in the query: a deeper tint and a solid edge */
 @utility tag-fill {
-  background-color: color-mix(in srgb, var(--tag) 18%, transparent);
+  background-color: color-mix(in srgb, var(--tag) 26%, transparent);
   border-color: var(--tag);
 }
 

@@ -401,7 +401,7 @@ on white), the segmented controls (`--segment-track/-active`, a raised tile in
 dark instead of a hole), and the popup's floating shadows (`--shadow-pop`,
 navy in light, black in dark). Focus is one colour (`--focus`) through one
 utility (`focus-ring`, keyboard focus only). Tag hues stay dark-tuned in
-`ui/core.js`; a pill sets `--tag` and the `tag-text` / `tag-border` utilities
+`ui/core.js`; a chip sets `--tag` and the `tag-text` / `tag-tint` utilities
 darken or fade it per theme — a `var(--tag)` inside a `:root` token would
 resolve at `:root`, where `--tag` is unset.
 
