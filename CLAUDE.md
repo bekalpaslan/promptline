@@ -11,8 +11,10 @@ logic in `ui/core.js` (plain UMD, tested with bare `node --test`).
   changes.
 - `README.md` — the app as a user sees it.
 - `BACKLOG.md` — deferred ideas. Add to it rather than widening a change.
-- `REVIEW.md`, `BUG-HUNT-*.md` — review and benchmark trackers with their own
-  rules at the top of each file.
+- `REVIEW.md`, `RELEASE-AUDIT.md`, `BUG-HUNT-*.md` — review, audit and
+  benchmark trackers with their own rules at the top of each file.
+  `RELEASE-AUDIT.md` (2026-09-22) holds what is still open before a public
+  release.
 - `docs/architecture/` — the architecture map, for the human managing the
   project (see *Architecture map* below).
 

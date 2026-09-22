@@ -4,6 +4,9 @@ dist/
 design/dist/
 .actionflows/
 
+# Personal, not part of the product
+PITCH-SCRIPT.md
+
 # Aperant data directory
 .auto-claude/
 
