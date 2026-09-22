@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button"
 import { Checkbox } from "@/components/ui/checkbox"
 import { C, type Snippet } from "@/lib/core"
 import { Chip } from "@/components/prompt-bits"
+import { fieldVariants } from "@/components/field"
+import { cn } from "@/lib/utils"
 import { useManager } from "./state"
 import { say, sayErr } from "./status"
 
@@ -69,7 +71,7 @@ export function ImportCuration({
           aria-label="Pack JSON"
           spellCheck={false}
           rows={6}
-          className="w-full resize-y rounded-sm bg-secondary p-2 font-mono text-ui text-foreground focus-ring"
+          className={cn(fieldVariants(), "w-full resize-y p-2 font-mono")}
         />
         <div className="flex gap-2">
           <Button
@@ -156,22 +158,22 @@ export function ImportCuration({
               value={packName}
               onChange={(e) => setPackName(e.target.value)}
               spellCheck={false}
-              className="w-42 rounded-sm bg-secondary px-2 py-1 text-ui text-foreground focus-ring"
+              className={cn(fieldVariants({ size: "sm" }), "w-42")}
             />
           </>
         )}
         {/* Bulk selection: `dupes` was computed but never offered */}
         <span className="ml-auto flex gap-1">
-          <button type="button" className="cursor-pointer rounded-sm px-1.5 py-0.5 hover:bg-secondary hover:text-foreground" onClick={() => setAll(() => true)}>
+          <Button variant="ghost" size="sm" onClick={() => setAll(() => true)}>
             All
-          </button>
-          <button type="button" className="cursor-pointer rounded-sm px-1.5 py-0.5 hover:bg-secondary hover:text-foreground" onClick={() => setAll(() => false)}>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setAll(() => false)}>
             None
-          </button>
+          </Button>
           {dupes > 0 && (
-            <button type="button" className="cursor-pointer rounded-sm px-1.5 py-0.5 hover:bg-secondary hover:text-foreground" onClick={() => setAll((r) => !r.dupe)}>
+            <Button variant="ghost" size="sm" onClick={() => setAll((r) => !r.dupe)}>
               Only new
-            </button>
+            </Button>
           )}
         </span>
       </div>

@@ -11,7 +11,8 @@ import {
 } from "@/components/ui/dialog"
 import { C } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { Chip } from "@/components/prompt-bits"
+import { Chip, PREVIEW_BOX } from "@/components/prompt-bits"
+import { SEGMENT_TRACK, fieldVariants, segmentClass } from "@/components/field"
 import { useManager } from "./state"
 import { ImportCuration } from "./ImportCuration"
 import { say, sayErr } from "./status"
@@ -122,7 +123,7 @@ const segmentsToText = (segs: Segment[]) =>
 // Live render of exactly what Claude will receive — the editor-preview idiom
 function InstructionPreview({ segments }: { segments: Segment[] }) {
   return (
-    <div className="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-accent/50 p-2.5 text-ui leading-relaxed text-muted-foreground">
+    <div className={cn(PREVIEW_BOX, "max-h-40 overflow-y-auto")}>
       {segments.map((s, i) =>
         typeof s === "string" ? (
           <span key={i}>{s}</span>
@@ -350,7 +351,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           }
           aria-label="Topic"
           spellCheck={false}
-          className="rounded-lg bg-secondary px-3 py-2 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
+          className={cn(fieldVariants(), "py-2")}
         />
 
         {path === "agent" && !topic.trim() && (
@@ -361,8 +362,8 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           </p>
         )}
 
-        {/* Path picker — segmented, same idiom as the theme toggle */}
-        <div className="flex rounded-lg bg-(--segment-track) p-1" role="radiogroup" aria-label="How Claude receives the instruction">
+        {/* Path picker: the shared segmented control, as the theme toggle */}
+        <div className={SEGMENT_TRACK} role="radiogroup" aria-label="How Claude receives the instruction">
           {(
             [
               ["chat", "Chat Claude — copy & paste"],
@@ -374,10 +375,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
               type="button"
               role="radio"
               aria-checked={path === p}
-              className={cn(
-                "h-8 flex-1 cursor-pointer rounded-sm text-ui font-semibold focus-ring",
-                path === p ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)" : "text-muted-foreground"
-              )}
+              className={cn(segmentClass(path === p), "flex-1")}
               onClick={() => switchPath(p)}
             >
               {label}

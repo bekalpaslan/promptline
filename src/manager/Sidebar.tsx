@@ -1,16 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
+  RiAddLine,
   RiArrowDownSLine,
   RiArrowRightSLine,
-  RiBox3Line,
-  RiCloseLine,
   RiDraggable,
   RiEqualizer2Line,
-  RiFileAddLine,
-  RiFolderAddLine,
   RiLock2Fill,
   RiMoonClearLine,
-  RiMoreLine,
   RiPushpinFill,
   RiSearchLine,
   RiSettings3Line,
@@ -18,11 +14,12 @@ import {
 } from "@remixicon/react"
 import { C, type OrderBy, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { Chip, MATCH_HIT } from "@/components/prompt-bits"
+import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
+import { SEGMENT_TRACK, SearchClear, searchBoxClass, segmentClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
 import { EmptyState } from "./EmptyState"
-import { groupKey, useLibraryMenus } from "./menus"
+import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
 
 function loadCollapsed(key: string): Set<string> {
@@ -113,7 +110,6 @@ export function Sidebar() {
   const [grouped, setGrouped] = useState(localStorage.getItem("groupByPack") !== "0")
   const [collapsed, setCollapsed] = useState<Set<string>>(() => loadCollapsed("collapsedPacks"))
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => loadCollapsed("collapsedGroups"))
-  const [newPackInput, setNewPackInput] = useState(false)
   // A search started while a pack or group is shown stays inside it until
   // the chip in the field is dismissed; clearing the search drops it
   const [scope, setScope] = useState<LibraryFocus | null>(null)
@@ -336,11 +332,14 @@ export function Sidebar() {
     openPackCtx,
     openGroupCtx,
     openRowCtx,
+    openNewMenu,
+    newPack,
   } = useLibraryMenus({
     // A group starts life on a prompt, drawn inside its pack: unfold it
     onNewGroup: (name) => {
       if (collapsed.has(name)) toggleCollapsed(name)
     },
+    onNewPack: (name) => reveal(`[data-pack="${CSS.escape(name)}"]`),
     // The draft lands inside the group: unfold it and its pack
     onNewPromptInGroup: (pack, group) => {
       if (collapsed.has(pack)) toggleCollapsed(pack)
@@ -489,21 +488,12 @@ export function Sidebar() {
           <span className="min-w-0 flex-1 truncate">{group}</span>
         )}
         {/* Hover-revealed way into the same menu right-click opens */}
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={`Actions for group ${group}`}
-          title="Actions"
-          className="rounded-sm p-0.5 opacity-0 hover:bg-secondary group-hover:opacity-100 focus-visible:opacity-100"
-          onClick={(e) => {
-            e.stopPropagation()
-            const r = e.currentTarget.getBoundingClientRect()
-            openGroupCtx(r.left, r.bottom, pack, group, count)
-          }}
-        >
-          <RiMoreLine className="size-3.5" />
-        </button>
-        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">{count}</span>
+        <MenuDots
+          label={`Actions for group ${group}`}
+          reveal="group-hover:opacity-100"
+          onOpen={(x, y) => openGroupCtx(x, y, pack, group, count)}
+        />
+        <Count>{count}</Count>
       </div>
     )
   }
@@ -643,7 +633,6 @@ export function Sidebar() {
         >
           <Chev className="size-4" />
         </button>
-        <RiBox3Line className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         {renaming === name ? (
           <input
             autoFocus
@@ -664,25 +653,14 @@ export function Sidebar() {
         ) : (
           <span className="min-w-0 flex-1 truncate">{name}</span>
         )}
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-label={`Actions for pack ${name}`}
-          title="Actions"
-          className="rounded-sm p-0.5 text-muted-foreground opacity-0 hover:bg-secondary hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100"
-          onClick={(e) => {
-            e.stopPropagation()
-            const r = e.currentTarget.getBoundingClientRect()
-            openPackCtx(r.left, r.bottom, name, count)
-          }}
-        >
-          <RiMoreLine className="size-4" />
-        </button>
+        <MenuDots
+          label={`Actions for pack ${name}`}
+          reveal="group-hover:opacity-100"
+          onOpen={(x, y) => openPackCtx(x, y, name, count)}
+        />
         {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
         {/* While searching: the hits out of the pack's size */}
-        <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
-          {q ? `${count} / ${packTotals.get(name) ?? count}` : count}
-        </span>
+        <Count>{q ? `${count} / ${packTotals.get(name) ?? count}` : count}</Count>
       </div>
     )
   }
@@ -695,12 +673,7 @@ export function Sidebar() {
 
       {/* What is shown (the filter) apart from how it is shown (Display) */}
       <div className="flex gap-1.5 px-3 pb-2">
-        <label
-          className={cn(
-            "flex h-8 min-w-0 flex-1 items-center gap-1.5 rounded-lg border bg-background px-2 text-ui focus-within:border-ring",
-            q ? "border-ring" : "border-input"
-          )}
-        >
+        <label className={cn(searchBoxClass(!!q), "min-w-0 flex-1")}>
           <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           {scope && (
             <Chip size="md" className="max-w-[45%]" onRemove={() => setScope(null)} removeLabel="Search everywhere">
@@ -744,18 +717,14 @@ export function Sidebar() {
           />
           </span>
           {query ? (
-            <button
-              type="button"
-              aria-label="Clear the filter"
+            <SearchClear
+              label="Clear the filter"
               title="Clear (Esc)"
-              className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:text-foreground"
               onClick={() => {
                 clearSearch()
                 searchRef.current?.focus()
               }}
-            >
-              <RiCloseLine className="size-4" />
-            </button>
+            />
           ) : null}
         </label>
         <button
@@ -763,7 +732,7 @@ export function Sidebar() {
           title="Display: packs or one list, order, folding"
           aria-label="Display options"
           aria-haspopup="menu"
-          className="relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className="relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-hover hover:text-foreground"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect()
             const orders: [OrderBy, string][] = [["uses", "Most used"], ["title", "A–Z"], ["custom", "Custom — drag to arrange"]]
@@ -818,59 +787,27 @@ export function Sidebar() {
       )}
 
       <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-3">
-        {/* Create bar: two dashed "empty slot" cards, echoing the row shape */}
-        {newPackInput ? (
-          <div className="mb-3 flex flex-col gap-1.5">
-            <input
-              autoFocus
-              placeholder="Pack name — Enter to create, Esc to cancel"
-              spellCheck={false}
-              className="rounded-lg border border-dashed border-primary bg-background px-3.5 py-2 text-ui text-foreground focus-ring placeholder:text-muted-foreground/80"
-              onKeyDown={(e) => {
-                if (e.key === "Escape") setNewPackInput(false)
-                if (e.key === "Enter") {
-                  const name = e.currentTarget.value.trim()
-                  setNewPackInput(false)
-                  if (name) void m.addPack(name).then(() => reveal(`[data-pack="${CSS.escape(name)}"]`))
-                }
-              }}
-              onBlur={() => setNewPackInput(false)}
-            />
-            <button
-              className="cursor-pointer self-start px-1 text-ui text-muted-foreground hover:text-primary"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => {
-                setNewPackInput(false)
-                m.openGenerate()
-              }}
-            >
-              ✦ Generate pack with Claude…
-            </button>
-          </div>
-        ) : (
-          <div className="mb-3 flex gap-1.5">
-            <button
-              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-              onClick={() => void m.newPrompt()}
-            >
-              <RiFileAddLine className="size-4" />
-              New prompt
-            </button>
-            <button
-              className="flex h-9 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
-              onClick={() => setNewPackInput(true)}
-            >
-              <RiFolderAddLine className="size-4" />
-              New pack
-            </button>
-          </div>
-        )}
+        {/* Create bar: one dashed "empty slot" card, echoing the row shape.
+            New asks what and where — a pack, a group in a pack, a prompt in
+            a pack or group — so nothing lands in a default place */}
+        <button
+          type="button"
+          aria-haspopup="menu"
+          className="mb-3 flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          onClick={(e) => {
+            const r = e.currentTarget.getBoundingClientRect()
+            openNewMenu(r.left, r.bottom + 4)
+          }}
+        >
+          <RiAddLine className="size-4" />
+          New
+        </button>
         {/* Nothing at all — not even an empty pack — gets a way in, not a blank */}
         {m.snippets.length === 0 && m.packNames().length === 0 && (
           <EmptyState
             title="No prompts yet"
-            hint="New prompt starts one; New pack groups them"
-            actions={[{ label: "New prompt", onClick: () => void m.newPrompt(), primary: true }]}
+            hint="A pack holds your prompts: start with one"
+            actions={[{ label: "New pack", onClick: () => void newPack(), primary: true }]}
           />
         )}
         {groups ? (
@@ -917,7 +854,7 @@ export function Sidebar() {
 
       {/* Light/Dark segmented mode toggle with the settings gear as a compact segment */}
       <div className="p-3">
-        <div className="flex items-center gap-1 rounded-lg bg-(--segment-track) p-1">
+        <div className={SEGMENT_TRACK}>
           {(["light", "dark"] as const).map((t) => {
             const Icon = t === "light" ? RiSunLine : RiMoonClearLine
             const active = m.prefs.theme === t
@@ -926,12 +863,7 @@ export function Sidebar() {
                 key={t}
                 type="button"
                 aria-pressed={active}
-                className={cn(
-                  "flex h-8 flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-sm text-ui font-semibold capitalize",
-                  active
-                    ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)"
-                    : "text-muted-foreground"
-                )}
+                className={cn(segmentClass(active), "flex-1 capitalize")}
                 onClick={() => void m.savePrefs({ theme: t })}
               >
                 <Icon className="size-4" />
@@ -944,12 +876,7 @@ export function Sidebar() {
             aria-label="Settings"
             aria-pressed={m.settingsOpen}
             title={`Settings — popup hotkey: ${C.fmtHotkey(m.hotkey)}`}
-            className={cn(
-              "flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-sm",
-              m.settingsOpen
-                ? "bg-(--segment-active) text-foreground shadow-(--shadow-segment)"
-                : "text-muted-foreground hover:text-foreground"
-            )}
+            className={cn(segmentClass(m.settingsOpen), "w-8 shrink-0")}
             onClick={() => m.showSettings(!m.settingsOpen)}
           >
             <RiSettings3Line className="size-4" />
