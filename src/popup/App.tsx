@@ -608,6 +608,8 @@ export function App() {
   // --- Keyboard ---------------------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
+      // Autofill and IME composition send keydowns with no key: nothing to act on
+      if (!e.key) return
       // A key the form or create view already acted on is spent: they close
       // themselves, so whether this listener still sees them mounted depends
       // on when React re-runs this effect. The guard makes that timing
