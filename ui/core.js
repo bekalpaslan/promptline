@@ -240,6 +240,20 @@
       .map(({ s, indices }) => ({ s, indices }));
   }
 
+  // The popup's Ctrl+1..5 slots: the first `max` (5) entries of the ranked
+  // list — pins first in pin order, then by use, or the top search results
+  // — that are on screen, wherever the pack layout draws them. `visibleIds`
+  // is what the list shows; an entry inside a folded pack or group is not
+  // in it and takes no slot, so the digits always name rows the user can
+  // see. An untouched draft never takes one (rankSnippets leaves it out;
+  // this filters again so the rule holds for any ranked input). One
+  // mapping feeds both the row badge and the Ctrl+digit handler.
+  const MAX_SLOTS = 5;
+  function slotEntries(ranked, visibleIds, max) {
+    const shown = visibleIds instanceof Set ? visibleIds : new Set(visibleIds);
+    return ranked.filter(e => shown.has(e.s.id) && !isEmptyDraft(e.s)).slice(0, max || MAX_SLOTS);
+  }
+
   // Split a title into code-point segments marked hit/miss from UTF-16
   // match indices, so an emoji (two UTF-16 units) before a match doesn't
   // shift every underline after it.
@@ -596,6 +610,7 @@
     DRAFT_TITLE,
     isEmptyDraft,
     rankSnippets,
+    slotEntries,
     highlightSegments,
     parseQuery,
     matchesFilters,

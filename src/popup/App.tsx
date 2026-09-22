@@ -271,14 +271,12 @@ export function App() {
 
   // Row index within `visible`, for selection
   const rowIndex = useMemo(() => new Map(visible.map((e, i) => [e.s.id, i])), [visible])
-  // Ctrl+1..5 slots: the five highest-ranked entries (pins first, then by
-  // use, or the top search results) that are on screen, wherever the pack
-  // layout draws them. Collapsed packs' entries take no slot. One mapping
-  // feeds both the row badge and the Ctrl+digit handler.
-  const slotEntries = useMemo(() => {
-    const shown = new Set(visible.map((e) => e.s.id))
-    return filtered.filter((e) => shown.has(e.s.id)).slice(0, 5)
-  }, [filtered, visible])
+  // Ctrl+1..5 slots: the rule is core's (tested); this memoizes it over
+  // what the list shows, so a folded pack's or group's entries take no slot
+  const slotEntries = useMemo(
+    () => C.slotEntries(filtered, visible.map((e) => e.s.id), MAX_PINS),
+    [filtered, visible]
+  )
   const slotOf = useMemo(() => new Map(slotEntries.map((e, i) => [e.s.id, i + 1])), [slotEntries])
 
   // Collapsing can strand the selection past the end

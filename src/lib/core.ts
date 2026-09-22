@@ -127,6 +127,8 @@ interface PromptlineCore {
   isEmptyDraft(snippet: Pick<Snippet, "title" | "text" | "uses">): boolean
   /** The popup's list order: filters, then pins/uses or title>tag>body fuzzy tiers */
   rankSnippets(query: string, snippets: Snippet[]): { s: Snippet; indices: number[] | null }[]
+  /** The Ctrl+1..5 slots: the first `max` (5) ranked entries that are on screen; drafts never */
+  slotEntries<E extends { s: Pick<Snippet, "id" | "title" | "text" | "uses"> }>(ranked: E[], visibleIds: Iterable<string>, max?: number): E[]
   /** Title split into code-point runs marked hit/miss from UTF-16 match indices */
   highlightSegments(title: string, indices: number[] | null): { text: string; hit: boolean }[]
   parseQuery(raw: string): ParsedQuery

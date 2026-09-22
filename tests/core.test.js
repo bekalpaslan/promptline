@@ -199,6 +199,39 @@ test('rankSnippets honours #tag / @pack / >group filters', () => {
   assert.deepEqual(core.rankSnippets('@P', lib).map(e => e.s.id), ['a', 'b']);
 });
 
+test('slotEntries: pins first in pin order, folded entries take no slot, at most five (L10)', () => {
+  const lib = [
+    { id: 'p2', title: 'Pin two', text: 'x', tags: [], uses: 99, pinned: true, pinnedAt: 200 },
+    { id: 'p1', title: 'Pin one', text: 'x', tags: [], uses: 0, pinned: true, pinnedAt: 100 },
+    { id: 'u9', title: 'Used nine', text: 'x', tags: [], uses: 9, pack: 'Folded' },
+    { id: 'u5', title: 'Used five', text: 'x', tags: [], uses: 5 },
+    { id: 'u4', title: 'Used four', text: 'x', tags: [], uses: 4 },
+    { id: 'u3', title: 'Used three', text: 'x', tags: [], uses: 3 },
+    { id: 'u2', title: 'Used two', text: 'x', tags: [], uses: 2 },
+    { id: 'u1', title: 'Used one', text: 'x', tags: [], uses: 1 },
+  ];
+  const ranked = core.rankSnippets('', lib);
+  const ids = (es) => es.map(e => e.s.id);
+  const all = new Set(lib.map(s => s.id));
+  // Everything on screen: the pins lead in pin order, then by use, five in all
+  assert.deepEqual(ids(core.slotEntries(ranked, all)), ['p1', 'p2', 'u9', 'u5', 'u4']);
+  // The most-used prompt sits in a folded pack: it takes no slot and the
+  // next visible one moves up, so the digits always name rows on screen
+  const shown = new Set([...all].filter(id => id !== 'u9'));
+  assert.deepEqual(ids(core.slotEntries(ranked, shown)), ['p1', 'p2', 'u5', 'u4', 'u3']);
+  // An array of ids works too; `max` is a parameter
+  assert.deepEqual(ids(core.slotEntries(ranked, [...shown], 2)), ['p1', 'p2']);
+  assert.deepEqual(core.slotEntries(ranked, []), []);
+});
+
+test('slotEntries never hands a slot to an untouched draft', () => {
+  const draft = { id: 'd', title: core.DRAFT_TITLE, text: '', tags: [], uses: 0 };
+  const real = { id: 'r', title: 'Real', text: 'x', tags: [], uses: 0 };
+  // rankSnippets already drops it; a ranked list built by hand is filtered too
+  assert.deepEqual(core.slotEntries(core.rankSnippets('', [draft, real]), ['d', 'r']).map(e => e.s.id), ['r']);
+  assert.deepEqual(core.slotEntries([{ s: draft }, { s: real }], ['d', 'r']).map(e => e.s.id), ['r']);
+});
+
 test('highlightSegments keeps underlines aligned after an emoji (L4)', () => {
   const title = '🚀 Root cause';
   const { indices } = core.fuzzyScore('root', title);
