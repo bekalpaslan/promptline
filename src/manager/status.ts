@@ -9,7 +9,9 @@ export const sayErr = (msg: string) => toast.error(msg, { duration: 10000, close
 export const sayPersistent = (msg: string) => toast.error(msg, { duration: Infinity, closeButton: true })
 
 // The most recent Undo on offer, so Ctrl+Z can take it without aiming at the
-// toast; cleared when it is used or its toast has gone
+// toast; cleared when it is used or its toast has gone, whether it timed
+// out or was closed by hand — a dismissed offer used to stay live for the
+// rest of its 12 s, so Ctrl+Z undid something the user had waved away
 let lastUndo: { id: string | number; run: () => void } | null = null
 const UNDO_MS = 12000
 export const sayUndo = (msg: string, onUndo: () => void) => {
@@ -17,11 +19,17 @@ export const sayUndo = (msg: string, onUndo: () => void) => {
     if (lastUndo?.run === run) lastUndo = null
     onUndo()
   }
-  const id = toast(msg, { duration: UNDO_MS, closeButton: true, action: { label: "Undo", onClick: run } })
+  const gone = () => {
+    if (lastUndo?.run === run) lastUndo = null
+  }
+  const id = toast(msg, {
+    duration: UNDO_MS,
+    closeButton: true,
+    action: { label: "Undo", onClick: run },
+    onDismiss: gone,
+    onAutoClose: gone,
+  })
   lastUndo = { id, run }
-  setTimeout(() => {
-    if (lastUndo?.id === id) lastUndo = null
-  }, UNDO_MS)
   return id
 }
 /** Take the Undo currently on offer, if any; true when something was undone */

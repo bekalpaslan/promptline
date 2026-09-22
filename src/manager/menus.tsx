@@ -12,12 +12,11 @@ import {
 import { RiMoreLine } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
+import { DEFAULT_PACK, MAX_PINS, groupKey, useManager, type Surface } from "./state"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr, sayUndo } from "./status"
 
-// Groups are labels on prompts, scoped to a pack; this is their identity key
-export const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
+export { groupKey } from "./state"
 
 /**
  * The three-dot and right-click menus on packs, groups and prompts, with
@@ -30,15 +29,37 @@ export const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 // same menu right-click opens. `reveal` is the group-hover class of the
 // heading it sits in (the sidebar's rows and the overview's headings name
 // their groups differently).
-export function MenuDots({ label, reveal, onOpen }: { label: string; reveal: string; onOpen: (x: number, y: number) => void }) {
+// `decorative`: inside a treeitem, where the Menu key and Shift+F10 open the
+// same menu, the dots leave the accessibility tree and a click on them
+// keeps focus on the row.
+export function MenuDots({
+  label,
+  reveal,
+  decorative,
+  onOpen,
+}: {
+  label: string
+  reveal: string
+  decorative?: boolean
+  onOpen: (x: number, y: number) => void
+}) {
   return (
     <Button
       variant="ghost"
       size="icon-xs"
       tabIndex={-1}
-      aria-label={label}
+      aria-label={decorative ? undefined : label}
+      aria-hidden={decorative || undefined}
       title="Actions"
       className={cn("text-muted-foreground opacity-0 focus-visible:opacity-100", reveal)}
+      onMouseDown={
+        decorative
+          ? (e) => {
+              e.preventDefault()
+              e.currentTarget.closest<HTMLElement>("[data-key]")?.focus()
+            }
+          : undefined
+      }
       onClick={(e) => {
         e.stopPropagation()
         const r = e.currentTarget.getBoundingClientRect()
@@ -51,28 +72,32 @@ export function MenuDots({ label, reveal, onOpen }: { label: string; reveal: str
 }
 
 export function useLibraryMenus(opts: {
-  /** Before a "New group…" creates its first prompt: the sidebar unfolds the pack */
-  onNewGroup?: (pack: string) => void
-  /** Before a group's "New prompt" creates one: the sidebar unfolds the group */
-  onNewPromptInGroup?: (pack: string, group: string) => void
-  /** After New → Pack creates one: the sidebar scrolls it into view */
-  onNewPack?: (pack: string) => void
+  /** The surface this instance draws its rename fields on */
+  surface: Surface
   /** Keyboard reorder, where the surface has rows to move between */
   moveRow?: (id: string, dir: -1 | 1) => void
-} = {}) {
+}) {
   const m = useManager()
   const ctx = useCtxMenu()
-  const { moveRow } = opts
-  const [renaming, setRenaming] = useState<string | null>(null)
-  const [renamingGroup, setRenamingGroup] = useState<string | null>(null) // a groupKey
+  const { surface, moveRow } = opts
+  // The rename state is the manager's (every instance sees one), filtered
+  // to what this surface draws: a name opened on the overview is not also
+  // an input in the sidebar row
+  const renaming = m.renaming?.surface === surface ? m.renaming.name : null
+  const setRenaming = (name: string | null) => m.setRenaming(name ? { name, surface } : null)
+  const renamingGroup = m.renamingGroup?.surface === surface ? m.renamingGroup.name : null // a groupKey
+  const setRenamingGroup = (key: string | null) => m.setRenamingGroup(key ? { name: key, surface } : null)
   const [deleteGroupAsk, setDeleteGroupAsk] = useState<{ pack: string; group: string; count: number } | null>(null)
 
   // ---- Pack operations ----
   // One Rust step: metadata and prompts together, or the reconciler in
   // between conjures a second pack under one of the two names
-  // Resolves true when the rename went through, so a caller can carry over
-  // state it keeps by name (the sidebar's folds)
+  // Resolves true when the rename went through (the manager's renamePack
+  // carries the sidebar's folds over itself)
   const renamePack = async (name: string, next: string): Promise<boolean> => {
+    // A pack New made under a placeholder name is announced once, here,
+    // when its real name is committed — not "created" and then "renamed"
+    const fresh = !!m.renaming?.fresh && m.renaming.name === name
     setRenaming(null)
     if (!next || next === name) return false
     // Case variants read as one pack; the pack's own name may change case
@@ -83,7 +108,7 @@ export function useLibraryMenus(opts: {
     }
     return m.renamePack(name, next).then(
       () => {
-        say(`Renamed to "${next}"`)
+        say(fresh ? `Pack "${next}" created` : `Renamed to "${next}"`)
         return true
       },
       () => false
@@ -102,9 +127,10 @@ export function useLibraryMenus(opts: {
     // Updaters, not this render's array: the Undo runs up to 12 s later and
     // must not put back what the editor or the popup wrote meanwhile
     await m.persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, group: next } : s)))
-    // An overview on the renamed group follows it
+    // An overview on the renamed group follows it, and so does its fold
     if (m.view.kind === "overview" && m.view.focus.pack === pack && m.view.focus.group === group)
       m.openOverview({ pack, group: next })
+    m.carryGroupFold(pack, group, next)
     if (merging) {
       // Merging is deliberate (BEHAVIOR.md) but the two groups can't be
       // told apart afterwards, so offer to split them again
@@ -134,10 +160,7 @@ export function useLibraryMenus(opts: {
         label: locked ? "New prompt (locked)" : "New prompt",
         disabled: locked,
         hint: locked ? "Unlock the pack first (its header menu → Unlock)" : undefined,
-        run: () => {
-          opts.onNewPromptInGroup?.(pack, group)
-          void m.newPrompt({ pack, group })
-        },
+        run: () => void m.newPrompt({ pack, group }),
       },
       { kind: "sep" },
       { kind: "item", label: "Rename group", run: () => setRenamingGroup(groupKey(pack, group)) },
@@ -262,9 +285,7 @@ export function useLibraryMenus(opts: {
               kind: "input",
               placeholder: "Group name — Enter creates a first prompt in it",
               onSubmit: (g) => {
-                if (!g) return
-                opts.onNewGroup?.(name)
-                void m.newPrompt({ pack: name, group: g })
+                if (g) void m.newPrompt({ pack: name, group: g })
               },
             },
           ])
@@ -454,27 +475,23 @@ export function useLibraryMenus(opts: {
   }
   const lockedHint = "Unlock the pack first (its header menu → Unlock)"
 
+  // The new pack is selected, so its overview is what opens: its name is
+  // open for typing there, whichever surface asked for it
   const newPack = async () => {
     const name = freeName("New pack", m.packNames())
-    await m.addPack(name)
-    opts.onNewPack?.(name)
+    await m.addPack(name, { quiet: true })
     m.openOverview({ pack: name })
-    setRenaming(name)
+    m.setRenaming({ name, surface: "overview", fresh: true })
   }
   // A group is a label, so it starts life on a first (draft) prompt; the
   // group is what is selected and named, the draft waits inside it
   const newGroup = async (pack: string) => {
     const group = freeName("New group", groupsIn(pack))
-    opts.onNewGroup?.(pack)
     await m.newPrompt({ pack, group })
     m.openOverview({ pack, group })
-    setRenamingGroup(groupKey(pack, group))
+    m.setRenamingGroup({ name: groupKey(pack, group), surface: "overview" })
   }
-  const newPromptIn = (pack: string, group?: string) => {
-    if (group) opts.onNewPromptInGroup?.(pack, group)
-    else opts.onNewGroup?.(pack)
-    void m.newPrompt({ pack, group })
-  }
+  const newPromptIn = (pack: string, group?: string) => void m.newPrompt({ pack, group })
 
   const openNewMenu = (x: number, y: number) => {
     const packs = m.packNames()
