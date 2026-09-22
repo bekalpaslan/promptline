@@ -340,6 +340,11 @@ export function Sidebar() {
     onNewGroup: (name) => {
       if (collapsed.has(name)) toggleCollapsed(name)
     },
+    // The draft lands inside the group: unfold it and its pack
+    onNewPromptInGroup: (pack, group) => {
+      if (collapsed.has(pack)) toggleCollapsed(pack)
+      if (collapsedGroups.has(groupKey(pack, group))) toggleCollapsedGroup(groupKey(pack, group))
+    },
     moveRow,
   })
 
