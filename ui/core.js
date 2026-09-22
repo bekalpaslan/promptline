@@ -196,6 +196,12 @@
     return s.title === DRAFT_TITLE && !(s.text || '').trim() && !(s.uses || 0);
   }
 
+  // Titles compare with numeric collation, so "Bulk prompt 2" sorts before
+  // "Bulk prompt 10" wherever a tie is broken by title (here, sortPrompts).
+  function byTitle(a, b) {
+    return a.title.localeCompare(b.title, undefined, { numeric: true });
+  }
+
   // ---- Ranking ---------------------------------------------------------------------
   // The popup's list order, as one pure function. No query text: pinned first
   // in pin order (oldest pin first — a pin is a fixed Ctrl+digit slot, so use
@@ -215,8 +221,8 @@
           (+!!b.pinned - +!!a.pinned) ||
           (a.pinned
             // Legacy pins carry no pinnedAt (0) and sort by title among themselves
-            ? ((a.pinnedAt || 0) - (b.pinnedAt || 0)) || a.title.localeCompare(b.title)
-            : ((b.uses || 0) - (a.uses || 0)) || a.title.localeCompare(b.title)))
+            ? ((a.pinnedAt || 0) - (b.pinnedAt || 0)) || byTitle(a, b)
+            : ((b.uses || 0) - (a.uses || 0)) || byTitle(a, b)))
         .map(s => ({ s, indices: null }));
     }
     return pool
@@ -479,8 +485,8 @@
   // The manager's list order. Pins come first under every order but "custom",
   // which is the array order itself (arranged by drag). Never mutates.
   const ORDERS = {
-    uses: (a, b) => b.uses - a.uses || a.title.localeCompare(b.title),
-    title: (a, b) => a.title.localeCompare(b.title),
+    uses: (a, b) => (b.uses || 0) - (a.uses || 0) || byTitle(a, b),
+    title: byTitle,
   };
   function sortPrompts(list, orderBy) {
     if (orderBy === 'custom') return [...list];
@@ -532,6 +538,21 @@
   function expandForCopy(text, configValues, clip) {
     const base = downgradeUnsetConfig(expandConfig(text, configValues));
     return expandBuiltins(base).split('{clipboard}').join(clip || '');
+  }
+
+  // ---- New prompt from the clipboard ----------------------------------------------
+  // The title Ctrl+N pre-fills: the clipboard's first non-empty line, cut
+  // at the last word boundary within `max` characters (40), or hard at
+  // `max` when the line is one long word. Empty when there is no text; the
+  // caller names the fallback. It used to cut mid-word.
+  const TITLE_MAX = 40;
+  function titleFromClipboard(text, max) {
+    const limit = max || TITLE_MAX;
+    const line = ((text || '').trim().split(/\r?\n/)[0] || '').trim();
+    if (line.length <= limit) return line;
+    const cut = line.slice(0, limit + 1);
+    const at = cut.search(/\s\S*$/);
+    return (at > 0 ? cut.slice(0, at) : line.slice(0, limit)).trim();
   }
 
   // ---- Tags ---------------------------------------------------------------------
@@ -595,6 +616,7 @@
     packTree,
     clipboardPreview,
     expandForCopy,
+    titleFromClipboard,
     normalizeTag,
     plural,
     fmtHotkey,

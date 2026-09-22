@@ -34,9 +34,11 @@ type Notice = { text: string; kind: "error" | "info" }
 
 // window (125% scale, the mono font) wraps between hints instead of being
 // clipped by the shell's overflow, and never splits a key from its label.
-function Hint({ k, children }: { k: string; children: React.ReactNode }) {
+// A `minor` hint is dropped below 360 px: at the 320 px minimum the bar
+// wrapped to two lines and ate a row (L20).
+function Hint({ k, minor, children }: { k: string; minor?: boolean; children: React.ReactNode }) {
   return (
-    <span className="flex shrink-0 items-center gap-1">
+    <span className={cn("flex shrink-0 items-center gap-1", minor && "hidden min-[360px]:flex")}>
       <Keys combo={k} />
       {children}
     </span>
@@ -74,9 +76,10 @@ export function App() {
   const [panelNote, setPanelNote] = useState<string | null>(null)
   const [deleteArmed, setDeleteArmed] = useState(false)
   const [previewIdx, setPreviewIdx] = useState<number | null>(null)
-  // Where the preview card anchors its top-left corner: the cursor on hover,
-  // the selected row on keyboard →
-  const [previewPos, setPreviewPos] = useState<{ x: number; y: number } | null>(null)
+  // Where the preview card anchors: its top-left at (x, y) when it fits
+  // below, its bottom edge at `above` otherwise. The cursor on hover, the
+  // selected row on keyboard → (so the card never covers that row)
+  const [previewPos, setPreviewPos] = useState<{ x: number; y: number; above: number } | null>(null)
   // The card's measured height, so a short card near the bottom is clamped by
   // what it takes up rather than by its max; null until the card is measured
   const previewCardRef = useRef<HTMLDivElement>(null)
@@ -339,16 +342,13 @@ export function App() {
   const openCreate = useCallback(() => {
     hidePreview()
     closePanel()
-    const firstLine = clip.trim().split(/\r?\n/)[0] ?? ""
+    // The clipboard's first line, cut at a word boundary (core); the draft
+    // title when there is nothing to cut from
+    const title = C.titleFromClipboard(clip) || C.DRAFT_TITLE
     // Prefer the pack that last received a prompt (one rule with the manager)
     const pack = defaultPackFor(packMeta, snippets)
     createEscArmed.current = false
-    setCreate({
-      title: firstLine.slice(0, 40) || "New prompt",
-      pack,
-      group: "",
-      prefilled: firstLine.slice(0, 40) || "New prompt",
-    })
+    setCreate({ title, pack, group: "", prefilled: title })
   }, [clip, packMeta, snippets, hidePreview, closePanel])
 
   const saveCreate = useCallback(async () => {
@@ -721,7 +721,7 @@ export function App() {
           const rect = listRef.current
             ?.querySelector('[data-selected="true"]')
             ?.getBoundingClientRect()
-          setPreviewPos(rect ? { x: rect.left + 16, y: rect.bottom + 4 } : null)
+          setPreviewPos(rect ? { x: rect.left + 16, y: rect.bottom + 4, above: rect.top - 4 } : null)
           setPreviewIdx(sel)
         }
       } else if (e.key === "ArrowLeft" && previewIdx !== null) {
@@ -764,7 +764,7 @@ export function App() {
       if (hoverTimer.current) clearTimeout(hoverTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
       hoverTimer.current = setTimeout(() => {
-        setPreviewPos({ x: lastMouse.current.x + 12, y: lastMouse.current.y + 12 })
+        setPreviewPos({ x: lastMouse.current.x + 12, y: lastMouse.current.y + 12, above: lastMouse.current.y - 12 })
         setPreviewIdx(i)
       }, 350)
     }
@@ -820,15 +820,15 @@ export function App() {
   const hint = panelFor ? (
     <><Hint k="↵">run</Hint><Hint k="1-9">pick</Hint><Hint k="Esc">back</Hint></>
   ) : form ? (
-    <><Hint k="↵">paste</Hint><Hint k="Ctrl ↵">copy</Hint><Hint k="⇧ ↵">newline</Hint><Hint k="Esc">back</Hint></>
+    <><Hint k="↵">paste</Hint><Hint k="Ctrl ↵">copy</Hint><Hint k="⇧ ↵" minor>newline</Hint><Hint k="Esc">back</Hint></>
   ) : create ? (
     <><Hint k="↵">save</Hint><Hint k="Esc">back</Hint></>
   ) : (
     <>
       <Hint k="↵">paste</Hint>
       <Hint k="Ctrl ↵">copy</Hint>
-      <Hint k="Tab">actions</Hint>
-      <Hint k="→">preview</Hint>
+      <Hint k="Tab" minor>actions</Hint>
+      <Hint k="→" minor>preview</Hint>
       <Hint k="Esc">close</Hint>
     </>
   )
@@ -1173,21 +1173,30 @@ export function App() {
       </button>
 
       {previewIdx !== null && visible[previewIdx] && (() => {
-        // Corner-anchored to the trigger point, clamped inside the window
+        // Anchored to the trigger point: below it when the card fits there,
+        // else above it, else on whichever side has more room with the card
+        // capped to that room (it scrolls). Clamping alone slid the card up
+        // over the row it describes near the bottom of the list (L20). The
+        // cap is always the chosen side's room, so the measured height that
+        // feeds the next render never exceeds it and the choice holds.
         const pad = 8
-        const maxH = 220 // matches max-h-55
-        const height = Math.min(previewH ?? maxH, maxH)
+        const maxH = 220
+        const natural = Math.min(previewH ?? maxH, maxH)
         const width = Math.min(320, window.innerWidth - pad * 2)
-        const pos = previewPos ?? { x: 16, y: 56 }
+        const pos = previewPos ?? { x: 16, y: 56, above: 56 }
         const left = Math.max(pad, Math.min(pos.x, window.innerWidth - width - pad))
-        const top = Math.max(pad, Math.min(pos.y, window.innerHeight - height - pad))
+        const roomBelow = window.innerHeight - pad - pos.y
+        const roomAbove = pos.above - pad
+        const below = natural <= roomBelow || (natural > roomAbove && roomBelow >= roomAbove)
+        const cap = Math.min(maxH, Math.max(60, below ? roomBelow : roomAbove))
+        const top = below ? pos.y : Math.max(pad, pos.above - Math.min(natural, cap))
         return (
           <div
             ref={previewCardRef}
             id="popup-preview"
             role="tooltip"
-            className="fixed z-10 max-h-55 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-ui leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
-            style={{ left, top, width }}
+            className="fixed z-10 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-ui leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
+            style={{ left, top, width, maxHeight: cap }}
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
             onMouseLeave={onItemMouseLeave}
           >
