@@ -246,6 +246,20 @@
     return true;
   }
 
+  // The manager sidebar's filter: the popup's #tag, @pack and >group terms,
+  // then every free-text word somewhere in the prompt (title, tags, pack,
+  // group or body), case-insensitive, in any order. It narrows a list the
+  // sidebar keeps in its own order, so it matches rather than ranks.
+  function matchesQuery(snippet, query) {
+    if (!matchesFilters(snippet, query)) return false;
+    const words = query.text.toLowerCase().split(/\s+/).filter(Boolean);
+    if (!words.length) return true;
+    const hay = [snippet.title, (snippet.tags || []).join(' '), snippet.pack, snippet.group, snippet.text]
+      .join(' ')
+      .toLowerCase();
+    return words.every(w => hay.includes(w));
+  }
+
   // ---- Tag colors (categorical palette, normalized for dark surfaces) ------
   const TAG_COLORS = {
     debug: '#e57a76',
@@ -501,6 +515,7 @@
     highlightSegments,
     parseQuery,
     matchesFilters,
+    matchesQuery,
     filterTerm,
     TAG_COLORS,
     tagColor,

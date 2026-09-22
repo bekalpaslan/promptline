@@ -118,6 +118,8 @@ interface PromptlineCore {
   /** `@name`, or `@"two words"` when the name has whitespace */
   filterTerm(prefix: "#" | "@" | ">", name: string): string
   matchesFilters(snippet: Pick<Snippet, "tags" | "pack" | "group">, query: Pick<ParsedQuery, "tags" | "packs" | "groups">): boolean
+  /** The sidebar filter: filter terms, then every free-text word in title, tags, pack, group or body */
+  matchesQuery(snippet: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">, query: ParsedQuery): boolean
   TAG_COLORS: Record<string, string>
   tagColor(tag: string): string
   stripFences(raw: string): string
