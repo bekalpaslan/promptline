@@ -861,26 +861,38 @@ fn apply_snippet_migrations(snippets: &mut [Snippet]) {
 /// like a reset rather than a loss. An I/O error is an `Err` and writes
 /// nothing: the file may still be good.
 fn load_snippets_from_disk(app: &AppHandle) -> Result<Vec<Snippet>, String> {
-    let path = snippets_path(app);
-    let mut snippets = match load_json_file::<Vec<Snippet>>(&path)? {
-        Loaded::Present(s) => s,
-        Loaded::Missing => default_snippets(),
+    let (snippets, notice) = snippets_from_loaded(load_json_file(&snippets_path(app))?);
+    if let Some(notice) = notice {
+        notify(app, &notice.kind, notice.message);
+        // Pin the empty state so the next load isn't a "first run"
+        write_snippets(app, &snippets)?;
+    }
+    Ok(snippets)
+}
+
+/// The library a load result stands for, and what the user must hear.
+/// Missing is a first run: the starters. Quarantined is a loss: an *empty*
+/// library plus a notice naming where the file went, because the starters
+/// would look like a reset rather than a loss and the first autosave would
+/// have buried the only copy. Present gets the migrations.
+fn snippets_from_loaded(loaded: Loaded<Vec<Snippet>>) -> (Vec<Snippet>, Option<Notice>) {
+    match loaded {
+        Loaded::Present(mut snippets) => {
+            apply_snippet_migrations(&mut snippets);
+            (snippets, None)
+        }
+        Loaded::Missing => (default_snippets(), None),
         Loaded::Quarantined { moved_to, error } => {
-            notify(
-                app,
-                "library-recovered",
-                format!(
+            let notice = Notice {
+                kind: "library-recovered".into(),
+                message: format!(
                     "Your prompt library couldn't be read ({error}). The file was moved to {} and the library starts empty — copy it back over snippets.json to recover it.",
                     moved_to.display()
                 ),
-            );
-            // Pin the empty state so the next load isn't a "first run"
-            write_snippets(app, &[])?;
-            Vec::new()
+            };
+            (Vec::new(), Some(notice))
         }
-    };
-    apply_snippet_migrations(&mut snippets);
-    Ok(snippets)
+    }
 }
 
 fn write_snippets(app: &AppHandle, snippets: &[Snippet]) -> Result<(), String> {
@@ -1104,16 +1116,22 @@ fn save_snippets(
     base_revision: Option<u64>,
 ) -> Result<u64, StoreError> {
     let _guard = state.store.lock().unwrap();
-    let current = current_revision(&app);
-    if let Some(base) = base_revision {
-        if base != current {
-            return Err(StoreError::Stale { revision: current });
-        }
-    }
+    check_revision(base_revision, current_revision(&app))?;
     write_snippets(&app, &snippets)?;
     sync_pack_files(&app);
     notify_other_window(&app, &window);
     Ok(current_revision(&app))
+}
+
+/// The stale gate: a save based on `base` may go ahead only if the file
+/// is still at that revision. `None` skips the check (startup GC,
+/// migrations); the error carries the current revision so the caller can
+/// reload to it.
+fn check_revision(base: Option<u64>, current: u64) -> Result<(), StoreError> {
+    match base {
+        Some(base) if base != current => Err(StoreError::Stale { revision: current }),
+        _ => Ok(()),
+    }
 }
 
 /// The config with every pack path resolved: the frontend displays it,
@@ -1211,25 +1229,30 @@ fn save_packs(app: AppHandle, state: State<AppState>, packs: Vec<PackMeta>) -> R
 /// content sync_pack_files refuses to clobber — so deleting a pack in the app
 /// must not be able to destroy them.
 fn retire_pack_file(app: &AppHandle, src: &Path) {
+    if let Err(e) = retire_into(&packs_dir(app).join("deleted"), src) {
+        log::warn!("couldn't retire {}: {e}", src.display());
+    }
+}
+
+/// Move `src` into `deleted_dir` under its own name, numbered when that
+/// name is taken: deleting, recreating and deleting the same pack again
+/// must not overwrite the first retirement. A source that isn't there is a
+/// no-op (the pack never had a file, or it was already moved). Returns
+/// where the file went.
+fn retire_into(deleted_dir: &Path, src: &Path) -> std::io::Result<Option<PathBuf>> {
     if !src.is_file() {
-        return;
+        return Ok(None);
     }
-    let dir = packs_dir(app).join("deleted");
-    if fs::create_dir_all(&dir).is_err() {
-        return;
-    }
+    fs::create_dir_all(deleted_dir)?;
     let stem = src.file_stem().unwrap_or_default().to_string_lossy().into_owned();
-    let mut dest = dir.join(format!("{stem}.json"));
+    let mut dest = deleted_dir.join(format!("{stem}.json"));
     let mut i = 2;
-    // Deleting, recreating and deleting the same pack again must not overwrite
-    // the first retirement
     while dest.exists() {
-        dest = dir.join(format!("{stem}-{i}.json"));
+        dest = deleted_dir.join(format!("{stem}-{i}.json"));
         i += 1;
     }
-    if let Err(e) = fs::rename(src, &dest) {
-        log::warn!("couldn't retire {} to {}: {e}", src.display(), dest.display());
-    }
+    fs::rename(src, &dest)?;
+    Ok(Some(dest))
 }
 
 /// Rename a pack on its metadata and on every prompt in one step. Done in
@@ -1523,12 +1546,7 @@ fn paste_snippet(
     let prev_clipboard = arboard::Clipboard::new()
         .ok()
         .and_then(|mut c| c.get_text().ok());
-
-    let text = if text.contains("{clipboard}") {
-        text.replace("{clipboard}", prev_clipboard.as_deref().unwrap_or(""))
-    } else {
-        text
-    };
+    let text = expand_clipboard(&text, prev_clipboard.as_deref());
 
     // The clipboard is written *before* the popup is hidden: if the write
     // fails (another program holding the clipboard open), the error returns
@@ -1597,6 +1615,15 @@ fn paste_snippet(
         });
     }
     Ok(mode.tag().into())
+}
+
+/// `{clipboard}` replaced by what the clipboard holds, in one pass: a
+/// clipboard that itself contains the token is pasted as text, never
+/// expanded again. An empty or unreadable clipboard leaves a hole, which is
+/// what every preview showed ("(clipboard is empty)"); text without the
+/// token comes back as it was.
+fn expand_clipboard(text: &str, clip: Option<&str>) -> String {
+    text.replace("{clipboard}", clip.unwrap_or(""))
 }
 
 /// What the popup shows when the paste thread could not deliver. The
@@ -2374,6 +2401,76 @@ mod tests {
         assert!(!merge_delete(&mut list, "a"));
         assert_eq!(list.len(), 1);
         assert_eq!(list[0].id, "b");
+    }
+
+    #[test]
+    fn a_save_from_a_stale_revision_is_refused_with_the_current_one() {
+        assert!(check_revision(None, 7).is_ok(), "no base: startup GC and migrations skip the check");
+        assert!(check_revision(Some(7), 7).is_ok());
+        match check_revision(Some(6), 7) {
+            Err(StoreError::Stale { revision }) => assert_eq!(revision, 7),
+            other => panic!("expected Stale, got {other:?}"),
+        }
+        assert!(matches!(check_revision(Some(8), 7), Err(StoreError::Stale { revision: 7 })));
+    }
+
+    #[test]
+    fn a_retired_pack_file_is_numbered_on_repeats_and_missing_is_a_no_op() {
+        let dir = temp_dir("retire");
+        let deleted = dir.join("deleted");
+        let src = dir.join("work.json");
+        fs::write(&src, "first").unwrap();
+        assert_eq!(retire_into(&deleted, &src).unwrap(), Some(deleted.join("work.json")));
+        assert!(!src.exists());
+        assert_eq!(fs::read_to_string(deleted.join("work.json")).unwrap(), "first");
+        // The pack is recreated and deleted again: the first retirement stays
+        fs::write(&src, "second").unwrap();
+        assert_eq!(retire_into(&deleted, &src).unwrap(), Some(deleted.join("work-2.json")));
+        fs::write(&src, "third").unwrap();
+        assert_eq!(retire_into(&deleted, &src).unwrap(), Some(deleted.join("work-3.json")));
+        assert_eq!(fs::read_to_string(deleted.join("work.json")).unwrap(), "first");
+        assert_eq!(fs::read_to_string(deleted.join("work-2.json")).unwrap(), "second");
+        // Nothing to retire (never backed, or already moved): nothing happens
+        assert_eq!(retire_into(&deleted, &src).unwrap(), None);
+        let fresh = temp_dir("retire-none");
+        assert_eq!(retire_into(&fresh.join("deleted"), &fresh.join("ghost.json")).unwrap(), None);
+        assert!(!fresh.join("deleted").exists(), "no folder is made for nothing");
+    }
+
+    #[test]
+    fn clipboard_expansion_is_one_pass_and_leaves_holes_when_empty() {
+        // No token: the text comes back as it was
+        assert_eq!(expand_clipboard("plain {goal}", Some("clip")), "plain {goal}");
+        // Every token takes the clipboard
+        assert_eq!(expand_clipboard("a {clipboard} b {clipboard}", Some("X")), "a X b X");
+        // An empty or unreadable clipboard leaves a hole rather than the word
+        assert_eq!(expand_clipboard("a {clipboard} b", Some("")), "a  b");
+        assert_eq!(expand_clipboard("a {clipboard} b", None), "a  b");
+        // A clipboard holding the token itself is text, never expanded again
+        assert_eq!(expand_clipboard("see {clipboard}", Some("{clipboard} inside")), "see {clipboard} inside");
+    }
+
+    #[test]
+    fn a_quarantined_library_starts_empty_with_a_notice_and_a_missing_one_with_starters() {
+        let (starters, notice) = snippets_from_loaded(Loaded::Missing);
+        assert_eq!(starters.len(), default_snippets().len());
+        assert!(notice.is_none());
+
+        let moved_to = PathBuf::from("snippets.json.corrupt-1700000000");
+        let (empty, notice) = snippets_from_loaded(Loaded::Quarantined { moved_to, error: "EOF while parsing".into() });
+        assert!(empty.is_empty(), "never the starters: that would look like a reset, not a loss");
+        let notice = notice.unwrap();
+        assert_eq!(notice.kind, "library-recovered");
+        assert!(notice.message.contains("snippets.json.corrupt-1700000000"));
+        assert!(notice.message.contains("EOF while parsing"));
+
+        // Present: the migrations run (v2 category becomes a tag, packs default)
+        let v2: Vec<Snippet> =
+            serde_json::from_str(r#"[{"id": "abc", "title": "t", "text": "x", "category": "Debug"}]"#).unwrap();
+        let (present, notice) = snippets_from_loaded(Loaded::Present(v2));
+        assert!(notice.is_none());
+        assert_eq!(present[0].tags, vec!["debug"]);
+        assert_eq!(present[0].pack, "My prompts");
     }
 
     #[test]
