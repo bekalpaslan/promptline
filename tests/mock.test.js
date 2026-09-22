@@ -27,9 +27,11 @@ for (const f of uiFiles) {
   for (const m of src.matchAll(/invoke(?:<[^>]*>)?\(\s*"([a-z_]+)"/g)) invoked.add(m[1]);
 }
 
+// The handler names each command by its module (`commands::get_snippets`);
+// the command's name is what the webview invokes
 const rust = fs.readFileSync(path.join(root, 'src-tauri', 'src', 'lib.rs'), 'utf8');
 const handler = rust.match(/generate_handler!\[([\s\S]*?)\]/);
-const registered = new Set(handler[1].split(/[\s,]+/).filter(Boolean));
+const registered = new Set(handler[1].split(/[\s,]+/).filter(Boolean).map(c => c.replace(/^.*::/, '')));
 
 const mock = fs.readFileSync(path.join(root, 'src', 'lib', 'dev-mock.ts'), 'utf8');
 const body = mock.slice(mock.indexOf('const commands'));
