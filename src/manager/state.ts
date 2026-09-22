@@ -38,6 +38,8 @@ export type Surface = "sidebar" | "overview" | "editor"
 export interface Renaming {
   name: string
   surface: Surface
+  /** Just created under a placeholder name: committing the field is what announces it */
+  fresh?: boolean
 }
 
 export interface ManagerApi {
@@ -107,7 +109,8 @@ export interface ManagerApi {
   setRenaming(next: Renaming | null): void
   renamingGroup: Renaming | null
   setRenamingGroup(next: Renaming | null): void
-  addPack(name: string): Promise<void>
+  /** Create a pack; `quiet` skips the "created" toast (the caller announces it later) */
+  addPack(name: string, opts?: { quiet?: boolean }): Promise<void>
   savePrefs(next: Partial<Prefs>): Promise<void>
   setHotkey(hotkey: string): void
   openGenerate(): void
