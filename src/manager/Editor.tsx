@@ -26,6 +26,8 @@ const BUILTIN_PARAMS = ["clipboard", "date", "time"]
 // compare the same way
 const storedTags = (raw: string) => raw.split(",").map((t) => t.trim().toLowerCase()).filter(Boolean)
 const SUGGESTED_PARAMS = ["goal", "feature", "task", "error", "file"]
+// Tag pills offered under a prompt's own tags: the most used ones it lacks
+const MAX_TAG_PILLS = 6
 
 // One card per parameter kind. The card's Edit toggle reveals delete badges
 // on the pills inside (children render from the editing flag).
@@ -456,7 +458,11 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const removeTag = (t: string) => {
     editTags(tagList.filter((x) => x !== t).join(", "))
   }
-  const tagSuggestions = m.allTags().filter((t) => !tagList.includes(t)).slice(0, 12)
+  // Pills for the library's most used tags the prompt lacks (allTags is by
+  // count, most first); every other tag completes in the "+ tag…" box as
+  // it is typed. Every tag as a pill grew the card past the editor.
+  const otherTags = m.allTags().filter((t) => !tagList.includes(t))
+  const tagSuggestions = otherTags.slice(0, MAX_TAG_PILLS)
 
   const customParams = new Set([
     ...[...configInText, ...runtimeInText].filter((t) => !BUILTIN_PARAMS.includes(t)),
@@ -688,6 +694,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             <input
               placeholder="+ tag…"
               aria-label="Add a tag"
+              list={`tags-${snippet.id}`}
               spellCheck={false}
               className={cn(chipVariants({ tone: "neutral", size: "md" }), "w-24 focus-ring placeholder:text-muted-foreground")}
               onKeyDown={(e) => {
@@ -696,6 +703,12 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                 e.currentTarget.value = ""
               }}
             />
+            {/* Every other tag in the library, completed as it is typed */}
+            <datalist id={`tags-${snippet.id}`}>
+              {otherTags.map((t) => (
+                <option key={t} value={t} />
+              ))}
+            </datalist>
           </div>
         )}
       </ParamSection>
