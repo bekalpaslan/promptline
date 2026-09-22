@@ -263,8 +263,8 @@ struct PackMeta {
     // File-backed packs: the pack's own .json file. On disk this is relative
     // to `packs/` (`work.json`) so a restored, moved or roamed profile keeps
     // every pack's file; a path outside `packs/` stays absolute. The frontend
-    // only ever sees it resolved (`get_config`) and may hand it back either
-    // way (`save_packs`). Empty = not file-backed.
+    // only ever sees it resolved (`get_config`, the pack commands) and never
+    // hands one back. Empty = not file-backed.
     #[serde(default)]
     path: String,
 }
@@ -1245,36 +1245,179 @@ fn set_hotkey(app: AppHandle, state: State<AppState>, hotkey: String) -> Result<
     save_config(&app, &config)
 }
 
+// ---- Pack metadata: intent-level, like the snippet edits above. The manager
+// used to hand back its whole pack list (`save_packs`), and a list that had
+// gone stale retired and re-created pack files: a pack empty in the library
+// saw its real content move to packs/deleted/ and a fresh empty file take
+// its place. Each command here is one read-modify-write under the store
+// lock and answers with the registry as the frontend sees it.
+
+/// What every pack command answers with: the registry after the sync that
+/// follows every write (it may have just backed a pack that got its
+/// metadata here), with paths resolved the way `get_config` returns them.
+fn packs_after_sync(app: &AppHandle) -> Result<Vec<PackMeta>, String> {
+    sync_pack_files(app);
+    Ok(with_resolved_pack_paths(load_config_from_disk(app)?, &packs_dir(app)).packs)
+}
+
+/// The name a new or renamed pack may not take: one that reads as an
+/// existing pack's. Names differing only by case would show as one pack
+/// (and share a file name on Windows), so they count as taken — except
+/// `except`, the pack's own current name, which a case-only rename
+/// ("general" to "General") is allowed to keep. Returns the existing name.
+fn pack_name_taken(
+    config: &Config,
+    snippets: &[Snippet],
+    name: &str,
+    except: Option<&str>,
+) -> Option<String> {
+    config
+        .packs
+        .iter()
+        .map(|p| p.name.as_str())
+        .chain(snippets.iter().map(|s| s.pack.as_str()))
+        .find(|n| Some(*n) != except && n.eq_ignore_ascii_case(name))
+        .map(str::to_owned)
+}
+
+/// A name is usable for a new pack, or for renaming `except` to it.
+fn validate_pack_name(
+    config: &Config,
+    snippets: &[Snippet],
+    name: &str,
+    except: Option<&str>,
+) -> Result<(), String> {
+    if name.trim().is_empty() {
+        return Err("A pack needs a name".into());
+    }
+    match pack_name_taken(config, snippets, name, except) {
+        Some(existing) => Err(format!("Pack \"{existing}\" already exists")),
+        None => Ok(()),
+    }
+}
+
+/// Lock or unlock a pack. A pack that exists only as a name on prompts
+/// gets its metadata here (a file follows on the next sync), the way
+/// `rename_pack_in` gives it one.
+fn set_pack_locked_in(config: &mut Config, name: &str, locked: bool) {
+    match config.packs.iter_mut().find(|p| p.name == name) {
+        Some(p) => p.locked = locked,
+        None => config.packs.push(PackMeta {
+            name: name.into(),
+            locked,
+            path: String::new(),
+        }),
+    }
+}
+
 #[tauri::command]
-fn save_packs(app: AppHandle, state: State<AppState>, packs: Vec<PackMeta>) -> Result<(), String> {
+fn set_pack_locked(
+    app: AppHandle,
+    state: State<AppState>,
+    name: String,
+    locked: bool,
+) -> Result<Vec<PackMeta>, String> {
     let _guard = state.store.lock().unwrap();
     let mut config = load_config_from_disk(&app)?;
-    let dir = packs_dir(&app);
-    // The frontend hands paths back as it got them (resolved) or as
-    // `create_pack_file` returned them (absolute); store the on-disk form
-    let packs: Vec<PackMeta> = packs
-        .into_iter()
-        .map(|mut p| {
-            if !p.path.is_empty() {
-                p.path = relativize_pack_path(&dir, &resolve_pack_path(&dir, &p.path));
-            }
-            p
-        })
-        .collect();
+    set_pack_locked_in(&mut config, &name, locked);
+    save_config(&app, &config)?;
+    packs_after_sync(&app)
+}
 
-    // A pack whose file is no longer claimed by any pack has been deleted, so
-    // its file goes to packs/deleted/. Compared by path, not by name: renaming
-    // a pack drops its old name from this list while keeping the same file.
-    for old in &config.packs {
-        if !old.path.is_empty() && !packs.iter().any(|p| p.path == old.path) {
-            retire_pack_file(&app, &resolve_pack_path(&dir, &old.path));
+/// Drop a pack's metadata; the stored path of its file, for retiring.
+fn remove_pack_in(config: &mut Config, name: &str) -> Option<String> {
+    let at = config.packs.iter().position(|p| p.name == name)?;
+    Some(config.packs.remove(at).path)
+}
+
+/// Delete a pack: its file goes to packs/deleted/ (never unlinked, see
+/// `retire_pack_file`) and its metadata is dropped. The manager deletes
+/// the pack's prompts first and calls this second: `ensure_packs_backed`
+/// runs inside every save, and while a prompt still names the pack it
+/// would put the metadata straight back.
+#[tauri::command]
+fn delete_pack(
+    app: AppHandle,
+    state: State<AppState>,
+    name: String,
+) -> Result<Vec<PackMeta>, String> {
+    let _guard = state.store.lock().unwrap();
+    let mut config = load_config_from_disk(&app)?;
+    if let Some(path) = remove_pack_in(&mut config, &name) {
+        if !path.is_empty() {
+            retire_pack_file(&app, &resolve_pack_path(&packs_dir(&app), &path));
         }
     }
-
-    config.packs = packs;
     save_config(&app, &config)?;
-    sync_pack_files(&app);
-    Ok(())
+    packs_after_sync(&app)
+}
+
+/// A new pack: metadata and a file of its own. A name that reads as an
+/// existing pack's is refused. The pack exists even when its file can't be
+/// written (a pack is just a name): that is a notice, and the next sync
+/// tries the file again.
+#[tauri::command]
+fn add_pack(app: AppHandle, state: State<AppState>, name: String) -> Result<Vec<PackMeta>, String> {
+    let _guard = state.store.lock().unwrap();
+    let mut config = load_config_from_disk(&app)?;
+    let snippets = load_snippets_from_disk(&app)?;
+    validate_pack_name(&config, &snippets, &name, None)?;
+    let dir = packs_dir(&app);
+    let path = match new_pack_file(&app, &name) {
+        Ok(path) => relativize_pack_path(&dir, &path),
+        Err(e) => {
+            notify(
+                &app,
+                "pack-file-failed",
+                format!("Pack \"{name}\" created, but its file couldn't be written ({e}). It will be tried again on the next save."),
+            );
+            String::new()
+        }
+    };
+    config.packs.push(PackMeta {
+        name,
+        locked: false,
+        path,
+    });
+    save_config(&app, &config)?;
+    packs_after_sync(&app)
+}
+
+/// Record `path` as a pack's file, giving the pack metadata if it was only
+/// a name on prompts.
+fn back_pack_in(config: &mut Config, name: &str, path: String) {
+    match config.packs.iter_mut().find(|p| p.name == name) {
+        Some(p) => p.path = path,
+        None => config.packs.push(PackMeta {
+            name: name.into(),
+            locked: false,
+            path,
+        }),
+    }
+}
+
+/// Give a pack without a file one ("Create pack file…"): the file is made,
+/// recorded on the pack's metadata, and filled from the library by the
+/// sync that follows. A pack that already has a file keeps it.
+#[tauri::command]
+fn add_pack_file(
+    app: AppHandle,
+    state: State<AppState>,
+    name: String,
+) -> Result<Vec<PackMeta>, String> {
+    let _guard = state.store.lock().unwrap();
+    let mut config = load_config_from_disk(&app)?;
+    let backed = config
+        .packs
+        .iter()
+        .any(|p| p.name == name && !p.path.is_empty());
+    if !backed {
+        let dir = packs_dir(&app);
+        let path = new_pack_file(&app, &name)?;
+        back_pack_in(&mut config, &name, relativize_pack_path(&dir, &path));
+        save_config(&app, &config)?;
+    }
+    packs_after_sync(&app)
 }
 
 /// Move a deleted pack's file into packs/deleted/ rather than unlinking it. The
@@ -1325,16 +1468,9 @@ fn rename_pack_in(
     if from == to {
         return Ok(());
     }
-    if to.trim().is_empty() {
-        return Err("A pack needs a name".into());
-    }
-    // Names differing only by case would read as one pack (and share a file
-    // name on Windows), so they count as taken — except the pack's own,
-    // which a case-only rename ("general" to "General") is allowed to keep
-    let taken = |name: &str| name != from && name.eq_ignore_ascii_case(to);
-    if config.packs.iter().any(|p| taken(&p.name)) || snippets.iter().any(|s| taken(&s.pack)) {
-        return Err(format!("Pack \"{to}\" already exists"));
-    }
+    // The pack's own name is not taken: a case-only rename ("general" to
+    // "General") keeps it
+    validate_pack_name(config, snippets, to, Some(from))?;
     let mut renamed = false;
     for p in config.packs.iter_mut().filter(|p| p.name == from) {
         p.name = to.to_string();
@@ -2069,7 +2205,10 @@ pub fn run() {
             get_config,
             take_notices,
             set_hotkey,
-            save_packs,
+            set_pack_locked,
+            delete_pack,
+            add_pack,
+            add_pack_file,
             rename_pack,
             save_prefs,
             import_pack_file,
@@ -3192,6 +3331,95 @@ mod tests {
             .iter()
             .any(|p| p.name == "Named" && p.path.is_empty()));
         assert_eq!(snippets[2].pack, "Named");
+    }
+
+    #[test]
+    fn locking_a_pack_finds_its_metadata_or_makes_it() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: "Work".into(),
+            locked: false,
+            path: "work.json".into(),
+        });
+        set_pack_locked_in(&mut config, "Work", true);
+        assert!(config.packs[0].locked);
+        assert_eq!(config.packs[0].path, "work.json", "the file is kept");
+        set_pack_locked_in(&mut config, "Work", false);
+        assert!(!config.packs[0].locked);
+        // A pack that was only a name on prompts gets metadata; the next
+        // sync gives it a file
+        set_pack_locked_in(&mut config, "Nameless", true);
+        assert_eq!(config.packs.len(), 2);
+        assert!(config.packs[1].locked && config.packs[1].path.is_empty());
+    }
+
+    #[test]
+    fn removing_a_pack_drops_its_metadata_and_names_the_file_to_retire() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: "Work".into(),
+            locked: true,
+            path: "work.json".into(),
+        });
+        config.packs.push(PackMeta {
+            name: "Unbacked".into(),
+            locked: false,
+            path: String::new(),
+        });
+        assert_eq!(
+            remove_pack_in(&mut config, "Work"),
+            Some("work.json".into())
+        );
+        assert_eq!(remove_pack_in(&mut config, "Unbacked"), Some(String::new()));
+        assert!(config.packs.is_empty());
+        // Nothing to drop for a pack that never had metadata
+        assert_eq!(remove_pack_in(&mut config, "Ghost"), None);
+    }
+
+    #[test]
+    fn a_new_pack_name_is_refused_when_it_reads_as_an_existing_one() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: "General".into(),
+            locked: false,
+            path: String::new(),
+        });
+        let mut s = snip("A", "", "x");
+        s.pack = "Other".into();
+        let snippets = vec![s];
+        // Declared or only named on a prompt, in any case: taken, and the
+        // error names the pack as it exists
+        assert_eq!(
+            validate_pack_name(&config, &snippets, "general", None).unwrap_err(),
+            "Pack \"General\" already exists"
+        );
+        assert_eq!(
+            validate_pack_name(&config, &snippets, "OTHER", None).unwrap_err(),
+            "Pack \"Other\" already exists"
+        );
+        assert!(validate_pack_name(&config, &snippets, "  ", None).is_err());
+        assert!(validate_pack_name(&config, &snippets, "Fresh", None).is_ok());
+        // Renaming a pack onto its own case variant is allowed
+        assert!(validate_pack_name(&config, &snippets, "GENERAL", Some("General")).is_ok());
+        assert!(validate_pack_name(&config, &snippets, "general", Some("Other")).is_err());
+    }
+
+    #[test]
+    fn backing_a_pack_records_the_file_on_new_or_existing_metadata() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: "Work".into(),
+            locked: true,
+            path: String::new(),
+        });
+        back_pack_in(&mut config, "Work", "work.json".into());
+        assert_eq!(config.packs[0].path, "work.json");
+        assert!(config.packs[0].locked, "the lock is kept");
+        back_pack_in(&mut config, "Nameless", "nameless.json".into());
+        assert_eq!(config.packs.len(), 2);
+        assert_eq!(config.packs[1].name, "Nameless");
+        assert_eq!(config.packs[1].path, "nameless.json");
+        assert!(!config.packs[1].locked);
     }
 
     #[test]

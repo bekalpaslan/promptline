@@ -138,7 +138,35 @@ export function installMock(mode: string | null) {
       write(a.snippets as Snippet[])
       return lib.revision
     },
-    save_packs: (a) => void (packs = a.packs as PackMeta[]),
+    // Pack metadata by intent, each answering with the registry (paths
+    // resolved) the way Rust does; a pack that is only a name on prompts
+    // gets metadata when locked or given a file
+    set_pack_locked: (a) => {
+      const name = String(a.name)
+      const locked = a.locked === true
+      packs = packs.some((p) => p.name === name)
+        ? packs.map((p) => (p.name === name ? { ...p, locked } : p))
+        : [...packs, { name, locked, path: "" }]
+      return packs
+    },
+    delete_pack: (a) => (packs = packs.filter((p) => p.name !== a.name)),
+    add_pack: (a) => {
+      const name = String(a.name)
+      const taken = [...packs.map((p) => p.name), ...lib.snippets.map((s) => s.pack)].find(
+        (n) => n.toLowerCase() === name.toLowerCase()
+      )
+      if (taken) throw `Pack "${taken}" already exists`
+      packs = [...packs, { name, locked: false, path: `C:\\mock\\packs\\${name}.json` }]
+      return packs
+    },
+    add_pack_file: (a) => {
+      const name = String(a.name)
+      const path = `C:\\mock\\packs\\${name}.json`
+      packs = packs.some((p) => p.name === name)
+        ? packs.map((p) => (p.name === name ? { ...p, path: p.path || path } : p))
+        : [...packs, { name, locked: false, path }]
+      return packs
+    },
     rename_pack: (a) => {
       packs = packs.map((p) => (p.name === a.from ? { ...p, name: String(a.to) } : p))
       write(lib.snippets.map((s) => (s.pack === a.from ? { ...s, pack: String(a.to) } : s)))

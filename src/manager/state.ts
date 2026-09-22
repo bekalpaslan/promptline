@@ -12,7 +12,7 @@ export interface Prefs {
 
 /** Extras a delete can carry so Undo brings back everything it removed. */
 export interface DeleteOpts {
-  /** A pack's metadata (lock flag) to restore with its prompts; its file is re-created */
+  /** A pack's metadata (lock flag) to restore with its prompts (set_pack_locked); its file is re-created */
   pack?: PackMeta
 }
 
@@ -69,8 +69,17 @@ export interface ManagerApi {
   persist(next: Snippet[] | ((current: Snippet[]) => Snippet[])): Promise<void>
   /** Save one prompt's editable fields by id, merged on disk (update_snippet). */
   updateSnippet(id: string, edit: SnippetEdit): Promise<void>
-  /** Replace pack metadata and persist it (save_packs). */
-  persistPacks(next: PackMeta[]): Promise<void>
+  /**
+   * Pack metadata is written by intent, never as a list (a stale list
+   * retired and re-created pack files): each of these is one read-modify-
+   * write in Rust that answers with the registry, which replaces `packMeta`.
+   */
+  /** Lock or unlock a pack (set_pack_locked); a pack that is only a name on prompts gets metadata */
+  setPackLocked(name: string, locked: boolean): Promise<void>
+  /** Delete a pack: its prompts first, with Undo, then its metadata (delete_pack retires the file) */
+  deletePack(name: string): Promise<void>
+  /** Give a pack without a file one (add_pack_file), filled from the library; resolves with the path */
+  addPackFile(name: string): Promise<string>
   /** Rename a pack on its metadata and every prompt, atomically in Rust (rename_pack). */
   renamePack(from: string, to: string): Promise<void>
   /**
@@ -109,7 +118,7 @@ export interface ManagerApi {
   setRenaming(next: Renaming | null): void
   renamingGroup: Renaming | null
   setRenamingGroup(next: Renaming | null): void
-  /** Create a pack; `quiet` skips the "created" toast (the caller announces it later) */
+  /** Create a pack with its file (add_pack); `quiet` skips the "created" toast (the caller announces it later) */
   addPack(name: string, opts?: { quiet?: boolean }): Promise<void>
   savePrefs(next: Partial<Prefs>): Promise<void>
   setHotkey(hotkey: string): void

@@ -195,17 +195,6 @@ export function useLibraryMenus(opts: {
     ])
   }
 
-  // Undo restores the prompts and the pack's metadata (its lock flag); the
-  // file was retired to packs/deleted/ and a fresh one is made
-  const deletePack = async (name: string) => {
-    const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).map((s) => s.id)
-    const pack = m.packMeta.find((p) => p.name === name) ?? { name, locked: false }
-    // Prompts first: while any prompt still names the pack, the reconciler
-    // would put its metadata straight back
-    await m.deleteWithUndo(ids, `Deleted pack "${name}" (${ids.length} prompt${ids.length === 1 ? "" : "s"})`, { pack })
-    await m.persistPacks(m.packMeta.filter((p) => p.name !== name))
-  }
-
   // File actions for file-backed packs; non-backed packs get an upgrade action
   const packFileItems = (name: string): CtxItem[] => {
     const meta = m.packMeta.find((p) => p.name === name)
@@ -215,19 +204,10 @@ export function useLibraryMenus(opts: {
           kind: "item",
           label: "Give this pack a file…",
           run: () => {
-            void (async () => {
-              try {
-                const path = await invoke<string>("create_pack_file", { name })
-                const next = meta
-                  ? m.packMeta.map((p) => (p.name === name ? { ...p, path } : p))
-                  : [...m.packMeta, { name, locked: false, path }]
-                await m.persistPacks(next)
-                await m.persist((cur) => [...cur]) // triggers the sync that fills the fresh file
-                say(`"${name}" now has a file`)
-              } catch (e) {
-                sayErr(`Couldn't create a file for "${name}": ${e}`)
-              }
-            })()
+            void m.addPackFile(name).then(
+              () => say(`"${name}" now has a file`),
+              (e) => sayErr(`Couldn't create a file for "${name}": ${e}`)
+            )
           },
         },
       ]
@@ -253,11 +233,10 @@ export function useLibraryMenus(opts: {
         kind: "item",
         label: locked ? "Unlock" : "Lock",
         run: () => {
-          const existing = m.packMeta.find((p) => p.name === name)
-          const next = existing
-            ? m.packMeta.map((p) => (p.name === name ? { ...p, locked: !p.locked } : p))
-            : [...m.packMeta, { name, locked: true }]
-          void m.persistPacks(next).then(() => say(locked ? `Pack "${name}" unlocked` : `Pack "${name}" locked`))
+          void m.setPackLocked(name, !locked).then(
+            () => say(locked ? `Pack "${name}" unlocked` : `Pack "${name}" locked`),
+            () => {} // already toasted
+          )
         },
       },
       {
@@ -299,7 +278,9 @@ export function useLibraryMenus(opts: {
         disabled: locked,
         hint: locked ? "Unlock the pack first (this menu → Unlock)" : undefined,
         confirm: count ? `Really delete ${count} prompts?` : "Really delete pack?",
-        run: () => void deletePack(name),
+        // Undo restores the prompts and the pack's lock; the file was
+        // retired to packs/deleted/ and a fresh one is made
+        run: () => void m.deletePack(name),
       },
       { kind: "sep" },
       {

@@ -317,9 +317,27 @@ empty.
 or in a fixed order.** `ensure_packs_backed` runs inside every save, so a
 rename done as two frontend writes let it see prompts still carrying the old
 name and conjure a second pack; `rename_pack` renames both at once. A delete
-removes the prompts first and the metadata second, for the same reason. And
-because the reconciler can add metadata on any write, the manager re-reads
-pack metadata after every write rather than trusting its own copy.
+removes the prompts first (`save_snippets`, with Undo) and the metadata
+second (`delete_pack`), for the same reason. And because the reconciler can
+add metadata on any write, the manager re-reads pack metadata after every
+write rather than trusting its own copy.
+
+**Pack metadata is written by intent, never as a list.** Lock, delete, add
+and "Create pack file" are `set_pack_locked`, `delete_pack`, `add_pack` and
+`add_pack_file`, each a read-modify-write of `config.json` under the store
+lock that answers with the registry as `get_config` returns it, which the
+manager takes as its copy. The manager used to hand back its whole pack
+list (`save_packs`), and Rust retired every file the list no longer named:
+a list from a stale render retired and re-created pack files, and a pack
+that was empty in the library saw its real content move to `packs/deleted/`
+with a fresh empty file in its place. `add_pack` refuses a name that reads
+as an existing pack's (case variants share a file name on Windows), the
+same check `rename_pack` makes; a file that can't be created is a notice
+and the pack exists anyway, since a pack is just a name, and the next sync
+tries the file again. Locking a pack that exists only as a name on prompts
+gives it metadata, as renaming does. The Undo of a pack delete restores
+the prompts (which conjures the pack again, with a fresh file) and then
+puts its lock back with `set_pack_locked`.
 
 That is why file backing is reconciled rather than handled at creation.
 **`ensure_packs_backed`** runs at startup and before every sync, giving every
@@ -351,9 +369,8 @@ Two guards follow from that:
   the manager's own swept "New prompt" drafts: that is the library's earlier
   output, not an agent's, and it is emptied so the draft doesn't linger.
 - **Deleting a pack moves its file to `packs/deleted/`** instead of unlinking
-  it, for the same reason. `save_packs` compares by *path*, not name — renaming
-  a pack drops its old name while keeping the same file, and a name comparison
-  would retire a live pack.
+  it, for the same reason (`delete_pack` retires the named pack's file;
+  renaming keeps the file, so nothing is ever retired by a rename).
 
 **A pack's path is stored relative to `packs/`** (`work.json`), and only a
 file placed outside that folder keeps an absolute path. They used to be
@@ -362,13 +379,12 @@ to another drive or roamed between machines pointed every pack at a folder
 that no longer existed, and every pack write failed with nothing said.
 `resolve_pack_path` turns the stored form into a path to open wherever one
 is used; `relativize_pack_path` turns a path back into the stored form
-(`save_packs`, `ensure_packs_backed`), and a config from before this
-(0.2.9) is brought over once on load. The IPC shape did not change: the
-frontend shows, reads and reveals the path, so `get_config` resolves every
-path on the way out, and `save_packs` accepts whatever the frontend hands
-back. A pack file that can't be written is logged and raised as a notice
-once per session (the library itself is safe in `snippets.json`), not on
-every autosave.
+(`add_pack`, `add_pack_file`, `ensure_packs_backed`), and a config from
+before this (0.2.9) is brought over once on load. The frontend shows, reads
+and reveals the path and never hands one back, so `get_config` and every
+pack command resolve each path on the way out. A pack file that can't be
+written is logged and raised as a notice once per session (the library
+itself is safe in `snippets.json`), not on every autosave.
 
 Orphans are never swept automatically. A file in `packs/` that no pack claims
 may be one an agent just dropped there for importing. **Backing a pack adopts
@@ -484,7 +500,8 @@ pack, group, `configValues` are the editor's). The manager's bulk operations
 `save_snippets` carries the revision the manager loaded and Rust refuses it as
 `stale` if the file has moved on; the manager then reloads, tells the user,
 and the change has to be redone. Every snippet command returns the library
-with its revision, and the store lock serialises every read-modify-write.
+with its revision, every pack command (lock, delete, add, file) returns the
+pack registry, and the store lock serialises every read-modify-write.
 
 **A pin remembers when it was pinned.** `pinnedAt` (ms since epoch, personal
 state next to `uses` and `pinned`) is stamped when a prompt is pinned and
@@ -671,7 +688,10 @@ what is given, `add` replaces a duplicate id, `delete` reports change), the
 pin stamp, pack filename sanitising and reserved Windows device names, pack
 file adoption and write-only-when-changed, drafts backing no pack and a
 draft-only file being emptied, `rename_pack` moving metadata and prompts
-together and treating case variants as taken, the data-dir move from
+together and treating case variants as taken, the pack commands' pure halves
+(lock finds or makes metadata, remove names the file to retire, a new name
+is refused when it reads as an existing pack's, backing records the file),
+the data-dir move from
 `com.promptline.app` rewriting pack paths, and the starter pack's ids.
 
 The split reflects what is worth testing: pure functions and file-level
