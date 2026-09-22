@@ -105,7 +105,7 @@ export function ImportCuration({
     setBusy(true)
     let added = 0
     let skippedLocked = 0
-    const next: Snippet[] = [...m.snippets]
+    const fresh: Snippet[] = []
     for (const r of rows) {
       if (!r.include) continue
       const pack = target(r.packName)
@@ -113,7 +113,7 @@ export function ImportCuration({
         skippedLocked++
         continue
       }
-      next.push({
+      fresh.push({
         id: crypto.randomUUID(),
         title: r.title,
         text: r.text,
@@ -129,7 +129,8 @@ export function ImportCuration({
       added++
     }
     try {
-      await m.persist(next)
+      // Appended to the current library, not this render's copy
+      await m.persist((cur) => [...cur, ...fresh])
     } catch {
       setBusy(false) // persist already toasted; the list stays for a retry
       return

@@ -49,9 +49,11 @@ export interface ManagerApi {
    * Replace the snippet list and persist it (save_snippets). Refused if the
    * library changed on disk since it was loaded (the popup wrote): the
    * manager then reloads, shows an error, and rejects — the caller's change
-   * was not applied and must be redone.
+   * was not applied and must be redone. Pass an updater from any closure
+   * that outlives its render (menu actions, Undo callbacks): it is applied
+   * to the latest library, so edits made in between are not reverted.
    */
-  persist(next: Snippet[]): Promise<void>
+  persist(next: Snippet[] | ((current: Snippet[]) => Snippet[])): Promise<void>
   /** Save one prompt's editable fields by id, merged on disk (update_snippet). */
   updateSnippet(id: string, edit: SnippetEdit): Promise<void>
   /** Replace pack metadata and persist it (save_packs). */

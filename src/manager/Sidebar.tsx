@@ -228,14 +228,24 @@ export function Sidebar() {
     const moved = regrouped ? { ...item, group: target.group } : item
     if (after) to += 1
     all.splice(to, 0, moved)
-    const before = m.snippets
     await m.persist(all)
     if (regrouped) {
       // A drop among another group's rows changes the label as a side
-      // effect; say so, and make it reversible
+      // effect; say so, and make it reversible. The Undo puts the prompt
+      // back at its old index with its old label in the *current* library,
+      // not this render's copy: edits made in the meantime must survive it
       sayUndo(
         target.group ? `Moved "${item.title}" into group "${target.group}"` : `Moved "${item.title}" out of its group`,
-        () => void m.persist(before).then(() => say("Restored"))
+        () =>
+          void m
+            .persist((cur) => {
+              const rest = cur.filter((s) => s.id !== item.id)
+              const now = cur.find((s) => s.id === item.id)
+              if (!now) return cur
+              rest.splice(Math.min(from, rest.length), 0, { ...now, group: item.group })
+              return rest
+            })
+            .then(() => say("Restored"))
       )
     }
     if (orderBy !== "custom") {
@@ -468,6 +478,8 @@ export function Sidebar() {
         {renamingGroup === key ? (
           <input
             autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label={`Rename group ${group}`}
             defaultValue={group}
             spellCheck={false}
             className="min-w-0 flex-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-ui font-medium text-foreground focus-ring"
@@ -636,6 +648,8 @@ export function Sidebar() {
         {renaming === name ? (
           <input
             autoFocus
+            onFocus={(e) => e.currentTarget.select()}
+            aria-label={`Rename pack ${name}`}
             defaultValue={name}
             spellCheck={false}
             className="min-w-0 flex-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-ui font-semibold text-(--heading-strong) focus-ring"

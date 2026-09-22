@@ -379,6 +379,37 @@ test('defaultPackFor: last used, else default, else first unlocked, else Unsorte
   assert.equal(core.defaultPackFor(null, [], locked([]), 'My prompts'), 'My prompts');
 });
 
+test('defaultPackFor never names a pack that does not exist (audit 2026-09-22 #4)', () => {
+  const locked = (set) => (p) => set.includes(p);
+  // The default pack was deleted or never made: the first existing unlocked pack wins
+  assert.equal(core.defaultPackFor(null, ['Work', 'Zed'], locked([]), 'My prompts'), 'Work');
+  assert.equal(core.defaultPackFor('gone', ['Work', 'Zed'], locked(['Work']), 'My prompts'), 'Zed');
+  // Every existing pack locked: a fresh "Unsorted", still not the phantom default
+  assert.equal(core.defaultPackFor(null, ['Work'], locked(['Work']), 'My prompts'), 'Unsorted');
+});
+
+// ---- removing a parameter chip -------------------------------------------------------
+
+test('removeParamToken removes the token and only the whitespace around it', () => {
+  assert.equal(core.removeParamToken('Fix {goal} now', 'goal'), 'Fix now');
+  assert.equal(core.removeParamToken('Fix {{goal}} now', 'goal'), 'Fix now');
+  assert.equal(core.removeParamToken('{goal} first', 'goal'), 'first');
+  assert.equal(core.removeParamToken('last {goal}', 'goal'), 'last');
+  assert.equal(core.removeParamToken('a {goal} b {goal} c', 'goal'), 'a b c');
+  // A token alone on its line takes the line with it
+  assert.equal(core.removeParamToken('Context:\n{goal}\nGo.', 'goal'), 'Context:\nGo.');
+  assert.equal(core.removeParamToken('Context:\n\n{goal}\n\nGo.', 'goal'), 'Context:\n\nGo.');
+  // Other names are untouched, including ones sharing a prefix
+  assert.equal(core.removeParamToken('{goal} {goal_2} {goals}', 'goal'), '{goal_2} {goals}');
+});
+
+test('removeParamToken leaves indentation and aligned text alone (audit 2026-09-22 #5)', () => {
+  const code = 'Review:\n\n    def f():\n        return {goal}\n\n| a  |  b |\n';
+  assert.equal(core.removeParamToken(code, 'goal'), 'Review:\n\n    def f():\n        return\n\n| a  |  b |\n');
+  // Nothing to remove: the text comes back byte-identical
+  assert.equal(core.removeParamToken(code, 'other'), code);
+});
+
 // ---- pins ---------------------------------------------------------------------------
 
 test('pinPlan counts only newly pinned rows against the limit (UH5)', () => {

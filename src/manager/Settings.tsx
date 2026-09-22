@@ -371,7 +371,7 @@ export function Settings() {
                                   ? m.packMeta.map((p) => (p.name === name ? { ...p, path } : p))
                                   : [...m.packMeta, { name, locked: false, path }]
                                 await m.persistPacks(next)
-                                await m.persist([...m.snippets])
+                                await m.persist((cur) => [...cur]) // triggers the sync that fills the fresh file
                                 say(`"${name}" now has a file`)
                               } catch (e) {
                                 sayErr(`Couldn't create a file for "${name}": ${e}`)
