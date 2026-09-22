@@ -213,10 +213,24 @@ export function Sidebar() {
   }
   visibleIdsRef.current = visibleIds
 
+  // The library in the order the rows are drawn: sorted, and by pack (the
+  // ungrouped run, then each group) when the view is grouped. Under "custom"
+  // that is the array itself.
+  const displayedOrder = (list: Snippet[]) => {
+    if (orderBy === "custom") return [...list]
+    const sorted = C.sortPrompts(list, orderBy)
+    if (!grouped) return sorted
+    return C.packTree(sorted, [], DEFAULT_PACK).flatMap((p) => [...p.ungrouped, ...p.groups.flatMap((g) => g.items)])
+  }
+
   // Move the dragged snippet next to the drop target in the master array and
   // persist; relative order within every pack follows from the array order.
+  // The drop was aimed in the displayed order, so under "Most used" or
+  // "A–Z" the array is first rebased to that order: the switch to "Custom"
+  // that follows would otherwise reveal the array's own order, with every
+  // row but the dragged one reshuffled.
   const commitReorder = async (dragId: string, targetId: string, after: boolean) => {
-    const all = [...m.snippets]
+    const all = displayedOrder(m.snippets)
     const from = all.findIndex((s) => s.id === dragId)
     if (from === -1) return
     const [item] = all.splice(from, 1)
