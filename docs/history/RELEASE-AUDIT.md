@@ -62,6 +62,22 @@ data directory and needs a migration.
 **Options:** keep the name and change the identifier now to something owned
 (`io.github.bekalpaslan.promptline`) with a one-time data-dir migration; or
 rename the product before promoting it.
+**Decided (2026-09-22):** keep the name, own the identifier.
+**Resolution:**
+- *Implementation:* `identifier` is `io.github.bekalpaslan.promptline`;
+  `migrate_data_dir` runs first in `setup` and moves every entry of the old
+  `%APPDATA%\com.promptline.app` into the new folder (skipping names the
+  new folder already has), rewrites the packs' absolute file paths in the
+  moved `config.json`, and removes the old folder once empty; a failure is
+  a notice and the library stays put. The WebView2 profile under
+  `%LOCALAPPDATA%` is not moved: prefs come from `config.json`, only the
+  sidebar's fold state and sort order (localStorage) start fresh.
+- *Tests added:* `moving_the_data_dir_carries_files_and_rewrites_pack_paths`.
+- *Docs:* `BEHAVIOR.md` "State and where it lives"; the path in `README.md`,
+  `CLAUDE.md`, Settings and the architecture map's JSON sources (the
+  published map still shows the old label until the next refresh).
+- *Release notes:* call the folder move out as the one change an existing
+  install notices.
 
 ### D2. Which internal documents ship in the public repo
 **Status:** DECISION
@@ -75,6 +91,12 @@ artefacts before the README. Test names cite the trackers' finding ids
 (H1, M7, BH3-1), so deleting them orphans references; moving them under
 `docs/history/` and pointing `CLAUDE.md` there keeps both.
 **Done meanwhile:** `PITCH-SCRIPT.md` is gitignored (it names a person).
+**Decided (2026-09-22):** move under `docs/history/`, keep everything.
+**Resolution:** the five trackers live in `docs/history/`; `CLAUDE.md` and
+`BACKLOG.md` point there. Still open from L11: the stale `claude/*` remote
+branches, the merged `fix/bug-hunt*` branches, `src-tauri/gen/schemas/`
+being tracked, the mobile icon folders, and the private artifact links and
+machine-specific notes in `CLAUDE.md`.
 
 ---
 

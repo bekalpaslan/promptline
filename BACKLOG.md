@@ -10,7 +10,7 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   natural sibling.
 - **Export pack/library to file** — save dialog counterpart to the file import.
 
-## Deferred from the UI rework (see UI-REWORK-ROADMAP.md)
+## Deferred from the UI rework (see docs/history/UI-REWORK-ROADMAP.md)
 
 - **Generate packs via direct API call** — call Claude with a user-supplied API
   key from the generate dialog, skipping the copy/paste loop (roadmap 4.4
