@@ -104,6 +104,10 @@ export function App() {
   const mouseSeeded = useRef(false)
   const hoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The 600 ms "Copied" pause before the popup hides itself. Held so a
+  // summon inside that window cancels it: a hotkey press right after a
+  // Ctrl+Enter used to have the new popup hidden under the user (L22)
+  const copyHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Ranking is a pure core function (tested); this only memoizes it
   const filtered = useMemo<Entry[]>(() => C.rankSnippets(query, snippets), [snippets, query])
@@ -323,7 +327,11 @@ export function App() {
         kind: "info",
       })
       setPicked(null)
-      setTimeout(() => void invoke("hide_popup"), 600)
+      if (copyHideTimer.current) clearTimeout(copyHideTimer.current)
+      copyHideTimer.current = setTimeout(() => {
+        copyHideTimer.current = null
+        void invoke("hide_popup")
+      }, 600)
     }
   }, [fail, setPicked])
 
@@ -516,6 +524,8 @@ export function App() {
     setNotice(null)
     if (lastDeleted.current) clearTimeout(lastDeleted.current.timer)
     lastDeleted.current = null
+    if (copyHideTimer.current) clearTimeout(copyHideTimer.current)
+    copyHideTimer.current = null
     hidePreview()
     setPicked(null)
     setQuery("")
@@ -544,8 +554,18 @@ export function App() {
 
   useEffect(() => {
     const un = listen("popup-shown", () => void reload())
+    // Rust re-shows the popup when it could not focus the target window or
+    // send Ctrl+V (an elevated window) and says why; the prompt is still on
+    // the clipboard. An error, so it stays until Esc or the next summon.
+    const unFailed = listen<{ message: string }>("paste-failed", (e) => {
+      setNotice({ text: e.payload.message, kind: "error" })
+      setPicked(null)
+    })
     void reload()
-    return () => void un.then((f) => f())
+    return () => {
+      void un.then((f) => f())
+      void unFailed.then((f) => f())
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
