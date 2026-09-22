@@ -23,7 +23,7 @@ machine:
   It never sends anything else and never reads what other windows type; the
   global hotkey is a `RegisterHotKey` registration, not a keyboard hook.
 - **Local JSON files** under `%APPDATA%\io.github.bekalpaslan.promptline\`:
-  your prompts, packs and settings, plus a log file. Pack files are meant to
+  your prompts, packs and settings, plus `promptline.log`. Pack files are meant to
   be shared; they hold titles, tags and prompt text, never your fill-in
   values or config parameters.
 - **No network.** The app has no network code and no telemetry. The only

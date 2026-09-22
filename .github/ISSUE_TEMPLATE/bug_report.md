@@ -30,7 +30,7 @@ assignees: ""
 
 **Log file**
 
-<!-- Attach the log file from %APPDATA%\io.github.bekalpaslan.promptline\ -->
+<!-- Attach promptline.log from %APPDATA%\io.github.bekalpaslan.promptline\ -->
 
 **Anything else**
 

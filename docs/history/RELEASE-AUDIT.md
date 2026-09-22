@@ -35,11 +35,16 @@ sleeps, `prev_window` before show, the prompt staying on the clipboard,
 
 | Status | High | Medium | Low | Decisions | Total |
 |---|---|---|---|---|---|
-| TODO | 0 | 12 | 22 | 0 | 34 |
+| TODO | 0 | 0 | 2 | 0 | 2 |
 | IN PROGRESS | 0 | 0 | 0 | 0 | 0 |
-| DONE | 7 | 3 | 3 | 0 | 13 |
-| DECISION | 0 | 0 | 0 | 2 | 2 |
+| DONE | 7 | 15 | 23 | 2 | 47 |
 | **Total** | **7** | **15** | **25** | **2** | **49** |
+
+Open: L3 (`save_packs` intent-level) and L8 (splitting `lib.rs`), plus the
+partial items noted inline (M7 chip wording, M14/L6/L10 manager call sites,
+L20's two leftovers, L13's type-checked lint). The second wave ran as four
+parallel agents in worktrees (Rust, manager, popup and core, docs and
+release) merged into master on 2026-09-22.
 
 Order taken: the "fix before tagging" set (H1–H7, plus M3, M8, L6, L11,
 L12) in one branch, `fix/release-audit`; the rest in the order listed
@@ -242,7 +247,7 @@ rename). Pass `U`.
 ## Medium
 
 ### M1. Pack file paths are absolute and write failures are silent
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs` `PackMeta.path` (~:191), `write_pack_files` (~:509),
 `ensure_packs_backed` (~:401). Pass `R`.
 **What:** a restored or roamed profile (other username, moved folder) leaves
@@ -251,9 +256,13 @@ ENOENT, nothing is reported, Settings still shows the old path.
 **Fix:** store the file name relative to `packs/`; at minimum treat a path
 whose parent does not exist like an empty one in `ensure_packs_backed` and
 `notify` on a pack write failure.
+**Resolution:**
+- *Implementation:* `PackMeta.path` on disk is relative to `packs/` (a file outside stays absolute); `resolve_pack_path`/`relativize_pack_path`; `load_config_from_disk` migrates a pre-0.2.9 config once; `get_config` resolves on the way out and `save_packs` relativises on the way in, so the IPC shape is unchanged. `write_pack_files` returns what failed; `sync_pack_files` logs each failure and raises a `pack-write-failed` notice once per session. `move_data_dir` writes the relative form directly.
+- *Tests added:* relative/absolute round trip, one-time migration, an unwritable pack file is reported.
+- *Docs:* `BEHAVIOR.md` "Packs and their files", "State".
 
 ### M2. Nothing is logged in a release build
-**Status:** TODO
+**Status:** DONE
 **Where:** `notify` uses `eprintln!` (`lib.rs:66`); `main.rs:1`
 `windows_subsystem = "windows"`. Pass `R`.
 **What:** every `let _ =` (pack writes, retirement, `SetForegroundWindow`,
@@ -261,9 +270,12 @@ autostart) is unobservable in the shipped binary; a public bug report has
 no file to attach.
 **Fix:** `tauri-plugin-log` with a rolling file target in the data dir;
 route ignored results through `log::warn!`.
+**Resolution:**
+- *Implementation:* `tauri-plugin-log` (Rust-only, no capability), `warn` level, rolling `promptline.log` in the data folder (512 KB, keep one); `notify` and every formerly ignored result (pack writes, retirement, config saves, the use-count write, autostart, `SetForegroundWindow`) log paths and error text, never prompt content.
+- *Docs:* `BEHAVIOR.md` State table; README, SECURITY.md and the bug template name the file.
 
 ### M3. `write_atomic` neither retries the rename nor fsyncs
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs:86-90`. Pass `R`.
 **What:** on Windows `rename` fails with "Access is denied" while OneDrive,
 Dropbox or Defender hold the destination for tens of milliseconds after a
@@ -273,35 +285,49 @@ reloads, discarding the keystrokes since the last save. Without
 guaranteed on NTFS (the quarantine path bounds the damage).
 **Fix:** 3–5 retries with a short backoff on `rename`; `sync_all` on the
 temp file first.
+**Resolution:**
+- *Implementation:* `write_synced` (write + `sync_all`) then `rename_with_retries` (5 tries, 20 ms doubling) on PermissionDenied / sharing violations; the temp file is removed on final failure.
+- *Tests added:* transient-error classification, a write outlasting a 60 ms exclusive handle (Windows), no temp file left after a failed write.
 
 ### M4. Summoning the popup from the manager pastes into the editor
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs` `show_popup` (~:1322). Pass `R`.
 **What:** only the popup's own HWND is refused as `prev_window`; the
 manager's is accepted. Editing prompt X, pressing the hotkey to check Y and
 hitting Enter pastes Y's text into X's textarea, and autosave writes it.
 **Fix:** when the foreground window is any of ours, record 0 and have
 `paste_snippet` treat 0 as copy-only with the "Copied" feedback.
+**Resolution:**
+- *Implementation:* `paste_target` records 0 when the foreground window is the popup or the manager; `paste_mode` turns a paste with no target into copy-only. `paste_snippet` returns `"pasted"` or `"copied"`; the popup shows "Copied to clipboard — the manager was in front" on `"copied"` and hides itself like Ctrl+Enter.
+- *Tests added:* both mappings in Rust; the popup path walked in the mock (`__mock.pasteResult`).
+- *Docs:* `BEHAVIOR.md` paste pipeline steps 1 and 4.
 
 ### M5. First drag under "Most used" / "A–Z" applies the drop in array order
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Sidebar.tsx` `commitReorder` (~:219). Pass `F`.
 **What:** the drop target is chosen in the displayed (sorted) order but the
 splice happens in the master array's order; `setOrderBy("custom")` then
 reveals that order, so every row except the dragged one reshuffles.
 **Fix:** when `orderBy !== "custom"`, rebase the array to the current
 `C.sortPrompts` result before splicing.
+**Resolution:**
+- *Implementation:* `commitReorder` rebases the array to the displayed order (`C.sortPrompts`, flattened by `C.packTree` in the grouped view) before splicing when the order is not Custom.
+- *Manual verification:* Alt+Down under "Most used" moved only the dragged row; the persisted array matched what was on screen.
 
 ### M6. A folded group in the popup cannot be reopened from the keyboard
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/popup/App.tsx` Ctrl+→ (~:642), ← (~:675). Pass `F`.
 **What:** ← folds a group and its rows leave `visible`; Ctrl+→ clears pack
 folds only and otherwise opens the preview. Keyboard-only users need the
 mouse.
 **Fix:** Ctrl+→ clears both pack and group folds unconditionally.
+**Resolution:**
+- *Implementation:* Ctrl+→ clears both pack and group folds unconditionally.
+- *Manual verification:* ← folded a group (30 → 29 rows), Ctrl+→ restored it without opening the preview.
+- *Docs:* `BEHAVIOR.md` "The popup's list folds from the keyboard too".
 
 ### M7. `{0}` / `{1}` are shown as red "not a param" chips
-**Status:** TODO
+**Status:** DONE (core); chip wording open
 **Where:** `ui/core.js` `tokenize` (marks every invalid name `bad`), editor
 preview. Pass `U`.
 **What:** the comment and `BEHAVIOR.md` say numeric names stay literal, but
@@ -309,6 +335,10 @@ pasting code with format slots yields one red chip per slot, each repeating
 the full rule, wrapping mid-chip.
 **Fix:** treat purely numeric names as `text` in `tokenize`; shorten the
 near-miss chip and state the rule once in the legend.
+**Resolution:**
+- *Implementation:* `tokenize` keeps purely numeric names as text in one run with their surroundings; `{Goal}`/`{1st}` stay `bad`.
+- *Tests added:* `{0}`/`{1}` as text; the near-miss test expects only `{Goal}`.
+- *Open:* the near-miss chip in `src/components/prompt-bits.tsx` still repeats the full rule per chip; state it once in the legend.
 
 ### M8. Mock backend missed nine of the 26 commands the UI calls
 **Status:** DONE
@@ -329,28 +359,39 @@ was registered in Rust with no caller.
   command). Enforces CLAUDE.md's "add it to the mock too".
 
 ### M9. No autosave feedback anywhere
-**Status:** TODO
+**Status:** DONE
 **Where:** editor. Pass `U` (also BACKLOG "Saving… / Saved caption").
 **Fix:** a small "Saved" indicator in the editor header, announced once
 through the live region.
+**Resolution:**
+- *Implementation:* the editor header shows "Saving…" when a save is scheduled and "Saved" (with a check) when `update_snippet` lands, fading after 2 s; a sibling `role=status` announces "Saved" once. Errors stay with the existing toast.
+- *Manual verification:* typed a title: "Saving…" at 100 ms, "Saved" at 900 ms, gone at 3.2 s, edit on disk.
+- *Docs:* `BEHAVIOR.md` "The editor autosaves, and says so in one place".
 
 ### M10. User-written names are uppercased in menu headers and the fill-in title
-**Status:** TODO
+**Status:** DONE
 **Where:** `section-label` (`text-transform: uppercase`) used for ctx-menu
 headers ("SESSION FLOW"), the popup form title and create mode. Pass `U`.
 **What:** `BEHAVIOR.md`: "uppercase is for the app's own section labels,
 never for names the user wrote."
 **Fix:** a non-transforming header variant for user names.
+**Resolution:**
+- *Implementation:* a `name-label` utility (same size, weight and tone as `section-label`, no transform); context-menu header items carry `name: true` when their text is the user's; the popup's `SectionHeader` takes `name` for the form and action-panel titles. The app's own headings are unchanged.
+- *Commit:* `3dcd86d`.
 
 ### M11. Two competing empty states on an empty library
-**Status:** TODO
+**Status:** DONE
 **Where:** `?mock=empty` manager: sidebar "No prompts yet … [New pack]" and
 pane "No prompts yet … [New prompt] [Generate pack…]". Pass `U`.
 **Fix:** one empty state, one primary action; if "New prompt" stays, have it
 ask where like the New menu does.
+**Resolution:**
+- *Implementation:* the sidebar's own empty state is gone; the pane's empty-library state has one primary "New" that opens the New menu (Pack / Group / Prompt / Generate) and a secondary "Generate pack with Claude…". The non-empty "Select a prompt" state keeps its `defaultPackFor` "New prompt".
+- *Manual verification:* `?mock=empty`: one "No prompts yet"; New → Pack created the pack with its name selected for typing.
+- *Docs:* `BEHAVIOR.md` "The manager's New asks where".
 
 ### M12. Sidebar is ~100 Tab stops with no arrow-key navigation
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/Sidebar.tsx` rows (`div role=button tabindex=0`).
 Pass `U` (findings 7, A1, A2).
 **What:** no `tree` semantics; rows nest real `<button>`s inside
@@ -358,14 +399,21 @@ Pass `U` (findings 7, A1, A2).
 Work Actions for pack Work 0").
 **Fix:** roving tabindex with Up/Down/Left/Right as a `tree`; actions
 button as a sibling of the row.
+**Resolution:**
+- *Implementation:* the sidebar is a `role=tree` ("Library") of `treeitem`s with `aria-level`, `aria-expanded`, `aria-selected` and explicit labels; one roving tab stop; Up/Down, Home/End, Right unfolds or enters, Left folds or leaves, Enter/Space activates, Alt+Up/Down reorders, Menu key / Shift+F10 opens the row's menu. Chevron and dots are `aria-hidden` and refocus the row. Enter on a pack or group now opens its overview instead of folding.
+- *Manual verification:* a11y snapshot with one tabbable row and no buttons inside treeitems; the full keyboard walk; every mouse behaviour unchanged.
+- *Docs:* `BEHAVIOR.md` "The sidebar is one tree to the keyboard".
 
 ### M13. Tag suggestions show every tag in the library
-**Status:** TODO
+**Status:** DONE
 **Where:** editor Tags card. Pass `U`.
 **Fix:** cap at ~6 most used; the rest through typing.
+**Resolution:**
+- *Implementation:* at most six pills, the most-used tags the prompt lacks; a `datalist` on the "+ tag…" input completes every other tag.
+- *Manual verification:* six pills, twelve datalist options, the prompt's own tag skipped.
 
 ### M14. `PromptlineCore` interface is hand-written and drifting
-**Status:** TODO
+**Status:** DONE (core); manager call sites open
 **Where:** `src/lib/core.ts:101-150` vs `ui/core.js`. Passes `T` and `F`.
 **What:** `core.js` is neither typechecked nor linted; `expandBuiltins`
 omits the `now` parameter and `fillFields` requires `values` in TS while JS
@@ -376,9 +424,13 @@ between the editor, "Add tag…" and import.
 **Fix:** `// @ts-check` + JSDoc on `core.js` with `checkJs`, or a generated
 `core.d.ts`; a node test that `Object.keys(C)` equals the interface's keys;
 export `DRAFT_TITLE`, `RESERVED`, `normalizeTag` and use them.
+**Resolution:**
+- *Implementation:* `core.ts` fixed (`expandBuiltins(text, now?)`, `fillFields(text, values?)`, `expandForCopy(…, now?)`, `RESERVED`, `isValidParam`); core exports `DRAFT_TITLE`, `normalizeTag` (lowercase, strip everything outside `[a-z0-9_-]`, the strictest of the three rules), `plural`, `titleFromClipboard`, `slotEntries`.
+- *Tests added:* `tests/interface.test.js` asserts the interface's member names equal `Object.keys(core)` both ways.
+- *Open:* adopt `DRAFT_TITLE`, `C.isEmptyDraft`, `normalizeTag` and `plural` in `manager/App.tsx`, `Editor.tsx`, `Overview.tsx`, `menus.tsx`, `Settings.tsx`, `ImportCuration.tsx`; note `normalizeTag` in `packsFromData` collapses "code review" to "codereview" on import.
 
 ### M15. CI never builds the shipped artefact and toolchains are unpinned
-**Status:** TODO (trigger fixed)
+**Status:** DONE (validated, not run)
 **Where:** `.github/workflows/ci.yml`. Pass `T`.
 **What:** lint, tsc, node tests and `cargo test` run, but never `vite build`
 (Tailwind/CSS errors surface at release time) nor `tauri build`; no
@@ -390,23 +442,32 @@ feature branch is checked before it lands on master.
 `tauri build` and uploads both installers as artefacts; `rustup component
 add rustfmt clippy` and `cargo fmt --check`, `cargo clippy --all-targets --
 -D warnings`; `rust-toolchain.toml`, `engines.node`.
+**Resolution:**
+- *Implementation:* `checks` adds `npm run ui:build`, `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` (components via the toolchain action); an `installers` job on `v*` tags runs `tauri build` and uploads both installers as artefacts; `permissions: contents: read`, `concurrency` with cancel, `timeout-minutes`; Node 22 from `.nvmrc` and `engines`. The crate is fmt- and clippy-clean.
+- *Not verified:* the workflow was parsed, not run; the first push shows.
 
 ---
 
 ## Low
 
 ### L1. Popup clamp uses the pre-move size on mixed-DPI monitors
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs` `show_popup` (~:1341). Pass `R`, by reading.
 **Fix:** scale the size by the target monitor's factor before clamping, or
 clamp again after `show()`.
+**Resolution:**
+- *Implementation:* pure `clamp_to_area`; the popup's size is scaled by the target monitor's factor before clamping.
+- *Tests added:* negative-coordinate monitor, taskbar strip, 150 % size, oversized window.
 
 ### L2. Paste into an elevated or foreground-locked window fails silently
-**Status:** TODO
+**Status:** DONE
 **Where:** `platform::focus_window` (~:1384), `send_ctrl_v` (~:1421). Pass `R`.
 **Fix:** check both return values on the paste thread and re-show the popup
 with "Couldn't paste into that window — the prompt is on your clipboard".
 Document the limitation in README (see L17).
+**Resolution:**
+- *Implementation:* `send_ctrl_v` reports whether all events went in; a refused `SetForegroundWindow` sends no Ctrl+V; either failure re-shows the popup without re-recording `prev_window` and emits `paste-failed` with a message the popup shows as a persistent error. UIPI drops input to elevated windows silently, so that case still passes; README's Known limitations says so.
+- *Docs:* `BEHAVIOR.md` step 5, events table.
 
 ### L3. `save_packs` trusts a full client-side list
 **Status:** TODO
@@ -418,7 +479,7 @@ moves to `deleted/` and a fresh empty file takes its place.
 like `rename_pack`.
 
 ### L4. Rust accepts a modifier-less hotkey
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs` `set_hotkey` (~:895), `resolve_hotkey`. Pass `R`.
 **What:** `global-hotkey` 0.8 parses a bare `"a"` as valid; only the
 recorder guards against it. A hand-edited config captures a letter
@@ -426,31 +487,43 @@ system-wide.
 **Fix:** refuse a `Shortcut` with empty `mods` in both places.
 **Done meanwhile:** the missing serde default on `hotkey` (the same
 finding's other half) is fixed, with a test.
+**Resolution:**
+- *Implementation:* `parse_hotkey` refuses empty modifiers; `set_hotkey` returns the error, `resolve_hotkey` falls back to the default.
+- *Tests added:* a bare `"a"` is refused everywhere (and confirmed to parse in `global-hotkey`).
 
 ### L5. `store` held across `w.hide()` works only because focus events are asynchronous
-**Status:** TODO
+**Status:** DONE
 **Where:** `hide_popup` (~:1195), `paste_snippet` (~:1241), `CloseRequested`
 (~:1997) vs the `Focused(false)` handler (~:1983). Pass `R`, verified against
 `tauri-runtime-wry 2.11.4`.
 **Fix:** persist the size under the lock, release it, then hide.
+**Resolution:**
+- *Implementation:* `hide_popup`, `paste_snippet` and the blur handler persist the size under the lock, drop it, then hide. `CloseRequested` already scoped its guard.
+- *Docs:* `BEHAVIOR.md` "Closing a window hides it"; the `AppState.store` comment.
 
 ### L6. Plural and copy slips
-**Status:** DONE (one of five)
+**Status:** DONE (popup); manager sites open
 **Where:** `menus.tsx:407` ("Deleted 1 prompts"), `menus.tsx:93`,
 `menus.tsx:328` ("Moved 1 to …"), `Settings.tsx:459`,
 `ImportCuration.tsx:148`; `Editor.tsx:753` ("1 fill-in field stay as
 typed"). Passes `F` and `U`.
 **Resolution:** the delete label is fixed. The rest wait for a `plural(n,
 word)` helper in core (with M14).
+**Resolution:**
+- *Implementation:* `C.plural(n, word, pluralWord?)`; the popup's live region and form labels use it; the delete label was fixed earlier.
+- *Open:* `menus.tsx`, `Settings.tsx`, `ImportCuration.tsx`, `Editor.tsx` sites (with M14).
 
 ### L7. `open_url` and `show_in_folder` spawn `explorer` with a caller-supplied path
-**Status:** TODO
+**Status:** DONE
 **Where:** `lib.rs:1043-1074`. Pass `R`.
 **What:** `read_pack_file(path)` reads any user-readable file into the
 webview; `explorer <url>` parses its own command line. Only relevant if the
 bundle is ever compromised; the URL is a constant today.
 **Fix:** `ShellExecuteW` or `tauri-plugin-opener`; constrain
 `read_pack_file`/`show_in_folder` to `data_dir`.
+**Resolution:**
+- *Implementation:* `path_within` canonicalises and checks containment; `read_pack_file` and `show_in_folder` refuse paths outside the data folder; `open_url` goes through `ShellExecuteW`, https-only.
+- *Tests added:* only files under the data folder are admitted.
 
 ### L8. `lib.rs` is one 2 000-line file with repeated patterns
 **Status:** TODO
@@ -463,15 +536,18 @@ parsed on every hotkey press for the first-run flag, a stale comment on
 `platform.rs`; one `next_free_name`; cache the first-run flag in `AppState`.
 
 ### L9. Rust paste and storage policies are untested because they are inlined
-**Status:** TODO
+**Status:** DONE
 **Where:** the Stale gate (~:859), `retire_pack_file` (~:941), `{clipboard}`
 expansion (~:1220), quarantined-library-starts-empty (~:623). Pass `T`.
 **Fix:** extract `check_revision`, `retire_into`, `expand_clipboard`,
 `snippets_from_loaded` as pure functions and test each (the `T` pass lists
 the scenarios).
+**Resolution:**
+- *Implementation:* `check_revision`, `retire_into`, `expand_clipboard`, `snippets_from_loaded` extracted, behaviour unchanged.
+- *Tests added:* one per function, the scenarios the `T` pass listed.
 
 ### L10. Testable manager and popup logic lives in components
-**Status:** TODO
+**Status:** DONE (popup); manager parts open
 **Where:** `menus.tsx` `freeName`/`groupsIn`, `ImportCuration.tsx` dupe
 detection and locked-skip, `popup/App.tsx` Ctrl+1..5 `slotEntries` and the
 Ctrl+N title cut, `Editor.tsx` autosave payload, `Settings.tsx`
@@ -479,9 +555,12 @@ Ctrl+N title cut, `Editor.tsx` autosave payload, `Settings.tsx`
 BACKLOG). Pass `T`.
 **Fix:** move each into `ui/core.js` with `node --test` cases; add a Rust
 test parsing the exact vocabulary the recorder can emit.
+**Resolution:**
+- *Implementation:* `C.slotEntries(ranked, visibleIds, max)` and `C.titleFromClipboard(text, max)` with tests; the popup calls both.
+- *Open:* `freeName`/`groupsIn` (`menus.tsx`), import curation, the autosave payload, `hotkeyFromEvent`, the generate builders, plus the manager wave's own candidates: `displayedOrder` and the `TreeRow` builder in `Sidebar.tsx`, `tagsByCount`.
 
 ### L11. Public-repo hygiene
-**Status:** TODO (part done)
+**Status:** DONE (repo); remote branches for the human
 **Where:** untracked `PITCH-SCRIPT.md`; stale remote branches `claude/*`;
 merged local branches `fix/bug-hunt*`; `src-tauri/gen/schemas/` tracked
 (regenerated on every build); `src-tauri/icons/android|ios` for a
@@ -489,42 +568,59 @@ Windows-only app; two git identities. Passes `T` and `D`.
 **Done:** `PITCH-SCRIPT.md` gitignored.
 **Fix:** the rest is D2 plus `git branch -d`, `git push origin --delete`,
 `.gitignore` for `gen/schemas/`, `.mailmap`.
+**Resolution:**
+- *Implementation:* `src-tauri/gen/schemas/` gitignored and untracked; the Android and iOS icon folders deleted; `.mailmap` folds the two identities; `fix/bug-hunt*` and the empty `fix/release-audit` deleted locally.
+- *Human:* `git push origin --delete claude/design-system-adoption-ecce19 claude/token-sync`; the `bench-*` tags stay.
 
 ### L12. Rename inputs unlabelled; popup create fields unlabelled
-**Status:** DONE (rename half)
+**Status:** DONE
 **Where:** `Sidebar.tsx:471, 648` (done with H7); `popup/App.tsx` create
 mode "Name" and "Pack" (`INPUT`/`SELECT` without `aria-label` or `<label
 for>`). Pass `U` (A3, A4).
 **Fix:** `<label htmlFor>` on the popup's two create fields.
+**Resolution:**
+- *Implementation:* the popup's create fields carry `<label htmlFor>` (`create-title`, `create-pack`, `create-group`); the rename inputs were done with H7.
 
 ### L13. Lint warnings cannot fail CI; no type-checked lint
-**Status:** TODO
+**Status:** DONE (max-warnings); type-checked lint DECLINED
 **Where:** `eslint.config.mjs`, `package.json` `"lint"`. Pass `F`.
 **Fix:** `--max-warnings 0`; `recommendedTypeChecked` for `src/**` to get
 `no-floating-promises` (`menus.tsx:253,262`, `Sidebar.tsx:260` have
 unhandled rejections today).
+**Resolution:**
+- *Implementation:* `"lint": "eslint . --max-warnings 0"`.
+- *Declined:* `recommendedTypeChecked` on `src/**` yields 24 errors (`restrict-template-expressions` 12, `unbound-method` 3, `no-unsafe-argument` 3, …), over the threshold; revisit when those are worth fixing.
 
 ### L14. Popup `pick` has no re-entrancy guard
-**Status:** TODO
+**Status:** DONE
 **Where:** `popup/App.tsx:384-401`. Pass `F`.
 **What:** a second Enter inside the ~150 ms before Rust hides the window runs
 `paste_snippet` twice: two Ctrl+V, `uses` +2.
 **Fix:** ignore `pick` while `pickedId` is set; clear it on failure.
+**Resolution:**
+- *Implementation:* `pickedRef` guards `pick` and `submitForm` while a paste is in flight; cleared on failure, on `"copied"`, on `paste-failed` and on every summon.
+- *Manual verification:* double Enter → one `paste_snippet`; the form's two Enter paths → one.
 
 ### L15. Ctrl+Z runs an Undo whose toast was dismissed
-**Status:** TODO
+**Status:** DONE
 **Where:** `src/manager/status.ts:13-26`. Pass `F`.
 **Fix:** clear `lastUndo` in the toast's `onDismiss`/`onAutoClose`.
+**Resolution:**
+- *Implementation:* `sayUndo` clears `lastUndo` on the toast's dismiss and auto-close; the 12 s timer is gone.
+- *Manual verification:* close the toast, Ctrl+Z does nothing; with the toast up it restores.
 
 ### L16. Overview and Sidebar hold independent `useLibraryMenus` instances
-**Status:** TODO
+**Status:** DONE
 **Where:** `Overview.tsx:206,330` vs `Sidebar.tsx:338-350`. Pass `F`.
 **What:** a rename from the overview never runs `carryPackFolds`; "New
 group…" from the overview never unfolds the pack.
 **Fix:** lift the fold-carry and unfold callbacks into the manager API.
+**Resolution:**
+- *Implementation:* `src/manager/folds.ts` (`useFolds`) holds pack/group folds in the manager API; renames carry folds from either surface; `newPrompt(into)` unfolds where the draft lands; rename state is shared and filtered per surface; the overview's rename input selects on focus.
+- *Manual verification:* rename from the overview kept the fold; "New group…" from the overview unfolded the pack.
 
 ### L17. README for a stranger
-**Status:** TODO
+**Status:** DONE
 **Where:** `README.md`. Pass `D`.
 **What:** Install says build from source with no link to Releases; no
 screenshot or GIF; the hotkey note mentions browsers but not Windows
@@ -538,22 +634,30 @@ attribution appreciated). `packs/TEMPLATE.md` describes UI that no longer
 exists ("Group by pack", the old generate step titles).
 **Fix:** the sections above, a `THIRD-PARTY-NOTICES` file shipped through
 `bundle.resources`, and a rewrite of `TEMPLATE.md`'s UI references.
+**Resolution:**
+- *Implementation:* README leads with the Releases download and both installer names, then source; Uninstall, Back up / sync, Known limitations and Credits sections; `docs/popup.png` embedded; `packs/TEMPLATE.md` rewritten against the live UI; `THIRD-PARTY-NOTICES.md` (OFL text for Outfit, the Remix Icon License, a table of the other runtime dependencies) shipped via `bundle.resources`.
+- *Not verified:* the notices file landing beside the exe needs the next `tauri build`.
 
 ### L18. Installer metadata is empty
-**Status:** TODO
+**Status:** DONE
 **Where:** `tauri.conf.json` `bundle` has only `active/targets/icon`;
 generated `installer.nsi` shows `MANUFACTURER "promptline"`, `LICENSE ""`,
 `COPYRIGHT ""`. Pass `D`.
 **Fix:** `bundle.publisher`, `copyright`, `shortDescription`,
 `longDescription`, `homepage`, `licenseFile: ../LICENSE`.
+**Resolution:**
+- *Implementation:* `bundle.publisher`, `copyright`, `shortDescription`, `longDescription`, `homepage`, `licenseFile`, `windows.nsis.installMode: currentUser`. The publisher string "Alpaslan Bek" could not be confirmed from the GitHub profile (no display name); change it if wrong.
 
 ### L19. No CHANGELOG, CONTRIBUTING, SECURITY.md or issue templates; repo has no description or topics
-**Status:** TODO
+**Status:** DONE (files); repo settings for the human
 **Fix:** a short `SECURITY.md`, a paragraph `CONTRIBUTING.md` pointing to
 `BEHAVIOR.md`, `gh repo edit --description … --add-topic …`.
+**Resolution:**
+- *Implementation:* `SECURITY.md`, `CONTRIBUTING.md`, `.github/ISSUE_TEMPLATE/bug_report.md`.
+- *Human:* `gh repo edit bekalpaslan/promptline --description "Your prompt vocabulary, one hotkey away, in every window. A Windows tray app that pastes prompts from a library into any app, with the clipboard substituted." --add-topic tauri --add-topic rust --add-topic react --add-topic windows --add-topic clipboard --add-topic prompts --add-topic prompt-library --add-topic claude --add-topic productivity --add-topic tray-app`; enable private vulnerability reporting.
 
 ### L20. Remaining UI polish from the browser walk
-**Status:** TODO
+**Status:** DONE except two items
 **Where and what** (pass `U`, screenshots in the session scratchpad):
 "Give this pack a file…" is jargon; two toasts for one New → Pack; title
 tiebreak sorts "0, 1, 10, 11, 2" (use `localeCompare` with `numeric`);
@@ -565,15 +669,21 @@ in Settings (Generate and Buy me a coffee); no "Open folder" in Settings;
 the editor's Pin button is stranded under the preview; Display menu groups
 lack `role=group`; popup options contain buttons (invalid ARIA, works with
 `aria-activedescendant`).
+**Resolution:**
+- *Popup:* preview card opens above when there is no room below; minor hints hide below 360 px; Ctrl+N title cut at a word boundary; title ties sort numerically.
+- *Manager:* one toast for New → Pack, on commit; "New prompt"/"New pack" wording; the sidebar New button outside the scroll region; the donation link secondary; Pin next to Delete; Display menu groups labelled.
+- *Open:* "Give this pack a file…" wording; an "Open folder" button in Settings (needs a Rust command); popup options containing buttons.
 
 ### L21. Keyboard handlers guard `!e.key` but not `e.isComposing`
-**Status:** TODO
+**Status:** DONE
 **Where:** `popup/App.tsx:580`, `manager/App.tsx:377`, `Settings.tsx:84`.
 Pass `F`. Safe on WebView2 today.
 **Fix:** `if (!e.key || e.isComposing) return`.
+**Resolution:**
+- *Implementation:* `if (!e.key || e.isComposing) return` in the popup, manager and Settings handlers; comments corrected.
 
 ### L22. Miscellany verified by pass `F`
-**Status:** TODO
+**Status:** DONE
 `ctx-menu.tsx:112` clamps in `useEffect` (one-frame flash; use
 `useLayoutEffect`); `App.tsx:293` init effect is not idempotent under
 StrictMode (a dev-only "Couldn't load" toast when drafts exist);
@@ -582,27 +692,35 @@ message always blames the popup; `popup/App.tsx:303` `hide_popup` on a
 600 ms timer can hide a re-summoned popup; `GenerateDialog.tsx:259` and
 `ctx-menu.tsx:257` avoidable non-null assertions; two
 `eslint-disable-next-line react-hooks/exhaustive-deps` in `Sidebar.tsx`.
+**Resolution:**
+- *Implementation:* `useLayoutEffect` clamps; the init effect is cancellable and uses `C.isEmptyDraft`; the first-run timer is an effect; the stale toast no longer blames the popup; the post-copy hide timer is cancelled on `popup-shown`.
 
 ### L23. Test-quality nits
-**Status:** TODO
+**Status:** DONE
 **Where:** `tests/core.test.js:72` (`expandBuiltins` only asserts tokens
 vanished), `:539` (`expandForCopy` compares against `new Date()`; inject
 `now`), `ui/core.js:453` (`sortPrompts` does `b.uses - a.uses` unguarded),
 `lib.rs:1628` (`temp_dir` never cleans up). Pass `T`.
+**Resolution:**
+- *Implementation:* exact `{date}`/`{time}` with an injected clock; `expandForCopy` takes `now`; `sortPrompts` guards `uses`; `clipboardPreview` steps back off a high surrogate; cases for CRLF packs, `fillFields` expansion order, `{}`/`{goal`, `goal_10`.
 
 ### L24. `BEHAVIOR.md` says the sidebar tree comes from `packTree`; it doesn't
-**Status:** TODO
+**Status:** DONE
 **Where:** `BEHAVIOR.md:40-43` vs `Sidebar.tsx:37-48, 188-203` (own
 `groups` memo and `splitGroups`); only `Overview.tsx:227` uses
 `C.packTree`. Pass `T`.
 **Fix:** replace the sidebar's version with `C.packTree`.
+**Resolution:**
+- *Implementation:* the sidebar builds from `C.packTree`; its own memo and `splitGroups` are gone. Also fixed: Alt+Down on an ungrouped row and shift-ranges crossing groups used the old order.
 
 ### L25. Wording drift in README and BEHAVIOR
-**Status:** TODO
+**Status:** DONE
 **Where:** `README.md:144` ("CI … on every push", now true again),
 `README.md:138` (`npm run lint` "over the frontend": it is the whole tree),
 `BEHAVIOR.md` "Tests" (`test:rust` description understates the suite).
 Pass `T`.
+**Resolution:**
+- *Implementation:* README's lint and CI sentences; `BEHAVIOR.md` "Tests" describes the Rust suite and `tests/mock.test.js`.
 
 ---
 
