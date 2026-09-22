@@ -7,26 +7,45 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "ad06b341a9f1d6fed3e8242ec920027f0e099ae5"
+      "revision": "dea1970e1d482759c24f17fe91d5c9a5c2980f97"
     },
-    "viewBox": [1300, 740],
+    "viewBox": [
+      1300,
+      740
+    ],
     "views": [
       {
         "id": "paste-path",
         "label": "Hotkey to pasted text",
-        "focus": ["hotkey", "rust", "popup", "clipboard", "target"],
+        "focus": [
+          "hotkey",
+          "rust",
+          "popup",
+          "clipboard",
+          "target"
+        ],
         "note": "The one flow everything else serves: hotkey, popup, paste_snippet, clipboard, Ctrl+V into the window you came from."
       },
       {
         "id": "library",
         "label": "Editing the library",
-        "focus": ["manager", "tray", "rust", "store", "packfiles"],
+        "focus": [
+          "manager",
+          "tray",
+          "rust",
+          "store",
+          "packfiles"
+        ],
         "note": "The tray opens the manager; edits go through Rust commands, which write the store and mirror pack files."
       },
       {
         "id": "shared-logic",
         "label": "Shared pure logic",
-        "focus": ["popup", "corejs", "manager"],
+        "focus": [
+          "popup",
+          "corejs",
+          "manager"
+        ],
         "note": "Both windows rank, filter and build the pack tree with the same UMD module, tested under bare node --test."
       }
     ]
@@ -37,11 +56,25 @@
       "type": "frontend",
       "label": "Popup",
       "sublabel": "popup.html · src/popup",
-      "pos": [300, 190],
-      "size": [160, 64],
+      "pos": [
+        300,
+        190
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "src/popup/App.tsx", "line": 84, "label": "Popup App" },
-        { "path": "src/popup/App.tsx", "line": 324, "label": "invoke paste_snippet" }
+        {
+          "path": "src/popup/App.tsx",
+          "line": 58,
+          "label": "Popup App"
+        },
+        {
+          "path": "src/popup/App.tsx",
+          "line": 316,
+          "label": "invoke paste_snippet"
+        }
       ]
     },
     {
@@ -50,12 +83,31 @@
       "label": "ui/core.js",
       "sublabel": "rank · filter · packTree",
       "tag": "UMD, node --test",
-      "pos": [560, 60],
-      "size": [160, 60],
+      "pos": [
+        560,
+        60
+      ],
+      "size": [
+        160,
+        60
+      ],
       "sources": [
-        { "path": "ui/core.js", "line": 183, "label": "rankSnippets" },
-        { "path": "ui/core.js", "line": 469, "label": "packTree" },
-        { "path": "src/lib/core.ts", "line": 1, "end_line": 4, "label": "TS bridge" }
+        {
+          "path": "ui/core.js",
+          "line": 214,
+          "label": "rankSnippets"
+        },
+        {
+          "path": "ui/core.js",
+          "line": 518,
+          "label": "packTree"
+        },
+        {
+          "path": "src/lib/core.ts",
+          "line": 1,
+          "end_line": 4,
+          "label": "TS bridge"
+        }
       ]
     },
     {
@@ -63,11 +115,25 @@
       "type": "frontend",
       "label": "Manager",
       "sublabel": "index.html · src/manager",
-      "pos": [720, 190],
-      "size": [160, 64],
+      "pos": [
+        720,
+        190
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "src/manager/App.tsx", "line": 25, "label": "Manager App" },
-        { "path": "src/manager/App.tsx", "line": 349, "label": "snippets-changed" }
+        {
+          "path": "src/manager/App.tsx",
+          "line": 28,
+          "label": "Manager App"
+        },
+        {
+          "path": "src/manager/App.tsx",
+          "line": 409,
+          "label": "snippets-changed"
+        }
       ]
     },
     {
@@ -75,10 +141,21 @@
       "type": "external",
       "label": "Global hotkey",
       "sublabel": "global-shortcut plugin",
-      "pos": [50, 363],
-      "size": [160, 64],
+      "pos": [
+        50,
+        363
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "src-tauri/src/lib.rs", "line": 1877, "end_line": 1885, "label": "shortcut handler" }
+        {
+          "path": "src-tauri/src/lib.rs",
+          "line": 137,
+          "end_line": 142,
+          "label": "shortcut handler"
+        }
       ]
     },
     {
@@ -86,23 +163,55 @@
       "type": "external",
       "label": "Tray icon",
       "sublabel": "Open · Quit",
-      "pos": [50, 500],
-      "size": [160, 64],
+      "pos": [
+        50,
+        500
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "src-tauri/src/lib.rs", "line": 1948, "end_line": 1970, "label": "TrayIconBuilder" }
+        {
+          "path": "src-tauri/src/lib.rs",
+          "line": 234,
+          "end_line": 254,
+          "label": "TrayIconBuilder"
+        }
       ]
     },
     {
       "id": "rust",
       "type": "backend",
       "label": "Rust core",
-      "sublabel": "src-tauri/src/lib.rs · commands",
-      "pos": [440, 360],
-      "size": [400, 70],
+      "sublabel": "src-tauri/src · store · packs · commands · paste",
+      "pos": [
+        440,
+        360
+      ],
+      "size": [
+        400,
+        70
+      ],
       "sources": [
-        { "path": "src-tauri/src/lib.rs", "line": 1871, "end_line": 2006, "label": "run()" },
-        { "path": "src-tauri/src/lib.rs", "line": 1309, "end_line": 1361, "label": "show_popup" },
-        { "path": "src-tauri/src/lib.rs", "line": 1207, "end_line": 1267, "label": "paste_snippet" }
+        {
+          "path": "src-tauri/src/lib.rs",
+          "line": 118,
+          "end_line": 291,
+          "label": "run()"
+        },
+        {
+          "path": "src-tauri/src/paste.rs",
+          "line": 260,
+          "end_line": 332,
+          "label": "show_popup"
+        },
+        {
+          "path": "src-tauri/src/paste.rs",
+          "line": 84,
+          "end_line": 168,
+          "label": "paste_snippet"
+        }
       ]
     },
     {
@@ -110,10 +219,21 @@
       "type": "external",
       "label": "Clipboard",
       "sublabel": "{clipboard} expanded",
-      "pos": [910, 363],
-      "size": [140, 64],
+      "pos": [
+        910,
+        363
+      ],
+      "size": [
+        140,
+        64
+      ],
       "sources": [
-        { "path": "src-tauri/src/lib.rs", "line": 1207, "end_line": 1267, "label": "paste_snippet" }
+        {
+          "path": "src-tauri/src/paste.rs",
+          "line": 84,
+          "end_line": 168,
+          "label": "paste_snippet"
+        }
       ]
     },
     {
@@ -121,21 +241,47 @@
       "type": "external",
       "label": "Target window",
       "sublabel": "the app you came from",
-      "pos": [1100, 363],
-      "size": [160, 64],
+      "pos": [
+        1100,
+        363
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "src-tauri/src/lib.rs", "line": 1408, "label": "send_ctrl_v" }
+        {
+          "path": "src-tauri/src/platform.rs",
+          "line": 83,
+          "label": "send_ctrl_v"
+        }
       ]
     },
     {
       "id": "store",
       "type": "database",
       "label": "snippets.json",
-      "sublabel": "+ config.json",
-      "pos": [470, 590],
-      "size": [160, 64],
+      "sublabel": "+ config.json · promptline.log",
+      "pos": [
+        470,
+        590
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "src-tauri/src/lib.rs", "line": 258, "end_line": 273, "label": "data_dir paths" }
+        {
+          "path": "src-tauri/src/store.rs",
+          "line": 315,
+          "end_line": 335,
+          "label": "data_dir paths"
+        },
+        {
+          "path": "src-tauri/src/store.rs",
+          "line": 79,
+          "label": "write_atomic"
+        }
       ]
     },
     {
@@ -143,10 +289,25 @@
       "type": "database",
       "label": "Pack files",
       "sublabel": "packs/*.json",
-      "pos": [730, 590],
-      "size": [160, 64],
+      "pos": [
+        730,
+        590
+      ],
+      "size": [
+        160,
+        64
+      ],
       "sources": [
-        { "path": "src-tauri/src/lib.rs", "line": 489, "label": "write_pack_files" }
+        {
+          "path": "src-tauri/src/packs.rs",
+          "line": 258,
+          "label": "sync_pack_files"
+        },
+        {
+          "path": "src-tauri/src/packs.rs",
+          "line": 360,
+          "label": "write_pack_files"
+        }
       ]
     }
   ],
@@ -154,12 +315,19 @@
     {
       "kind": "region",
       "label": "WebView2 · two separate JS contexts",
-      "wraps": ["popup", "corejs", "manager"]
+      "wraps": [
+        "popup",
+        "corejs",
+        "manager"
+      ]
     },
     {
       "kind": "region",
       "label": "%APPDATA%\\io.github.bekalpaslan.promptline",
-      "wraps": ["store", "packfiles"]
+      "wraps": [
+        "store",
+        "packfiles"
+      ]
     }
   ],
   "connections": [
@@ -174,7 +342,7 @@
       "id": "show-popup",
       "from": "rust",
       "to": "popup",
-      "label": "show · popup-shown",
+      "label": "show · popup-shown · paste-failed",
       "labelDx": 56,
       "variant": "emphasis",
       "fromSide": "top",
@@ -214,7 +382,7 @@
       "id": "manager-commands",
       "from": "manager",
       "to": "rust",
-      "label": "save · update",
+      "label": "intent commands",
       "fromSide": "bottom",
       "toSide": "top"
     },
@@ -256,17 +424,29 @@
     {
       "dot": "cyan",
       "title": "Paste path",
-      "items": ["Foreground window recorded before the popup shows", "Clipboard written first; 80 ms waits around refocus", "Prompt stays on the clipboard after Ctrl+V"]
+      "items": [
+        "Foreground window recorded before the popup shows",
+        "Clipboard written first; 80 ms waits around refocus",
+        "Prompt stays on the clipboard after Ctrl+V"
+      ]
     },
     {
       "dot": "emerald",
       "title": "Two windows",
-      "items": ["Popup for daily use, manager for editing", "They share files and Tauri events, nothing else"]
+      "items": [
+        "Popup for daily use, manager for editing",
+        "They share files and Tauri events, nothing else",
+        "One process: a second launch opens the first's manager"
+      ]
     },
     {
       "dot": "amber",
       "title": "Storage",
-      "items": ["Library and settings as JSON in the config dir", "Each pack mirrored to its own file"]
+      "items": [
+        "Library and settings as JSON in the data dir",
+        "Each pack mirrored to its own file, path relative to packs/",
+        "promptline.log for what went wrong"
+      ]
     }
   ]
 }
