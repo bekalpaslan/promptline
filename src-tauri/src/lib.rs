@@ -68,7 +68,7 @@ struct Notice {
 }
 
 fn notify(app: &AppHandle, kind: &str, message: String) {
-    eprintln!("[promptline] {kind}: {message}");
+    log::warn!("{kind}: {message}");
     let notice = Notice { kind: kind.into(), message };
     if let Some(state) = app.try_state::<AppState>() {
         state.notices.lock().unwrap().push(notice.clone());
@@ -476,14 +476,14 @@ fn ensure_packs_backed(app: &AppHandle) {
                     pm.path = relativize_pack_path(&dir, &path);
                     changed = true;
                 }
-                Err(e) => eprintln!("[promptline] couldn't create the file for pack \"{name}\": {e}"),
+                Err(e) => log::warn!("couldn't create the file for pack \"{name}\": {e}"),
             },
             // Exists only as a name on a prompt — give it real metadata
             None => {
                 let path = match new_pack_file(app, &name) {
                     Ok(path) => relativize_pack_path(&dir, &path),
                     Err(e) => {
-                        eprintln!("[promptline] couldn't create the file for pack \"{name}\": {e}");
+                        log::warn!("couldn't create the file for pack \"{name}\": {e}");
                         String::new()
                     }
                 };
@@ -494,7 +494,7 @@ fn ensure_packs_backed(app: &AppHandle) {
     }
     if changed {
         if let Err(e) = save_config(app, &config) {
-            eprintln!("[promptline] couldn't save the pack registry: {e}");
+            log::error!("couldn't save the pack registry to config.json: {e}");
         }
     }
 }
@@ -518,7 +518,7 @@ fn sync_pack_files(app: &AppHandle) {
         return;
     }
     for failure in &result.failed {
-        eprintln!("[promptline] pack file not written: {failure}");
+        log::warn!("pack file not written: {failure}");
     }
     // Once per session: the failure repeats on every autosave until the
     // folder is fixed, and the library itself is safe in snippets.json
@@ -712,7 +712,9 @@ fn migrate_v1_data(app: &AppHandle) {
     let new_config = new_dir.join("config.json");
     let old_config = old_dir.join("config.json");
     if !new_config.exists() && old_config.exists() {
-        let _ = fs::copy(&old_config, &new_config);
+        if let Err(e) = fs::copy(&old_config, &new_config) {
+            log::warn!("v1 migration: couldn't copy {}: {e}", old_config.display());
+        }
     }
 
     let new_snippets = new_dir.join("snippets.json");
@@ -727,7 +729,9 @@ fn migrate_v1_data(app: &AppHandle) {
             .collect();
         let mut merged = default_snippets();
         merged.extend(user_made);
-        let _ = write_snippets(app, &merged);
+        if let Err(e) = write_snippets(app, &merged) {
+            log::error!("v1 migration: couldn't write the merged library: {e}");
+        }
     }
 }
 
@@ -1165,7 +1169,9 @@ fn retire_pack_file(app: &AppHandle, src: &Path) {
         dest = dir.join(format!("{stem}-{i}.json"));
         i += 1;
     }
-    let _ = fs::rename(src, &dest);
+    if let Err(e) = fs::rename(src, &dest) {
+        log::warn!("couldn't retire {} to {}: {e}", src.display(), dest.display());
+    }
 }
 
 /// Rename a pack on its metadata and on every prompt in one step. Done in
@@ -1327,17 +1333,20 @@ fn edit_in_manager(app: AppHandle, id: String) {
 
 #[tauri::command]
 fn get_autostart(app: AppHandle) -> bool {
-    app.autolaunch().is_enabled().unwrap_or(false)
+    app.autolaunch().is_enabled().unwrap_or_else(|e| {
+        log::warn!("couldn't read the autostart entry: {e}");
+        false
+    })
 }
 
 #[tauri::command]
 fn set_autostart(app: AppHandle, enabled: bool) -> Result<(), String> {
     let autolaunch = app.autolaunch();
-    if enabled {
-        autolaunch.enable().map_err(|e| e.to_string())
-    } else {
-        autolaunch.disable().map_err(|e| e.to_string())
-    }
+    let result = if enabled { autolaunch.enable() } else { autolaunch.disable() };
+    result.map_err(|e| {
+        log::warn!("couldn't set autostart to {enabled}: {e}");
+        e.to_string()
+    })
 }
 
 #[tauri::command]
@@ -1396,7 +1405,9 @@ fn persist_popup_size(app: &AppHandle) {
     }
     config.popup_width = logical.width;
     config.popup_height = logical.height;
-    let _ = save_config(app, &config);
+    if let Err(e) = save_config(app, &config) {
+        log::warn!("couldn't save the popup size: {e}");
+    }
 }
 
 #[tauri::command]
@@ -1459,7 +1470,9 @@ fn paste_snippet(
         if let Ok(mut snippets) = load_snippets_from_disk(&app) {
             if let Some(s) = snippets.iter_mut().find(|s| s.id == id) {
                 s.uses += 1;
-                let _ = write_snippets(&app, &snippets);
+                if let Err(e) = write_snippets(&app, &snippets) {
+                    log::warn!("couldn't save the use count: {e}");
+                }
                 notify_manager_snippets_changed(&app);
             }
         }
@@ -1472,7 +1485,9 @@ fn paste_snippet(
     if paste {
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(80));
-            platform::focus_window(prev_window);
+            if !platform::focus_window(prev_window) {
+                log::warn!("SetForegroundWindow refused window {prev_window:#x}");
+            }
             std::thread::sleep(Duration::from_millis(80));
             platform::send_ctrl_v();
         });
@@ -1540,7 +1555,9 @@ fn show_popup(app: &AppHandle) {
         if let Ok(mut config) = load_config_from_disk(app) {
             if !config.popup_seen {
                 config.popup_seen = true;
-                let _ = save_config(app, &config);
+                if let Err(e) = save_config(app, &config) {
+                    log::warn!("couldn't record the first popup: {e}");
+                }
                 let _ = app.emit("first-popup", ());
             }
         }
@@ -1586,12 +1603,13 @@ mod platform {
         unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) < 0 }
     }
 
-    pub fn focus_window(hwnd: isize) {
-        if hwnd != 0 {
-            unsafe {
-                let _ = SetForegroundWindow(HWND(hwnd as *mut core::ffi::c_void));
-            }
+    /// Bring `hwnd` to the foreground; false when Windows refused (the
+    /// window is elevated, or another process holds the foreground lock).
+    pub fn focus_window(hwnd: isize) -> bool {
+        if hwnd == 0 {
+            return false;
         }
+        unsafe { SetForegroundWindow(HWND(hwnd as *mut core::ffi::c_void)).as_bool() }
     }
 
     fn key(vk: VIRTUAL_KEY, up: bool) -> INPUT {
@@ -1636,7 +1654,9 @@ mod platform {
     pub fn foreground_window() -> isize {
         0
     }
-    pub fn focus_window(_hwnd: isize) {}
+    pub fn focus_window(_hwnd: isize) -> bool {
+        false
+    }
     pub fn send_ctrl_v() {}
     pub fn left_button_down() -> bool {
         false
@@ -2191,12 +2211,34 @@ mod tests {
     }
 }
 
-#[cfg_attr(mobile, tauri::mobile_entry_point)]
 /// The argument the autostart entry passes so a login launch stays in the
 /// tray; a launch from the Start menu or the installer has no arguments and
 /// opens the manager as before.
 const HIDDEN_ARG: &str = "--hidden";
 
+/// Warnings and errors go to `<data dir>/promptline.log`, the file a bug
+/// report can attach: a release build has no console, so everything the
+/// code used to `let _ =` away was unobservable. Paths and error text only,
+/// never prompt content. One file, started over past half a megabyte; in a
+/// debug build the same lines also reach stdout.
+const LOG_FILE_STEM: &str = "promptline";
+
+fn log_plugin<R: tauri::Runtime>(dir: PathBuf) -> tauri::plugin::TauriPlugin<R> {
+    use tauri_plugin_log::{Builder, RotationStrategy, Target, TargetKind, TimezoneStrategy};
+    let mut targets = vec![Target::new(TargetKind::Folder { path: dir, file_name: Some(LOG_FILE_STEM.into()) })];
+    if cfg!(debug_assertions) {
+        targets.push(Target::new(TargetKind::Stdout));
+    }
+    Builder::new()
+        .level(log::LevelFilter::Warn)
+        .max_file_size(512 * 1024)
+        .rotation_strategy(RotationStrategy::KeepOne)
+        .timezone_strategy(TimezoneStrategy::UseLocal)
+        .targets(targets)
+        .build()
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
         // A second launch (autostart plus a Start-menu click, or the installer
@@ -2254,6 +2296,13 @@ pub fn run() {
         ])
         .setup(|app| {
             let handle = app.handle();
+
+            // Registered here rather than on the builder because the log file
+            // lives in the data dir, which needs the app handle to locate.
+            // First, so every step below can write to it.
+            if let Err(e) = handle.plugin(log_plugin(data_dir(handle))) {
+                eprintln!("[promptline] couldn't start the log file: {e}");
+            }
 
             // Launched at login (the autostart entry passes --hidden): stay in
             // the tray. The window is declared visible so a normal launch

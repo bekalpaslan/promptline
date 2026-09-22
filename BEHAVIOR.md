@@ -308,6 +308,18 @@ cannot touch stays where it is and raises a notice):
 | `packs/deleted/*.json` | Files of deleted packs, retired rather than unlinked (numbered on repeats) |
 | `packs/generated/*.json` | Scratch files the Generate dialog's survey mode hands to an agent |
 | `*.corrupt-<unix seconds>` | A data file that failed to parse, moved aside untouched |
+| `promptline.log` | Warnings and errors from the Rust side, the file to attach to a bug report |
+
+**The log file is the release build's only voice.** `main.rs` builds
+without a console, so everything the code used to `let _ =` away — a pack
+file that wouldn't write, a retirement that failed, `SetForegroundWindow`
+refusing a window, the autostart entry — was unobservable in the shipped
+binary. `tauri-plugin-log` writes `warn` and above to `promptline.log` in
+the data folder (one file, started over past 512 KB, local time; a debug
+build echoes it to stdout), and every `notify` lands there too. Paths and
+error text only, never prompt content. Registered in `setup` rather than
+on the builder because the folder needs the app handle to locate; the
+webview never calls it, so it has no capability.
 
 **Every write goes through `write_atomic`**: the bytes land in a sibling
 `.tmp` file that is then renamed over the target, so a crash or power loss
