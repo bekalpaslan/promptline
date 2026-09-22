@@ -89,9 +89,18 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    repeat would make the popup its own paste target: Ctrl+V would land on a
    window that has just been hidden. Toggling the popup closed on a repeat is
    a possible follow-up (BACKLOG).
+   A summon while the **manager** is the foreground window records no
+   target at all (`paste_target` answers 0 for any of our own HWNDs): the
+   user is editing prompt X, presses the hotkey to look at Y and hits
+   Enter, and Y's text used to land in X's textarea, where autosave kept
+   it. With no target, `paste_snippet` copies instead (below).
 2. The popup is positioned at the cursor, then clamped to the *work area* of
    the monitor under the cursor — not its full bounds — so it can't open half
-   off-screen or under the taskbar.
+   off-screen or under the taskbar (`clamp_to_area`). The size it is
+   clamped with is scaled to that monitor's DPI first: a hidden window
+   keeps the DPI of wherever it last was and Windows rescales it on the
+   move, so clamping with the old size on a 100% → 150% move left a third
+   of the popup off-screen.
 3. The user picks a prompt. If it needs runtime `{field}` values, the popup
    switches to form mode first, pre-filled from `snippet.fieldValues`. Each
    field grows with its text, wrapped lines included, from one line to three,
@@ -107,27 +116,37 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    has to return to a window that is still on screen: the popup shows it in
    its feedback strip and nothing else happens. Copy-only (Ctrl+Enter) leaves
    the popup up for a moment to say "Copied to clipboard"; the popup hides
-   itself afterwards. The command answers `"pasted"` or `"copied"`: when the
-   manager was the foreground window at summon time there is nothing sane to
-   paste into (Enter would land the prompt in whatever editor field had
-   focus), so Rust copies only, leaves the popup up, and the popup says
-   "Copied to clipboard — the manager was in front" and hides itself the
-   way Ctrl+Enter does. That self-hide is a 600 ms timer the next summon
-   cancels: a hotkey press inside the pause used to have the freshly shown
-   popup hidden under the user. One pick at a time: the popup ignores a second Enter
-   while a paste is in flight (the row stays tinted until the popup is
-   hidden or the paste fails), because a fast double Enter used to run the
-   command twice, two Ctrl+V and `uses` +2. The `uses` bump is best effort in both halves, the
+   itself afterwards. The command answers with a tag, `"pasted"` when the
+   paste thread was spawned and `"copied"` when it fell back to copy-only
+   (`paste_mode`): when the manager was the foreground window at summon
+   time there is nothing sane to paste into (Enter would land the prompt in
+   whatever editor field had focus), so Rust copies only and leaves the
+   popup up, and the popup says "Copied to clipboard — the manager was in
+   front" and hides itself the way Ctrl+Enter does. That self-hide is a
+   600 ms timer the next summon cancels: a hotkey press inside the pause
+   used to have the freshly shown popup hidden under the user. One pick at
+   a time: the popup ignores a second Enter while a paste is in flight (the
+   row stays tinted until the popup is hidden or the paste fails), because
+   a fast double Enter used to run the command twice, two Ctrl+V and
+   `uses` +2. The `uses` bump is best effort in both halves, the
    read as much as the write: the popup is already hidden by then, so an
    error would reach nobody, and a library a sync client or scanner is
    holding for a moment must not turn into a paste that never happens with
    the prompt sitting on the clipboard.
 5. A detached thread waits 80 ms, calls `SetForegroundWindow` on the remembered
-   window, waits another 80 ms, and sends Ctrl+V via `SendInput`. When
-   either refuses (an elevated window, say), Rust re-shows the popup and
-   emits `paste-failed` with a message; the popup shows it in its feedback
-   strip as an error that stays until Esc or the next summon, and the prompt
-   is still on the clipboard to paste by hand.
+   window, waits another 80 ms, and sends Ctrl+V via `SendInput`. Both
+   results are checked: a refused `SetForegroundWindow` (an elevated
+   window, a foreground lock held by another process) sends no Ctrl+V at
+   all, since it would land in whichever window is in front; that, or a
+   `SendInput` that inserted fewer events than asked, brings the popup
+   back where it was (`report_paste_failed`: shown and focused, without
+   re-recording `prev_window`) and emits `paste-failed` to it with
+   `{ "message": "Couldn't paste into that window — the prompt is on your
+   clipboard" }`; the popup shows it in its feedback strip as an error that
+   stays until Esc or the next summon, and the prompt is still on the
+   clipboard to paste by hand. It used to fail with nothing said. One case
+   still passes silently: UIPI drops input aimed at an elevated window
+   without reporting it, so `SendInput` returns success there.
 
 The sleeps are load-bearing. Focus changes are asynchronous on Windows; sending
 the keystroke immediately delivers it to whatever had focus a moment ago.
@@ -292,6 +311,21 @@ Two guards follow from that:
   a pack drops its old name while keeping the same file, and a name comparison
   would retire a live pack.
 
+**A pack's path is stored relative to `packs/`** (`work.json`), and only a
+file placed outside that folder keeps an absolute path. They used to be
+absolute throughout, so a profile restored under another user name, moved
+to another drive or roamed between machines pointed every pack at a folder
+that no longer existed, and every pack write failed with nothing said.
+`resolve_pack_path` turns the stored form into a path to open wherever one
+is used; `relativize_pack_path` turns a path back into the stored form
+(`save_packs`, `ensure_packs_backed`), and a config from before this
+(0.2.9) is brought over once on load. The IPC shape did not change: the
+frontend shows, reads and reveals the path, so `get_config` resolves every
+path on the way out, and `save_packs` accepts whatever the frontend hands
+back. A pack file that can't be written is logged and raised as a notice
+once per session (the library itself is safe in `snippets.json`), not on
+every autosave.
+
 Orphans are never swept automatically. A file in `packs/` that no pack claims
 may be one an agent just dropped there for importing. **Backing a pack adopts
 such a file when it declares that very pack's name** (`pack_file_slot`): the
@@ -314,9 +348,9 @@ of what was generated.
 `%APPDATA%\io.github.bekalpaslan.promptline\` (the bundle identifier; it was
 `com.promptline.app` until 0.2.9, a domain the project never owned, and
 `migrate_data_dir` moves the old folder's contents into the new one on the
-first start after the change, rewriting the packs' absolute file paths in
-the moved config; a folder the move cannot touch stays where it is and
-raises a notice):
+first start after the change, bringing the packs' file paths, absolute
+until then, to their relative form in the moved config; a folder the move
+cannot touch stays where it is and raises a notice):
 
 | File | Holds |
 |---|---|
@@ -326,10 +360,28 @@ raises a notice):
 | `packs/deleted/*.json` | Files of deleted packs, retired rather than unlinked (numbered on repeats) |
 | `packs/generated/*.json` | Scratch files the Generate dialog's survey mode hands to an agent |
 | `*.corrupt-<unix seconds>` | A data file that failed to parse, moved aside untouched |
+| `promptline.log` | Warnings and errors from the Rust side, the file to attach to a bug report |
+
+**The log file is the release build's only voice.** `main.rs` builds
+without a console, so everything the code used to `let _ =` away — a pack
+file that wouldn't write, a retirement that failed, `SetForegroundWindow`
+refusing a window, the autostart entry — was unobservable in the shipped
+binary. `tauri-plugin-log` writes `warn` and above to `promptline.log` in
+the data folder (one file, started over past 512 KB, local time; a debug
+build echoes it to stdout), and every `notify` lands there too. Paths and
+error text only, never prompt content. Registered in `setup` rather than
+on the builder because the folder needs the app handle to locate; the
+webview never calls it, so it has no capability.
 
 **Every write goes through `write_atomic`**: the bytes land in a sibling
-`.tmp` file that is then renamed over the target, so a crash or power loss
-mid-write leaves the previous file whole instead of a truncated one.
+`.tmp` file that is flushed to disk (`sync_all`) and then renamed over the
+target, so a crash or power loss mid-write leaves the previous file whole
+instead of a truncated one. The rename is retried five times over about
+300 ms when Windows answers "access denied" or a sharing violation: a sync
+client, an indexer or a scanner holds a just-changed file for tens of
+milliseconds, and an autosave that hit that window used to show "Couldn't
+save" and throw the keystrokes away. A write that still fails removes its
+`.tmp` so nothing is left behind.
 
 **A file that won't parse is quarantined, never replaced in place.** Loading
 distinguishes three cases. Missing means a first run and yields the starter
@@ -452,7 +504,11 @@ to the tray is the visible half of that; the popup needs it just as much,
 because it is created once at startup and never rebuilt — Alt+F4 on it used to
 destroy the window, and `show_popup` then had nothing to show, leaving the
 hotkey dead until a restart. The popup's size is persisted on the way out, the
-same as on a blur.
+same as on a blur — under the store lock, which every hide path
+(`hide_popup`, `paste_snippet`, the close and blur handlers) releases
+*before* hiding: hiding fires `Focused(false)`, whose handler takes the
+same lock. It never deadlocked only because the focus event arrives
+asynchronously, which is nothing to build on.
 
 ## Content Security Policy
 
@@ -475,7 +531,11 @@ registers the new combination *before* releasing the old one, so a refusal
 leaves the old one working and the config unchanged. The `hotkey` field is
 serde-defaulted like every other: a `config.json` without it (hand-edited,
 or half-written) used to fail to parse and be quarantined, taking every
-pack's lock and file path with it.
+pack's lock and file path with it. A combination without a modifier is
+refused in both places (`parse_hotkey`): the parser takes a bare `a`, and
+a hand-edited config with one would capture that letter system-wide, so
+`set_hotkey` returns an error and `resolve_hotkey` falls back to the
+default, the same as for a string that doesn't parse at all.
 
 ## Theming
 
@@ -522,9 +582,18 @@ marks what is selected and nothing else.
 ## Windows-specific code
 
 Confined to the `platform` module in `lib.rs`: `foreground_window`,
-`focus_window`, `send_ctrl_v`, `left_button_down`. Everything else is portable.
-A macOS port reimplements that module (CGEventPost, plus the Accessibility
-permission) and nothing else.
+`focus_window`, `send_ctrl_v`, `left_button_down`, `open_url`. Everything
+else is portable. A macOS port reimplements that module (CGEventPost, plus
+the Accessibility permission) and nothing else.
+
+**What the webview may point Rust at.** `read_pack_file` and
+`show_in_folder` take a path from the frontend and admit it only when it
+canonicalises to a file under the data folder (`path_within`, so `..` and
+junctions can't escape); every path the frontend can know comes from
+there. `open_url` takes https only and hands the URL to `ShellExecuteW` as
+one string, where the earlier `explorer <url>` let explorer parse the
+string as its own command line. None of this matters unless the bundle
+is compromised, which is the case it is for.
 
 One oddity lives outside it: the popup hides on blur, but starting a
 border-resize drag on an undecorated window *is* a blur, which would slam the
