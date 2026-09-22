@@ -188,6 +188,7 @@ export function installMock(mode: string | null) {
     quit_now: () => null,
     open_url: () => null,
     show_in_folder: () => null,
+    open_data_dir: () => null,
     set_autostart: () => null,
     // The paste itself can't happen here; `calls` shows what would be pasted.
     // The real one bumps `uses`, and the manager relies on the change event.

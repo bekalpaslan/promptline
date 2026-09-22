@@ -202,7 +202,8 @@ export function useLibraryMenus(opts: {
       return [
         {
           kind: "item",
-          label: "Give this pack a file…",
+          label: "Create pack file…",
+          hint: "For sharing, or for an agent to write into",
           run: () => {
             void m.addPackFile(name).then(
               () => say(`"${name}" now has a file`),

@@ -163,9 +163,10 @@ them, plus config values and a live preview. Invisible until you want it.
 - **Settings** (⚙): record a hotkey by pressing it, then **Apply** it;
   autostart (a login launch stays in the tray; the manager opens from the
   tray icon); popup density; UI font (Outfit / system / serif / mono); UI
-  scale (90–125%); and **Your library** — export the whole library or import
-  from the clipboard or a file, plus per-pack rows to import from, export,
-  or create that pack's file
+  scale (90–125%); and **Your library** — export the whole library, import
+  from the clipboard or a file, or **Open folder** to see the data folder
+  (library, packs and the log file) in Explorer, plus per-pack rows to
+  import from, export, or create that pack's file
 
 ## Data
 
