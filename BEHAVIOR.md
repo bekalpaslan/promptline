@@ -191,8 +191,18 @@ A pack is just a name. It has no independent existence — `packNames()` is the
 union of declared `PackMeta` and every `snippet.pack` in the library, so naming
 a pack on a prompt conjures it. Imports and moves create packs this way.
 
-**Where a new prompt goes** is one rule for both windows (`defaultPackFor`
-in `ui/core.js`): the pack that last received a prompt if it still exists and
+**The manager's New asks where.** Its menu makes a pack straight away (named
+"New pack", selected, its name open for typing), a group in a pack the user
+picks, or a prompt in a pack or group the user picks from the library's
+tree; locked packs are listed but disabled. There is no default placement
+there: a New that guessed put prompts in packs nobody chose. A group, being
+a label, starts life on a draft prompt, and is what gets selected and named;
+the draft waits inside it, so a group left with only that draft goes when
+the draft is swept (below).
+
+**Where a new prompt goes** when nothing chose — the popup's Ctrl+N, the
+editor's and overview's empty-state buttons — is one rule for both windows
+(`defaultPackFor` in `ui/core.js`): the pack that last received a prompt if it still exists and
 is unlocked, else the default pack if unlocked, else the first unlocked pack,
 else a fresh "Unsorted". Both windows used to have their own version and they
 disagreed once "My prompts" was locked.

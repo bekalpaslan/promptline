@@ -29,6 +29,8 @@ export function useLibraryMenus(opts: {
   onNewGroup?: (pack: string) => void
   /** Before a group's "New prompt" creates one: the sidebar unfolds the group */
   onNewPromptInGroup?: (pack: string, group: string) => void
+  /** After New → Pack creates one: the sidebar scrolls it into view */
+  onNewPack?: (pack: string) => void
   /** Keyboard reorder, where the surface has rows to move between */
   moveRow?: (id: string, dir: -1 | 1) => void
 } = {}) {
@@ -408,6 +410,87 @@ export function useLibraryMenus(opts: {
     ctx.open(x, y, items)
   }
 
+  // ---- New: pack, group or prompt, always placed by the user ----
+  const groupsIn = (pack: string) =>
+    [...new Set(m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group).map((s) => s.group))].sort(
+      (a, b) => a.localeCompare(b)
+    )
+  // "New pack", then "New pack 2", … — case-insensitively free, like every name
+  const freeName = (base: string, taken: string[]) => {
+    const lower = new Set(taken.map((t) => t.toLowerCase()))
+    for (let n = 1; ; n++) {
+      const name = n === 1 ? base : `${base} ${n}`
+      if (!lower.has(name.toLowerCase())) return name
+    }
+  }
+  const lockedHint = "Unlock the pack first (its header menu → Unlock)"
+
+  const newPack = async () => {
+    const name = freeName("New pack", m.packNames())
+    await m.addPack(name)
+    opts.onNewPack?.(name)
+    m.openOverview({ pack: name })
+    setRenaming(name)
+  }
+  // A group is a label, so it starts life on a first (draft) prompt; the
+  // group is what is selected and named, the draft waits inside it
+  const newGroup = async (pack: string) => {
+    const group = freeName("New group", groupsIn(pack))
+    opts.onNewGroup?.(pack)
+    await m.newPrompt({ pack, group })
+    m.openOverview({ pack, group })
+    setRenamingGroup(groupKey(pack, group))
+  }
+  const newPromptIn = (pack: string, group?: string) => {
+    if (group) opts.onNewPromptInGroup?.(pack, group)
+    else opts.onNewGroup?.(pack)
+    void m.newPrompt({ pack, group })
+  }
+
+  const openNewMenu = (x: number, y: number) => {
+    const packs = m.packNames()
+    const packItem = (p: string, run: () => void): CtxItem => ({
+      kind: "item",
+      label: m.isLocked(p) ? `${p} (locked)` : p,
+      disabled: m.isLocked(p),
+      hint: m.isLocked(p) ? lockedHint : undefined,
+      run,
+    })
+    const none = [{ kind: "header", text: "No packs yet — make one first" } satisfies CtxItem]
+    ctx.open(x, y, [
+      { kind: "item", label: "Pack", run: () => void newPack() },
+      {
+        kind: "submenu",
+        label: "Group",
+        items: packs.length ? [{ kind: "header", text: "In pack" }, ...packs.map((p) => packItem(p, () => void newGroup(p)))] : none,
+      },
+      {
+        kind: "submenu",
+        label: "Prompt",
+        items: packs.length
+          ? [
+              { kind: "header", text: "In pack or group" },
+              ...packs.flatMap((p): CtxItem[] => [
+                packItem(p, () => newPromptIn(p)),
+                ...groupsIn(p).map(
+                  (g): CtxItem => ({
+                    kind: "item",
+                    label: g,
+                    indent: true,
+                    disabled: m.isLocked(p),
+                    hint: m.isLocked(p) ? lockedHint : undefined,
+                    run: () => newPromptIn(p, g),
+                  })
+                ),
+              ]),
+            ]
+          : none,
+      },
+      { kind: "sep" },
+      { kind: "item", label: "Generate pack with Claude…", run: () => m.openGenerate() },
+    ])
+  }
+
   const element = (
     <>
       {ctx.element}
@@ -448,6 +531,8 @@ export function useLibraryMenus(opts: {
     renameGroup,
     openPackCtx,
     openGroupCtx,
+    openNewMenu,
+    newPack,
     openRowCtx,
   }
 }

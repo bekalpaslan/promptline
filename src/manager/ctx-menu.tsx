@@ -23,6 +23,8 @@ export type CtxItem =
       confirm?: string
       /** One choice of several (a radio item): set on every item of the set, true on the current one */
       checked?: boolean
+      /** Drawn one step in, under the item before it (a group under its pack) */
+      indent?: boolean
       /** Return "keep" to leave the menu open (e.g. to swap in a submenu). */
       run: () => void | "keep"
     }
@@ -203,7 +205,8 @@ export function useCtxMenu() {
         title={it.hint}
         className={cn(
           "flex w-full items-center gap-1.5 cursor-pointer whitespace-nowrap rounded-sm px-2 py-1 text-left text-ui text-foreground hover:bg-accent focus-visible:bg-accent focus-ring disabled:cursor-default disabled:opacity-50",
-          it.danger && "text-destructive"
+          it.danger && "text-destructive",
+          it.indent && "pl-5"
         )}
         onMouseEnter={() => {
           if (onSub) setSub(null) // moving onto a plain top-level item closes the submenu
@@ -248,7 +251,9 @@ export function useCtxMenu() {
               ref={subRef}
               role="menu"
               aria-label={subItems.label}
-              className="fixed z-40 min-w-40 rounded-md border border-border bg-popover p-1 shadow-lg"
+              // A long library's pack and group list scrolls rather than
+              // running off the window
+              className="fixed z-40 max-h-[calc(100dvh-1rem)] min-w-40 overflow-y-auto rounded-md border border-border bg-popover p-1 shadow-lg"
               style={{ left: sub!.x, top: sub!.y }}
             >
               {subItems.items.map((it, i) => renderItem(it, i))}
