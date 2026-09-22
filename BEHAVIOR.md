@@ -57,6 +57,15 @@ not structure, per the design system's "ink first, hue second"; so the
 `heading` tokens are ink colours. In the overview a group is a heading over
 a hairline, not a panel, so it doesn't repeat its pack's look.
 
+**The editor autosaves, and says so in one place.** Every edit lands
+through a 600 ms debounce (`update_snippet`, only the fields the editor
+owns), and a caption in the header row reads "Saving…" from the first
+keystroke until the write lands, then "Saved" for two seconds. It is the
+only feedback a successful save gets — a toast per save would fire on
+every pause in typing — and a screen reader hears "Saved" once per landing
+through a `role=status` region beside it, never the "Saving…". A failed
+save is toasted by `updateSnippet`, so the caption only clears.
+
 **The sidebar's filter is always there, and apart from the display.** The
 field under the title takes the popup's syntax (`#tag`, `@pack`, `>group`,
 then free-text words anywhere in the prompt: `matchesQuery` in core), with

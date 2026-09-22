@@ -4,6 +4,7 @@ import {
   RiAddLine,
   RiArrowDownSLine,
   RiArrowRightSLine,
+  RiCheckLine,
   RiCloseLine,
   RiDeleteBinLine,
   RiFileCopyLine,
@@ -228,6 +229,16 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const dirty = useRef(new Set<"tags" | "pack" | "group">())
   const mRef = useRef(m)
   mRef.current = m
+  // What the header says about the autosave: "Saving…" from the first
+  // keystroke until the write lands, "Saved" for a moment after, then
+  // nothing. A failed write is toasted by updateSnippet, so it only clears
+  // the caption rather than saying anything twice.
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
+  useEffect(() => {
+    if (saveState !== "saved") return
+    const t = setTimeout(() => setSaveState("idle"), 2000)
+    return () => clearTimeout(t)
+  }, [saveState])
 
   const commit = useCallback(async () => {
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -247,21 +258,28 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     const names = C.configNames(cur.text)
     // Only the editor's own fields go to disk; uses/pinned/fieldValues are
     // merged there from whatever the popup wrote since this render
-    await mgr.updateSnippet(snippet.id, {
-      title: cur.title.trim() || "(untitled)",
-      tags: storedTags(cur.tags),
-      pack: targetPack,
-      group: cur.group.trim(),
-      text: cur.text,
-      configValues: Object.fromEntries(
-        Object.entries(cur.configValues).filter(([k, v]) => names.includes(k) && v !== "")
-      ),
-    })
+    try {
+      await mgr.updateSnippet(snippet.id, {
+        title: cur.title.trim() || "(untitled)",
+        tags: storedTags(cur.tags),
+        pack: targetPack,
+        group: cur.group.trim(),
+        text: cur.text,
+        configValues: Object.fromEntries(
+          Object.entries(cur.configValues).filter(([k, v]) => names.includes(k) && v !== "")
+        ),
+      })
+    } catch (e) {
+      setSaveState("idle")
+      throw e
+    }
+    setSaveState("saved")
     // New prompts default to the pack that last received one
     localStorage.setItem("lastPack", targetPack)
   }, [snippet.id])
 
   const scheduleSave = useCallback(() => {
+    setSaveState("saving")
     if (saveTimer.current) clearTimeout(saveTimer.current)
     // A failed save has already been toasted by updateSnippet
     saveTimer.current = setTimeout(() => void commit().catch(() => {}), 600)
@@ -576,6 +594,27 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             <option key={g} value={g} />
           ))}
         </datalist>
+        {/* Autosave feedback: the caption fades rather than vanishing, and the
+            live region announces only the landing, never each keystroke */}
+        <span
+          aria-hidden
+          className={cn(
+            "flex items-center gap-0.5 text-xs text-muted-foreground transition-opacity duration-300",
+            saveState === "idle" && "opacity-0"
+          )}
+        >
+          {saveState === "saving" ? (
+            "Saving…"
+          ) : (
+            <>
+              <RiCheckLine className="size-3.5" />
+              Saved
+            </>
+          )}
+        </span>
+        <span role="status" className="sr-only">
+          {saveState === "saved" ? "Saved" : ""}
+        </span>
         <Button
           variant="secondary"
           size="sm"
