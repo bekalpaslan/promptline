@@ -322,8 +322,14 @@ on the builder because the folder needs the app handle to locate; the
 webview never calls it, so it has no capability.
 
 **Every write goes through `write_atomic`**: the bytes land in a sibling
-`.tmp` file that is then renamed over the target, so a crash or power loss
-mid-write leaves the previous file whole instead of a truncated one.
+`.tmp` file that is flushed to disk (`sync_all`) and then renamed over the
+target, so a crash or power loss mid-write leaves the previous file whole
+instead of a truncated one. The rename is retried five times over about
+300 ms when Windows answers "access denied" or a sharing violation: a sync
+client, an indexer or a scanner holds a just-changed file for tens of
+milliseconds, and an autosave that hit that window used to show "Couldn't
+save" and throw the keystrokes away. A write that still fails removes its
+`.tmp` so nothing is left behind.
 
 **A file that won't parse is quarantined, never replaced in place.** Loading
 distinguishes three cases. Missing means a first run and yields the starter
