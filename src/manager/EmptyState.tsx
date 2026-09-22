@@ -12,7 +12,8 @@ export function EmptyState({
   icon?: ComponentType<{ className?: string }>
   title: string
   hint?: string
-  actions?: { label: string; onClick: () => void; primary?: boolean }[]
+  /** `menu`: the action opens a menu at the button (aria-haspopup) rather than acting outright */
+  actions?: { label: string; onClick: (e: React.MouseEvent<HTMLButtonElement>) => void; primary?: boolean; menu?: boolean }[]
 }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-3 p-6 text-center text-sm text-muted-foreground">
@@ -24,7 +25,13 @@ export function EmptyState({
       {actions.length > 0 && (
         <div className="flex flex-wrap justify-center gap-2">
           {actions.map((a) => (
-            <Button key={a.label} size="sm" variant={a.primary ? "default" : "secondary"} onClick={a.onClick}>
+            <Button
+              key={a.label}
+              size="sm"
+              variant={a.primary ? "default" : "secondary"}
+              aria-haspopup={a.menu ? "menu" : undefined}
+              onClick={a.onClick}
+            >
               {a.label}
             </Button>
           ))}
