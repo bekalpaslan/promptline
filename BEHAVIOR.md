@@ -471,7 +471,11 @@ to the tray is the visible half of that; the popup needs it just as much,
 because it is created once at startup and never rebuilt — Alt+F4 on it used to
 destroy the window, and `show_popup` then had nothing to show, leaving the
 hotkey dead until a restart. The popup's size is persisted on the way out, the
-same as on a blur.
+same as on a blur — under the store lock, which every hide path
+(`hide_popup`, `paste_snippet`, the close and blur handlers) releases
+*before* hiding: hiding fires `Focused(false)`, whose handler takes the
+same lock. It never deadlocked only because the focus event arrives
+asynchronously, which is nothing to build on.
 
 ## Content Security Policy
 

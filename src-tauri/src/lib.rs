@@ -24,7 +24,9 @@ struct AppState {
     notices: Mutex<Vec<Notice>>,
     // Held for the duration of every read-modify-write of the data files, so
     // two commands can never interleave a load and a save. Locked only at
-    // command / event-handler entry points; helpers never lock it.
+    // command / event-handler entry points; helpers never lock it. Released
+    // before anything that fires a window event (hiding the popup): the
+    // Focused(false) handler takes it too.
     store: Mutex<()>,
     // Bumped on every write of snippets.json. A full-array save carries the
     // revision it was based on; if the file moved on since, the save is
@@ -1468,8 +1470,13 @@ fn persist_popup_size(app: &AppHandle) {
 
 #[tauri::command]
 fn hide_popup(app: AppHandle, state: State<AppState>) {
-    let _guard = state.store.lock().unwrap();
-    persist_popup_size(&app);
+    {
+        let _guard = state.store.lock().unwrap();
+        persist_popup_size(&app);
+    }
+    // Hidden with the store lock released: hiding fires Focused(false), whose
+    // handler takes the same lock. That the event arrives asynchronously is
+    // what kept this from deadlocking; it is not something to rely on.
     if let Some(w) = app.get_webview_window("popup") {
         let _ = w.hide();
     }
@@ -1489,7 +1496,7 @@ fn paste_snippet(
     paste: bool,
     id: Option<String>,
 ) -> Result<String, String> {
-    let _guard = state.store.lock().unwrap();
+    let guard = state.store.lock().unwrap();
     let prev_window = *state.prev_window.lock().unwrap();
     let mode = paste_mode(paste, prev_window);
     let prev_clipboard = arboard::Clipboard::new()
@@ -1513,6 +1520,10 @@ fn paste_snippet(
     drop(clipboard);
 
     persist_popup_size(&app);
+    // Released before the hide: hiding fires Focused(false), whose handler
+    // takes the store lock (see hide_popup). The use count below takes it
+    // again; the command is still the only place that locks.
+    drop(guard);
     // Copy-only leaves the popup up for a moment so it can confirm the copy;
     // the popup hides itself afterwards
     if mode == PasteMode::Pasted {
@@ -1526,6 +1537,7 @@ fn paste_snippet(
     // unreadable (a sync client or scanner holding the file) must not turn
     // into a paste that never happens with the prompt sitting on the clipboard
     if let Some(id) = id {
+        let _guard = state.store.lock().unwrap();
         if let Ok(mut snippets) = load_snippets_from_disk(&app) {
             if let Some(s) = snippets.iter_mut().find(|s| s.id == id) {
                 s.uses += 1;
@@ -2604,8 +2616,10 @@ pub fn run() {
                 } else {
                     let app = window.app_handle();
                     let state = app.state::<AppState>();
-                    let _guard = state.store.lock().unwrap();
-                    persist_popup_size(app);
+                    {
+                        let _guard = state.store.lock().unwrap();
+                        persist_popup_size(app);
+                    }
                     let _ = window.hide();
                 }
             }
