@@ -42,11 +42,3 @@ export function defaultPackFor(meta: PackMeta[], snippets: Snippet[]): string {
   const names = packNames(meta, snippets, { always: true })
   return C.defaultPackFor(localStorage.getItem("lastPack"), names, (n) => isLockedIn(meta, n), DEFAULT_PACK)
 }
-
-/** Class set for a placeholder chip, by token kind — shared by every preview */
-export const TOKEN_CHIP: Record<"builtin" | "field" | "config" | "bad", string> = {
-  builtin: "bg-(--param-builtin-bg) text-(--param-builtin)",
-  field: "bg-(--param-field-bg) text-(--param-field)",
-  config: "bg-(--param-config-bg) text-(--param-config)",
-  bad: "bg-destructive/15 text-destructive",
-}

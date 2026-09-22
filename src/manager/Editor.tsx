@@ -15,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
-import { TOKEN_CHIP } from "@/lib/library"
+import { Chip, PromptTokens, TagPill, chipVariants } from "@/components/prompt-bits"
 import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
@@ -59,23 +59,12 @@ function ParamSection({
   )
 }
 
-// Addable pill: a + segment on the left, separated by a divider that cuts
-// the pill full-height. Spacing is tier-1 (6px) on every side of the + and
-// between the divider and the label.
+// Addable chip: a + segment on the left, cut off by a full-height divider
 function AddPill({ label, title, onAdd }: { label: string; title: string; onAdd: () => void }) {
   return (
-    <button
-      tabIndex={0}
-      title={title}
-      className="flex shrink-0 cursor-pointer select-none overflow-hidden rounded-sm border border-transparent bg-secondary text-ui font-medium text-muted-foreground transition-colors hover:border-primary"
-      onClick={onAdd}
-    >
-      <span className="flex items-center px-1.5">
-        <RiAddLine className="size-3" />
-      </span>
-      <span className="w-px bg-border" />
-      <span className="flex items-center py-1 pl-1.5 pr-2">{label}</span>
-    </button>
+    <Chip add size="md" title={title} onClick={onAdd}>
+      {label}
+    </Chip>
   )
 }
 
@@ -116,7 +105,7 @@ function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name:
         placeholder={placeholder}
         aria-label={placeholder.replace(/^\+ /, "Add ").replace(/…$/, "")}
         spellCheck={false}
-        className="w-28 rounded-sm bg-secondary px-3 py-0.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
+        className={cn(chipVariants({ tone: "neutral", size: "md" }), "w-28 focus-ring placeholder:text-muted-foreground")}
         onChange={(e) => setRaw(e.target.value)}
         onKeyDown={(e) => {
           if (e.key !== "Enter") return
@@ -156,35 +145,7 @@ function TokenPreview({
         className
       )}
     >
-      {C.tokenize(text).map((part, i) => {
-        if (part.type === "text") return <span key={i}>{part.value}</span>
-        let label: string
-        const cls = TOKEN_CHIP[part.type]
-        if (part.type === "bad") {
-          label = `${part.name} — not a param (lowercase letters, digits and _, not starting with a digit)`
-        } else if (part.type === "builtin" && part.name === "clipboard" && clipboard !== null) {
-          // {clipboard} expands at paste time (BEHAVIOR.md): the preview
-          // shows what would go in now, on the builtin's tint so it still
-          // reads as a placeholder rather than as the prompt's own words
-          return (
-            <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground" title="The clipboard as it is now">
-              {C.clipboardPreview(clipboard)}
-            </span>
-          )
-        } else if (part.type === "config") {
-          const v = (configValues[part.name] || "").replace(/\s+/g, " ")
-          label = v ? (v.length > 40 ? v.slice(0, 40) + "…" : v) : `${part.name} — config (unset)`
-        } else if (part.type === "builtin") {
-          label = part.name
-        } else {
-          label = `${part.name} — fill-in`
-        }
-        return (
-          <span key={i} className={cn("rounded-sm px-1 text-xs font-semibold", cls)}>
-            {label}
-          </span>
-        )
-      })}
+      <PromptTokens text={text} clipboard={clipboard} configValues={configValues} />
     </div>
   )
 }
@@ -417,14 +378,12 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     // should ask again gets a numbered copy ({goal_2}), which + inserts
     const copy = isBuiltin ? null : C.nextCopyName(name, text)
     return (
-      <span
+      <Chip
         key={name}
+        tone={isBuiltin ? "builtin" : "field"}
+        size="md"
         title={`{${name}} is in the prompt — Edit to remove`}
-        className={cn(
-          "relative flex select-none items-center gap-1 rounded-sm border border-transparent py-0.5 text-xs font-medium",
-          copy && !editing ? "pr-1 pl-2.5" : "px-2.5",
-          isBuiltin ? TOKEN_CHIP.builtin : TOKEN_CHIP.field
-        )}
+        className={cn("relative select-none", copy && !editing && "pr-1")}
       >
         {`{${name}}`}
         {copy && !editing && (
@@ -439,7 +398,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           </button>
         )}
         {editing && <DeleteBadge onDelete={() => removeParam(name)} />}
-      </span>
+      </Chip>
     )
   }
 
@@ -635,7 +594,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           className={cn("text-destructive hover:bg-destructive/15", deleteArmed && "bg-destructive/15")}
         >
           <span aria-live="assertive">
-            {deleteArmed ? `Delete "${(snippet.title || "untitled").slice(0, 24)}"?` : <RiDeleteBinLine className="size-4" aria-hidden />}
+            {deleteArmed ? `Really delete "${(snippet.title || "untitled").slice(0, 24)}"?` : <RiDeleteBinLine className="size-4" aria-hidden />}
           </span>
         </Button>
       </div>
@@ -664,20 +623,11 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       <ParamSection title="Tags" hint="#tag narrows the popup's list — click a pill to add">
         {(editing) => (
           <div className="flex flex-wrap items-center gap-1.5">
-            {tagList.map((t) => {
-              const c = C.tagColor(t)
-              return (
-                <span
-                  key={t}
-                  title={editing ? `#${t}` : `#${t} — Edit to remove`}
-                  className="relative flex shrink-0 select-none items-center rounded-sm border bg-background/60 px-2.5 py-0.5 text-xs font-medium tag-text tag-border dark:tag-text-dark dark:tag-border-dark"
-                  style={{ "--tag": c } as React.CSSProperties}
-                >
-                  {t}
-                  {editing && <DeleteBadge onDelete={() => removeTag(t)} />}
-                </span>
-              )
-            })}
+            {tagList.map((t) => (
+              <TagPill key={t} tag={t} size="md" title={editing ? `#${t}` : `#${t} — Edit to remove`}>
+                {editing && <DeleteBadge onDelete={() => removeTag(t)} />}
+              </TagPill>
+            ))}
             {tagSuggestions.map((t) => (
               <AddPill key={t} label={t} title={`Add tag "${t}"`} onAdd={() => addTag(t)} />
             ))}
@@ -685,7 +635,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
               placeholder="+ tag…"
               aria-label="Add a tag"
               spellCheck={false}
-              className="w-24 shrink-0 rounded-sm bg-secondary px-3 py-0.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
+              className={cn(chipVariants({ tone: "neutral", size: "md" }), "w-24 focus-ring placeholder:text-muted-foreground")}
               onKeyDown={(e) => {
                 if (e.key !== "Enter") return
                 addTags(e.currentTarget.value)
@@ -745,9 +695,11 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                   <div className="flex flex-col gap-1.5">
                     {configNames.map((name) => (
                       <div key={name} className="flex items-center gap-3">
-                        <span className="relative min-w-32 text-left text-xs font-semibold text-(--param-config)">
-                          {`{{${name}}}`}
-                          {editing && <DeleteBadge onDelete={() => removeParam(name)} />}
+                        <span className="flex min-w-32">
+                          <Chip tone="config" size="md" className="relative select-none">
+                            {`{{${name}}}`}
+                            {editing && <DeleteBadge onDelete={() => removeParam(name)} />}
+                          </Chip>
                         </span>
                         <input
                           value={configValues[name] || ""}
