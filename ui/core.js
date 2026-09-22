@@ -7,7 +7,8 @@
   // {clipboard} expands in Rust at paste time; {date}/{time} expand in JS;
   // {{name}} is a config parameter (saved value, no prompt);
   // any other valid {name} is a runtime fill-in field.
-  // Invalid names (uppercase/digits) are flagged, never silently pasted.
+  // Invalid names (capitals, a leading digit) are flagged, never silently
+  // pasted; purely numeric ones ({0}) are text.
   const RESERVED = ['clipboard', 'date', 'time'];
   const TOKEN_RE_SRC = '\\{\\{([a-zA-Z0-9_]+)\\}\\}|\\{([a-zA-Z0-9_]+)\\}';
 
@@ -20,21 +21,30 @@
 
   // Tokenize prompt text into parts for preview rendering.
   // Returns [{type:'text',value} | {type:'builtin'|'field'|'config'|'bad', name, raw}]
+  // A purely numeric name ({0}, {{1}}) is text, merged into the run around
+  // it, so pasted code with format-string slots shows no chips at all; the
+  // other invalid names ({Goal}, {1st}) are near-misses worth flagging.
   function tokenize(text) {
     const parts = [];
+    const pushText = value => {
+      const last = parts[parts.length - 1];
+      if (last && last.type === 'text') last.value += value;
+      else parts.push({ type: 'text', value });
+    };
     const re = new RegExp(TOKEN_RE_SRC, 'g');
     let last = 0, m;
     while ((m = re.exec(text)) !== null) {
-      if (m.index > last) parts.push({ type: 'text', value: text.slice(last, m.index) });
+      if (m.index > last) pushText(text.slice(last, m.index));
       const name = m[1] || m[2];
       const raw = m[0];
-      if (!isValidParam(name)) parts.push({ type: 'bad', name, raw });
+      if (/^\d+$/.test(name)) pushText(raw);
+      else if (!isValidParam(name)) parts.push({ type: 'bad', name, raw });
       else if (m[1]) parts.push({ type: 'config', name, raw });
       else if (RESERVED.includes(name)) parts.push({ type: 'builtin', name, raw });
       else parts.push({ type: 'field', name, raw });
       last = re.lastIndex;
     }
-    if (last < text.length) parts.push({ type: 'text', value: text.slice(last) });
+    if (last < text.length) pushText(text.slice(last));
     return parts;
   }
 
@@ -186,6 +196,12 @@
     return s.title === DRAFT_TITLE && !(s.text || '').trim() && !(s.uses || 0);
   }
 
+  // Titles compare with numeric collation, so "Bulk prompt 2" sorts before
+  // "Bulk prompt 10" wherever a tie is broken by title (here, sortPrompts).
+  function byTitle(a, b) {
+    return a.title.localeCompare(b.title, undefined, { numeric: true });
+  }
+
   // ---- Ranking ---------------------------------------------------------------------
   // The popup's list order, as one pure function. No query text: pinned first
   // in pin order (oldest pin first — a pin is a fixed Ctrl+digit slot, so use
@@ -205,8 +221,8 @@
           (+!!b.pinned - +!!a.pinned) ||
           (a.pinned
             // Legacy pins carry no pinnedAt (0) and sort by title among themselves
-            ? ((a.pinnedAt || 0) - (b.pinnedAt || 0)) || a.title.localeCompare(b.title)
-            : ((b.uses || 0) - (a.uses || 0)) || a.title.localeCompare(b.title)))
+            ? ((a.pinnedAt || 0) - (b.pinnedAt || 0)) || byTitle(a, b)
+            : ((b.uses || 0) - (a.uses || 0)) || byTitle(a, b)))
         .map(s => ({ s, indices: null }));
     }
     return pool
@@ -222,6 +238,20 @@
       .filter(Boolean)
       .sort((a, b) => (a.score - b.score) || ((b.s.uses || 0) - (a.s.uses || 0)))
       .map(({ s, indices }) => ({ s, indices }));
+  }
+
+  // The popup's Ctrl+1..5 slots: the first `max` (5) entries of the ranked
+  // list — pins first in pin order, then by use, or the top search results
+  // — that are on screen, wherever the pack layout draws them. `visibleIds`
+  // is what the list shows; an entry inside a folded pack or group is not
+  // in it and takes no slot, so the digits always name rows the user can
+  // see. An untouched draft never takes one (rankSnippets leaves it out;
+  // this filters again so the rule holds for any ranked input). One
+  // mapping feeds both the row badge and the Ctrl+digit handler.
+  const MAX_SLOTS = 5;
+  function slotEntries(ranked, visibleIds, max) {
+    const shown = visibleIds instanceof Set ? visibleIds : new Set(visibleIds);
+    return ranked.filter(e => shown.has(e.s.id) && !isEmptyDraft(e.s)).slice(0, max || MAX_SLOTS);
   }
 
   // Split a title into code-point segments marked hit/miss from UTF-16
@@ -469,8 +499,8 @@
   // The manager's list order. Pins come first under every order but "custom",
   // which is the array order itself (arranged by drag). Never mutates.
   const ORDERS = {
-    uses: (a, b) => b.uses - a.uses || a.title.localeCompare(b.title),
-    title: (a, b) => a.title.localeCompare(b.title),
+    uses: (a, b) => (b.uses || 0) - (a.uses || 0) || byTitle(a, b),
+    title: byTitle,
   };
   function sortPrompts(list, orderBy) {
     if (orderBy === 'custom') return [...list];
@@ -511,7 +541,12 @@
     const limit = max || CLIP_PREVIEW_MAX;
     const flat = (clip || '').replace(/\s+/g, ' ').trim();
     if (!flat) return '(clipboard is empty)';
-    return flat.length > limit ? flat.slice(0, limit).trimEnd() + '\u2026' : flat;
+    if (flat.length <= limit) return flat;
+    // Never cut between the halves of a surrogate pair: an emoji at the
+    // limit would leave a lone high surrogate in the preview
+    let cut = flat.slice(0, limit);
+    if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1);
+    return cut.trimEnd() + '\u2026';
   }
 
   // What the editor's Copy button puts on the clipboard: config values in,
@@ -519,12 +554,43 @@
   // replaced by the clipboard as it is now — the same steps as a paste,
   // minus the fill-in form the editor has no place for, so {field} tokens
   // stay as typed for the user to fill in by hand.
-  function expandForCopy(text, configValues, clip) {
+  // `now` is for the tests; the clock otherwise.
+  function expandForCopy(text, configValues, clip, now) {
     const base = downgradeUnsetConfig(expandConfig(text, configValues));
-    return expandBuiltins(base).split('{clipboard}').join(clip || '');
+    return expandBuiltins(base, now).split('{clipboard}').join(clip || '');
+  }
+
+  // ---- New prompt from the clipboard ----------------------------------------------
+  // The title Ctrl+N pre-fills: the clipboard's first non-empty line, cut
+  // at the last word boundary within `max` characters (40), or hard at
+  // `max` when the line is one long word. Empty when there is no text; the
+  // caller names the fallback. It used to cut mid-word.
+  const TITLE_MAX = 40;
+  function titleFromClipboard(text, max) {
+    const limit = max || TITLE_MAX;
+    const line = ((text || '').trim().split(/\r?\n/)[0] || '').trim();
+    if (line.length <= limit) return line;
+    const cut = line.slice(0, limit + 1);
+    const at = cut.search(/\s\S*$/);
+    return (at > 0 ? cut.slice(0, at) : line.slice(0, limit)).trim();
+  }
+
+  // ---- Tags ---------------------------------------------------------------------
+  // One rule for a tag typed anywhere: lowercase, and nothing outside
+  // [a-z0-9_-]. The menu's "Add tag…" already did this; the editor and pack
+  // import only trimmed and lowercased, so a tag with a space could be
+  // stored and then never found (`#code review` parses as the tag `code`).
+  // The strictest of the three, and every shipped pack's tags pass it as is.
+  function normalizeTag(raw) {
+    return (raw || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '');
   }
 
   // ---- Misc -----------------------------------------------------------------
+  // "1 prompt", "2 prompts"; an irregular plural is passed in ("1 entry", "2 entries")
+  function plural(n, word, pluralWord) {
+    return `${n} ${n === 1 ? word : pluralWord || word + 's'}`;
+  }
+
   function fmtHotkey(h) {
     return (h || '')
       .split('+')
@@ -547,8 +613,10 @@
     expandBuiltins,
     fuzzyScore,
     bodyScore,
+    DRAFT_TITLE,
     isEmptyDraft,
     rankSnippets,
+    slotEntries,
     highlightSegments,
     parseQuery,
     matchesFilters,
@@ -569,6 +637,9 @@
     packTree,
     clipboardPreview,
     expandForCopy,
+    titleFromClipboard,
+    normalizeTag,
+    plural,
     fmtHotkey,
   };
 

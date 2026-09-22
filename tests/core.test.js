@@ -32,6 +32,14 @@ test('literal braces in code samples are not treated as params', () => {
   assert.deepEqual(fields, ['ok']);
 });
 
+test('tokenize: empty braces and an unterminated brace are text (L23)', () => {
+  assert.deepEqual(core.tokenize('{}'), [{ type: 'text', value: '{}' }]);
+  assert.deepEqual(core.tokenize('{{}}'), [{ type: 'text', value: '{{}}' }]);
+  assert.deepEqual(core.tokenize('ask {goal'), [{ type: 'text', value: 'ask {goal' }]);
+  assert.deepEqual(core.tokenize('{goal} {'), [{ type: 'field', name: 'goal', raw: '{goal}' }, { type: 'text', value: ' {' }]);
+  assert.deepEqual(core.tokenize(''), []);
+});
+
 // ---- config expansion -------------------------------------------------------
 
 test('expandConfig substitutes set values and preserves unset tokens', () => {
@@ -69,11 +77,34 @@ test('fillFields leaves builtins and unvalued fields alone', () => {
   assert.equal(core.fillFields('{goal}'), '{goal}');
 });
 
-test('expandBuiltins replaces date and time deterministically', () => {
+test('expandBuiltins replaces date and time from the injected clock (L23)', () => {
   const now = new Date(2026, 6, 12, 9, 5);
-  const out = core.expandBuiltins('on {date} at {time}', now);
-  assert.ok(!out.includes('{date}'));
-  assert.ok(!out.includes('{time}'));
+  // The exact strings the locale produces for that instant, not merely "the tokens went away"
+  const date = now.toLocaleDateString();
+  const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  assert.equal(core.expandBuiltins('on {date} at {time}, {date} again', now), `on ${date} at ${time}, ${date} again`);
+  assert.ok(/9|09/.test(time) && /05/.test(time), time);
+  // No clock injected: today
+  assert.equal(core.expandBuiltins('{date}'), new Date().toLocaleDateString());
+});
+
+test('fillFields inserts a value holding {clipboard} or {{cfg}} literally; later steps see them (L23)', () => {
+  // The paste path is expandConfig → downgradeUnsetConfig → fillFields →
+  // expandBuiltins → Rust's {clipboard}. A value is inserted as typed and
+  // never re-scanned by fillFields itself, so a {{cfg}} in it stays as
+  // braces (config already expanded, earlier), while a {clipboard} in it
+  // is real to the steps that follow.
+  const out = core.fillFields('Goal: {goal}', { goal: 'see {clipboard} and {{cfg}} and {other}' });
+  assert.equal(out, 'Goal: see {clipboard} and {{cfg}} and {other}');
+  assert.equal(core.fillFields('{a} {b}', { a: '{b}', b: 'x' }), '{b} x', 'an inserted {b} is not filled by the same pass');
+  // The popup's order: config, then the fill-in values, then builtins, then
+  // Rust's {clipboard}. A {{cfg}} typed into a field therefore stays braces
+  // in what is pasted, while a {clipboard} typed into one is expanded.
+  const base = core.downgradeUnsetConfig(core.expandConfig('{{cfg}}: {goal}', { cfg: 'set' }));
+  assert.equal(core.expandBuiltins(core.fillFields(base, { goal: '{{cfg}} {clipboard}' })), 'set: {{cfg}} {clipboard}');
+  // The editor's Copy has no form, so its config pass runs over the text as
+  // typed; the same braces in the text itself do expand there
+  assert.equal(core.expandForCopy('see {clipboard} and {{cfg}}', { cfg: 'set' }, 'CLIP'), 'see CLIP and set');
 });
 
 // ---- fuzzy matching ---------------------------------------------------------
@@ -199,6 +230,39 @@ test('rankSnippets honours #tag / @pack / >group filters', () => {
   assert.deepEqual(core.rankSnippets('@P', lib).map(e => e.s.id), ['a', 'b']);
 });
 
+test('slotEntries: pins first in pin order, folded entries take no slot, at most five (L10)', () => {
+  const lib = [
+    { id: 'p2', title: 'Pin two', text: 'x', tags: [], uses: 99, pinned: true, pinnedAt: 200 },
+    { id: 'p1', title: 'Pin one', text: 'x', tags: [], uses: 0, pinned: true, pinnedAt: 100 },
+    { id: 'u9', title: 'Used nine', text: 'x', tags: [], uses: 9, pack: 'Folded' },
+    { id: 'u5', title: 'Used five', text: 'x', tags: [], uses: 5 },
+    { id: 'u4', title: 'Used four', text: 'x', tags: [], uses: 4 },
+    { id: 'u3', title: 'Used three', text: 'x', tags: [], uses: 3 },
+    { id: 'u2', title: 'Used two', text: 'x', tags: [], uses: 2 },
+    { id: 'u1', title: 'Used one', text: 'x', tags: [], uses: 1 },
+  ];
+  const ranked = core.rankSnippets('', lib);
+  const ids = (es) => es.map(e => e.s.id);
+  const all = new Set(lib.map(s => s.id));
+  // Everything on screen: the pins lead in pin order, then by use, five in all
+  assert.deepEqual(ids(core.slotEntries(ranked, all)), ['p1', 'p2', 'u9', 'u5', 'u4']);
+  // The most-used prompt sits in a folded pack: it takes no slot and the
+  // next visible one moves up, so the digits always name rows on screen
+  const shown = new Set([...all].filter(id => id !== 'u9'));
+  assert.deepEqual(ids(core.slotEntries(ranked, shown)), ['p1', 'p2', 'u5', 'u4', 'u3']);
+  // An array of ids works too; `max` is a parameter
+  assert.deepEqual(ids(core.slotEntries(ranked, [...shown], 2)), ['p1', 'p2']);
+  assert.deepEqual(core.slotEntries(ranked, []), []);
+});
+
+test('slotEntries never hands a slot to an untouched draft', () => {
+  const draft = { id: 'd', title: core.DRAFT_TITLE, text: '', tags: [], uses: 0 };
+  const real = { id: 'r', title: 'Real', text: 'x', tags: [], uses: 0 };
+  // rankSnippets already drops it; a ranked list built by hand is filtered too
+  assert.deepEqual(core.slotEntries(core.rankSnippets('', [draft, real]), ['d', 'r']).map(e => e.s.id), ['r']);
+  assert.deepEqual(core.slotEntries([{ s: draft }, { s: real }], ['d', 'r']).map(e => e.s.id), ['r']);
+});
+
 test('highlightSegments keeps underlines aligned after an emoji (L4)', () => {
   const title = '🚀 Root cause';
   const { indices } = core.fuzzyScore('root', title);
@@ -304,6 +368,15 @@ test('parsePacks: legacy flat array, category becomes a tag', () => {
   assert.deepEqual(packs[0].prompts[0].tags, ['debug']);
 });
 
+test('parsePacks: CRLF input parses, and the text keeps its line breaks (L23)', () => {
+  const raw = '{\r\n  "name": "Win",\r\n  "prompts": [\r\n    { "title": "A", "text": "line one\\r\\nline two", "tags": ["x"] }\r\n  ]\r\n}\r\n';
+  const packs = core.parsePacks(raw);
+  assert.equal(packs[0].name, 'Win');
+  assert.equal(packs[0].prompts[0].text, 'line one\r\nline two');
+  // Fenced and CRLF at once, as pasted from a Windows terminal
+  assert.equal(core.parsePacks('```json\r\n' + raw + '```')[0].name, 'Win');
+});
+
 test('parsePacks: tolerates markdown code fences', () => {
   const raw = '```json\n' + JSON.stringify({ name: 'F', prompts: [] }) + '\n```';
   assert.equal(core.parsePacks(raw)[0].name, 'F');
@@ -359,7 +432,53 @@ test('diagnosePack: valid JSON, wrong shape', () => {
   assert.equal(d.code, 'wrong-shape');
 });
 
+// ---- new prompt from the clipboard --------------------------------------------------
+
+test('titleFromClipboard cuts at a word boundary within 40 characters (L20)', () => {
+  const err = "TypeError: cannot read properties of undefined (reading 'id')";
+  // Used to be "TypeError: cannot read properties of und"
+  assert.equal(core.titleFromClipboard(err), 'TypeError: cannot read properties of');
+  assert.ok(core.titleFromClipboard(err).length <= 40);
+  // A line that fits comes back whole; the boundary may sit exactly at the limit
+  assert.equal(core.titleFromClipboard('Short title'), 'Short title');
+  assert.equal(core.titleFromClipboard('a'.repeat(40)), 'a'.repeat(40));
+  assert.equal(core.titleFromClipboard('a'.repeat(39) + ' b'), 'a'.repeat(39));
+  // One long word: a hard cut is all there is
+  assert.equal(core.titleFromClipboard('x'.repeat(50)), 'x'.repeat(40));
+  // The first non-empty line, trimmed; `max` is a parameter
+  assert.equal(core.titleFromClipboard('\n\n  Fix the build  \nsecond line'), 'Fix the build');
+  assert.equal(core.titleFromClipboard('one two three four', 9), 'one two');
+  assert.equal(core.titleFromClipboard(''), '');
+  assert.equal(core.titleFromClipboard('  \n '), '');
+  assert.equal(core.titleFromClipboard(undefined), '');
+});
+
 // ---- misc ------------------------------------------------------------------------
+
+test('normalizeTag: lowercase, nothing outside [a-z0-9_-] (M14)', () => {
+  assert.equal(core.normalizeTag(' Code Review '), 'codereview');
+  assert.equal(core.normalizeTag('code-review_2'), 'code-review_2');
+  assert.equal(core.normalizeTag('#Debug!'), 'debug');
+  assert.equal(core.normalizeTag(''), '');
+  assert.equal(core.normalizeTag(undefined), '');
+  // Every shipped tag already passes as is
+  for (const t of ['debug', 'review', 'plan', 'refactor', 'test', 'guardrails', 'meta', 'general']) {
+    assert.equal(core.normalizeTag(t), t);
+  }
+});
+
+test('plural counts and pluralises, with an irregular form on request (L6)', () => {
+  assert.equal(core.plural(1, 'prompt'), '1 prompt');
+  assert.equal(core.plural(0, 'prompt'), '0 prompts');
+  assert.equal(core.plural(2, 'prompt'), '2 prompts');
+  assert.equal(core.plural(1, 'entry', 'entries'), '1 entry');
+  assert.equal(core.plural(3, 'entry', 'entries'), '3 entries');
+});
+
+test('DRAFT_TITLE is the title isEmptyDraft looks for', () => {
+  assert.equal(core.DRAFT_TITLE, 'New prompt');
+  assert.ok(core.isEmptyDraft({ title: core.DRAFT_TITLE, text: '', uses: 0 }));
+});
 
 test('fmtHotkey capitalizes parts', () => {
   assert.equal(core.fmtHotkey('ctrl+shift+v'), 'Ctrl+Shift+V');
@@ -494,6 +613,24 @@ test('sortPrompts: custom is the array order itself, pins included', () => {
   assert.notEqual(out, list);
 });
 
+test('title ties sort numerically: 0, 1, 2, 10, not 0, 1, 10, 2 (L20)', () => {
+  const titles = ['Bulk prompt 10', 'Bulk prompt 2', 'Bulk prompt 0', 'Bulk prompt 1', 'Bulk prompt 11'];
+  const list = titles.map((t, i) => snip(`s${i}`, { title: t, uses: 3 }));
+  const want = ['Bulk prompt 0', 'Bulk prompt 1', 'Bulk prompt 2', 'Bulk prompt 10', 'Bulk prompt 11'];
+  assert.deepEqual(core.sortPrompts(list, 'title').map(s => s.title), want);
+  assert.deepEqual(core.sortPrompts(list, 'uses').map(s => s.title), want, 'equal uses, title breaks the tie');
+  assert.deepEqual(core.rankSnippets('', list).map(e => e.s.title), want, 'the popup agrees');
+  const pins = list.map(s => ({ ...s, pinned: true }));
+  assert.deepEqual(core.rankSnippets('', pins).map(e => e.s.title), want, 'legacy pins too');
+});
+
+test('sortPrompts treats a missing uses as 0, like rankSnippets (L23)', () => {
+  const list = [snip('none', { uses: undefined }), snip('one', { uses: 1 }), snip('zero', { uses: 0 })];
+  delete list[0].uses;
+  assert.deepEqual(core.sortPrompts(list, 'uses').map(s => s.id), ['one', 'none', 'zero']);
+  assert.deepEqual(core.rankSnippets('', list).map(e => e.s.id), ['one', 'none', 'zero']);
+});
+
 test('sortPrompts falls back to uses for an unknown order', () => {
   const list = [snip('a', { uses: 1 }), snip('b', { uses: 5 })];
   assert.deepEqual(core.sortPrompts(list, 'nonsense').map(s => s.id), ['b', 'a']);
@@ -554,6 +691,14 @@ test('clipboardPreview cuts long text at the limit with an ellipsis', () => {
   assert.equal(core.clipboardPreview('hello world', 11), 'hello world');
 });
 
+test('clipboardPreview never cuts a surrogate pair in half (L23)', () => {
+  // "ab\ud83d\ude80": the limit falls between the emoji's two UTF-16 units
+  const out = core.clipboardPreview('ab\u{1F680}cd', 3);
+  assert.equal(out, 'ab\u2026');
+  assert.ok(!/[\uD800-\uDBFF]\u2026/.test(out), 'no lone high surrogate before the ellipsis');
+  assert.equal(core.clipboardPreview('ab\u{1F680}cd', 4), 'ab\u{1F680}\u2026');
+});
+
 // ---- copy from the editor ------------------------------------------------------
 
 test('expandForCopy substitutes config and the clipboard, keeps fill-in fields', () => {
@@ -568,10 +713,10 @@ test('expandForCopy pastes nothing for an empty clipboard and keeps $ patterns l
 });
 
 test('expandForCopy expands {date} and {time} the way a paste does', () => {
-  const out = core.expandForCopy('{date}|{time}', {}, '');
-  const [date, time] = out.split('|');
-  assert.equal(date, new Date().toLocaleDateString());
-  assert.ok(/\d/.test(time) && !time.includes('{'), time);
+  // A fixed clock: comparing against new Date() flaked across midnight (L23)
+  const now = new Date(2026, 0, 31, 23, 59);
+  const out = core.expandForCopy('{date}|{time}', {}, '', now);
+  assert.equal(out, `${now.toLocaleDateString()}|${now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
 });
 
 // ---- matchesQuery: the manager sidebar's filter --------------------------------
@@ -597,8 +742,21 @@ test('matchesQuery applies #tag, @pack and >group terms before the text', () => 
 // ---- repeated fields: numbered copies -------------------------------------------
 test('names may hold digits after the first character; {0} and {Goal} stay text', () => {
   assert.deepEqual(core.customFields('{goal} {goal_2} {step3} {0} {1} {Goal}'), ['goal', 'goal_2', 'step3']);
+  // Only the near-miss is flagged; the numeric slot is plain text
   const bad = core.tokenize('{0}{Goal}').filter((t) => t.type === 'bad').map((t) => t.raw);
-  assert.deepEqual(bad, ['{0}', '{Goal}']);
+  assert.deepEqual(bad, ['{Goal}']);
+});
+
+test('tokenize keeps {0} / {1} as text, in one run with what surrounds them (M7)', () => {
+  // Format-string slots in pasted code drew one red "not a param" chip each
+  assert.deepEqual(core.tokenize('print("{0} of {1}")'), [{ type: 'text', value: 'print("{0} of {1}")' }]);
+  assert.deepEqual(core.tokenize('{0}'), [{ type: 'text', value: '{0}' }]);
+  assert.deepEqual(core.tokenize('{{2}} {goal}'), [
+    { type: 'text', value: '{{2}} ' },
+    { type: 'field', name: 'goal', raw: '{goal}' },
+  ]);
+  // {1st} still starts with a digit and is a near-miss, not a slot
+  assert.deepEqual(core.tokenize('{1st}').map((t) => t.type), ['bad']);
 });
 
 test('nextCopyName numbers from 2, skips taken names, and counts from the stem', () => {
@@ -606,6 +764,11 @@ test('nextCopyName numbers from 2, skips taken names, and counts from the stem',
   assert.equal(core.nextCopyName('goal', '{goal} then {goal_2}'), 'goal_3');
   assert.equal(core.nextCopyName('goal_2', '{goal} then {goal_2}'), 'goal_3', 'a copy of a copy shares the stem');
   assert.equal(core.nextCopyName('goal', '{goal} {{goal_2}}'), 'goal_3', 'a config param holds its name too');
+  // A two-digit copy: the stem is still "goal", so the count starts over
+  // from 2 and fills the first free number, not 11 (L23)
+  assert.equal(core.nextCopyName('goal_10', '{goal} {goal_10}'), 'goal_2');
+  assert.equal(core.nextCopyName('goal_10', '{goal} {goal_2} {goal_10}'), 'goal_3');
+  assert.equal(core.nextCopyName('goal_10', '{goal_10}'), 'goal_2', 'the stem itself need not be present');
 });
 
 test('numbered names fill, expand and downgrade like any other (the paste path)', () => {
