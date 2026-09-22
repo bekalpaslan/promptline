@@ -16,9 +16,10 @@ logic in `ui/core.js` (plain UMD, tested with bare `node --test`).
 
 ## Checks
 
-- `npx tsc -b --noEmit`, `npx eslint src`, `npm test` (core), `npm run test:rust`.
-- Use `npx eslint src`, not `npm run lint`: the full-tree lint also walks
-  `.claude/worktrees/`, where a stale worktree fails it.
+- `npx tsc -b --noEmit`, `npm run lint`, `npm test` (core), `npm run test:rust`.
+- `npm run lint` walks the whole tree, `.claude/worktrees/` included: a
+  worktree left behind with broken files fails it. Remove finished
+  worktrees (`git worktree remove`); `npx eslint src` checks only the app.
 - Line endings: the index is LF (`core.autocrlf=true`), working copies are
   mixed. Run `unix2dos` on the files you touch, and only those. Scripted
   edits should normalise `\r\n` before matching, or they silently miss.
