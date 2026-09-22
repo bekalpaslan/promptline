@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { RiArrowDownSLine, RiArrowRightSLine, RiCloseLine, RiLock2Fill } from "@remixicon/react"
+import { RiArrowDownSLine, RiArrowRightSLine, RiCloseLine, RiComputerLine, RiLock2Fill, RiMoonClearLine, RiSunLine } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
-import { Select, fieldVariants } from "@/components/field"
+import { SEGMENT_TRACK, Select, fieldVariants, segmentClass } from "@/components/field"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { C } from "@/lib/core"
@@ -230,6 +230,34 @@ export function Settings() {
       </Card>
 
       <Card title="Appearance">
+        <Row label="Theme">
+          {/* A setting, not a switch: chosen once, so it lives with the other
+              appearance choices rather than in the sidebar. System follows Windows */}
+          <div className={cn(SEGMENT_TRACK, "w-full max-w-xs")} role="radiogroup" aria-label="Theme">
+            {(
+              [
+                { id: "system", label: "System", Icon: RiComputerLine },
+                { id: "light", label: "Light", Icon: RiSunLine },
+                { id: "dark", label: "Dark", Icon: RiMoonClearLine },
+              ] as const
+            ).map(({ id, label, Icon }) => {
+              const active = m.prefs.theme === id || (id === "dark" && !["system", "light", "dark"].includes(m.prefs.theme))
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  className={cn(segmentClass(active), "flex-1")}
+                  onClick={() => void m.savePrefs({ theme: id })}
+                >
+                  <Icon className="size-4" aria-hidden />
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </Row>
         <Row label="Popup density" htmlFor="setting-density">
           <Select
             size="sm"
@@ -276,8 +304,8 @@ export function Settings() {
           </Select>
         </Row>
         <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
-          Font and scale apply everywhere immediately (popup on its next open); density applies to the popup
-          the next time it opens. Theme switches with the Light/Dark toggle at the bottom of the sidebar.
+          Theme, font and scale apply everywhere immediately (popup on its next open); density applies to the
+          popup the next time it opens. System follows the Windows light or dark mode as it changes.
         </p>
       </Card>
 

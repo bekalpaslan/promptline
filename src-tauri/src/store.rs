@@ -240,8 +240,11 @@ pub(crate) struct Snippet {
     pub(crate) pinned_at: u64,
 }
 
+// A fresh install follows Windows; a config written before the theme field
+// existed gets the same. "sand" and "sundown" are what older builds wrote
+// for their dark themes and still read as dark.
 fn default_theme() -> String {
-    "sand".into()
+    "system".into()
 }
 
 fn default_density() -> String {
@@ -599,7 +602,7 @@ mod tests {
         let c: Config = serde_json::from_str(r#"{"hotkey": "ctrl+alt+v"}"#).unwrap();
         assert_eq!(c.hotkey, "ctrl+alt+v");
         assert!(c.packs.is_empty());
-        assert_eq!(c.theme, "sand");
+        assert_eq!(c.theme, "system");
         assert_eq!(c.density, "comfortable");
         assert_eq!(c.scale, "100");
         assert_eq!(c.font, "system");

@@ -718,6 +718,16 @@
   // import only trimmed and lowercased, so a tag with a space could be
   // stored and then never found (`#code review` parses as the tag `code`).
   // The strictest of the three, and every shipped pack's tags pass it as is.
+  // ---- Theme ------------------------------------------------------------------------
+  // The saved preference is "system", "light" or "dark"; "system" follows the
+  // OS (`systemDark` is the prefers-color-scheme match). Anything else — the
+  // legacy "sand"/"sundown" values — was dark and stays dark.
+  function resolveTheme(pref, systemDark) {
+    if (pref === 'light') return 'light';
+    if (pref === 'system') return systemDark ? 'dark' : 'light';
+    return 'dark';
+  }
+
   function normalizeTag(raw) {
     return (raw || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '');
   }
@@ -787,6 +797,7 @@
     titleFromClipboard,
     normalizeTag,
     plural,
+    resolveTheme,
     fmtHotkey,
   };
 

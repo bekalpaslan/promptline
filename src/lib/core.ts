@@ -213,6 +213,7 @@ interface PromptlineCore {
   normalizeTag(raw: string): string
   /** "1 prompt", "2 prompts"; pass the plural for an irregular word */
   plural(n: number, word: string, pluralWord?: string): string
+  resolveTheme(pref: string | null | undefined, systemDark: boolean): "light" | "dark"
   fmtHotkey(combo: string): string
 }
 

@@ -44,7 +44,7 @@ export function SearchClear({ label, title, onClick }: { label: string; title?: 
 }
 
 // A segmented control: a sunken track of segments, the chosen one raised.
-// The sidebar's theme toggle and the generate dialog's path picker.
+// Settings' theme control and the generate dialog's path picker.
 export const SEGMENT_TRACK = "flex items-center gap-1 rounded-lg bg-(--segment-track) p-1"
 export const segmentClass = (active: boolean) =>
   cn(

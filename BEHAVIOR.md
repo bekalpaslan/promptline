@@ -610,6 +610,21 @@ message; it used to be recorded and fail at Apply.
 
 ## Theming
 
+**The theme is a setting, not a switch.** System / Light / Dark is a
+segmented control in Settings → Appearance next to density, font and
+scale, where the other appearance choices already were; the sidebar used
+to carry a Light / Dark toggle in its footer, permanent real estate for a
+choice made once. System is the default for a fresh install and follows
+Windows live (`resolveTheme` in `ui/core.js` turns the saved preference
+and the `prefers-color-scheme` match into the class; `applyPrefs` listens
+for the OS switching). An explicit choice saved by an older build stays
+what it was, and the legacy "sand"/"sundown" values still read as dark.
+With the footer gone and the "Prompts" heading with it (the window is
+Promptline and the list is visibly prompts; the landmark keeps its name
+through `aria-label`), the sidebar is search, Display, New and the tree,
+nothing else; the Settings gear sits at the top-right of the pane, above
+whatever the pane shows.
+
 `.dark` on `<html>` swaps CSS custom properties. It also sets `color-scheme`,
 which is what makes native UI the webview paints itself — scrollbars, `<select>`
 popups, form controls — follow the theme. Tokens alone leave those light.
