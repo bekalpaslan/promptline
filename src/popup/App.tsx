@@ -606,8 +606,10 @@ export function App() {
   // --- Keyboard ---------------------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      // Autofill and IME composition send keydowns with no key: nothing to act on
-      if (!e.key) return
+      // Autofill sends keydowns with no key, and an IME's keydowns during
+      // composition carry a key (Enter commits the candidate) but are not
+      // the user's command: nothing to act on either way (L21)
+      if (!e.key || e.isComposing) return
       // A key the form or create view already acted on is spent: they close
       // themselves, so whether this listener still sees them mounted depends
       // on when React re-runs this effect. The guard makes that timing
@@ -831,7 +833,7 @@ export function App() {
           // stays out of this view. Arrow keys reach the selects untouched, and
           // a focused button keeps its native Enter (that is already a click).
           onKeyDown={(e) => {
-            if (e.key !== "Enter" || e.target instanceof HTMLButtonElement) return
+            if (e.key !== "Enter" || e.nativeEvent.isComposing || e.target instanceof HTMLButtonElement) return
             e.preventDefault()
             // Saving unmounts this view; the same keydown must not reach the
             // document listener and be taken for a list pick
@@ -945,7 +947,8 @@ export function App() {
                   onFocus={(e) => { if (remembered) e.currentTarget.select() }}
                   onChange={(e) => setFormValues((v) => ({ ...v, [f]: e.target.value }))}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
+                    // An IME's Enter commits the candidate, not the form
+                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
                       e.preventDefault()
                       // Submitting closes the form; this keydown is spent here
                       // and must not bubble on to the list's Enter
