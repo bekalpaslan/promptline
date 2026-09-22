@@ -435,6 +435,17 @@ a call site. Two lookalikes stay apart on purpose: a key cap is a key, not a
 label, and the sidebar's search-box chip draws under the input's text, so it
 cannot take padding.
 
+The rest of what both windows draw follows the same rule, one definition
+each: the preview box (`PREVIEW_BOX`, grey, 13px), a pack or group's `Count`
+(the bare number), key combinations (`Keys`, one cap per key), menus
+(`components/menu-styles.ts`: the popup's panel for the context menus too),
+fields (`components/field.tsx`: every input, textarea and select filled and
+borderless; the two search boxes are the bordered exception, being the field
+each window is built around), the segmented control, and the two heading
+roles (`section-title` on a manager panel, `section-label` over a run of
+items in a list or menu). Hover is `--hover` grey everywhere; the accent
+marks what is selected and nothing else.
+
 ## Windows-specific code
 
 Confined to the `platform` module in `lib.rs`: `foreground_window`,

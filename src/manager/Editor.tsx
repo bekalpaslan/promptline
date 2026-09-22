@@ -15,7 +15,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
-import { Chip, PromptTokens, TagPill, chipVariants } from "@/components/prompt-bits"
+import { Select, fieldVariants } from "@/components/field"
+import { Chip, PREVIEW_BOX, PromptTokens, TagPill, chipVariants } from "@/components/prompt-bits"
 import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
@@ -141,7 +142,8 @@ function TokenPreview({
   return (
     <div
       className={cn(
-        "min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-transparent bg-secondary/50 px-4 pt-3 pb-[calc(0.75rem+1lh)] text-sm leading-relaxed text-muted-foreground",
+        PREVIEW_BOX,
+        "min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] overflow-y-auto border border-transparent px-4 pt-3 pb-[calc(0.75rem+1lh)]",
         className
       )}
     >
@@ -525,7 +527,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             placeholder="New pack name — Enter to confirm"
             aria-label="New pack name"
             spellCheck={false}
-            className="min-w-32 flex-1 rounded-md bg-secondary px-3 py-1.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
+            className={cn(fieldVariants(), "min-w-32 flex-1")}
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault()
@@ -543,30 +545,25 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             onBlur={() => setNewPackMode(false)}
           />
         ) : (
-          <span className="relative min-w-32 flex-1">
-            <select
-              value={pack}
-              onChange={(e) => {
-                if (e.target.value === "__new__") {
-                  setNewPackMode(true)
-                  return
-                }
-                editPack(e.target.value)
-              }}
-              // Native select arrows hug the edge; the app's own chevron sits
-              // inset by the tier-1 spacing (6px) and takes the theme's colour
-              aria-label="Pack"
-              className="w-full cursor-pointer appearance-none rounded-md bg-secondary py-1.5 pl-2 pr-7 text-ui text-foreground focus-ring"
-            >
-              {m.packNames(pack).map((p) => (
-                <option key={p} value={p} disabled={m.isLocked(p) && p !== pack}>
-                  {m.isLocked(p) ? `🔒 ${p}` : p}
-                </option>
-              ))}
-              <option value="__new__">＋ New pack…</option>
-            </select>
-            <RiArrowDownSLine className="pointer-events-none absolute right-1.5 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-          </span>
+          <Select
+            className="min-w-32 flex-1"
+            value={pack}
+            onChange={(e) => {
+              if (e.target.value === "__new__") {
+                setNewPackMode(true)
+                return
+              }
+              editPack(e.target.value)
+            }}
+            aria-label="Pack"
+          >
+            {m.packNames(pack).map((p) => (
+              <option key={p} value={p} disabled={m.isLocked(p) && p !== pack}>
+                {m.isLocked(p) ? `🔒 ${p}` : p}
+              </option>
+            ))}
+            <option value="__new__">＋ New pack…</option>
+          </Select>
         )}
         {/* Group within the pack — a label, so free text with the pack's existing groups as suggestions */}
         <input
@@ -578,7 +575,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           placeholder="Group (optional)"
           aria-label="Group"
           spellCheck={false}
-          className="min-w-28 flex-1 rounded-md bg-secondary px-3 py-1.5 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
+          className={cn(fieldVariants(), "min-w-28 flex-1")}
         />
         <datalist id={`groups-${snippet.id}`}>
           {packGroups.map((g) => (
@@ -706,7 +703,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
                           spellCheck={false}
                           placeholder="(unset — will ask as a fill-in field)"
                           aria-label={`Value for {{${name}}}`}
-                          className="flex-1 rounded-md bg-secondary px-3 py-1 text-ui text-foreground focus-ring placeholder:text-muted-foreground"
+                          className={cn(fieldVariants({ size: "sm" }), "flex-1")}
                           onChange={(e) => {
                             setConfigValues((v) => ({ ...v, [name]: e.target.value }))
                             scheduleSave()
