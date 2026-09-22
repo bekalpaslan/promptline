@@ -16,6 +16,7 @@ import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { TOKEN_CHIP } from "@/lib/library"
+import { PromptTokens, TagPill } from "@/components/prompt-bits"
 import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
@@ -156,35 +157,7 @@ function TokenPreview({
         className
       )}
     >
-      {C.tokenize(text).map((part, i) => {
-        if (part.type === "text") return <span key={i}>{part.value}</span>
-        let label: string
-        const cls = TOKEN_CHIP[part.type]
-        if (part.type === "bad") {
-          label = `${part.name} — not a param (lowercase letters, digits and _, not starting with a digit)`
-        } else if (part.type === "builtin" && part.name === "clipboard" && clipboard !== null) {
-          // {clipboard} expands at paste time (BEHAVIOR.md): the preview
-          // shows what would go in now, on the builtin's tint so it still
-          // reads as a placeholder rather than as the prompt's own words
-          return (
-            <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground" title="The clipboard as it is now">
-              {C.clipboardPreview(clipboard)}
-            </span>
-          )
-        } else if (part.type === "config") {
-          const v = (configValues[part.name] || "").replace(/\s+/g, " ")
-          label = v ? (v.length > 40 ? v.slice(0, 40) + "…" : v) : `${part.name} — config (unset)`
-        } else if (part.type === "builtin") {
-          label = part.name
-        } else {
-          label = `${part.name} — fill-in`
-        }
-        return (
-          <span key={i} className={cn("rounded-sm px-1 text-xs font-semibold", cls)}>
-            {label}
-          </span>
-        )
-      })}
+      <PromptTokens text={text} clipboard={clipboard} configValues={configValues} />
     </div>
   )
 }
@@ -635,7 +608,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           className={cn("text-destructive hover:bg-destructive/15", deleteArmed && "bg-destructive/15")}
         >
           <span aria-live="assertive">
-            {deleteArmed ? `Delete "${(snippet.title || "untitled").slice(0, 24)}"?` : <RiDeleteBinLine className="size-4" aria-hidden />}
+            {deleteArmed ? `Really delete "${(snippet.title || "untitled").slice(0, 24)}"?` : <RiDeleteBinLine className="size-4" aria-hidden />}
           </span>
         </Button>
       </div>
@@ -664,20 +637,11 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       <ParamSection title="Tags" hint="#tag narrows the popup's list — click a pill to add">
         {(editing) => (
           <div className="flex flex-wrap items-center gap-1.5">
-            {tagList.map((t) => {
-              const c = C.tagColor(t)
-              return (
-                <span
-                  key={t}
-                  title={editing ? `#${t}` : `#${t} — Edit to remove`}
-                  className="relative flex shrink-0 select-none items-center rounded-sm border bg-background/60 px-2.5 py-0.5 text-xs font-medium tag-text tag-border dark:tag-text-dark dark:tag-border-dark"
-                  style={{ "--tag": c } as React.CSSProperties}
-                >
-                  {t}
-                  {editing && <DeleteBadge onDelete={() => removeTag(t)} />}
-                </span>
-              )
-            })}
+            {tagList.map((t) => (
+              <TagPill key={t} tag={t} size="md" title={editing ? `#${t}` : `#${t} — Edit to remove`}>
+                {editing && <DeleteBadge onDelete={() => removeTag(t)} />}
+              </TagPill>
+            ))}
             {tagSuggestions.map((t) => (
               <AddPill key={t} label={t} title={`Add tag "${t}"`} onAdd={() => addTag(t)} />
             ))}

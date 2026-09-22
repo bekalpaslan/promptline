@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { RiAddLine, RiArrowLeftSLine, RiFolderLine, RiLock2Fill, RiMoreLine, RiPushpinFill } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
+import { InputsBadge, PromptTokens, TagList } from "@/components/prompt-bits"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { EmptyState } from "./EmptyState"
 import { groupKey, useLibraryMenus } from "./menus"
@@ -158,8 +159,8 @@ function PromptCard({
 }) {
   const tags = s.tags || []
   const inputs = C.requiredInputs(s)
-  // Previews show the clipboard, not the word "clipboard" (BEHAVIOR.md): the
-  // excerpt substitutes it on the builtin's tint, like the editor and popup
+  // The excerpt is the same token preview as the editor's and the popup's,
+  // so it too shows the clipboard, not the word "clipboard" (BEHAVIOR.md)
   const excerpt = s.text.replace(/\s+/g, " ")
   return (
     <button
@@ -182,50 +183,15 @@ function PromptCard({
       <span className="flex min-w-0 items-center gap-1.5">
         {s.pinned && <RiPushpinFill className="size-3.5 shrink-0 text-(--warn)" aria-label="pinned" />}
         <span className="min-w-0 flex-1 truncate font-semibold">{s.title || "(untitled)"}</span>
-        {inputs.length > 0 && (
-          <span
-            className="flex h-4 shrink-0 items-center rounded-sm border border-(--warn)/40 px-1 text-xs tabular-nums text-(--warn)"
-            title={`Asks for ${inputs.length} value${inputs.length === 1 ? "" : "s"} before pasting: ${inputs.join(", ")}`}
-          >
-            {"{"}{inputs.length}{"}"}
-          </span>
-        )}
+        <InputsBadge inputs={inputs} />
         {s.uses > 0 && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{s.uses}×</span>}
       </span>
       <span className="line-clamp-3 break-words text-xs leading-relaxed text-muted-foreground">
-        {!excerpt.trim() ? (
-          <i>(empty)</i>
-        ) : (
-          C.tokenize(excerpt).map((part, i) =>
-            part.type === "builtin" && part.name === "clipboard" && clipboard !== null ? (
-              <span key={i} className="rounded-sm bg-(--param-builtin-bg) px-0.5 text-foreground" title="The clipboard as it is now">
-                {C.clipboardPreview(clipboard)}
-              </span>
-            ) : (
-              <span key={i}>{part.type === "text" ? part.value : part.raw}</span>
-            )
-          )
-        )}
+        {excerpt.trim() ? <PromptTokens text={excerpt} clipboard={clipboard} configValues={s.configValues} /> : <i>(empty)</i>}
       </span>
       {tags.length > 0 && (
         <span className="flex flex-wrap items-center gap-1">
-          {tags.slice(0, MAX_CARD_TAGS).map((tag) => (
-            <span
-              key={tag}
-              className="flex h-4 shrink-0 items-center whitespace-nowrap rounded-sm border px-1 text-xs tag-text tag-border dark:tag-text-dark dark:tag-border-dark"
-              style={{ "--tag": C.tagColor(tag) } as React.CSSProperties}
-            >
-              {tag}
-            </span>
-          ))}
-          {tags.length > MAX_CARD_TAGS && (
-            <span
-              className="flex h-4 shrink-0 items-center rounded-sm border border-border px-1 text-xs tabular-nums text-muted-foreground"
-              title={tags.slice(MAX_CARD_TAGS).map((t) => `#${t}`).join(", ")}
-            >
-              +{tags.length - MAX_CARD_TAGS}
-            </span>
-          )}
+          <TagList tags={tags} max={MAX_CARD_TAGS} />
         </span>
       )}
     </button>
