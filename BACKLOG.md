@@ -44,8 +44,22 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 
 - **Flush the editor on Windows shutdown** — tray Quit now flushes a
   pending autosave (BEHAVIOR.md "Quitting"); `WM_QUERYENDSESSION` does not.
-- **"Saving… / Saved" caption in the editor** — there is no visible signal
-  that an edit has reached disk (UI review, M12).
+- ~~**"Saving… / Saved" caption in the editor**~~ — **shipped 0.2.9**
+  (release audit M9).
+- **Type-checked lint** — `recommendedTypeChecked` on `src/**` gives 24
+  errors (`restrict-template-expressions` 12, `unbound-method` 3,
+  `no-unsafe-argument` 3, …); fix them in one pass, then enable it
+  (release audit L13, declined for 0.2.9).
+- **Three config re-reads per write** — every intent-level write parses
+  `config.json` in `mutate_library`, `sync_pack_files` and
+  `ensure_packs_backed`; pass it through once (release audit L8 leftover).
+- **Popup options contain buttons** — the tag pills and pack headers inside
+  `role=listbox` options are invalid ARIA, though they work with
+  `aria-activedescendant`; move tag filtering to the action panel (release
+  audit L20 leftover).
+- **Real-library screenshot** — `docs/popup.png` (README and the website)
+  is the mock's data ("Mock Groups", a `{2}` chip); retake it from a real
+  library over CDP.
 
 ## Popup
 
@@ -56,6 +70,14 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 ## Distribution
 
 - **Code signing** — unsigned installers trip Windows SmartScreen.
-- **Auto-update** — Tauri updater plugin + a release feed.
+- **Auto-update** — Tauri updater plugin + a release feed. The feed can be
+  a static `latest.json` served by the website (`site/` on GitHub Pages at
+  promptline.cc), written by the release step; the updater needs a signing
+  key pair, which is the real work.
+- **Stable-named installer** — a `Promptline-setup.exe` copy on each
+  release so `releases/latest/download/…` links work without the version;
+  today the website resolves the versioned name through the GitHub API.
+- **security@promptline.cc** — GoDaddy forwarding to the mailbox, then
+  SECURITY.md stops naming a personal address.
 - **macOS port** — reimplement the `platform` module (CGEventPost + Accessibility
   permission); everything else is portable.
