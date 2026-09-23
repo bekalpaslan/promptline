@@ -549,7 +549,7 @@ test('pinPlan counts only newly pinned rows against the limit (UH5)', () => {
 
 test('packToJson keeps title/tags/text, adds group only when set, drops personal state (M1)', () => {
   const out = core.packToJson('P', [
-    { id: '1', title: 'A', text: 'x', tags: ['t'], group: 'G', uses: 5, pinned: true, fieldValues: { a: 'b' }, configValues: { c: 'd' } },
+    { id: '1', title: 'A', text: 'x', tags: ['t'], group: 'G', uses: 5, pinned: true, configValues: { c: 'd' } },
     { id: '2', title: 'B', text: 'y', tags: [], group: '', uses: 0, pinned: false },
     { id: '3', title: 'C', text: 'z' },
   ]);

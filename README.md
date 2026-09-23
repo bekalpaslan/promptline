@@ -93,7 +93,7 @@ report.
 |---|---|
 | `{clipboard}` | whatever was on the clipboard when you hit the hotkey |
 | `{date}` / `{time}` | current date / time |
-| any other `{lowercase_word}` | a runtime fill-in field — the popup asks before pasting, pre-filled with your last value |
+| any other `{lowercase_word}` | a runtime fill-in field — the popup asks before pasting |
 | `{{lowercase_word}}` | a config parameter — set its value once (editor → Advanced options), it pastes silently every time |
 
 Unset config parameters downgrade to fill-in fields instead of pasting holes.
@@ -166,7 +166,8 @@ them, plus config values and a live preview. Invisible until you want it.
   scale (90–125%); and **Your library** — export the whole library, import
   from the clipboard or a file, or **Open folder** to see the data folder
   (library, packs and the log file) in Explorer, plus per-pack rows to
-  import from, export, or create that pack's file
+  import from, export, or create that pack's file; and **About**, with the
+  version you're running
 
 ## Data
 

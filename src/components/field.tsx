@@ -1,3 +1,4 @@
+import { useRef } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { RiArrowDownSLine, RiCloseLine } from "@remixicon/react"
 import { cn } from "@/lib/utils"
@@ -69,6 +70,65 @@ export function Select({
         className="pointer-events-none absolute right-2 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground"
         aria-hidden
       />
+    </span>
+  )
+}
+
+// Free text with a list to pick from, beside a Select and looking like one:
+// the same chevron, which calls `onList` with the field's box so the caller
+// can open its menu under it; Arrow Down does the same from the keyboard.
+// Not a <datalist>: Chromium's list filters by what is typed, so a field
+// already holding a value offered only that value, and its popup and ▼ were
+// the browser's, not the app's (the ▼ stays hidden in index.css for the tag
+// field). No `onList`, no chevron. The field is as wide as its text (or
+// placeholder); `className` places the wrapper and bounds it.
+export function ComboInput({
+  onList,
+  listLabel,
+  size,
+  className,
+  onKeyDown,
+  ...props
+}: Omit<React.ComponentProps<"input">, "size" | "list"> &
+  VariantProps<typeof fieldVariants> & { onList?: (box: DOMRect) => void; listLabel?: string }) {
+  const wrap = useRef<HTMLSpanElement>(null)
+  const input = useRef<HTMLInputElement>(null)
+  const openList = () => {
+    if (!onList || !wrap.current) return
+    // The menu hands focus back to the field when it closes
+    input.current?.focus()
+    onList(wrap.current.getBoundingClientRect())
+  }
+  return (
+    <span ref={wrap} className={cn("relative flex min-w-0", className)}>
+      <input
+        ref={input}
+        aria-haspopup={onList ? "menu" : undefined}
+        className={cn(fieldVariants({ size }), "min-w-0 flex-1 field-sizing-content", onList && "pr-7")}
+        onKeyDown={(e) => {
+          if (onList && e.key === "ArrowDown" && !e.nativeEvent.isComposing) {
+            e.preventDefault()
+            openList()
+            return
+          }
+          onKeyDown?.(e)
+        }}
+        {...props}
+      />
+      {onList && (
+        <button
+          type="button"
+          // The field is the tab stop; Arrow Down opens the list from there
+          tabIndex={-1}
+          aria-label={listLabel}
+          title={listLabel}
+          className="absolute inset-y-0 right-0 flex w-7 cursor-pointer items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={openList}
+        >
+          <RiArrowDownSLine className="size-3.5" />
+        </button>
+      )}
     </span>
   )
 }

@@ -15,7 +15,6 @@ export interface Snippet {
   pinned: boolean
   /** When this prompt was pinned (ms since epoch); 0 = not pinned, or a legacy pin */
   pinnedAt: number
-  fieldValues: Record<string, string>
   configValues: Record<string, string>
 }
 
@@ -29,7 +28,7 @@ export interface Library {
 export type SnippetEdit = Pick<Snippet, "title" | "text" | "tags" | "pack" | "group" | "configValues">
 
 /** What the popup changes; see `SnippetPatch` in lib.rs */
-export type SnippetPatch = Partial<Pick<Snippet, "pinned" | "fieldValues">>
+export type SnippetPatch = Partial<Pick<Snippet, "pinned">>
 
 /** A refused write, typed; see `StoreError` in lib.rs */
 export type StoreError = { kind: "stale"; revision: number } | { kind: "failed"; message: string }

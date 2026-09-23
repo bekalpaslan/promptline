@@ -263,7 +263,6 @@ export function App() {
       uses: 0,
       pinned: false,
       pinnedAt: 0,
-      fieldValues: {},
       configValues: {},
     }
     try {

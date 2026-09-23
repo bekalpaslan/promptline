@@ -134,9 +134,11 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    move, so clamping with the old size on a 100% → 150% move left a third
    of the popup off-screen.
 3. The user picks a prompt. If it needs runtime `{field}` values, the popup
-   switches to form mode first, pre-filled from `snippet.fieldValues`. Each
-   field grows with its text, wrapped lines included, from one line to three,
-   then scrolls; the fields and preview scroll together while the button stays
+   switches to form mode first, with every field empty. Nothing typed is
+   kept: up to 0.2.9 the form pre-filled each field with its last value
+   (`fieldValues`, marked "last used"), and a library written by those
+   builds drops that key on its next save. Each field grows with its text,
+   wrapped lines included, from one line to three, then scrolls; the fields and preview scroll together while the button stays
    in reach. An empty field is allowed and never silent, but quiet: its
    placeholder says it pastes nothing, the preview keeps its chip, and the
    button counts the empties. It used to be outlined in red, which shouted
@@ -239,7 +241,7 @@ editor's preview can never disagree.
 | Token | Resolved |
 |---|---|
 | `{clipboard}` `{date}` `{time}` | At paste time, from the environment |
-| `{lowercase_name}` | Runtime field — the popup asks, remembering the last value in `fieldValues` |
+| `{lowercase_name}` | Runtime field — the popup asks, every time, starting empty |
 | `{{lowercase_name}}` | Config parameter — from `configValues`, silently |
 
 **Previews show the clipboard, not the word "clipboard".** `{clipboard}`
@@ -312,6 +314,13 @@ prompts, so it goes through a real dialog rather than an armed menu item, and
 the status bar offers Undo afterwards. Pack files carry the label as an
 optional `"group"` on each prompt; older files and libraries load with it
 empty.
+
+The editor's group field is free text (typing a new name makes the group)
+with a chevron that opens a menu of the pack's groups, the current one
+checked and "No group" first; Arrow Down opens it from the field. It used to
+be a `<datalist>`, and Chromium filters that list by what is typed, so a
+prompt already in a group was offered only that group, in the browser's
+popup and with the browser's white ▼.
 
 **Pack operations that touch metadata and prompts happen in one Rust step
 or in a fixed order.** `ensure_packs_backed` runs inside every save, so a
@@ -492,11 +501,11 @@ autosave would clobber it with its stale copy.
 
 **Writes are intent-level where they can be, and revision-checked where they
 can't.** The popup never sends the whole library: it creates with
-`add_snippet`, pins and remembers fill-ins with `patch_snippet`, deletes with
+`add_snippet`, pins with `patch_snippet`, deletes with
 `delete_snippet`, and the editor's autosave is `update_snippet` with only the
 fields the editor owns — each a read-modify-write on disk in Rust, so a
 snapshot that is seconds old can't overwrite what the other window wrote
-meanwhile (`uses`, `pinned`, `fieldValues` are the popup's; title, text, tags,
+meanwhile (`uses`, `pinned` are the popup's; title, text, tags,
 pack, group, `configValues` are the editor's). The manager's bulk operations
 (move, tag, reorder, delete with Undo) still replace the array, so
 `save_snippets` carries the revision the manager loaded and Rust refuses it as

@@ -17,7 +17,7 @@ export type Name = keyof typeof components
 
 /** A complete snippet from the few fields a preview cares about */
 export function snippet(partial: Partial<Snippet> & Pick<Snippet, "id" | "title" | "text">): Snippet {
-  return { tags: [], pack: "Starter", group: "", uses: 0, pinned: false, pinnedAt: 0, fieldValues: {}, configValues: {}, ...partial }
+  return { tags: [], pack: "Starter", group: "", uses: 0, pinned: false, pinnedAt: 0, configValues: {}, ...partial }
 }
 
 /** The props a popup row needs beyond its snippet, with inert handlers */

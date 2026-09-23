@@ -457,7 +457,7 @@
 
   // ---- Pack export --------------------------------------------------------------
   // The shareable form of prompts: title, tags, text, and group only when set.
-  // Never uses/pinned/fieldValues/configValues — those are personal state.
+  // Never uses/pinned/configValues — those are personal state.
   // The one place both windows' exports come from, so none can drift.
   function packToJson(name, prompts) {
     return {

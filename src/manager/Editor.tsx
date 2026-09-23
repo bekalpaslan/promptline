@@ -16,9 +16,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
-import { Select, fieldVariants } from "@/components/field"
+import { ComboInput, Select, fieldVariants } from "@/components/field"
 import { Chip, PREVIEW_BOX, PromptTokens, TagPill, chipVariants } from "@/components/prompt-bits"
 import { useLibraryMenus } from "./menus"
+import { useCtxMenu } from "./ctx-menu"
 import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
@@ -218,7 +219,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const [tags, setTags] = useState((snippet.tags || []).join(", "))
   const [pack, setPack] = useState(snippet.pack || DEFAULT_PACK)
   const [group, setGroup] = useState(snippet.group || "")
-  const [newPackMode, setNewPackMode] = useState(false)
   const [text, setText] = useState(snippet.text)
   const [configValues, setConfigValues] = useState<Record<string, string>>({ ...(snippet.configValues || {}) })
   const [advOpen, setAdvOpen] = useState(localStorage.getItem("advancedOpen") === "1")
@@ -283,7 +283,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       setPack(targetPack)
     }
     const names = C.configNames(cur.text)
-    // Only the editor's own fields go to disk; uses/pinned/fieldValues are
+    // Only the editor's own fields go to disk; uses and pinned are
     // merged there from whatever the popup wrote since this render
     try {
       await mgr.updateSnippet(snippet.id, {
@@ -358,6 +358,8 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   }
 
   // Groups already in use in the chosen pack, for the group field's suggestions
+  // The group field's list: every group in the pack, the current one checked
+  const groupMenu = useCtxMenu()
   const packGroups = useMemo(() => {
     const set = new Set<string>()
     for (const s of m.snippets) if ((s.pack || DEFAULT_PACK) === pack && s.group) set.add(s.group)
@@ -567,67 +569,47 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           spellCheck={false}
           className="min-w-50 flex-[2] bg-transparent py-1 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
         />
-        {newPackMode ? (
-          <input
-            autoFocus
-            placeholder="New pack name — Enter to confirm"
-            aria-label="New pack name"
-            spellCheck={false}
-            className={cn(fieldVariants(), "min-w-32 flex-1")}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault()
-                const name = e.currentTarget.value.trim()
-                setNewPackMode(false)
-                if (name && !m.isLocked(name)) {
-                  editPack(name)
-                } else if (name && m.isLocked(name)) {
-                  sayErr(`Pack "${name}" is locked`)
-                }
-              }
-              if (e.key === "Escape") setNewPackMode(false)
-            }}
-            // Enter confirms; leaving the field cancels (the select comes back)
-            onBlur={() => setNewPackMode(false)}
-          />
-        ) : (
-          <Select
-            className="min-w-32 flex-1"
-            value={pack}
-            onChange={(e) => {
-              if (e.target.value === "__new__") {
-                setNewPackMode(true)
-                return
-              }
-              editPack(e.target.value)
-            }}
-            aria-label="Pack"
-          >
-            {m.packNames(pack).map((p) => (
-              <option key={p} value={p} disabled={m.isLocked(p) && p !== pack}>
-                {m.isLocked(p) ? `🔒 ${p}` : p}
-              </option>
-            ))}
-            <option value="__new__">＋ New pack…</option>
-          </Select>
-        )}
+        <Select
+          className="min-w-32 flex-1"
+          value={pack}
+          onChange={(e) => editPack(e.target.value)}
+          aria-label="Pack"
+        >
+          {m.packNames(pack).map((p) => (
+            <option key={p} value={p} disabled={m.isLocked(p) && p !== pack}>
+              {m.isLocked(p) ? `🔒 ${p}` : p}
+            </option>
+          ))}
+        </Select>
         {/* Group within the pack — a label, so free text with the pack's existing groups as suggestions */}
-        <input
+        <ComboInput
           value={group}
-          list={`groups-${snippet.id}`}
+          listLabel="Pick a group"
+          onList={
+            packGroups.length
+              ? (box) =>
+                  groupMenu.open(box.left, box.bottom + 4, [
+                    { kind: "item", label: "No group", checked: group === "", run: () => editGroup("") },
+                    { kind: "sep" },
+                    ...packGroups.map((g) => ({
+                      kind: "item" as const,
+                      label: g,
+                      checked: g === group,
+                      run: () => editGroup(g),
+                    })),
+                  ])
+              : undefined
+          }
           onChange={(e) => {
             editGroup(e.target.value)
           }}
           placeholder="Group (optional)"
           aria-label="Group"
+          title={group || undefined}
           spellCheck={false}
-          className={cn(fieldVariants(), "min-w-28 flex-1")}
+          className="min-w-28 max-w-60 shrink-0"
         />
-        <datalist id={`groups-${snippet.id}`}>
-          {packGroups.map((g) => (
-            <option key={g} value={g} />
-          ))}
-        </datalist>
+        {groupMenu.element}
         {/* Autosave feedback: the caption fades rather than vanishing, and the
             live region announces only the landing, never each keystroke */}
         <span
@@ -814,12 +796,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
 
       <div className="module flex flex-col gap-3">
         <span className="section-title">Preview</span>
-        {/* The one line of syntax help that doesn't vanish once typing starts */}
-        <p className="text-ui leading-relaxed text-muted-foreground">
-          <code>{"{clipboard}"}</code> <code>{"{date}"}</code> <code>{"{time}"}</code> fill themselves ·{" "}
-          <code>{"{field}"}</code> asks each time · <code>{"{{config}}"}</code> uses the value saved under
-          Advanced options · names are lowercase letters, digits and _
-        </p>
         {/* The field's gray fills the card below the header, edge to edge */}
         <TokenPreview text={text} configValues={configValues} clipboard={clip} className="-mx-3 rounded-none" />
         <div className="flex items-center gap-3">
@@ -845,6 +821,13 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             </span>
           )}
         </div>
+        {/* The one line of syntax help that doesn't vanish once typing starts; below
+            the preview, so the preview sits right under its header */}
+        <p className="text-ui leading-relaxed text-muted-foreground">
+          <code>{"{clipboard}"}</code> <code>{"{date}"}</code> <code>{"{time}"}</code> fill themselves ·{" "}
+          <code>{"{field}"}</code> asks each time · <code>{"{{config}}"}</code> uses the value saved under
+          Advanced options · names are lowercase letters, digits and _
+        </p>
       </div>
     </div>
   )

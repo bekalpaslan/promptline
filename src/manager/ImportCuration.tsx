@@ -92,7 +92,6 @@ export function ImportCuration({
       uses: 0,
       pinned: false,
       pinnedAt: 0,
-      fieldValues: {},
       configValues: {},
     }))
     try {

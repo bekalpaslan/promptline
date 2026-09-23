@@ -312,7 +312,6 @@ pub(crate) mod testing {
         s.id = id.into();
         s.uses = 7;
         s.pinned = true;
-        s.field_values.insert("goal".into(), "remembered".into());
         s.config_values.insert("cfg".into(), "v".into());
         s
     }

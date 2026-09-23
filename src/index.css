@@ -247,6 +247,11 @@
   ::-webkit-scrollbar-thumb:active {
     background-color: color-mix(in srgb, var(--foreground) 45%, transparent);
   }
+  /* A field with suggestions gets no native ▼: Chromium's is white in both
+     themes and eats the text's room (the editor's tag field) */
+  input[list]::-webkit-calendar-picker-indicator {
+    display: none !important;
+  }
   /* Users who asked the OS for less motion get none: dialog and toast
      entrances, the drag lift, the spinner */
   @media (prefers-reduced-motion: reduce) {

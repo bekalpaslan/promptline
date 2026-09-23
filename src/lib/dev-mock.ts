@@ -67,7 +67,6 @@ function seed(empty: boolean): Snippet[] {
       uses: Math.max(0, 8 - i),
       pinned: i === 0,
       pinnedAt: i === 0 ? 1 : 0,
-      fieldValues: {},
       configValues: {},
     }))
   )
@@ -122,9 +121,8 @@ export function installMock(mode: string | null) {
     },
     patch_snippet: (a) => {
       const s = byId(a.id)
-      const p = a.patch as { pinned?: boolean; fieldValues?: Record<string, string> }
+      const p = a.patch as { pinned?: boolean }
       if (p.pinned !== undefined) Object.assign(s, { pinned: p.pinned, pinnedAt: p.pinned ? Date.now() : 0 })
-      if (p.fieldValues) s.fieldValues = p.fieldValues
       write(lib.snippets)
       return snapshot()
     },
