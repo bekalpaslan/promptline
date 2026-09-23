@@ -102,13 +102,14 @@ export const Row = memo(function Row({
           <span className="flex min-w-0 items-center gap-1.5">
             <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
             {chips}
+            {/* The slot key sits on this line too, level with the tags: centred
+                on the row it floated between the two lines */}
+            {slot && <Keys combo={`Ctrl+${slot}`} />}
           </span>
         )}
       </div>
       {compact && chips}
-      {slot && (
-        <Keys combo={`Ctrl+${slot}`} />
-      )}
+      {compact && slot && <Keys combo={`Ctrl+${slot}`} />}
     </div>
   )
 })

@@ -21,6 +21,20 @@ test("lists the seeded library with the search box focused", async ({ page }) =>
   await expect(search(page)).toBeFocused()
 })
 
+test("a slot key sits on the row's second line, level with the tags", async ({ page }) => {
+  // The pinned rows carry Ctrl+1..5; their tags and the key cap share the
+  // preview line, so their bottoms agree (it used to float between the lines)
+  const row = page.getByRole("option", { name: "Explain this error", exact: true })
+  const tag = row.getByRole("button", { name: /#debug/ }).first()
+  const key = row.locator("kbd").first()
+  await expect(key).toHaveText("Ctrl")
+  const [tagBox, keyBox, rowBox] = await Promise.all([tag.boundingBox(), key.boundingBox(), row.boundingBox()])
+  const bottom = (b: { y: number; height: number }) => b.y + b.height
+  expect(Math.abs(bottom(keyBox!) - bottom(tagBox!))).toBeLessThanOrEqual(1)
+  // And below the row's middle, not on it
+  expect(keyBox!.y).toBeGreaterThan(rowBox!.y + rowBox!.height / 2 - 2)
+})
+
 test("a title subsequence finds the prompt, a body needs the words", async ({ page }) => {
   await search(page).fill("rvw")
   await expect(rows(page).first()).toHaveAccessibleName(/review/i)
