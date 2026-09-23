@@ -771,6 +771,17 @@ test('nextCopyName numbers from 2, skips taken names, and counts from the stem',
   assert.equal(core.nextCopyName('goal_10', '{goal_10}'), 'goal_2', 'the stem itself need not be present');
 });
 
+test('dropNumberedCopies leaves out the copies of a name that is present, keeps a lone numbered name', () => {
+  // The editor offers the library's names as chips; a prompt using {goal},
+  // {goal_2} and {goal_3} made all three show up, and inserting {goal_2}
+  // alone gives a "Goal 2" with no goal. The + on {goal}'s chip is the way.
+  assert.deepEqual(core.dropNumberedCopies(['goal', 'goal_2', 'goal_3', 'file']), ['goal', 'file']);
+  assert.deepEqual(core.dropNumberedCopies(['step_2', 'other']), ['step_2', 'other'], 'no stem around: a name of its own');
+  assert.deepEqual(core.dropNumberedCopies(['goal_10', 'goal']), ['goal'], 'any number, any order');
+  assert.deepEqual(core.dropNumberedCopies(new Set(['goal', 'goal'])), ['goal'], 'takes any iterable, drops duplicates');
+  assert.deepEqual(core.dropNumberedCopies([]), []);
+});
+
 test('numbered names fill, expand and downgrade like any other (the paste path)', () => {
   assert.equal(core.fillFields('{goal} / {goal_2}', { goal: 'a', goal_2: 'b' }), 'a / b');
   assert.equal(core.expandConfig('{{repo_2}}', { repo_2: 'x' }), 'x');

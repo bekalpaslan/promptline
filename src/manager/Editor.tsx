@@ -317,12 +317,14 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   }, [m.snippets, pack])
 
   // ---- Params ----
+  // Every name the library uses, as chips to insert; a numbered copy of one
+  // of them ({goal_2}) is left out, since the + on {goal}'s chip makes it
   const libraryParams = useMemo(() => {
     const found = new Set<string>()
     for (const s of m.snippets)
       for (const part of C.tokenize(s.text))
         if (part.type === "field" || part.type === "config") found.add(part.name)
-    return found
+    return C.dropNumberedCopies(found)
   }, [m.snippets])
 
   const { configInText, runtimeInText } = useMemo(() => {
