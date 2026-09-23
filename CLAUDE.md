@@ -143,6 +143,13 @@ Housekeeping:
 - Write multi-line edit scripts to a file with the Write tool and run
   them; a Python heredoc with quotes inside a Bash call trips the tool's
   parser.
+- `npm install <pkg>` here (npm 11) rewrites `package-lock.json` and drops
+  optional-peer entries (`@emnapi/runtime`, the nested
+  `oxide-wasm32-wasi` ones) that CI's npm 10 then reports as missing, and
+  `npm ci` fails before any check runs. After adding a dependency, diff
+  the lock against `HEAD`: only the new packages should appear. If entries
+  vanished, rebuild from the old lock plus the new entries (a script; the
+  Playwright commit did this) rather than committing the rewrite.
 
 ## Verifying UI changes
 
