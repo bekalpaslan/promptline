@@ -24,3 +24,6 @@ site/popup.png
 # Playwright output (npm run test:e2e)
 test-results/
 playwright-report/
+
+# Copied in from docs/screenshots by the Pages workflow; local preview copies only
+site/shots/
