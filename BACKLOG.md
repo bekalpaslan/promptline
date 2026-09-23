@@ -9,6 +9,29 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   terminal-corruption / wrong-shape). Export-to-file remains open as the
   natural sibling.
 - **Export pack/library to file** — save dialog counterpart to the file import.
+- **Community pack library** (parked 2026-09-24 over safety and legal
+  concerns). Packs as `library/<slug>.json` in the repo (the pack format
+  plus `description` and `author`, which `parsePacks` already ignores),
+  contributed by PR, published CC0 to `promptline.cc/library/` by
+  `pages.yml` with an `index.json`. In the app, a dialog like Generate's
+  (New → Browse library, and a button under Settings → Your library) lists
+  the packs; Add runs the import checklist. Rust fetches the index and one
+  pack only when the dialog opens, only from `https://promptline.cc/library/`
+  (slug `[a-z0-9-]+`, timeout, size cap), so the CSP stays IPC-only. A pack
+  menu's "Submit to library…" opens GitHub's new-file page prefilled.
+  **Why it's parked:** the risk is the content, not the code. Pack text is
+  pasted into coding agents with tools and into terminals, so a merged
+  prompt with a hidden instruction (`curl … | sh`, "summarise `.env`") or
+  invisible Unicode would reach every user, with the app's endorsement; a
+  takeover of the GitHub account, the Pages deploy or the domain would
+  serve such packs to everyone who opens Library. **Before it's built:**
+  CI rejecting zero-width, bidi and control characters and over-long
+  prompts; CI flagging (not failing) shell pipes, URLs and "ignore
+  previous"/secrets wording for the reviewer; the checklist showing the full
+  text with a "From the Library" mark and no silent updates; maintainer-
+  written packs first, public PRs later; 2FA and branch protection before
+  the in-app fetch ships; the README's "no network code" line reworded; the
+  submit step saying the PR is public under the user's GitHub name.
 
 ## Deferred from the UI rework (see docs/history/UI-REWORK-ROADMAP.md)
 
