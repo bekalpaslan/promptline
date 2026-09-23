@@ -61,7 +61,10 @@ test("Ctrl+F reaches the filter, the tree narrows to hits, Escape clears", async
 test("#tag and >group filter the tree the way the popup searches", async ({ page }) => {
   const debug = (await library(page)).filter((s) => s.tags.includes("debug"))
   await filter(page).fill("#debug")
-  for (const s of debug) await expect(promptRow(page, s.title)).toBeVisible()
+  // Two packs share a title ("Explain this error"), so count rows per title
+  const byTitle = new Map<string, number>()
+  for (const s of debug) byTitle.set(s.title, (byTitle.get(s.title) ?? 0) + 1)
+  for (const [title, n] of byTitle) await expect(promptRow(page, title)).toHaveCount(n)
   await expect(promptRow(page, "Loose prompt")).toHaveCount(0)
   await filter(page).fill(">Debugging")
   await expect(promptRow(page, "Explain this error")).toBeVisible()

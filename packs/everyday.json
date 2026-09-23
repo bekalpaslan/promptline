@@ -1,0 +1,17 @@
+{
+  "name": "Everyday",
+  "prompts": [
+    { "title": "Explain this error", "tags": ["debug", "context"], "group": "Stuck", "text": "Explain this error in plain words: what it means, the single most likely cause, and the first thing to check. No fix yet, and no rewriting my code until I ask.\n\n{clipboard}" },
+    { "title": "Just the command", "tags": ["guardrail"], "group": "Stuck", "text": "Give me only the command to {task}. One line, no explanation, no alternatives. If it needs a flag I might regret, add a one-line warning after it." },
+    { "title": "What does this actually do", "tags": ["context"], "group": "Stuck", "text": "Walk through what this code does, step by step, in the order it runs. Name the inputs it depends on and the side effects it has. Assume I can read code but have never seen this codebase.\n\n{clipboard}" },
+    { "title": "Ask before you build", "tags": ["approval", "guardrail"], "group": "Starting", "text": "Before writing any code for {feature}: list the questions you would need answered, your assumption for each if I said nothing, and what you would build under those assumptions. Stop there and wait for my answers." },
+    { "title": "Smallest change that works", "tags": ["guardrail"], "group": "Starting", "text": "Make the smallest change that solves this, in the style of the surrounding code. No refactors, no renames, no new abstractions, no drive-by fixes. If you see something else worth changing, list it at the end instead of doing it.\n\n{clipboard}" },
+    { "title": "Three ways, pick one", "tags": ["approval"], "group": "Deciding", "text": "Give me three ways to {goal}, one paragraph each, with the main trade-off of every option. Then tell me which one you would pick and why, in two sentences. Do not start on any of them." },
+    { "title": "Argue against this", "tags": ["approval", "guardrail"], "group": "Deciding", "text": "Take the other side. List the strongest reasons this is a bad idea, what would have to be true for it to fail, and what I would regret in six months. No balance, no reassurance: the case against only.\n\n{clipboard}" },
+    { "title": "Bugs only, no style", "tags": ["review", "guardrail"], "group": "Reviewing", "text": "Review this diff for correctness bugs only: wrong logic, missed edge cases, races, error paths. No naming, formatting or style comments. For each finding, give the line, what breaks, and a concrete input that triggers it.\n\n{clipboard}" },
+    { "title": "Shorter", "tags": ["writing"], "group": "Reviewing", "text": "Cut this to half its length without losing a point. Keep my voice and my terms, remove hedging, throat-clearing and repeated ideas. Return only the rewritten text.\n\n{clipboard}" },
+    { "title": "Commit message for this", "tags": ["writing", "context"], "group": "Wrapping up", "text": "Write a commit message for this diff: a subject line under 70 characters in the imperative, a blank line, then a body saying what changed and why, not how. No bullet lists, no emoji.\n\n{clipboard}" },
+    { "title": "Summarize what we decided", "tags": ["context"], "group": "Wrapping up", "text": "Summarize this conversation as: decisions made, open questions, and the next concrete step. Three short sections, bullets, nothing that was not actually agreed. Dated {date}." },
+    { "title": "TL;DR this", "tags": ["context"], "group": "Wrapping up", "text": "Give me the TL;DR: three bullets, the one thing that matters most first, and whether anything in it needs an action from me. Nothing else.\n\n{clipboard}" }
+  ]
+}

@@ -4,8 +4,9 @@
 // drops it. See CLAUDE.md ("Verifying UI changes") for when this is enough
 // and when to drive the real app instead.
 //
-// The library is seeded from packs/*.json plus a small grouped pack (the
-// shipped packs have no groups), held in memory per page: the manager and
+// The library is seeded from packs/*.json plus a small grouped pack (it
+// carries a {clipboard} and a {field} in one pack, which the shipped packs
+// don't), held in memory per page: the manager and
 // the popup are separate pages and don't see each other's writes, and a
 // reload starts over. `?mock=empty` starts with no prompts (first run).
 //

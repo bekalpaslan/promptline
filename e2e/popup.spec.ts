@@ -24,7 +24,7 @@ test("lists the seeded library with the search box focused", async ({ page }) =>
 test("a slot key sits on the row's second line, level with the tags", async ({ page }) => {
   // The pinned rows carry Ctrl+1..5; their tags and the key cap share the
   // preview line, so their bottoms agree (it used to float between the lines)
-  const row = page.getByRole("option", { name: "Explain this error", exact: true })
+  const row = page.getByRole("option", { name: "Root cause first", exact: true })
   const tag = row.getByRole("button", { name: /#debug/ }).first()
   const key = row.locator("kbd").first()
   await expect(key).toHaveText("Ctrl")
@@ -50,7 +50,10 @@ test("#tag narrows to the prompts carrying it", async ({ page }) => {
   const tagged = (await library(page)).filter((s) => s.tags.includes("debug"))
   await search(page).fill("#debug")
   await expect(rows(page)).toHaveCount(tagged.length)
-  for (const s of tagged) await expect(page.getByRole("option", { name: s.title, exact: true })).toBeVisible()
+  // Two packs share a title ("Explain this error"), so count rows per title
+  const byTitle = new Map<string, number>()
+  for (const s of tagged) byTitle.set(s.title, (byTitle.get(s.title) ?? 0) + 1)
+  for (const [title, n] of byTitle) await expect(page.getByRole("option", { name: title, exact: true })).toHaveCount(n)
 })
 
 test("Enter pastes the selected prompt and bumps its uses", async ({ page }) => {
