@@ -150,8 +150,9 @@ them, plus config values. Invisible until you want it.
   A new pack or group is selected with its name ready to type. **Generate pack
   with AI** (also under New) takes a topic, hands you an instruction to paste into any AI chat,
   and imports its reply — every prompt is reviewed in a checklist (bulk
-  select, per-row pack names, and malformed JSON is editable in place) before
-  anything is added. With a coding agent, leave the topic empty and it surveys
+  select, per-row pack names, a prompt hiding invisible or direction-changing
+  characters flagged and unticked, and malformed JSON is editable in place)
+  before anything is added. With a coding agent, leave the topic empty and it surveys
   the project it runs in, writing one pack per daily practice; the dialog
   watches for the agent's file with an elapsed clock and a Stop button, and
   no pack exists until you import

@@ -250,7 +250,10 @@ form's "Will paste", the overview's cards — substitutes the clipboard as it
 is now, one line and cut at 240 characters (`clipboardPreview`), on the
 builtin's tint so it still reads as a placeholder. An empty clipboard shows
 "(clipboard is empty)": that is what would paste, and hiding it is how a
-hole gets pasted. The overview re-reads the clipboard when the manager's
+hole gets pasted. A clipboard holding hidden characters (the import rule
+under *Packs and their files*) gets a *hidden text* badge after it, with the
+kinds in its tooltip: copied web text is where hidden instructions for a
+model come from, and the preview is the last look before the paste. The overview re-reads the clipboard when the manager's
 window regains focus and after a copy or cut in it; the popup already
 re-reads on every summon and copy. The editor has no preview of its own
 since 0.2.10: it showed the same expansion under the text it was typed in,
@@ -386,6 +389,24 @@ Two guards follow from that:
 - **Deleting a pack moves its file to `packs/deleted/`** instead of unlinking
   it, for the same reason (`delete_pack` retires the named pack's file;
   renaming keeps the file, so nothing is ever retired by a rename).
+
+**An import flags hidden characters and leaves those prompts unticked**
+(`hiddenChars` in `ui/core.js`, checked over the pack name, title, group and
+text). A pack from a colleague, a website or an AI reply can carry text the
+checklist cannot show but whatever it is pasted into receives: Unicode tag
+characters, which models read as ASCII ("ASCII smuggling"); bidi controls,
+which make a line display differently from how it reads; control
+characters such as ESC, a terminal escape sequence; and zero-width and other
+invisible characters. The row carries a *hidden text* badge whose tooltip
+counts them by kind, the header counts the rows, and the row starts unticked
+like a dupe, so adding it takes a deliberate tick. Nothing is stripped: the
+text may be honest, and rewriting what the user imports would be a surprise
+of its own. Invisibles with everyday uses pass when alone: a joiner inside an
+emoji or a Persian word, a variation selector after an emoji (and the
+selector-joiner pair in ❤️‍🔥), a direction mark in right-to-left text, a
+soft hyphen, the tag run of a subdivision flag such as Scotland's; in a run
+of two or more, or beside a hidden character, they count, since a run is how
+zero-width steganography encodes its bits.
 
 **A pack's path is stored relative to `packs/`** (`work.json`), and only a
 file placed outside that folder keeps an absolute path. They used to be

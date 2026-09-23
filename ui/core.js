@@ -623,16 +623,87 @@
   // The review list an import shows: one row per prompt of every pack
   // parsed, marked `dupe` when the library already holds a prompt with the
   // same title and text. A dupe starts excluded; everything else included.
+  // A prompt with hidden characters starts unticked too: the user reviews
+  // text they can't fully see, so it takes a deliberate tick to add it.
   function importRows(packs, library) {
     const isDupe = p => library.some(s => s.title === p.title && s.text === p.text);
     const rows = [];
     for (const pk of packs) {
       for (const p of pk.prompts) {
         const dupe = isDupe(p);
-        rows.push({ packName: pk.name, title: p.title, text: p.text, tags: p.tags, group: p.group, dupe, include: !dupe });
+        const hidden = hiddenChars([pk.name, p.title, p.group, p.text].join('\n'));
+        rows.push({ packName: pk.name, title: p.title, text: p.text, tags: p.tags, group: p.group, dupe, hidden, include: !dupe && !hidden.length });
       }
     }
     return rows;
+  }
+
+  // ---- Hidden characters -----------------------------------------------------------
+  // Characters that render as nothing, or reorder what is shown, yet reach
+  // whatever the text is pasted into: a model reads Unicode tag characters
+  // as plain ASCII ("ASCII smuggling"), bidi controls make a line display
+  // differently from how it reads ("Trojan Source"), and a control
+  // character such as ESC is a terminal escape sequence. Reported by kind so
+  // the review can say what is there. Some invisibles have honest uses and
+  // count only in a run of two or more: a joiner inside an emoji or a
+  // Persian word, a single variation selector after an emoji, a direction
+  // mark in right-to-left text. Tag characters after a black flag (U+1F3F4)
+  // up to the cancel tag are a subdivision flag such as Scotland's.
+  const HIDDEN_KINDS = ['tag', 'bidi', 'control', 'invisible'];
+  function hiddenKind(cp) {
+    if (cp >= 0xE0000 && cp <= 0xE007F) return 'tag';
+    if ((cp >= 0x202A && cp <= 0x202E) || (cp >= 0x2066 && cp <= 0x2069)) return 'bidi';
+    if ((cp < 0x20 && cp !== 0x09 && cp !== 0x0A && cp !== 0x0D) || (cp >= 0x7F && cp <= 0x9F)) return 'control';
+    if (cp === 0x200B || cp === 0x2060 || cp === 0xFEFF || cp === 0x180E || cp === 0x034F ||
+        (cp >= 0x2061 && cp <= 0x2064) || (cp >= 0x206A && cp <= 0x206F) || (cp >= 0xFFF9 && cp <= 0xFFFB) ||
+        cp === 0x115F || cp === 0x1160 || cp === 0x3164 || cp === 0xFFA0 ||
+        (cp >= 0xE0100 && cp <= 0xE01EF)) return 'invisible';
+    return null;
+  }
+  const isSoftInvisible = cp =>
+    cp === 0x200C || cp === 0x200D || cp === 0x200E || cp === 0x200F || cp === 0x061C ||
+    cp === 0x00AD || (cp >= 0xFE00 && cp <= 0xFE0F);
+
+  function hiddenChars(text) {
+    const cps = Array.from(text || '', c => c.codePointAt(0));
+    const counts = {};
+    const add = (kind, n) => { counts[kind] = (counts[kind] || 0) + n; };
+    const strongAt = i => i >= 0 && i < cps.length && hiddenKind(cps[i]) !== null;
+    for (let i = 0; i < cps.length; i++) {
+      const cp = cps[i];
+      if (cp === 0x1F3F4) {
+        let j = i + 1;
+        while (j < cps.length && j - i <= 8 && cps[j] >= 0xE0020 && cps[j] <= 0xE007E) j++;
+        if (j > i + 1 && cps[j] === 0xE007F) i = j;
+        continue;
+      }
+      const kind = hiddenKind(cp);
+      if (kind) { add(kind, 1); continue; }
+      if (!isSoftInvisible(cp)) continue;
+      // A run of the honest invisibles is fine alone, or as the
+      // variation-selector-then-joiner pair inside an emoji such as ❤️‍🔥
+      let j = i;
+      while (j < cps.length && isSoftInvisible(cps[j])) j++;
+      const run = cps.slice(i, j);
+      const benign = !strongAt(i - 1) && !strongAt(j) &&
+        (run.length === 1 || (run.length === 2 && run[0] === 0xFE0F && run[1] === 0x200D));
+      if (!benign) add('invisible', run.length);
+      i = j - 1;
+    }
+    return HIDDEN_KINDS.filter(k => counts[k]).map(kind => ({ kind, count: counts[kind] }));
+  }
+
+  // "14 tag characters and 2 direction controls", for a badge's tooltip
+  const HIDDEN_NAMES = {
+    tag: 'tag character',
+    bidi: 'direction control',
+    control: 'control character',
+    invisible: 'invisible character',
+  };
+  function describeHidden(found) {
+    const parts = (found || []).map(f => plural(f.count, HIDDEN_NAMES[f.kind]));
+    if (parts.length <= 1) return parts.join('');
+    return parts.slice(0, -1).join(', ') + ' and ' + parts[parts.length - 1];
   }
 
   // What the import adds: the included rows as prompts (without ids or
@@ -805,6 +876,8 @@
     tagsByCount,
     importRows,
     curateImport,
+    hiddenChars,
+    describeHidden,
     hotkeyKeyName,
     hotkeyFromEvent,
     clipboardPreview,

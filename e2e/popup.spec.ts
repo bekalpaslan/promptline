@@ -3,7 +3,7 @@
 // Rust does with the pick (`paste_snippet` gets `{clipboard}` unexpanded)
 // is out of reach here and covered by the Rust tests.
 import { expect, test } from "@playwright/test"
-import { calls, emit, library, open, setPasteResult } from "./mock"
+import { calls, emit, library, open, setClipboard, setPasteResult } from "./mock"
 
 const search = (page: Parameters<typeof open>[0]) => page.getByRole("combobox", { name: "Search prompts" })
 const rows = (page: Parameters<typeof open>[0]) => page.getByRole("option")
@@ -185,4 +185,22 @@ test("an empty library shows no rows and still hides on Escape", async ({ page }
   await expect(rows(page)).toHaveCount(0)
   await page.keyboard.press("Escape")
   await expect.poll(() => calls(page, "hide_popup")).toHaveLength(1)
+})
+
+test("the preview flags a clipboard carrying hidden characters", async ({ page }) => {
+  // A copied page with a direction override and a zero-width space in it
+  await setClipboard(page, "TypeError: x is undefined\u202e\u200b")
+  await emit(page, "popup-shown")
+  await search(page).fill("Root cause first")
+  await page.keyboard.press("ArrowRight")
+  const card = page.getByRole("tooltip")
+  await expect(card).toContainText("TypeError: x is undefined")
+  await expect(card.getByText("hidden text")).toHaveAttribute("title", /^The clipboard holds 1 direction control and 1 invisible character:/)
+  // A clean clipboard has no mark
+  await setClipboard(page, "TypeError: x is undefined")
+  await emit(page, "popup-shown")
+  await search(page).fill("Root cause first")
+  await page.keyboard.press("ArrowRight")
+  await expect(page.getByRole("tooltip")).toContainText("TypeError: x is undefined")
+  await expect(page.getByRole("tooltip").getByText("hidden text")).toHaveCount(0)
 })

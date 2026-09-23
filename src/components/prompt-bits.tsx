@@ -1,3 +1,4 @@
+import { Fragment, useMemo } from "react"
 import { cva, type VariantProps } from "class-variance-authority"
 import { RiAddLine, RiCloseLine } from "@remixicon/react"
 import { C } from "@/lib/core"
@@ -283,12 +284,19 @@ export function PromptTokens({
   /** Values typed into the fill-in form so far */
   fieldValues?: Record<string, string>
 }) {
+  // Copied text can carry characters the preview can't show (a web page's
+  // hidden instructions, a terminal escape); the paste would deliver them
+  const clipHidden = useMemo(
+    () => (clipboard && text.includes("{clipboard}") ? C.hiddenChars(clipboard) : []),
+    [clipboard, text]
+  )
   return (
     <>
       {C.tokenize(text).map((part, i) => {
         if (part.type === "text") return <span key={i}>{part.value}</span>
+        const isClip = part.type === "builtin" && part.name === "clipboard"
         const filled =
-          part.type === "builtin" && part.name === "clipboard" && clipboard !== null
+          isClip && clipboard !== null
             ? C.clipboardPreview(clipboard)
             : part.type === "field" && fieldValues?.[part.name]
               ? fieldValues[part.name]
@@ -296,13 +304,23 @@ export function PromptTokens({
         if (filled !== null) {
           const tint = part.type === "field" ? "bg-(--param-field-bg)" : "bg-(--param-builtin-bg)"
           return (
-            <span
-              key={i}
-              className={cn("rounded-sm px-0.5 text-foreground", tint)}
-              title={part.type === "field" ? `${part.name}, as filled in` : "The clipboard as it is now"}
-            >
-              {filled}
-            </span>
+            <Fragment key={i}>
+              <span
+                className={cn("rounded-sm px-0.5 text-foreground", tint)}
+                title={part.type === "field" ? `${part.name}, as filled in` : "The clipboard as it is now"}
+              >
+                {filled}
+              </span>
+              {isClip && clipHidden.length > 0 && (
+                <Chip
+                  tone="warn"
+                  size="inline"
+                  title={`The clipboard holds ${C.describeHidden(clipHidden)}: they don't show here, but the paste delivers them`}
+                >
+                  hidden text
+                </Chip>
+              )}
+            </Fragment>
           )
         }
         let label: string

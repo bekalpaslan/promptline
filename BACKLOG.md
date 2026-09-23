@@ -28,7 +28,8 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   CI rejecting zero-width, bidi and control characters and over-long
   prompts; CI flagging (not failing) shell pipes, URLs and "ignore
   previous"/secrets wording for the reviewer; the checklist showing the full
-  text with a "From the Library" mark and no silent updates; maintainer-
+  text with a "From the Library" mark and no silent updates (the checklist
+  already flags and unticks prompts with hidden characters); maintainer-
   written packs first, public PRs later; 2FA and branch protection before
   the in-app fetch ships; the README's "no network code" line reworded; the
   submit step saying the PR is public under the user's GitHub name.
