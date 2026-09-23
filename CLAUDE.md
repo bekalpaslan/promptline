@@ -38,9 +38,12 @@ backlog, not from another audit, unless asked.
   CSS on the tokens from `design/tokens.json`; the three screenshots play
   as a slideshow under the hero, and a new screenshot is a file under
   `docs/screenshots/` plus a slide in `site/index.html`;
-  the Download button fetches the latest release's setup exe from the
-  GitHub API and falls back to the releases page, so a release needs no
-  site change. Preview it with `python -m http.server` in `site/` after
+  the Download button is a plain link to
+  `releases/latest/download/Promptline-setup.exe`, the stable-named copy
+  each release carries (step 5 of *Releasing*), so a release needs no site
+  change and a visitor's browser talks to nothing but GitHub Pages and,
+  on a click, GitHub Releases. The footer's privacy note says so; keep it
+  true (no analytics, no cookies, no remote fonts or scripts). Preview it with `python -m http.server` in `site/` after
   copying the screenshot in. Live with HTTPS enforced since 2026-09-23;
   DNS is at GoDaddy (four Pages A records, `www` CNAME). The bundle
   identifier stays `io.github.bekalpaslan.promptline` on purpose: it names
@@ -268,8 +271,11 @@ build is still what ships.
    and `…/bundle/msi/Promptline_X.Y.Z_x64_en-US.msi`.
 4. `git tag -a vX.Y.Z -m "Promptline X.Y.Z"`, then push `master` and the tag.
 5. `gh release create vX.Y.Z --title "Promptline X.Y.Z" --notes-file <notes> --latest`
-   with both installers. Check with `gh release list` (`gh release view` has
-   no "latest" field).
+   with both installers and a copy of the setup exe named
+   `Promptline-setup.exe` (the website's Download button links to
+   `releases/latest/download/Promptline-setup.exe`; without the copy it
+   404s). Check with `gh release list` (`gh release view` has no "latest"
+   field).
 6. If windows, commands, events or storage changed since the last map
    refresh, refresh the architecture map against the tagged commit (its
    own commit, pushed after).

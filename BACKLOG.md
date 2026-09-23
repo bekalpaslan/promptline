@@ -97,9 +97,9 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   a static `latest.json` served by the website (`site/` on GitHub Pages at
   promptline.cc), written by the release step; the updater needs a signing
   key pair, which is the real work.
-- **Stable-named installer** — a `Promptline-setup.exe` copy on each
-  release so `releases/latest/download/…` links work without the version;
-  today the website resolves the versioned name through the GitHub API.
+- ~~**Stable-named installer**~~ — **shipped 2026-09-24**: each release
+  carries a `Promptline-setup.exe` copy, and the website links to it
+  instead of asking the GitHub API from the visitor's browser.
 - **security@promptline.cc** — GoDaddy forwarding to the mailbox, then
   SECURITY.md stops naming a personal address.
 - **macOS port** — reimplement the `platform` module (CGEventPost + Accessibility

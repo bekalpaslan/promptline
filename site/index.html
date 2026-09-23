@@ -222,6 +222,7 @@
     footer .row { display: flex; flex-wrap: wrap; gap: 8px 20px; justify-content: space-between; }
     footer nav { display: flex; flex-wrap: wrap; gap: 16px; }
     footer a { color: var(--ink-2); }
+    footer .privacy { margin: 14px 0 0; max-width: 72ch; line-height: 1.55; }
 
     @media (max-width: 880px) {
       .hero { padding-top: 36px; }
@@ -263,13 +264,13 @@
         <h1>Your prompt vocabulary, one hotkey away, in every window.</h1>
         <p class="lead">A tiny Windows tray app for people who talk to AI all day. Press the hotkey, pick a prompt, and it's pasted straight into the app you were just using, with your clipboard already inside it.</p>
         <div class="cta" id="install">
-          <a class="btn btn-primary" id="download" href="https://github.com/bekalpaslan/promptline/releases/latest">
+          <a class="btn btn-primary" href="https://github.com/bekalpaslan/promptline/releases/latest/download/Promptline-setup.exe">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <span id="download-label">Download for Windows</span>
+            <span>Download for Windows</span>
           </a>
           <a class="btn btn-secondary" href="https://github.com/bekalpaslan/promptline/releases">All releases</a>
         </div>
-        <p class="sub" id="download-sub">Windows 10/11 · free and open source (MIT) · installs for the current user, no admin prompt</p>
+        <p class="sub">Windows 10/11 · free and open source (MIT) · installs for the current user, no admin prompt</p>
       </div>
     </section>
 
@@ -343,29 +344,13 @@
         <a href="https://github.com/bekalpaslan/promptline/blob/master/README.md">Docs</a>
         <a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md">Security</a>
         <a href="https://github.com/bekalpaslan/promptline/blob/master/THIRD-PARTY-NOTICES.md">Third-party notices</a>
+        <a href="#privacy">Privacy</a>
       </nav>
     </div>
+    <div class="wrap"><p class="privacy" id="privacy"><b>Privacy.</b> This site sets no cookies, runs no analytics and loads nothing from other sites; its one script plays the screenshots. It is hosted on GitHub Pages, which logs visitors' IP addresses for security (<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>), and the installers download from GitHub Releases. Promptline itself makes no network requests. Questions go to the <a href="https://github.com/bekalpaslan/promptline/issues">issue tracker</a>.</p></div>
   </footer>
 
   <script>
-    // Point the Download button at the current release's setup exe. The
-    // installer names carry the version, so a fixed link can't; on any
-    // failure the button keeps its fallback, the latest-release page.
-    (async () => {
-      try {
-        const r = await fetch("https://api.github.com/repos/bekalpaslan/promptline/releases/latest", { headers: { Accept: "application/vnd.github+json" } });
-        if (!r.ok) return;
-        const rel = await r.json();
-        const exe = (rel.assets || []).find((a) => /-setup\.exe$/i.test(a.name));
-        if (!exe) return;
-        const a = document.getElementById("download");
-        a.href = exe.browser_download_url;
-        document.getElementById("download-label").textContent = `Download ${rel.tag_name} for Windows`;
-        const mb = (exe.size / 1048576).toFixed(1);
-        document.getElementById("download-sub").textContent = `${exe.name} · ${mb} MB · Windows 10/11 · free and open source (MIT) · installs for the current user, no admin prompt`;
-      } catch { /* keep the fallback link */ }
-    })();
-
     // The slideshow: a track that slides to the chosen frame, a dot per
     // frame, arrows, the keyboard while it has focus, a swipe on touch, and
     // an autoplay that waits while the pointer or focus is on it, the tab
