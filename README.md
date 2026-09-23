@@ -99,7 +99,7 @@ report.
 Unset config parameters downgrade to fill-in fields instead of pasting holes.
 Parameter tooling lives behind **Advanced options** in the editor — one card
 per kind (built-in / fill-in / config), each with an Edit toggle for removing
-them, plus config values and a live preview. Invisible until you want it.
+them, plus config values. Invisible until you want it.
 
 ## The popup
 

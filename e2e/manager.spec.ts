@@ -118,6 +118,18 @@ test("a prompt's pack crumb opens the overview, Escape returns to the pack from 
   await expect(page.getByRole("region", { name: "Mock Groups", exact: true })).toBeVisible()
 })
 
+test("the editor names a near-miss placeholder under the prompt text, and has no preview panel", async ({ page }) => {
+  await promptRow(page, "Loose prompt").click()
+  await expect(page.getByText("Preview", { exact: true })).toHaveCount(0)
+  const text = page.getByRole("textbox", { name: "Prompt text" })
+  await expect(page.getByRole("note")).toHaveCount(0)
+  await text.fill("Summarize {File} for {reader}")
+  // {File} is not a field name (uppercase); {reader} is, so only one is named
+  await expect(page.getByRole("note")).toHaveText(/^\{File\} is plain text/)
+  await text.fill("Summarize {file} for {reader}")
+  await expect(page.getByRole("note")).toHaveCount(0)
+})
+
 test("Settings replaces the pane and closes again", async ({ page }) => {
   await page.getByRole("button", { name: "Settings" }).click()
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible()

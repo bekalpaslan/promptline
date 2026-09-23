@@ -235,8 +235,8 @@ ranking and the manager's orders — compare numerically, so "Bulk prompt
 
 ## Placeholders
 
-Handled in `ui/core.js`, shared by both windows so the popup's preview and the
-editor's preview can never disagree.
+Handled in `ui/core.js`, shared by both windows so the popup's previews and
+the manager's overview cards can never disagree.
 
 | Token | Resolved |
 |---|---|
@@ -245,14 +245,17 @@ editor's preview can never disagree.
 | `{{lowercase_name}}` | Config parameter — from `configValues`, silently |
 
 **Previews show the clipboard, not the word "clipboard".** `{clipboard}`
-expands at paste time, so every preview — the editor's, the popup's card,
-the fill-in form's "Will paste" — substitutes the clipboard as it is now,
-one line and cut at 240 characters (`clipboardPreview`), on the builtin's
-tint so it still reads as a placeholder. An empty clipboard shows
+expands at paste time, so every preview — the popup's card, the fill-in
+form's "Will paste", the overview's cards — substitutes the clipboard as it
+is now, one line and cut at 240 characters (`clipboardPreview`), on the
+builtin's tint so it still reads as a placeholder. An empty clipboard shows
 "(clipboard is empty)": that is what would paste, and hiding it is how a
-hole gets pasted. The manager re-reads the clipboard when its window
-regains focus and after a copy or cut in it; the popup already re-reads
-on every summon and copy.
+hole gets pasted. The overview re-reads the clipboard when the manager's
+window regains focus and after a copy or cut in it; the popup already
+re-reads on every summon and copy. The editor has no preview of its own
+since 0.2.10: it showed the same expansion under the text it was typed in,
+with a Copy button the popup's Ctrl+Enter already covers, and the prompt
+is seen expanded wherever it is used instead.
 
 Two rules that exist because their absence was worse:
 
@@ -260,8 +263,9 @@ Two rules that exist because their absence was worse:
   empty hole. Silently pasting a gap into a prompt is the failure nobody notices
   until the AI answers the wrong question.
 - **A name is lowercase letters, digits and `_`, never starting with a digit**
-  (`isValidParam`). `{File}` and `{1st}` are shown as near-misses in the
-  preview rather than silently treated as literal text; `{0}` and `{1}` stay
+  (`isValidParam`). `{File}` and `{1st}` are named as plain text in a note
+  under the editor's prompt field, and drawn as near-misses in every
+  preview, rather than silently treated as literal text; `{0}` and `{1}` stay
   text, so format-string slots in pasted code never turn into questions.
   Every pattern that substitutes a name (`fillFields`, `expandConfig`,
   `downgradeUnsetConfig`) uses this same rule, or a valid name would be
@@ -652,7 +656,7 @@ resolve at `:root`, where `--tag` is unset.
 What a prompt looks like in a list is drawn by one module for both windows,
 `src/components/prompt-bits.tsx`: the key cap, the underline that marks a
 search match, the token preview (popup hover card, fill-in form, overview
-card, editor), and the Chip. Every small label is a Chip — #tags,
+card), and the Chip. Every small label is a Chip — #tags,
 `{placeholders}`, the `{N}` and `+N` badges, add-suggestions, the sidebar's
 search scope, the import badges — and its whole look is the `chipVariants`
 table there: a `tone` for what it is, a `size` for where it sits (16px in a

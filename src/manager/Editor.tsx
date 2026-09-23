@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { invoke } from "@tauri-apps/api/core"
 import {
   RiAddLine,
   RiArrowDownSLine,
@@ -7,7 +6,6 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiDeleteBinLine,
-  RiFileCopyLine,
   RiFileTextLine,
 } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
@@ -17,7 +15,7 @@ import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
 import { ComboInput, Select, fieldVariants } from "@/components/field"
-import { Chip, PREVIEW_BOX, PromptTokens, TagPill, chipVariants } from "@/components/prompt-bits"
+import { Chip, TagPill, chipVariants } from "@/components/prompt-bits"
 import { useLibraryMenus } from "./menus"
 import { useCtxMenu } from "./ctx-menu"
 import { say, sayErr } from "./status"
@@ -130,34 +128,6 @@ function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name:
   )
 }
 
-// Sized to mirror the prompt textarea exactly: same 4-line default, same
-// grow-with-content (1lh spare via bottom padding), same 10-line cap, same
-// text metrics — the transparent border offsets the textarea's real one
-function TokenPreview({
-  text,
-  configValues,
-  clipboard,
-  className,
-}: {
-  text: string
-  configValues: Record<string, string>
-  /** The clipboard as it is now; null until it has been read */
-  clipboard: string | null
-  className?: string
-}) {
-  return (
-    <div
-      className={cn(
-        PREVIEW_BOX,
-        "min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] overflow-y-auto border border-transparent px-4 pt-3 pb-[calc(0.75rem+1lh)]",
-        className
-      )}
-    >
-      <PromptTokens text={text} clipboard={clipboard} configValues={configValues} />
-    </div>
-  )
-}
-
 export function Editor() {
   const m = useManager()
   const snippet = m.snippets.find((s) => s.id === m.activeId)
@@ -225,26 +195,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   const [deleteArmed, setDeleteArmed] = useState(false)
   const textRef = useRef<HTMLTextAreaElement>(null)
   const isDraft = C.isEmptyDraft(snippet)
-
-  // The clipboard for the preview: read when the editor opens, again when
-  // the window comes back (the user copied something elsewhere), and after
-  // a copy or cut in this window. Null until the first read lands, so the
-  // preview never shows "(clipboard is empty)" for a clipboard not yet seen.
-  const [clip, setClip] = useState<string | null>(null)
-  useEffect(() => {
-    const refresh = () => void invoke<string>("get_clipboard_text").then(setClip).catch(() => {})
-    // The clipboard is written after the copy event fires, hence the tick
-    const onCopy = () => setTimeout(refresh, 50)
-    refresh()
-    window.addEventListener("focus", refresh)
-    document.addEventListener("copy", onCopy)
-    document.addEventListener("cut", onCopy)
-    return () => {
-      window.removeEventListener("focus", refresh)
-      document.removeEventListener("copy", onCopy)
-      document.removeEventListener("cut", onCopy)
-    }
-  }, [])
 
   // Autosave: edits persist on a short debounce — no Save button, no lost drafts
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -500,19 +450,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     return () => document.removeEventListener("keydown", onKey, true)
   }, [deleteArmed])
 
-  // Copy what the preview shows: what a paste would produce, except that
-  // fill-in fields stay as {field} for the user to complete — the editor has
-  // no form for them, and asking here would be a second paste flow
-  const fields = C.customFields(C.downgradeUnsetConfig(C.expandConfig(text, configValues)))
-  const copyPreview = async () => {
-    try {
-      await invoke("set_clipboard_text", { text: C.expandForCopy(text, configValues, clip) })
-      say(fields.length ? `Copied — fill in ${fields.map((f) => `{${f}}`).join(", ")} by hand` : "Copied to clipboard")
-    } catch (e) {
-      sayErr(`Couldn't copy: ${e}`)
-    }
-  }
-
   const doDelete = async () => {
     if (!deleteArmed) {
       setDeleteArmed(true)
@@ -659,12 +596,15 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         </Button>
       </div>
 
-      {/* Prompt panel: same header idiom as Advanced options and Preview.
-          The field fills the card below the header; the textarea is 4 lines
-          by default, grows with content, capped at 10 lines. */}
+      {/* Prompt panel: same header idiom as Advanced options. The field fills
+          the card below the header; the textarea is 4 lines by default, grows
+          with content, capped at 10 lines. What the prompt would paste is
+          shown where it is used (the popup's card and form, the overview);
+          the one thing the editor still says about the text is a near-miss
+          placeholder, which nothing else would point out. */}
       <div className="module flex flex-col gap-3">
         <span className="section-title">Prompt</span>
-        <div className="-mx-3 -mb-3 flex flex-col overflow-hidden rounded-b-xl border border-transparent bg-secondary/50 focus-within:border-(--focus)">
+        <div className={cn("-mx-3 flex flex-col overflow-hidden border border-transparent bg-secondary/50 focus-within:border-(--focus)", badNames.length ? "" : "-mb-3 rounded-b-xl")}>
         <Textarea
           ref={textRef}
           value={text}
@@ -675,6 +615,12 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 py-3 leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
         />
         </div>
+        {badNames.length > 0 && (
+          <p role="note" className="text-xs text-muted-foreground">
+            {badNames.map((n) => `{${n}}`).join(", ")} {badNames.length === 1 ? "is" : "are"} plain text: a field name is lowercase letters, digits and _, not
+            starting with a digit
+          </p>
+        )}
       </div>
 
       {/* Tags: the same card as Built-ins — chips for the prompt's own tags,
@@ -794,41 +740,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         )}
       </div>
 
-      <div className="module flex flex-col gap-3">
-        <span className="section-title">Preview</span>
-        {/* The field's gray fills the card below the header, edge to edge */}
-        <TokenPreview text={text} configValues={configValues} clipboard={clip} className="-mx-3 rounded-none" />
-        <div className="flex items-center gap-3">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void copyPreview()}
-            disabled={!text.trim()}
-            title={fields.length ? `Copies with ${fields.map((f) => `{${f}}`).join(", ")} left to fill in` : "Copy what would paste"}
-          >
-            <RiFileCopyLine className="size-4" aria-hidden />
-            Copy
-          </Button>
-          {fields.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {C.plural(fields.length, "fill-in field")} {fields.length === 1 ? "stays" : "stay"} as typed — the popup asks for them
-            </span>
-          )}
-          {badNames.length > 0 && (
-            <span className="text-xs text-muted-foreground">
-              {badNames.map((n) => `{${n}}`).join(", ")} {badNames.length === 1 ? "is" : "are"} plain text: a field name is lowercase letters, digits and _, not
-              starting with a digit
-            </span>
-          )}
-        </div>
-        {/* The one line of syntax help that doesn't vanish once typing starts; below
-            the preview, so the preview sits right under its header */}
-        <p className="text-ui leading-relaxed text-muted-foreground">
-          <code>{"{clipboard}"}</code> <code>{"{date}"}</code> <code>{"{time}"}</code> fill themselves ·{" "}
-          <code>{"{field}"}</code> asks each time · <code>{"{{config}}"}</code> uses the value saved under
-          Advanced options · names are lowercase letters, digits and _
-        </p>
-      </div>
     </div>
   )
 }
