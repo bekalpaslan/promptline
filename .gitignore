@@ -20,3 +20,7 @@ docs/architecture/**/*.receipt.json
 
 # Copied in from docs/ by the Pages workflow; a local preview copy only
 site/popup.png
+
+# Playwright output (npm run test:e2e)
+test-results/
+playwright-report/

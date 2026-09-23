@@ -1,0 +1,171 @@
+// The manager against the fake backend: the tree, the editor's autosave,
+// the filter, the overview and Settings. BEHAVIOR.md "Shape" is the spec.
+import { expect, test } from "@playwright/test"
+import { calls, library, open } from "./mock"
+
+type P = Parameters<typeof open>[0]
+const tree = (page: P) => page.getByRole("tree", { name: "Library" })
+const filter = (page: P) => page.getByRole("textbox", { name: "Filter prompts" })
+const promptRow = (page: P, title: string) => tree(page).getByRole("treeitem", { name: new RegExp(`^${title}(,|$)`) })
+
+test.beforeEach(async ({ page }) => {
+  await open(page, "manager")
+})
+
+test("the sidebar lists every pack with its count", async ({ page }) => {
+  const snippets = await library(page)
+  const packs = new Map<string, number>()
+  for (const s of snippets) packs.set(s.pack, (packs.get(s.pack) ?? 0) + 1)
+  for (const [name, count] of packs) {
+    await expect(tree(page).getByRole("treeitem", { name: `${name}, ${count} prompt${count === 1 ? "" : "s"}` })).toBeVisible()
+  }
+  await expect(page.getByText("Select a prompt to edit it")).toBeVisible()
+})
+
+test("clicking a prompt opens it in the editor", async ({ page }) => {
+  await promptRow(page, "Loose prompt").click()
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("Loose prompt")
+  await expect(page.getByRole("textbox", { name: "Prompt text" })).toHaveValue("A prompt in no group.")
+  await expect(page.getByRole("combobox", { name: "Pack" })).toHaveValue("Mock Groups")
+})
+
+test("an edit autosaves through the debounce and says Saved once", async ({ page }) => {
+  await promptRow(page, "Loose prompt").click()
+  const id = (await library(page)).find((s) => s.title === "Loose prompt")!.id
+  const title = page.getByRole("textbox", { name: "Title" })
+  await title.fill("Loose prompt, renamed")
+  await expect(page.getByText("Saving…")).toBeVisible()
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible()
+  const updates = await calls(page, "update_snippet")
+  expect(updates).toHaveLength(1)
+  expect(updates[0].args).toMatchObject({ id, edit: { title: "Loose prompt, renamed" } })
+  // The tree follows the title
+  await expect(promptRow(page, "Loose prompt, renamed")).toBeVisible()
+  // The caption clears after its moment
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toHaveCount(0, { timeout: 5_000 })
+})
+
+test("Ctrl+F reaches the filter, the tree narrows to hits, Escape clears", async ({ page }) => {
+  await page.keyboard.press("Control+f")
+  await expect(filter(page)).toBeFocused()
+  await page.keyboard.type("bisect")
+  await expect(promptRow(page, "Bisect a regression")).toBeVisible()
+  await expect(promptRow(page, "Loose prompt")).toHaveCount(0)
+  // A pack counts hits over all while a filter holds
+  await expect(tree(page).getByRole("treeitem", { name: "Mock Groups, 1 of 4 prompts" })).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(filter(page)).toHaveValue("")
+  await expect(promptRow(page, "Loose prompt")).toBeVisible()
+})
+
+test("#tag and >group filter the tree the way the popup searches", async ({ page }) => {
+  const debug = (await library(page)).filter((s) => s.tags.includes("debug"))
+  await filter(page).fill("#debug")
+  for (const s of debug) await expect(promptRow(page, s.title)).toBeVisible()
+  await expect(promptRow(page, "Loose prompt")).toHaveCount(0)
+  await filter(page).fill(">Debugging")
+  await expect(promptRow(page, "Explain this error")).toBeVisible()
+  await expect(promptRow(page, "Review for bugs")).toHaveCount(0)
+})
+
+test("the tree is one tab stop and the arrow keys walk it", async ({ page }) => {
+  const items = tree(page).getByRole("treeitem")
+  const tabStops = await items.evaluateAll((els) => els.filter((el) => el.getAttribute("tabindex") === "0").length)
+  expect(tabStops).toBe(1)
+  await items.first().focus()
+  await page.keyboard.press("ArrowDown")
+  await expect(items.nth(1)).toBeFocused()
+  await page.keyboard.press("End")
+  await expect(items.last()).toBeFocused()
+  await page.keyboard.press("Home")
+  await expect(items.first()).toBeFocused()
+})
+
+test("Left folds a pack and Right unfolds it", async ({ page }) => {
+  const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
+  await expect(pack).toHaveAttribute("aria-expanded", "true")
+  await pack.focus()
+  await page.keyboard.press("ArrowLeft")
+  await expect(pack).toHaveAttribute("aria-expanded", "false")
+  await expect(promptRow(page, "Loose prompt")).toHaveCount(0)
+  await page.keyboard.press("ArrowRight")
+  await expect(pack).toHaveAttribute("aria-expanded", "true")
+  await expect(promptRow(page, "Loose prompt")).toBeVisible()
+})
+
+test("a pack title opens its overview, a group heading opens the group, Escape goes up", async ({ page }) => {
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
+  const overview = page.getByRole("region", { name: "Mock Groups" })
+  await expect(overview).toBeVisible()
+  // Ungrouped prompts first, then each group under its heading
+  await expect(overview.getByText("Loose prompt")).toBeVisible()
+  const group = overview.getByRole("region", { name: "Debugging" })
+  await expect(group).toBeVisible()
+  // The heading reads "Debugging 2": the name and the count
+  await group.getByRole("button", { name: /^Debugging \d/ }).click()
+  await expect(page.getByRole("region", { name: "Mock Groups › Debugging" })).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("region", { name: "Mock Groups", exact: true })).toBeVisible()
+})
+
+test("a prompt's pack crumb opens the overview, Escape returns to the pack from a prompt", async ({ page }) => {
+  await promptRow(page, "Loose prompt").click()
+  // Escape is a mode key only outside a field: with focus on the row it goes up
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("region", { name: "Mock Groups", exact: true })).toBeVisible()
+})
+
+test("Settings replaces the pane and closes again", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings" }).click()
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible()
+  await expect(page.getByRole("radiogroup", { name: "Theme" })).toBeVisible()
+  await page.getByRole("button", { name: "Close settings" }).click()
+  await expect(page.getByRole("heading", { name: "Settings" })).toHaveCount(0)
+})
+
+test("a theme choice is saved as a preference and applied to the document", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Light" }).click()
+  await expect.poll(() => calls(page, "save_prefs")).not.toHaveLength(0)
+  const saved = (await calls(page, "save_prefs")).at(-1)!
+  expect(saved.args).toMatchObject({ theme: "light" })
+  await expect(page.locator("html")).not.toHaveClass(/dark/)
+})
+
+test("a first run shows the empty state and New → Pack makes one to name", async ({ page }) => {
+  await open(page, "manager", "empty")
+  await expect(page.getByText("No prompts yet")).toBeVisible()
+  // The sidebar's New and the empty state's New open the same menu
+  await page.getByRole("complementary", { name: "Prompts" }).getByRole("button", { name: "New" }).click()
+  await page.getByRole("menuitem", { name: "Pack", exact: true }).click()
+  await expect.poll(() => calls(page, "add_pack")).toHaveLength(1)
+  expect((await calls(page, "add_pack"))[0].args).toMatchObject({ name: "New pack" })
+  // The new pack's overview opens with its name ready to type over
+  await expect(page.getByRole("region", { name: "New pack" })).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Rename New pack" })).toBeFocused()
+})
+
+test("New → Prompt in a pack starts a draft in the editor", async ({ page }) => {
+  await page.getByRole("complementary", { name: "Prompts" }).getByRole("button", { name: "New" }).click()
+  await page.getByRole("menuitem", { name: "Prompt" }).hover()
+  await page.getByRole("menu", { name: "Prompt" }).getByRole("menuitem", { name: "Mock Groups" }).click()
+  await expect.poll(() => calls(page, "add_snippet")).toHaveLength(1)
+  const [added] = await calls(page, "add_snippet")
+  expect(added.args).toMatchObject({ snippet: { title: "New prompt", text: "", pack: "Mock Groups" } })
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("New prompt")
+  await expect(promptRow(page, "New prompt")).toBeVisible()
+})
+
+test("deleting a prompt asks twice, writes the library, and Undo puts it back", async ({ page }) => {
+  await promptRow(page, "Loose prompt").click()
+  await page.getByRole("button", { name: "Delete prompt" }).click()
+  await page.getByRole("button", { name: "Confirm delete" }).click()
+  await expect(promptRow(page, "Loose prompt")).toHaveCount(0)
+  // The manager writes the whole list with its base revision (`persist`)
+  await expect.poll(() => calls(page, "save_snippets")).toHaveLength(1)
+  const [saved] = await calls(page, "save_snippets")
+  expect((saved.args!.snippets as { title: string }[]).map((s) => s.title)).not.toContain("Loose prompt")
+  await page.getByRole("button", { name: "Undo" }).click()
+  await expect(promptRow(page, "Loose prompt")).toBeVisible()
+  await expect.poll(() => calls(page, "save_snippets")).toHaveLength(2)
+})
