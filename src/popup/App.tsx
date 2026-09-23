@@ -18,7 +18,7 @@ const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { type Entry, Row, derive } from "@/popup/Row"
-import { Chip, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
+import { Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { Button } from "@/components/ui/button"
 import { MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
 import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
@@ -361,7 +361,6 @@ export function App() {
       uses: 0,
       pinned: false,
       pinnedAt: 0,
-      fieldValues: {},
       configValues: {},
     }
     // Rust appends on disk; this window never sends the whole library
@@ -380,7 +379,7 @@ export function App() {
     setNotice({ text: `Saved "${snip.title}" to ${create.pack}${create.group ? ` › ${create.group}` : ""}`, kind: "info" })
   }, [create, clip, fail])
 
-  // One prompt's pin state or remembered fill-ins, merged on disk.
+  // One prompt's pin state, merged on disk.
   // Resolves false when the write failed (already reported).
   const patch = useCallback(async (id: string, patch: SnippetPatch): Promise<boolean> => {
     try {
@@ -421,9 +420,8 @@ export function App() {
     base = C.downgradeUnsetConfig(base)
     const fields = C.customFields(base)
     if (fields.length) {
-      const initial: Record<string, string> = {}
-      for (const f of fields) initial[f] = (snippet.fieldValues || {})[f] || ""
-      setFormValues(initial)
+      // Every field starts empty: nothing typed last time is kept
+      setFormValues(Object.fromEntries(fields.map((f) => [f, ""])))
       setForm({ snippet, base, fields, paste })
       if (base.includes("{clipboard}")) refreshClip()
       return
@@ -443,12 +441,8 @@ export function App() {
     const paste = forceCopy ? false : form.paste
     setPicked(snippet.id)
     setForm(null)
-    // Remember entered values so next time the form is pre-filled.
-    // Sequenced: paste_snippet re-reads the file to bump the use count. A
-    // failed save is reported but must not stop the paste.
-    await patch(snippet.id, { fieldValues: { ...formValues } })
     await send(snippet, C.expandBuiltins(text), paste)
-  }, [form, formValues, patch, send, setPicked])
+  }, [form, formValues, send, setPicked])
 
   const togglePin = useCallback(async (s: Snippet) => {
     if (!s.pinned && snippets.filter((x) => x.pinned).length >= MAX_PINS) {
@@ -481,7 +475,7 @@ export function App() {
   }, [closePanel, fail])
 
   // Put the last deleted prompt back, with everything it had (same id, uses,
-  // pins, remembered fill-ins): add_snippet replaces by id
+  // pins): add_snippet replaces by id
   const undoDelete = useCallback(async () => {
     const last = lastDeleted.current
     if (!last) return
@@ -943,45 +937,40 @@ export function App() {
         {/* Fields and preview scroll; the button stays in reach below them */}
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1">
           <SectionHeader name>{form.snippet.title}</SectionHeader>
-          {form.fields.map((f, i) => {
-            const remembered = (form.snippet.fieldValues || {})[f]
-            return (
-              <div key={f} className="px-1">
-                <label htmlFor={`field-${f}`} className="mb-0.5 flex items-center gap-1.5 text-xs font-medium capitalize tracking-[0.04em] text-muted-foreground">
-                  {f.replace(/_/g, " ")}
-                  {remembered && <Chip tone="muted" className="normal-case tracking-normal">last used</Chip>}
-                </label>
-                <textarea
-                  id={`field-${f}`}
-                  autoFocus={i === 0}
-                  // Sized by its content (wrapped lines too, not just
-                  // newlines) from one line to exactly three, then scrolls;
-                  // the padding above the first line and below the last is
-                  // the same at every height
-                  rows={1}
-                  value={formValues[f] ?? ""}
-                  placeholder="Empty — pastes nothing"
-                  spellCheck={false}
-                  onFocus={(e) => { if (remembered) e.currentTarget.select() }}
-                  onChange={(e) => setFormValues((v) => ({ ...v, [f]: e.target.value }))}
-                  onKeyDown={(e) => {
-                    // An IME's Enter commits the candidate, not the form
-                    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
-                      e.preventDefault()
-                      // Submitting closes the form; this keydown is spent here
-                      // and must not bubble on to the list's Enter
-                      e.stopPropagation()
-                      void submitForm(e.ctrlKey)
-                    }
-                  }}
-                  className={cn(
-                    fieldVariants(),
-                    "block field-sizing-content max-h-[calc(3lh+1rem)] min-h-[calc(1lh+1rem)] w-full resize-none overflow-y-auto py-2 leading-5 placeholder:text-muted-foreground/70"
-                  )}
-                />
-              </div>
-            )
-          })}
+          {form.fields.map((f, i) => (
+            <div key={f} className="px-1">
+              <label htmlFor={`field-${f}`} className="mb-0.5 block text-xs font-medium capitalize tracking-[0.04em] text-muted-foreground">
+                {f.replace(/_/g, " ")}
+              </label>
+              <textarea
+                id={`field-${f}`}
+                autoFocus={i === 0}
+                // Sized by its content (wrapped lines too, not just
+                // newlines) from one line to exactly three, then scrolls;
+                // the padding above the first line and below the last is
+                // the same at every height
+                rows={1}
+                value={formValues[f] ?? ""}
+                placeholder="Empty — pastes nothing"
+                spellCheck={false}
+                onChange={(e) => setFormValues((v) => ({ ...v, [f]: e.target.value }))}
+                onKeyDown={(e) => {
+                  // An IME's Enter commits the candidate, not the form
+                  if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                    e.preventDefault()
+                    // Submitting closes the form; this keydown is spent here
+                    // and must not bubble on to the list's Enter
+                    e.stopPropagation()
+                    void submitForm(e.ctrlKey)
+                  }
+                }}
+                className={cn(
+                  fieldVariants(),
+                  "block field-sizing-content max-h-[calc(3lh+1rem)] min-h-[calc(1lh+1rem)] w-full resize-none overflow-y-auto py-2 leading-5 placeholder:text-muted-foreground/70"
+                )}
+              />
+            </div>
+          ))}
           <SectionHeader>Will paste</SectionHeader>
           <div className={cn(PREVIEW_BOX, "min-h-15 flex-1 overflow-y-auto")}>
             <PromptTokens text={C.expandBuiltins(form.base)} clipboard={clip} fieldValues={formValues} />

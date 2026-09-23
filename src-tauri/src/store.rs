@@ -220,9 +220,6 @@ pub(crate) struct Snippet {
     // entity: naming a group on a prompt is what creates it.
     #[serde(default)]
     pub(crate) group: String,
-    // Last-entered values for runtime {field}s; the popup pre-fills from these
-    #[serde(default, rename = "fieldValues")]
-    pub(crate) field_values: HashMap<String, String>,
     // Saved values for {{config}} parameters; expanded silently at paste time
     #[serde(default, rename = "configValues")]
     pub(crate) config_values: HashMap<String, String>,
@@ -342,7 +339,6 @@ pub(crate) fn snip(title: &str, tag: &str, text: &str) -> Snippet {
         text: text.into(),
         tags: vec![tag.to_lowercase()],
         pack: "Starter".into(),
-        field_values: HashMap::new(),
         config_values: HashMap::new(),
         category: String::new(),
         group: String::new(),
@@ -456,7 +452,7 @@ pub(crate) fn library(app: &AppHandle) -> Result<Library, String> {
 // on the array so they are unit-testable.
 
 /// Fields the manager's editor owns. Everything else on a snippet (`uses`,
-/// `pinned`, `fieldValues`) is written by the popup and must survive an edit.
+/// `pinned`) is written by the popup and must survive an edit.
 #[derive(Deserialize, Clone)]
 pub(crate) struct SnippetEdit {
     title: String,
@@ -468,12 +464,10 @@ pub(crate) struct SnippetEdit {
     config_values: HashMap<String, String>,
 }
 
-/// What the popup changes about a snippet: pin state, remembered fill-ins.
+/// What the popup changes about a snippet: its pin state.
 #[derive(Deserialize, Clone, Default)]
 pub(crate) struct SnippetPatch {
     pinned: Option<bool>,
-    #[serde(rename = "fieldValues")]
-    field_values: Option<HashMap<String, String>>,
 }
 
 /// Append, or replace an existing snippet with the same id (a retried add
@@ -497,9 +491,6 @@ pub(crate) fn merge_patch(list: &mut [Snippet], id: &str, patch: SnippetPatch) -
             (true, 0) => since_epoch().as_millis() as u64,
             (true, at) => at,
         };
-    }
-    if let Some(v) = patch.field_values {
-        s.field_values = v;
     }
     true
 }
@@ -577,11 +568,22 @@ mod tests {
     use crate::testing::{sample, temp_dir};
 
     #[test]
+    fn a_library_with_remembered_fill_ins_loads_and_drops_them() {
+        // Builds up to 0.2.9 remembered the last value of each fill-in field
+        let s: Snippet = serde_json::from_str(
+            r#"{"id": "a", "title": "t", "text": "{goal}", "fieldValues": {"goal": "x"}}"#,
+        )
+        .unwrap();
+        assert_eq!(s.text, "{goal}");
+        let out = serde_json::to_string(&s).unwrap();
+        assert!(!out.contains("fieldValues"), "{out}");
+    }
+
+    #[test]
     fn snippet_deserializes_with_all_new_fields_defaulted() {
         let s: Snippet = serde_json::from_str(r#"{"id": "a", "title": "t", "text": "b"}"#).unwrap();
         assert!(s.tags.is_empty());
         assert!(s.pack.is_empty());
-        assert!(s.field_values.is_empty());
         assert!(s.config_values.is_empty());
         assert_eq!(s.uses, 0);
         assert!(!s.pinned);
@@ -774,7 +776,6 @@ mod tests {
         // Popup-owned state survives a manager edit
         assert_eq!(a.uses, 7);
         assert!(a.pinned);
-        assert_eq!(a.field_values["goal"], "remembered");
         assert_eq!(list[1].title, sample("b").title);
     }
 
@@ -785,23 +786,12 @@ mod tests {
             &mut list,
             "a",
             SnippetPatch {
-                pinned: Some(false),
-                field_values: None
+                pinned: Some(false)
             }
         ));
         assert!(!list[0].pinned);
-        assert_eq!(list[0].field_values["goal"], "remembered");
-        let vals = HashMap::from([("goal".into(), "next".into())]);
-        assert!(merge_patch(
-            &mut list,
-            "a",
-            SnippetPatch {
-                pinned: None,
-                field_values: Some(vals)
-            }
-        ));
+        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: None }));
         assert!(!list[0].pinned);
-        assert_eq!(list[0].field_values["goal"], "next");
         assert_eq!(list[0].uses, 7);
         assert!(!merge_patch(&mut list, "missing", SnippetPatch::default()));
     }
@@ -814,10 +804,7 @@ mod tests {
         assert!(merge_patch(
             &mut list,
             "a",
-            SnippetPatch {
-                pinned: Some(true),
-                field_values: None
-            }
+            SnippetPatch { pinned: Some(true) }
         ));
         let stamped = list[0].pinned_at;
         assert!(stamped > 0);
@@ -825,10 +812,7 @@ mod tests {
         assert!(merge_patch(
             &mut list,
             "a",
-            SnippetPatch {
-                pinned: Some(true),
-                field_values: None
-            }
+            SnippetPatch { pinned: Some(true) }
         ));
         assert_eq!(list[0].pinned_at, stamped);
         // Unpinning forgets the order; the next pin goes to the end
@@ -836,8 +820,7 @@ mod tests {
             &mut list,
             "a",
             SnippetPatch {
-                pinned: Some(false),
-                field_values: None
+                pinned: Some(false)
             }
         ));
         assert_eq!(list[0].pinned_at, 0);
@@ -845,20 +828,10 @@ mod tests {
         assert!(merge_patch(
             &mut list,
             "a",
-            SnippetPatch {
-                pinned: Some(true),
-                field_values: None
-            }
+            SnippetPatch { pinned: Some(true) }
         ));
         let again = list[0].pinned_at;
-        assert!(merge_patch(
-            &mut list,
-            "a",
-            SnippetPatch {
-                pinned: None,
-                field_values: None
-            }
-        ));
+        assert!(merge_patch(&mut list, "a", SnippetPatch { pinned: None }));
         assert_eq!(list[0].pinned_at, again);
     }
 

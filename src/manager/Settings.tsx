@@ -515,28 +515,30 @@ export function Settings() {
         </p>
       </Card>
 
-      {/* Buy Me a Coffee, rendered locally rather than by their CDN script:
-          a desktop webview holding the user's clipboard and prompt library has
-          no business running remote JS, and this way it still works offline.
-          A secondary button: the pane's one primary is Generate, and a
-          donation link in the same orange read as a second call to action. */}
-      <div className="mb-2 flex flex-wrap items-center justify-center gap-3 self-center">
-        <span className="max-w-72 text-ui leading-relaxed text-muted-foreground">
-          This app is open source. If you find it useful, I'd appreciate it if you'd consider:
-        </span>
-        <Button
-          size="compact"
-          variant="secondary"
-          onClick={() => {
-            void invoke("open_url", { url: "https://buymeacoffee.com/hurryupbob" }).catch((e) =>
-              sayErr(`Couldn't open the link: ${e}`)
-            )
-          }}
-        >
-          <span aria-hidden>☕</span>
-          Buy me a coffee
-        </Button>
-      </div>
+      <Card title="About">
+        <Row label="Version">
+          <span className="text-ui tabular-nums">{__APP_VERSION__}</span>
+          {/* Buy Me a Coffee, rendered locally rather than by their CDN script:
+              a desktop webview holding the user's clipboard and prompt library
+              has no business running remote JS, and this way it still works
+              offline. A secondary button: the pane's one primary is Generate,
+              and a donation link in the same orange read as a second call to
+              action. */}
+          <Button
+            size="compact"
+            variant="secondary"
+            className="ml-auto"
+            onClick={() => {
+              void invoke("open_url", { url: "https://buymeacoffee.com/hurryupbob" }).catch((e) =>
+                sayErr(`Couldn't open the link: ${e}`)
+              )
+            }}
+          >
+            <span aria-hidden>☕</span>
+            Buy me a coffee
+          </Button>
+        </Row>
+      </Card>
     </div>
   )
 }
