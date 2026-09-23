@@ -33,8 +33,11 @@ backlog, not from another audit, unless asked.
   project (see *Architecture map* below).
 - `site/` — the one-page website at https://promptline.cc, published to
   GitHub Pages by `.github/workflows/pages.yml` on every push to `master`
-  that touches it (the workflow copies `docs/popup.png` in; `site/` holds
-  no binaries). Plain HTML and CSS on the tokens from `design/tokens.json`;
+  that touches it (the workflow copies `docs/popup.png` and
+  `docs/screenshots/*.png` in; `site/` holds no binaries). Plain HTML and
+  CSS on the tokens from `design/tokens.json`; the three screenshots play
+  as a slideshow under the hero, and a new screenshot is a file under
+  `docs/screenshots/` plus a slide in `site/index.html`;
   the Download button fetches the latest release's setup exe from the
   GitHub API and falls back to the releases page, so a release needs no
   site change. Preview it with `python -m http.server` in `site/` after
