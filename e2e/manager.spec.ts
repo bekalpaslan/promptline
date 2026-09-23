@@ -130,6 +130,20 @@ test("the editor names a near-miss placeholder under the prompt text, and has no
   await expect(page.getByRole("note")).toHaveCount(0)
 })
 
+test("a numbered copy of a field used in the library is not offered as a chip", async ({ page }) => {
+  // One prompt uses {goal} with a numbered copy, and {step_2} on its own
+  await promptRow(page, "Loose prompt").click()
+  await page.getByRole("textbox", { name: "Prompt text" }).fill("Compare {goal} with {goal_2}, then {step_2}.")
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible()
+  // Another prompt's editor offers the library's names: the first and the
+  // lone numbered name, not the copy (the + on {goal}'s chip makes that)
+  await promptRow(page, "Bisect a regression").click()
+  await page.getByRole("button", { name: "Advanced options" }).click()
+  await expect(page.locator('[title="Insert {goal}"]')).toBeVisible()
+  await expect(page.locator('[title="Insert {step_2}"]')).toBeVisible()
+  await expect(page.locator('[title="Insert {goal_2}"]')).toHaveCount(0)
+})
+
 test("Settings replaces the pane and closes again", async ({ page }) => {
   await page.getByRole("button", { name: "Settings" }).click()
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible()

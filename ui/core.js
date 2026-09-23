@@ -61,6 +61,20 @@
     return `${stem}_${n}`;
   }
 
+  // The names worth offering as chips to insert: every name given, less the
+  // numbered copies ({goal_2}, {goal_3}) of a name that is also there. The +
+  // on the first's chip makes those (nextCopyName), and a copy inserted
+  // without its first is a "Goal 2" with no goal. A numbered name whose stem
+  // is not around ({step_2} on its own) is a name in its own right and
+  // stays. Order is kept; duplicates are dropped.
+  function dropNumberedCopies(names) {
+    const set = new Set(names);
+    return [...set].filter(n => {
+      const m = /^(.+)_\d+$/.exec(n);
+      return !(m && set.has(m[1]));
+    });
+  }
+
   // Remove every {name} / {{name}} from the text, tidying only the
   // whitespace the token leaves behind: a token between two spaces leaves
   // one, a token alone on its line takes the line with it. Nothing else in
@@ -751,6 +765,7 @@
     tokenize,
     customFields,
     nextCopyName,
+    dropNumberedCopies,
     removeParamToken,
     configNames,
     expandConfig,
