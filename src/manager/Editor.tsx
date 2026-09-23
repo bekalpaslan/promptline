@@ -493,6 +493,10 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         )}
       </div>
       <div className="flex flex-wrap items-center gap-3">
+        {/* The autosave caption sits at the tail of the title field, over the
+            room a title leaves, so it takes no width of its own: as a flex
+            item it held an empty gap beside the group field while idle */}
+        <span className="relative flex min-w-50 flex-[2]">
         <input
           autoFocus={isDraft}
           onFocus={(e) => {
@@ -506,8 +510,27 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           placeholder="Title"
           aria-label="Title"
           spellCheck={false}
-          className="min-w-50 flex-[2] bg-transparent py-1 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
+          className="w-full bg-transparent py-1 pr-16 text-base font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
         />
+        {/* Autosave feedback: the caption fades rather than vanishing, and the
+            live region announces only the landing, never each keystroke */}
+        <span
+          aria-hidden
+          className={cn(
+            "pointer-events-none absolute right-0 top-1/2 flex -translate-y-1/2 items-center gap-0.5 text-xs text-muted-foreground transition-opacity duration-300",
+            saveState === "idle" && "opacity-0"
+          )}
+        >
+          {saveState === "saving" ? (
+            "Saving…"
+          ) : (
+            <>
+              <RiCheckLine className="size-3.5" />
+              Saved
+            </>
+          )}
+        </span>
+        </span>
         <Select
           className="min-w-32 flex-1"
           value={pack}
@@ -549,24 +572,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           className="min-w-28 max-w-60 shrink-0"
         />
         {groupMenu.element}
-        {/* Autosave feedback: the caption fades rather than vanishing, and the
-            live region announces only the landing, never each keystroke */}
-        <span
-          aria-hidden
-          className={cn(
-            "flex items-center gap-0.5 text-xs text-muted-foreground transition-opacity duration-300",
-            saveState === "idle" && "opacity-0"
-          )}
-        >
-          {saveState === "saving" ? (
-            "Saving…"
-          ) : (
-            <>
-              <RiCheckLine className="size-3.5" />
-              Saved
-            </>
-          )}
-        </span>
         <span role="status" className="sr-only">
           {saveState === "saved" ? "Saved" : ""}
         </span>
