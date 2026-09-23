@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
-import { SizeDebug } from "@/lib/SizeDebug"
 import {
   RiAddLine,
   RiArrowDownSLine,
@@ -1259,7 +1258,6 @@ function Shell({
 }) {
   return (
     <div className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-background p-2 text-foreground shadow-(--shadow-shell)">
-      {import.meta.env.DEV && <SizeDebug />}
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
       {children}
       {/* Feedback strip: errors stay until Esc or the next summon, confirmations

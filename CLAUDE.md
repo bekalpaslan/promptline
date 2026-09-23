@@ -182,9 +182,8 @@ through `window.__mock`. Screenshots at the real window sizes: manager
 session, the Chrome DevTools MCP does the same job (`new_page`,
 `take_snapshot` for the a11y tree, `evaluate_script`, `take_screenshot`,
 `resize_page`); its `resize_page` refuses widths under about 500 px, so
-check the popup's 320×280 minimum with viewport emulation instead. The
-`1000×800 · 1.25 · 1.5x` badge in every mock screenshot is `SizeDebug`,
-DEV-only, not shipped. Parallel sessions each take their own port
+check the popup's 320×280 minimum with viewport emulation instead.
+Parallel sessions each take their own port
 (5175–5178 have been used); stop the server and close your pages when done.
 
 What the mock can't show: real pasting, the global hotkey, window
