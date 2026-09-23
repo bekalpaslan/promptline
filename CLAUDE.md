@@ -100,11 +100,19 @@ read, publish, commit.
 
 ## Checks
 
-Six, and CI runs all of them on every push and PR (`.github/workflows/ci.yml`):
+Seven, and CI runs all of them on every push and PR (`.github/workflows/ci.yml`):
 
-- `npx tsc -b --noEmit`
+- `npx tsc -b --noEmit` (the app, the Vite config and `e2e/`)
 - `npm run lint` (`eslint . --max-warnings 0`: a warning fails)
 - `npm test` (node: core, tokens, and two parity tests, below)
+- `npm run test:e2e` (Playwright: both windows in Chromium against the
+  fake backend, `e2e/*.spec.ts`; `npx playwright install chromium` once.
+  It starts its own Vite on 5179, or reuses one already there; a first
+  failure leaves a trace in `test-results/`, `npx playwright show-trace`
+  opens it. Add a case when a UI behaviour changes, in the file for its
+  window, named for the behaviour; assert through roles and names, and
+  through `window.__mock.calls` for what the backend was asked, never
+  through class names)
 - `npm run test:rust`
 - `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
@@ -138,8 +146,10 @@ Housekeeping:
 
 ## Verifying UI changes
 
-Look at the change running, not just the diff. There are two ways, and the
-first is usually enough.
+Look at the change running, not just the diff. The Playwright suite
+(`npm run test:e2e`, above) is the first stop: extend it for the behaviour
+you changed, and it walks both windows for you. Then there are two ways to
+look, and the first is usually enough.
 
 **1. Browser with the fake backend** — layout, navigation, menus, keyboard,
 anything the UI decides on its own.

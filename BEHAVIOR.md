@@ -715,6 +715,7 @@ cursor on or just outside the frame — and reclaims focus instead of hiding.
 
 ```sh
 npm test           # tests/*.test.js under node --test (see below)
+npm run test:e2e   # e2e/*.spec.ts, both windows in Chromium on the fake backend
 npm run test:rust  # the storage layer and its policies (see below)
 npm run typecheck  # tsc over both windows
 ```
@@ -747,7 +748,24 @@ is refused when it reads as an existing pack's, backing records the file),
 the data-dir move from
 `com.promptline.app` rewriting pack paths, and the starter pack's ids.
 
+`npm run test:e2e` is the UI wiring, under Playwright: `e2e/popup.spec.ts`
+and `e2e/manager.spec.ts` open each window at its real size against the
+fake backend (`?mock`, the same `src/lib/dev-mock.ts` a manual browser walk
+uses) and drive it the way a user does, through roles, names and keys. The
+popup's cases follow "The paste pipeline": search tiers, `#tag`, Enter and
+Ctrl+Enter and what `paste_snippet` was asked, the `"copied"` answer, the
+double-Enter guard, the fill-in form and its empty-field button, Escape's
+ladder, `paste-failed` staying until Esc, the action panel's armed delete
+and the bare-U undo, Ctrl+N's title. The manager's follow "Shape": the
+tree's counts and its single tab stop, folding, the editor's autosave
+caption and one `update_snippet`, Ctrl+F and the `#tag` / `>group` filter,
+the overview and Escape going up, Settings and the theme preference, New →
+Pack and New → Prompt, and delete-with-Undo through `save_snippets`. What
+the backend was asked is read from `window.__mock.calls`, so a case can
+say what would have been pasted without a paste happening.
+
 The split reflects what is worth testing: pure functions and file-level
-policies with real edge cases. UI wiring and anything needing an
-`AppHandle` is verified by running the app (`CLAUDE.md`, "Verifying UI
-changes").
+policies with real edge cases, and the two windows' own decisions through
+the fake backend. What only Rust and Windows do — the paste itself, the
+hotkey, window focus, file dialogs — is verified by running the app
+(`CLAUDE.md`, "Verifying UI changes").
