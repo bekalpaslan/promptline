@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
-import { SizeDebug } from "@/lib/SizeDebug"
 import { RiCloseLine, RiSettings3Line } from "@remixicon/react"
 import { Toaster } from "@/components/ui/sonner"
 import { Button } from "@/components/ui/button"
@@ -507,7 +506,6 @@ export function App() {
 
   return (
     <ManagerCtx.Provider value={api}>
-      {import.meta.env.DEV && <SizeDebug />}
       <div className="flex h-dvh flex-col bg-background text-foreground">
         {firstRun !== "hidden" && (
           <div className="flex items-center gap-2 border-b border-border bg-primary/8 px-4 py-2 text-ui text-primary">
