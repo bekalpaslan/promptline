@@ -17,3 +17,7 @@ committing. Node 22 (`.nvmrc`) and a stable Rust toolchain are all you need;
 `npm run dev` starts the app with a hot-reloading UI, and
 `http://localhost:5173/?mock` serves the manager against a fake backend
 when the real one is in the way.
+
+Contributions are accepted under the project's MIT licence: by opening a
+pull request you agree that your change is licensed under the terms in
+[`LICENSE`](LICENSE), and that you have the right to license it so.
