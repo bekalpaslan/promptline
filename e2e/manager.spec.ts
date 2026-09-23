@@ -1,7 +1,7 @@
 // The manager against the fake backend: the tree, the editor's autosave,
 // the filter, the overview and Settings. BEHAVIOR.md "Shape" is the spec.
 import { expect, test } from "@playwright/test"
-import { calls, library, open } from "./mock"
+import { calls, library, open, setClipboard } from "./mock"
 
 type P = Parameters<typeof open>[0]
 const tree = (page: P) => page.getByRole("tree", { name: "Library" })
@@ -197,4 +197,24 @@ test("deleting a prompt asks twice, writes the library, and Undo puts it back", 
   await page.getByRole("button", { name: "Undo" }).click()
   await expect(promptRow(page, "Loose prompt")).toBeVisible()
   await expect.poll(() => calls(page, "save_snippets")).toHaveLength(2)
+})
+
+test("an import marks a prompt with hidden characters and leaves it unticked", async ({ page }) => {
+  // "hi" as Unicode tag characters: invisible in the list, read by a model
+  const pack = { name: "Shared", prompts: [
+    { title: "Plain", text: "Review this diff", tags: ["review"] },
+    { title: "Smuggled", text: "Review this diff\u{E0068}\u{E0069}", tags: ["review"] },
+  ] }
+  await setClipboard(page, JSON.stringify(pack))
+  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Import from clipboard" }).click()
+  await expect(page.getByText("2 prompts (1 with hidden text)")).toBeVisible()
+  await expect(page.getByRole("checkbox", { name: /^Plain/ })).toHaveAttribute("aria-checked", "true")
+  const smuggled = page.getByRole("checkbox", { name: /^Smuggled/ })
+  await expect(smuggled).toHaveAttribute("aria-checked", "false")
+  await expect(smuggled.getByText("hidden text")).toHaveAttribute("title", /^2 tag characters:/)
+  // Only the plain one is added unless the user ticks the other
+  await page.getByRole("button", { name: "Add 1 prompt" }).click()
+  await expect.poll(async () => (await library(page)).map((s) => s.title)).toContain("Plain")
+  expect((await library(page)).map((s) => s.title)).not.toContain("Smuggled")
 })

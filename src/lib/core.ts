@@ -81,10 +81,17 @@ export type TreeRow =
   | { key: string; kind: "group"; pack: string; group: string; count: number; level: 2; expanded: boolean; hasChildren: boolean; parent: string }
   | { key: string; kind: "prompt"; id: string; level: 1 | 2 | 3; parent?: string }
 
-/** One prompt of an import under review: where it goes, whether the library has it, whether it is ticked */
+/** Characters of one kind that render as nothing or reorder what is shown, and how many */
+export interface HiddenFound {
+  kind: "tag" | "bidi" | "control" | "invisible"
+  count: number
+}
+
+/** One prompt of an import under review: where it goes, whether the library has it, what it hides, whether it is ticked */
 export interface ImportRow extends ParsedPrompt {
   packName: string
   dupe: boolean
+  hidden: HiddenFound[]
   include: boolean
 }
 
@@ -195,10 +202,14 @@ interface PromptlineCore {
   groupsIn(snippets: Pick<Snippet, "pack" | "group">[], pack: string, defaultPack: string): string[]
   /** Every tag in the library, most used first */
   tagsByCount(snippets: Pick<Snippet, "tags">[]): string[]
-  /** An import's review rows: a prompt the library already has (same title and text) is a dupe, unticked */
+  /** An import's review rows: a prompt the library already has (same title and text) is a dupe, unticked; one with hidden characters starts unticked too */
   importRows(packs: ParsedPack[], library: Pick<Snippet, "title" | "text">[]): ImportRow[]
   /** The ticked rows as prompts to add, renamed into `targetName` when given, minus those bound for a locked pack */
   curateImport(rows: ImportRow[], isLocked: (pack: string) => boolean, targetName?: string): { prompts: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">[]; skippedLocked: number }
+  /** Tag characters, bidi controls, control characters and invisibles in `text`, by kind; [] when there are none */
+  hiddenChars(text: string | null | undefined): HiddenFound[]
+  /** "14 tag characters and 2 direction controls" */
+  describeHidden(found: HiddenFound[]): string
   /** A keydown's key in the hotkey vocabulary (" " is "space"), or null for one the parser has no name for */
   hotkeyKeyName(key: string | undefined): string | null
   /** The combination a keydown stands for ("ctrl+shift+v"), or null: no key, a modifier alone, no modifier, or an unnameable key */

@@ -73,6 +73,7 @@ export function ImportCuration({
 
   const included = rows.filter((r) => r.include).length
   const dupes = rows.filter((r) => r.dupe).length
+  const hiding = rows.filter((r) => r.hidden.length > 0).length
   const setAll = (pred: (r: Row) => boolean) => setRows((rs) => rs.map((r) => ({ ...r, include: pred(r) })))
 
   const confirm = async () => {
@@ -116,6 +117,7 @@ export function ImportCuration({
         <span>
           {C.plural(rows.length, "prompt")}
           {dupes ? ` (${dupes} already in library)` : ""}
+          {hiding ? ` (${hiding} with hidden text)` : ""}
         </span>
         {singlePack && (
           <>
@@ -180,6 +182,16 @@ export function ImportCuration({
               <span className="min-w-0 flex-1 truncate">{r.text.replace(/\s+/g, " ").slice(0, 80)}</span>
               {r.dupe && (
                 <Chip>dupe</Chip>
+              )}
+              {/* Starts unticked (C.importRows): what reaches a model or a
+                  terminal is more than this row can show */}
+              {r.hidden.length > 0 && (
+                <Chip
+                  tone="warn"
+                  title={`${C.describeHidden(r.hidden)}: they don't show here, but whatever you paste into receives them`}
+                >
+                  hidden text
+                </Chip>
               )}
             </div>
           )

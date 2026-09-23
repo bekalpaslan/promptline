@@ -909,7 +909,79 @@ test('importRows marks a prompt the library already holds as a dupe, unticked', 
     ['A', 'Same title', false, true], // same title, different text: not a dupe
     ['B', 'New', false, true],
   ]);
-  assert.deepEqual(rows[0], { packName: 'A', title: 'Same', text: 'body', tags: ['t'], group: 'G', dupe: true, include: false });
+  assert.deepEqual(rows[0], { packName: 'A', title: 'Same', text: 'body', tags: ['t'], group: 'G', dupe: true, hidden: [], include: false });
+});
+
+test('importRows starts a prompt with hidden characters unticked, wherever they hide', () => {
+  const packs = [
+    { name: 'A', prompts: [
+      { title: 'Clean', text: 'Fix the bug ❤️', tags: [], group: '' },
+      { title: 'Smuggled', text: 'Fix the bug\u{E0041}\u{E0042}', tags: [], group: '' },
+      { title: 'Title‮', text: 'body', tags: [], group: '' },
+      { title: 'In group', text: 'body', tags: [], group: 'G​' },
+    ] },
+    { name: 'Pack⁦', prompts: [{ title: 'In pack name', text: 'body', tags: [], group: '' }] },
+  ];
+  const rows = core.importRows(packs, []);
+  assert.deepEqual(rows.map((r) => [r.title, r.hidden.length > 0, r.include]), [
+    ['Clean', false, true],
+    ['Smuggled', true, false],
+    ['Title‮', true, false],
+    ['In group', true, false],
+    ['In pack name', true, false],
+  ]);
+  assert.deepEqual(rows[1].hidden, [{ kind: 'tag', count: 2 }]);
+});
+
+// ---- hidden characters -----------------------------------------------------------
+
+test('hiddenChars finds tag characters, bidi controls, control characters and invisibles, by kind', () => {
+  assert.deepEqual(core.hiddenChars(''), []);
+  assert.deepEqual(core.hiddenChars(null), []);
+  assert.deepEqual(core.hiddenChars('plain text\twith tabs\r\nand lines'), []);
+  // ASCII smuggling: "hi" as tag characters a model reads but nobody sees
+  assert.deepEqual(core.hiddenChars('Summarise this\u{E0068}\u{E0069}'), [{ kind: 'tag', count: 2 }]);
+  // Trojan Source: an override and an isolate
+  assert.deepEqual(core.hiddenChars('a‮b⁦c'), [{ kind: 'bidi', count: 2 }]);
+  // ESC starts a terminal escape sequence; DEL and C1 controls count too
+  assert.deepEqual(core.hiddenChars('x\u001b[2Jy\u007f\u0085'), [{ kind: 'control', count: 3 }]);
+  // Zero-width space, word joiner, a mid-text BOM, a Hangul filler, a variation selector from the supplement
+  assert.deepEqual(core.hiddenChars('a​b⁠c﻿dㅤe\u{E0100}'), [{ kind: 'invisible', count: 5 }]);
+  // Kinds come in a fixed order, whatever order the text has them in
+  assert.deepEqual(core.hiddenChars('​\u001b‮\u{E0041}').map((f) => f.kind), ['tag', 'bidi', 'control', 'invisible']);
+});
+
+test('hiddenChars lets honest invisibles through: emoji joiners, a variation selector, flags, Persian, RTL marks', () => {
+  assert.deepEqual(core.hiddenChars('family \u{1F468}‍\u{1F469}‍\u{1F467}'), []);
+  assert.deepEqual(core.hiddenChars('love ❤️'), []);
+  assert.deepEqual(core.hiddenChars('on fire ❤️‍\u{1F525}, pride \u{1F3F3}️‍\u{1F308}'), []);
+  assert.deepEqual(core.hiddenChars('Scotland \u{1F3F4}\u{E0067}\u{E0062}\u{E0073}\u{E0063}\u{E0074}\u{E007F}'), []);
+  assert.deepEqual(core.hiddenChars('می‌خواهم'), []); // ZWNJ in a Persian word
+  assert.deepEqual(core.hiddenChars('שלום‏!'), []); // RLM after Hebrew
+  assert.deepEqual(core.hiddenChars('co­operate'), []); // one soft hyphen
+});
+
+test('hiddenChars counts honest invisibles in a run, or next to a hidden character', () => {
+  // A run of joiners is how zero-width steganography encodes bits
+  assert.deepEqual(core.hiddenChars('ok‌‍‌‍ok'), [{ kind: 'invisible', count: 4 }]);
+  assert.deepEqual(core.hiddenChars('x️️x'), [{ kind: 'invisible', count: 2 }]);
+  // A lone joiner beside a zero-width space counts with it
+  assert.deepEqual(core.hiddenChars('a​‍b'), [{ kind: 'invisible', count: 2 }]);
+  // Tags after a black flag that never reach the cancel tag are smuggling, not a flag
+  assert.deepEqual(core.hiddenChars('\u{1F3F4}\u{E0068}\u{E0069}'), [{ kind: 'tag', count: 2 }]);
+  // A flag's tag run is short; a long one is smuggling even when it ends in a cancel tag
+  const long = '\u{1F3F4}' + '\u{E0061}'.repeat(12) + '\u{E007F}';
+  assert.deepEqual(core.hiddenChars(long), [{ kind: 'tag', count: 13 }]);
+});
+
+test('describeHidden names the kinds and counts in words', () => {
+  assert.equal(core.describeHidden([]), '');
+  assert.equal(core.describeHidden([{ kind: 'tag', count: 1 }]), '1 tag character');
+  assert.equal(core.describeHidden([{ kind: 'tag', count: 14 }, { kind: 'bidi', count: 2 }]), '14 tag characters and 2 direction controls');
+  assert.equal(
+    core.describeHidden([{ kind: 'bidi', count: 1 }, { kind: 'control', count: 3 }, { kind: 'invisible', count: 2 }]),
+    '1 direction control, 3 control characters and 2 invisible characters'
+  );
 });
 
 test('curateImport adds the ticked rows, renames a single-pack import, and skips locked packs', () => {
