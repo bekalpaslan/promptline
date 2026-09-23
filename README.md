@@ -3,10 +3,11 @@
 *Your prompt vocabulary, one hotkey away, in every window.*
 **[promptline.cc](https://promptline.cc)** · [Download](https://github.com/bekalpaslan/promptline/releases/latest)
 
-A tiny tray app for developers who talk to Claude (or any AI) all day. Hit the
+A tiny tray app for people who talk to AI all day. Hit the
 global hotkey (default `Ctrl+Shift+V`), a popup appears at your cursor with
 your prompt library — pick one and it's pasted straight into the app you were
-just using: Claude Code in a terminal, claude.ai in the browser, Cursor, a PR
+just using: Claude Code or Codex in a terminal, ChatGPT or claude.ai in the
+browser, Cursor, a PR
 comment box, anywhere.
 
 <p align="center">
@@ -147,7 +148,7 @@ them, plus config values. Invisible until you want it.
 - **New** above the list makes a pack, a group or a prompt, and always asks
   where: a group picks its pack, a prompt picks a pack or a group in one.
   A new pack or group is selected with its name ready to type. **Generate pack
-  with Claude** (also under New) takes a topic, hands you an instruction to paste into Claude,
+  with AI** (also under New) takes a topic, hands you an instruction to paste into any AI chat,
   and imports its reply — every prompt is reviewed in a checklist (bulk
   select, per-row pack names, and malformed JSON is editable in place) before
   anything is added. With a coding agent, leave the topic empty and it surveys

@@ -10,7 +10,7 @@
   const rows = [
     rowProps(snippet({ id: "a", title: "Root cause first", text: "Here's the error: {clipboard} Find the root cause before proposing any fix.", tags: ["debug"], pinned: true }), { selected: true, slot: 1 }),
     rowProps(snippet({ id: "b", title: "Reproduce before fixing", text: "Before fixing, write a minimal reproduction or failing test for this bug: {bug}", tags: ["debug"], pinned: true }), { slot: 2 }),
-    rowProps(snippet({ id: "c", title: "Session kickoff", text: "Hi Claude — new session. {{standing_instructions}} Today's focus: {focus}", tags: ["session", "kickoff", "flow", "plan"] })),
+    rowProps(snippet({ id: "c", title: "Session kickoff", text: "New session. {{standing_instructions}} Today's focus: {focus}", tags: ["session", "kickoff", "flow", "plan"] })),
     rowProps(snippet({ id: "d", title: "Verify before done", text: "Before you call this done: run the relevant checks and show me the evidence.", tags: ["flow", "test"] }), { activeTags: ["test"] }),
     rowProps(snippet({ id: "e", title: "Clean up git changes", text: "Group the changes into logical units and commit each.", tags: ["git"] }), { compact: true }),
   ]

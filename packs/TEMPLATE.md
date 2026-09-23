@@ -54,19 +54,19 @@ the legacy flat array format `[{title, text, category}]` (category becomes a tag
 Config parameters are personal: exports ship the template with values empty, so
 each user sets their own (e.g. `{{standing_instructions}}`) after importing.
 
-## Generating packs with Claude
+## Generating packs with AI
 
-Don't write packs by hand — open **New → Generate pack with Claude** in the
+Don't write packs by hand — open **New → Generate pack with AI** in the
 manager (the same dialog is a button under **Settings → Your library**). It
 has two paths:
 
-- **Chat Claude — copy & paste**: type a topic, then follow the three steps —
-  **Copy the prompt for Claude**, **Paste it to Claude, then copy its whole
+- **Chat — copy & paste**: type a topic, then follow the three steps —
+  **Copy the instruction**, **Paste it into any AI chat, then copy its whole
   reply** (the **Import reply from clipboard** button reads it), and **Review
   & add**. The copied instruction already carries your topic, your existing
   tags, and the format rules.
-- **Agent — writes the file**: for a coding agent that sits in a project
-  (Claude Code, for example). **Create the pack file & copy instructions**
+- **Coding agent — writes the file**: for an agent that sits in a project
+  (Claude Code, Codex or Cursor, for example). **Create the pack file & copy instructions**
   makes the file and puts an instruction naming its path on the clipboard;
   **Paste to your agent — the file reloads by itself** watches the file
   until the agent has written it (a Stop button and **Import from file…**

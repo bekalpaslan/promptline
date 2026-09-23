@@ -70,7 +70,7 @@ function chatInstruction(rules: string, topic: string): Segment[] {
 }
 
 // Where the agent should look before writing anything — shared by both agent variants
-const SURVEY = `Before writing anything, survey the project this session runs in: CLAUDE.md and other contributor docs, roadmap or backlog files, recent git log, the test and build commands, and any workflow commands or skills available in this session (for example /gsd:next). Name real files, commands, and conventions from this project rather than generic ones. Where a workflow command already exists, write the prompt that wraps it with the context the user would otherwise type by hand.`
+const SURVEY = `Before writing anything, survey the project this session runs in: its agent instructions (CLAUDE.md, AGENTS.md or similar) and other contributor docs, roadmap or backlog files, recent git log, the test and build commands, and any workflow commands or skills available in this session (for example /gsd:next). Name real files, commands, and conventions from this project rather than generic ones. Where a workflow command already exists, write the prompt that wraps it with the context the user would otherwise type by hand.`
 
 // One practice = one group inside the project's pack; the agent skips
 // practices it has nothing specific to say about
@@ -120,7 +120,7 @@ function agentInstruction(tags: string, topic: string, filePath: string): Segmen
 const segmentsToText = (segs: Segment[]) =>
   segs.map((s) => (typeof s === "string" ? s : s.chip)).join("")
 
-// Live render of exactly what Claude will receive — the editor-preview idiom
+// Live render of exactly what the AI will receive — the editor-preview idiom
 function InstructionPreview({ segments }: { segments: Segment[] }) {
   return (
     <div className={cn(PREVIEW_BOX, "max-h-40 overflow-y-auto")}>
@@ -237,7 +237,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     if (!requireTopic()) return
     await invoke("set_clipboard_text", { text: segmentsToText(chatInstruction(rules, topic.trim())) })
     setCopied(true)
-    say("Copied — paste it to Claude")
+    say("Copied — paste it into your AI chat")
   }
 
   // Agent mode: the agent writes the pack straight into a file-backed pack's
@@ -273,7 +273,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     }
   }
 
-  // ---- Step 2 (agent): watch the pack file until Claude fills it ----
+  // ---- Step 2 (agent): watch the pack file until the agent fills it ----
   useEffect(() => {
     if (!watching || !agentFilePath || importRaw !== null) return
     const t = setInterval(() => {
@@ -286,7 +286,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           if (diag.ok && diag.packs.some((p) => p.prompts.length > 0)) {
             setWatching(false)
             setImportRaw(raw)
-            say("Claude wrote the pack — review it below")
+            say("The agent wrote the pack — review it below")
           }
         } catch {
           // transient read errors (file mid-write) — keep watching
@@ -328,7 +328,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       {/* Base DialogContent caps at sm:max-w-sm — lift it, this dialog is content-heavy */}
       <DialogContent className="flex max-h-[92vh] w-[min(42rem,94vw)] max-w-none flex-col overflow-y-auto sm:max-w-none">
         <DialogHeader>
-          <DialogTitle className="text-sm">Generate pack with Claude</DialogTitle>
+          <DialogTitle className="text-sm">Generate pack with AI</DialogTitle>
           <DialogDescription className="sr-only">
             Generate a prompt pack from a topic, then review each prompt before importing.
           </DialogDescription>
@@ -365,11 +365,11 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         )}
 
         {/* Path picker: the shared segmented control, as the theme toggle */}
-        <div className={SEGMENT_TRACK} role="radiogroup" aria-label="How Claude receives the instruction">
+        <div className={SEGMENT_TRACK} role="radiogroup" aria-label="How the AI receives the instruction">
           {(
             [
-              ["chat", "Chat Claude — copy & paste"],
-              ["agent", "Agent — writes the file"],
+              ["chat", "Chat — copy & paste"],
+              ["agent", "Coding agent — writes the file"],
             ] as const
           ).map(([p, label]) => (
             <button
@@ -385,10 +385,10 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           ))}
         </div>
 
-        {/* What Claude will receive, rendered live */}
+        {/* What the AI will receive, rendered live */}
         <div className="module">
           <div className="mb-1 section-title">
-            What Claude gets
+            What the AI gets
           </div>
           <InstructionPreview segments={segments} />
         </div>
@@ -397,14 +397,14 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         <div className="mt-1 flex flex-col">
           {path === "chat" ? (
             <>
-              <Step n={1} title="Copy the prompt for Claude" done={copied} active={!copied}>
+              <Step n={1} title="Copy the instruction" done={copied} active={!copied}>
                 <Button size="sm" className="mt-1.5" onClick={() => void copyChatPrompt()}>
                   {copied ? "Copy again" : "Copy prompt"}
                 </Button>
               </Step>
-              <Step n={2} title="Paste it to Claude, then copy its whole reply" done={step2Done} active={copied && !step2Done}>
+              <Step n={2} title="Paste it into any AI chat, then copy its whole reply" done={step2Done} active={copied && !step2Done}>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  In claude.ai or the Claude app: paste, wait for the JSON reply, copy it.
+                  In claude.ai, ChatGPT, Gemini or any other chat: paste, wait for the JSON reply, copy it.
                 </p>
                 <Button
                   size="sm"

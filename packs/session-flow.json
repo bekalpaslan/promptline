@@ -4,7 +4,7 @@
     {
       "title": "Session kickoff",
       "tags": ["session", "kickoff"],
-      "text": "Hi Claude — new session.\n\n{{standing_instructions}}\n\nToday's focus: {focus}\n\nBefore changing anything: skim CLAUDE.md and the recent git log, then give me a short plan."
+      "text": "New session.\n\n{{standing_instructions}}\n\nToday's focus: {focus}\n\nBefore changing anything: skim the project's agent instructions (CLAUDE.md, AGENTS.md or similar) and the recent git log, then give me a short plan."
     },
     {
       "title": "I like your suggestion",
