@@ -432,12 +432,9 @@ export function Settings() {
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <Button
             size="compact"
-            // Claude's brand orange, as on claude.ai; white on it is 3.4:1 at
-            // this size and weight, the same as the vendor's own button
-            className="bg-[#d97757] font-semibold text-white hover:bg-[#e2825f]"
             onClick={() => m.openGenerate()}
           >
-            Generate pack with Claude…
+            Generate pack with AI…
           </Button>
           {newPackMode ? (
             <input

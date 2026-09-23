@@ -150,7 +150,7 @@ export function Editor() {
           <EmptyState
             icon={RiFileTextLine}
             title="No prompts yet"
-            hint="A pack holds your prompts: make one and write prompts in it, or let Claude draft a pack for a topic — every prompt is reviewed before it is added"
+            hint="A pack holds your prompts: make one and write prompts in it, or let an AI draft a pack for a topic — every prompt is reviewed before it is added"
             actions={[
               {
                 label: "New",
@@ -161,7 +161,7 @@ export function Editor() {
                   menus.openNewMenu(r.left, r.bottom + 4)
                 },
               },
-              { label: "Generate pack with Claude…", onClick: () => m.openGenerate() },
+              { label: "Generate pack with AI…", onClick: () => m.openGenerate() },
             ]}
           />
           {menus.element}
@@ -175,7 +175,7 @@ export function Editor() {
         hint={`Or press ${C.fmtHotkey(m.hotkey)} in any app to paste one`}
         actions={[
           { label: "New prompt", onClick: () => void m.newPrompt(), primary: true },
-          { label: "Generate pack with Claude…", onClick: () => m.openGenerate() },
+          { label: "Generate pack with AI…", onClick: () => m.openGenerate() },
         ]}
       />
     )

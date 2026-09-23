@@ -502,7 +502,7 @@ export function useLibraryMenus(opts: {
           : none,
       },
       { kind: "sep" },
-      { kind: "item", label: "Generate pack with Claude…", run: () => m.openGenerate() },
+      { kind: "item", label: "Generate pack with AI…", run: () => m.openGenerate() },
     ])
   }
 

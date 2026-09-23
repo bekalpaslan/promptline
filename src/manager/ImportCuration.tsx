@@ -10,7 +10,7 @@ import { say, sayErr } from "./status"
 
 // Import preview as a curation list: every prompt is reviewed (and can be
 // excluded) before anything lands in the library. Shared by Settings → library
-// imports and the Generate-with-Claude dialog.
+// imports and the Generate-with-AI dialog.
 export function ImportCuration({
   raw: initialRaw,
   defaultName,
