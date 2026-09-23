@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "dea1970e1d482759c24f17fe91d5c9a5c2980f97"
+      "revision": "d10e15350ebfd2bd3621cf2185e264544abc869a"
     },
     "viewBox": [
       1300,
@@ -273,8 +273,8 @@
       "sources": [
         {
           "path": "src-tauri/src/store.rs",
-          "line": 315,
-          "end_line": 335,
+          "line": 312,
+          "end_line": 332,
           "label": "data_dir paths"
         },
         {
