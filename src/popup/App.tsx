@@ -85,6 +85,7 @@ export function App() {
   const [previewH, setPreviewH] = useState<number | null>(null)
   const [compact, setCompact] = useState(isCompact())
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
+  const [packsArranged, setPacksArranged] = useState(false)
   const [create, setCreate] = useState<CreateState | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
   // The popup's own undo: the last deleted prompt, offered for a few seconds
@@ -245,9 +246,10 @@ export function App() {
     // here so keyboard order (visible) matches what is drawn (sections).
     const byGroup = (a: Entry, b: Entry) =>
       (a.s.group ? 1 : 0) - (b.s.group ? 1 : 0) || (a.s.group || "").localeCompare(b.s.group || "")
-    const packs = [...map.entries()]
-      .sort((a, b) => a[0].localeCompare(b[0]))
-      .map(([n, es]) => [n, [...es].sort(byGroup)] as [string, Entry[]])
+    // Packs in the manager's order: A–Z, or as the user arranged them
+    const packs = C.orderPacks([...map.keys()], packsArranged ? packMeta.map((p) => p.name) : null).map(
+      (n) => [n, [...map.get(n)!].sort(byGroup)] as [string, Entry[]]
+    )
     const sections: Section[] = []
     if (pinned.length)
       sections.push({ name: "Pinned", entries: pinned, count: pinned.length, collapsible: false, isCollapsed: false })
@@ -266,7 +268,7 @@ export function App() {
       ),
     ]
     return { sections, visible }
-  }, [filtered, hasQuery, effCollapsed, effCollapsedGroups])
+  }, [filtered, hasQuery, effCollapsed, effCollapsedGroups, packMeta, packsArranged])
 
   // Row index within `visible`, for selection
   const rowIndex = useMemo(() => new Map(visible.map((e, i) => [e.s.id, i])), [visible])
@@ -285,7 +287,7 @@ export function App() {
 
   // The packs that exist, plus the one the create form holds (an empty
   // library has none, and the form still needs its choice listed)
-  const packNames = useMemo(() => packNamesOf(packMeta, snippets, { extra: create?.pack }), [packMeta, snippets, create?.pack])
+  const packNames = useMemo(() => packNamesOf(packMeta, snippets, { extra: create?.pack, arranged: packsArranged }), [packMeta, snippets, create?.pack, packsArranged])
   const isLocked = useCallback((name: string) => isLockedIn(packMeta, name), [packMeta])
 
   const hidePreview = useCallback(() => {
@@ -538,6 +540,7 @@ export function App() {
       setSnippets(lib.snippets)
       setClip(clipboard)
       setPackMeta(Array.isArray(config.packs) ? config.packs : [])
+      setPacksArranged(!!config.packsArranged)
     } catch (e) {
       fail("load the library", e)
     }

@@ -76,6 +76,7 @@ function seed(empty: boolean): Snippet[] {
 export function installMock(mode: string | null) {
   const lib: Library = { snippets: seed(mode === "empty"), revision: 1 }
   let packs: PackMeta[] = []
+  let packsArranged = false
   const config = { hotkey: "Ctrl+Alt+Space", theme: "dark", density: "comfortable", scale: "100", font: "system" }
   const calls: Call[] = []
   const callbacks = new Map<number, (data: unknown) => void>()
@@ -105,7 +106,7 @@ export function installMock(mode: string | null) {
 
   const commands: Record<string, (a: Record<string, unknown>) => unknown> = {
     get_snippets: () => snapshot(),
-    get_config: () => ({ ...config, packs, popupSeen: true }),
+    get_config: () => ({ ...config, packs, packsArranged, popupSeen: true }),
     take_notices: () => [],
     get_clipboard_text: () => mock.clipboard,
     set_clipboard_text: (a) => void (mock.clipboard = String(a.text)),
@@ -146,6 +147,15 @@ export function installMock(mode: string | null) {
       packs = packs.some((p) => p.name === name)
         ? packs.map((p) => (p.name === name ? { ...p, locked } : p))
         : [...packs, { name, locked, path: "" }]
+      return packs
+    },
+    // Rust keeps only the names it has metadata for; the mock has no
+    // reconciler, so a pack named only on prompts gets an entry here
+    arrange_packs: (a) => {
+      const names = (a.names as string[]).map(String)
+      const meta = (n: string) => packs.find((p) => p.name === n) ?? { name: n, locked: false, path: "" }
+      packs = [...names.map(meta), ...packs.filter((p) => !names.includes(p.name))]
+      packsArranged = true
       return packs
     },
     delete_pack: (a) => (packs = packs.filter((p) => p.name !== a.name)),

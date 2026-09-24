@@ -643,6 +643,32 @@ test('packTree: packs by name, every declared pack present even when empty', () 
   assert.equal(tree[1].count, 1);
 });
 
+test('orderPacks: A–Z until arranged, then the arrangement with newcomers after it A–Z', () => {
+  const names = ['beta', 'Alpha', 'Gamma', 'delta'];
+  assert.deepEqual(core.orderPacks(names, null), ['Alpha', 'beta', 'delta', 'Gamma']);
+  assert.deepEqual(core.orderPacks(names, ['Gamma', 'beta']), ['Gamma', 'beta', 'Alpha', 'delta']);
+  // A name the arrangement holds but the library doesn't is not conjured
+  assert.deepEqual(core.orderPacks(['beta'], ['Gone', 'beta']), ['beta']);
+  assert.deepEqual(names, ['beta', 'Alpha', 'Gamma', 'delta'], 'never mutates');
+});
+
+test('movePack: before or after the target; unknown names leave the order be', () => {
+  const order = ['A', 'B', 'C', 'D'];
+  assert.deepEqual(core.movePack(order, 'D', 'B', false), ['A', 'D', 'B', 'C']);
+  assert.deepEqual(core.movePack(order, 'A', 'C', true), ['B', 'C', 'A', 'D']);
+  assert.deepEqual(core.movePack(order, 'A', 'D', true), ['B', 'C', 'D', 'A']);
+  assert.deepEqual(core.movePack(order, 'B', 'B', true), order);
+  assert.deepEqual(core.movePack(order, 'X', 'B', true), order);
+  assert.deepEqual(core.movePack(order, 'B', 'X', true), order);
+  assert.deepEqual(order, ['A', 'B', 'C', 'D'], 'never mutates');
+});
+
+test('packTree: packs in the order given, a pack only prompts name after them by name', () => {
+  const list = [snip('x', { pack: 'Zed' }), snip('y', { pack: 'Mid' }), snip('z', { pack: 'Apex' })];
+  const tree = core.packTree(list, ['Zed', 'Empty'], 'My prompts');
+  assert.deepEqual(tree.map(p => p.name), ['Zed', 'Empty', 'Apex', 'Mid']);
+});
+
 test('packTree: a packless prompt lands in the default pack', () => {
   const tree = core.packTree([snip('x', { pack: '' })], [], 'My prompts');
   assert.deepEqual(tree.map(p => p.name), ['My prompts']);

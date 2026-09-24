@@ -77,6 +77,8 @@ export interface ManagerApi {
    */
   /** Lock or unlock a pack (set_pack_locked); a pack that is only a name on prompts gets metadata */
   setPackLocked(name: string, locked: boolean): Promise<void>
+  /** Put the packs in this order, the whole list as drawn (arrange_packs); packNames follows it from then on */
+  arrangePacks(order: string[]): Promise<void>
   /** Delete a pack: its prompts first, with Undo, then its metadata (delete_pack retires the file) */
   deletePack(name: string): Promise<void>
   /** Give a pack without a file one (add_pack_file), filled from the library; resolves with the path */

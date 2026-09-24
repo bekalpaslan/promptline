@@ -271,6 +271,11 @@ pub(crate) struct Config {
     // Packs referenced by snippets but absent here are implicit and unlocked.
     #[serde(default)]
     pub(crate) packs: Vec<PackMeta>,
+    // Has the user arranged the packs (`arrange_packs`)? Then `packs` is in
+    // their order; until then both windows list packs A–Z, whatever order
+    // the registry grew in.
+    #[serde(default, rename = "packsArranged")]
+    pub(crate) packs_arranged: bool,
     // UI preferences live here (not localStorage) so they export and survive
     // webview profile changes; the manager mirrors them for the popup.
     #[serde(default = "default_theme")]
@@ -298,6 +303,7 @@ impl Default for Config {
         Self {
             hotkey: "ctrl+shift+v".into(),
             packs: Vec::new(),
+            packs_arranged: false,
             theme: default_theme(),
             density: default_density(),
             scale: default_scale(),
