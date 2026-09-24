@@ -78,10 +78,12 @@ export function useLibraryMenus(opts: {
   moveRow?: (id: string, dir: -1 | 1) => void
   /** The same for packs, where the surface lists them */
   movePack?: (name: string, dir: -1 | 1) => void
+  /** And for a group among its pack's groups */
+  moveGroup?: (pack: string, group: string, dir: -1 | 1) => void
 }) {
   const m = useManager()
   const ctx = useCtxMenu()
-  const { surface, moveRow, movePack } = opts
+  const { surface, moveRow, movePack, moveGroup } = opts
   // The rename state is the manager's (every instance sees one), filtered
   // to what this surface draws: a name opened on the overview is not also
   // an input in the sidebar row
@@ -157,6 +159,14 @@ export function useLibraryMenus(opts: {
     const locked = m.isLocked(pack)
     ctx.open(x, y, [
       { kind: "header", text: `${pack} › ${group}`, name: true },
+      // Groups move from here only, where the surface lists them
+      ...(moveGroup
+        ? ([
+            { kind: "item", label: "Move up", hint: "Alt+Up on the group", run: () => moveGroup(pack, group, -1) },
+            { kind: "item", label: "Move down", hint: "Alt+Down on the group", run: () => moveGroup(pack, group, 1) },
+            { kind: "sep" },
+          ] as CtxItem[])
+        : []),
       {
         // A draft in this group, opened in the editor, like the overview's
         // "+ prompt" under the group's heading
