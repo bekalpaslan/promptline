@@ -76,10 +76,12 @@ export function useLibraryMenus(opts: {
   surface: Surface
   /** Keyboard reorder, where the surface has rows to move between */
   moveRow?: (id: string, dir: -1 | 1) => void
+  /** The same for packs, where the surface lists them */
+  movePack?: (name: string, dir: -1 | 1) => void
 }) {
   const m = useManager()
   const ctx = useCtxMenu()
-  const { surface, moveRow } = opts
+  const { surface, moveRow, movePack } = opts
   // The rename state is the manager's (every instance sees one), filtered
   // to what this surface draws: a name opened on the overview is not also
   // an input in the sidebar row
@@ -231,6 +233,13 @@ export function useLibraryMenus(opts: {
     const locked = m.isLocked(name)
     ctx.open(x, y, [
       { kind: "header", text: name, name: true },
+      // The keyboard's drag, where the surface lists packs
+      ...(movePack
+        ? ([
+            { kind: "item", label: "Move up", hint: "Alt+Up on the pack", run: () => movePack(name, -1) },
+            { kind: "item", label: "Move down", hint: "Alt+Down on the pack", run: () => movePack(name, 1) },
+          ] as CtxItem[])
+        : []),
       { kind: "item", label: "Rename", run: () => setRenaming(name) },
       {
         kind: "item",

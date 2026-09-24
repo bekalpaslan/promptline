@@ -159,6 +159,9 @@ them, plus config values. Invisible until you want it.
 - Sort by uses, title, or **Custom** — press and hold a row to lift it, then
   drag to arrange your own order; **Alt+Up / Alt+Down** moves the selected row
   from the keyboard
+- Packs are listed A–Z until you arrange them: press and hold a pack header
+  and drag it above or below another (or **Alt+Up / Alt+Down** on it). The
+  popup lists packs in the same order
 - Every control is reachable from the keyboard, including context menus, and
   labelled for screen readers
 - **Settings** (⚙, top-right of the pane): record a hotkey by pressing it,

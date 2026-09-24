@@ -10,9 +10,9 @@ use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 use crate::packs::{
-    back_pack_in, new_pack_file, packs_after_sync, relativize_pack_path, remove_pack_in,
-    rename_pack_in, resolve_pack_path, retire_pack_file, set_pack_locked_in, sync_pack_files,
-    validate_pack_name, with_resolved_pack_paths, PackMeta,
+    arrange_packs_in, back_pack_in, new_pack_file, packs_after_sync, relativize_pack_path,
+    remove_pack_in, rename_pack_in, resolve_pack_path, retire_pack_file, set_pack_locked_in,
+    sync_pack_files, validate_pack_name, with_resolved_pack_paths, PackMeta,
 };
 use crate::store::{
     check_revision, current_revision, data_dir, first_free, library, load_config_from_disk,
@@ -215,6 +215,22 @@ pub(crate) fn set_pack_locked(
     let _guard = state.store.lock().unwrap();
     let mut config = load_config_from_disk(&app)?;
     set_pack_locked_in(&mut config, &name, locked);
+    save_config(&app, &config)?;
+    packs_after_sync(&app)
+}
+
+/// The user's order of the packs, as the manager's sidebar drew it after a
+/// drag. An order, not a registry: locks and files stay as they are on
+/// disk (`arrange_packs_in`). The popup reads it on its next show.
+#[tauri::command]
+pub(crate) fn arrange_packs(
+    app: AppHandle,
+    state: State<AppState>,
+    names: Vec<String>,
+) -> Result<Vec<PackMeta>, String> {
+    let _guard = state.store.lock().unwrap();
+    let mut config = load_config_from_disk(&app)?;
+    arrange_packs_in(&mut config, &names);
     save_config(&app, &config)?;
     packs_after_sync(&app)
 }

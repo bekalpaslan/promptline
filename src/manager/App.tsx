@@ -27,6 +27,8 @@ interface Notice {
 export function App() {
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
+  // A–Z until the user drags a pack; then packMeta is in their order
+  const [packsArranged, setPacksArranged] = useState(false)
   const [activeId, setActiveId] = useState<string | null>(null)
   const [selection, setSelectionState] = useState<Set<string>>(new Set())
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
@@ -77,6 +79,7 @@ export function App() {
     try {
       const config = await invoke<Config>("get_config")
       setPackMeta(Array.isArray(config.packs) ? config.packs : [])
+      setPacksArranged(!!config.packsArranged)
     } catch {
       // the next write will try again
     }
@@ -143,6 +146,18 @@ export function App() {
       await applyPacks(invoke<PackMeta[]>("set_pack_locked", { name, locked }))
     } catch (e) {
       sayErr(`Couldn't ${locked ? "lock" : "unlock"} the pack: ${e}`)
+      throw e
+    }
+  }, [applyPacks])
+
+  // The order the sidebar drew after a drag; Rust keeps locks and files
+  // as they are on disk and answers with the registry in that order
+  const arrangePacks = useCallback(async (order: string[]) => {
+    try {
+      await applyPacks(invoke<PackMeta[]>("arrange_packs", { names: order }))
+      setPacksArranged(true)
+    } catch (e) {
+      sayErr(`Couldn't move the pack: ${e}`)
       throw e
     }
   }, [applyPacks])
@@ -214,8 +229,8 @@ export function App() {
   const isLocked = useCallback((name: string) => isLockedIn(packMeta, name), [packMeta])
 
   const packNames = useCallback(
-    (extra?: string) => packNamesOf(packMeta, snippets, { extra }),
-    [packMeta, snippets]
+    (extra?: string) => packNamesOf(packMeta, snippets, { extra, arranged: packsArranged }),
+    [packMeta, snippets, packsArranged]
   )
 
   const allTags = useCallback(() => C.tagsByCount(snippets), [snippets])
@@ -475,6 +490,7 @@ export function App() {
       persist,
       updateSnippet,
       setPackLocked,
+      arrangePacks,
       deletePack,
       addPackFile,
       renamePack,
@@ -499,7 +515,7 @@ export function App() {
       showSettings,
       pendingFlush,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)

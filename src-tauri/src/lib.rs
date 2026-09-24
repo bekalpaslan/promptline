@@ -153,6 +153,7 @@ pub fn run() {
             commands::take_notices,
             commands::set_hotkey,
             commands::set_pack_locked,
+            commands::arrange_packs,
             commands::delete_pack,
             commands::add_pack,
             commands::add_pack_file,

@@ -61,8 +61,8 @@ selected; one row is the tab stop (the last one focused, else the open
 prompt, the shown pack or group, or the first row), and Up/Down and
 Home/End move between rows, Right unfolds a pack or group or steps to its
 first child, Left folds or steps out to the parent, Enter or Space is the
-click (with Ctrl and Shift for the selection), Alt+Up/Down moves a prompt,
-and the Menu key or Shift+F10 opens the row's menu at it. While a search
+click (with Ctrl and Shift for the selection), Alt+Up/Down moves a prompt
+or a pack, and the Menu key or Shift+F10 opens the row's menu at it. While a search
 holds every fold open, Left and Right only move. The chevron and the three
 dots are hidden from assistive tech, since those keys reach the same
 actions, and a click on either keeps focus on the row. The rows used to be
@@ -287,6 +287,26 @@ the fill-in form labels the copy "Goal 2".
 A pack is just a name. It has no independent existence — `packNames()` is the
 union of declared `PackMeta` and every `snippet.pack` in the library, so naming
 a pack on a prompt conjures it. Imports and moves create packs this way.
+
+**Packs are A–Z until the user arranges them, then in their order, in both
+windows.** A pack header in the sidebar lifts on press-and-hold, like a
+prompt row, and drops before or after the pack under the pointer (the
+whole pack, its rows included, is the target); Alt+Up/Down and the pack
+menu's Move up/down do the same from the keyboard, sidebar only. The drop
+sends the whole list as drawn to `arrange_packs`, which reorders
+`config.packs` to match and sets `packsArranged`: an order, not a registry,
+so locks and files stay as they are on disk, a pack the list doesn't name
+(one the popup made meanwhile) keeps its place at the end, and a name
+without metadata (an empty draft's pack, see `packs_in_play`) is skipped
+rather than declared. `C.orderPacks` is the one rule both windows and
+`packTree` read: the registry's order once arranged, any pack it doesn't
+hold after it A–Z; before that, A–Z whatever order the registry grew in, so
+a library from before the flag looks the same until its first drag. A new
+pack in an arranged library therefore lands at the bottom. Pack order is
+separate from the prompt order (Most used, A–Z, Custom): a drag of a pack
+doesn't switch the prompts to Custom, and every prompt order keeps the
+packs where the user put them. The popup reads the order with the config
+on each show; the overview draws one pack and has nothing to arrange.
 
 **The manager's New asks where.** Its menu makes a pack straight away (named
 "New pack", selected, its name open for typing), a group in a pack the user

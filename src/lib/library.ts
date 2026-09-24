@@ -10,6 +10,8 @@ export const MAX_PINS = 5
 export interface Config {
   hotkey: string
   packs?: PackMeta[]
+  /** The user has arranged the packs: `packs` is in their order (C.orderPacks) */
+  packsArranged?: boolean
   theme?: string
   density?: string
   scale?: string
@@ -21,16 +23,18 @@ export interface Config {
  * A pack is just a name: the union of declared metadata and every pack a
  * prompt references (BEHAVIOR.md). `extra` adds one more (an editor's
  * in-progress choice); `always` includes the default pack even when empty.
+ * The list is in the order both windows show packs: A–Z, or the user's
+ * arrangement once `arranged` (config.json's `packsArranged`).
  */
 export function packNames(
   meta: PackMeta[],
   snippets: Snippet[],
-  opts: { extra?: string; always?: boolean } = {}
+  opts: { extra?: string; always?: boolean; arranged?: boolean } = {}
 ): string[] {
   const names = new Set([...meta.map((p) => p.name), ...snippets.map((s) => s.pack || DEFAULT_PACK)])
   if (opts.extra) names.add(opts.extra)
   if (opts.always) names.add(DEFAULT_PACK)
-  return [...names].sort((a, b) => a.localeCompare(b))
+  return C.orderPacks([...names], opts.arranged ? meta.map((p) => p.name) : null)
 }
 
 export function isLockedIn(meta: PackMeta[], name: string): boolean {

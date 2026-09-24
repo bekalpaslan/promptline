@@ -508,6 +508,23 @@ fn retire_into(deleted_dir: &Path, src: &Path) -> std::io::Result<Option<PathBuf
     Ok(Some(dest))
 }
 
+/// Put the registry in the order the user dragged the packs into. `names`
+/// is the list as the manager drew it; a pack it doesn't name (one the
+/// popup created meanwhile) keeps its place relative to the others at the
+/// end, and a name without metadata is skipped rather than declared: an
+/// empty draft's pack is listed but not yet real (`packs_in_play`). Locks
+/// and files are untouched; only the order and `packs_arranged` change.
+pub(crate) fn arrange_packs_in(config: &mut Config, names: &[String]) {
+    let mut rest = std::mem::take(&mut config.packs);
+    for name in names {
+        if let Some(at) = rest.iter().position(|p| &p.name == name) {
+            config.packs.push(rest.remove(at));
+        }
+    }
+    config.packs.append(&mut rest);
+    config.packs_arranged = true;
+}
+
 /// Rename a pack on its metadata and on every prompt in one step. Done in
 /// two frontend writes, `ensure_packs_backed` ran in between and saw prompts
 /// still carrying the old name (or already carrying the new one) and
@@ -1049,5 +1066,33 @@ mod tests {
         assert_eq!(config.packs[1].name, "Nameless");
         assert_eq!(config.packs[1].path, "nameless.json");
         assert!(!config.packs[1].locked);
+    }
+
+    #[test]
+    fn arranging_packs_reorders_the_registry_and_keeps_the_rest() {
+        let meta = |name: &str, locked: bool| PackMeta {
+            name: name.into(),
+            locked,
+            path: format!("{}.json", name.to_lowercase()),
+        };
+        let mut config = Config {
+            packs: vec![
+                meta("A", false),
+                meta("B", true),
+                meta("C", false),
+                meta("New", false),
+            ],
+            ..Config::default()
+        };
+        assert!(!config.packs_arranged);
+        // "New" was added by the other window after the manager drew the
+        // list; "Draft" is listed there but has no metadata yet
+        let names: Vec<String> = ["C", "Draft", "A", "B"].map(String::from).into();
+        arrange_packs_in(&mut config, &names);
+        let order: Vec<&str> = config.packs.iter().map(|p| p.name.as_str()).collect();
+        assert_eq!(order, ["C", "A", "B", "New"]);
+        assert!(config.packs_arranged);
+        assert!(config.packs[2].locked, "the lock moves with its pack");
+        assert_eq!(config.packs[0].path, "c.json", "and so does the file");
     }
 }

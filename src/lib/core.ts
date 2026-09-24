@@ -188,7 +188,11 @@ interface PromptlineCore {
   restoreRemoved<T extends { id: string }>(list: T[], removed: Removed<T>[]): T[]
   /** A copy of `list` in the manager's order; "custom" keeps the array order */
   sortPrompts<T extends Pick<Snippet, "title" | "uses" | "pinned">>(list: T[], orderBy: string): T[]
-  /** Packs by name (every name in `packNames`, even empty) with their groups and prompts, in the given row order */
+  /** Pack names A–Z, or in the `arranged` order (the registry's) with any other after it A–Z */
+  orderPacks(names: string[], arranged: string[] | null): string[]
+  /** `order` with `name` moved before `target`, or after it when `after` */
+  movePack(order: string[], name: string, target: string, after: boolean): string[]
+  /** Packs in `packNames` order (every one, even empty; others after by name) with their groups and prompts, in the given row order */
   packTree<T extends Pick<Snippet, "pack" | "group">>(snippets: T[], packNames: string[], defaultPack: string): PackNode<T>[]
   /** A group's identity: its pack and its label */
   groupKey(pack: string, group: string): string

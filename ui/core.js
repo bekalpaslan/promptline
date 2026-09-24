@@ -522,8 +522,30 @@
     return [...list].sort((a, b) => (+b.pinned - +a.pinned) || cmp(a, b));
   }
 
+  // The order packs are listed in, in both windows: A–Z until the user
+  // arranges them, then `arranged` (the pack registry's order, see
+  // `arrange_packs`) with any pack it doesn't hold yet after it, A–Z.
+  // Never mutates.
+  function orderPacks(names, arranged) {
+    const at = new Map((arranged || []).map((n, i) => [n, i]));
+    const rank = n => (at.has(n) ? at.get(n) : at.size);
+    return [...names].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  }
+
+  // A drag's result: `order` with `name` moved next to `target` (after it
+  // when `after`). An unknown name or target leaves the order as it was.
+  function movePack(order, name, target, after) {
+    if (name === target || !order.includes(name)) return [...order];
+    const rest = order.filter(n => n !== name);
+    const at = rest.indexOf(target);
+    if (at === -1) return [...order];
+    rest.splice(at + (after ? 1 : 0), 0, name);
+    return rest;
+  }
+
   // Packs, their groups, and the prompts in each: the one shape both manager
-  // surfaces draw. Packs sort by name and include every name in `packNames`
+  // surfaces draw. Packs come in the order of `packNames` (orderPacks), any
+  // other after them by name, and every name in `packNames` is present
   // even when empty (an empty pack is real: it can be seen and deleted). A
   // packless prompt belongs to `defaultPack`. Within a pack the ungrouped run
   // comes first, then groups in order of first appearance, so a custom
@@ -542,7 +564,7 @@
       if (!g) { g = { name: s.group, items: [] }; pack.groups.push(g); }
       g.items.push(s);
     }
-    return [...packs.values()].sort((a, b) => a.name.localeCompare(b.name));
+    return orderPacks([...packs.keys()], packNames).map(n => packs.get(n));
   }
 
   // ---- The manager's tree, as rows ----------------------------------------------
@@ -867,6 +889,8 @@
     removeByIds,
     restoreRemoved,
     sortPrompts,
+    orderPacks,
+    movePack,
     packTree,
     groupKey,
     displayOrder,

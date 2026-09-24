@@ -105,6 +105,9 @@ export function Sidebar() {
   // What a screen reader hears after a keyboard move
   const [announce, setAnnounce] = useState("")
   const [over, setOver] = useState<{ id: string; after: boolean } | null>(null)
+  // Packs drag the same way, by their header, among the other packs
+  const [packDrag, setPackDrag] = useState<string | null>(null)
+  const [packOver, setPackOver] = useState<{ name: string; after: boolean } | null>(null)
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const downPos = useRef<{ x: number; y: number } | null>(null)
   const dragMoved = useRef(false)
@@ -113,6 +116,35 @@ export function Sidebar() {
   const cancelHold = () => {
     if (holdTimer.current) clearTimeout(holdTimer.current)
     holdTimer.current = null
+  }
+  // Press-and-hold on a row: `lift` runs once the hold delay passes without
+  // the pointer wandering off (moving first means a click, not a drag)
+  const holdToDrag = (lift: () => void) => ({
+    onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
+      if (e.button !== 0) return
+      downPos.current = { x: e.clientX, y: e.clientY }
+      dragMoved.current = false
+      cancelHold()
+      holdTimer.current = setTimeout(() => {
+        holdTimer.current = null
+        lift()
+      }, 180)
+    },
+    onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
+      if (!holdTimer.current || drag || packDrag) return
+      const d = downPos.current
+      if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) cancelHold()
+    },
+    onPointerUp: cancelHold,
+    onPointerLeave: () => {
+      if (!drag && !packDrag) cancelHold()
+    },
+  })
+  // A completed drag still fires a click on release — swallow it
+  const swallowDragClick = () => {
+    if (!suppressClick.current) return false
+    suppressClick.current = false
+    return true
   }
 
   const q = query.trim().toLowerCase()
@@ -256,6 +288,61 @@ export function Sidebar() {
     void commitReorder(id, neighbor, dir > 0).then(() => setAnnounce(`Moved "${me.title}" ${dir < 0 ? "up" : "down"}`))
   }
 
+  // Move a pack next to another, in the order the sidebar draws them. The
+  // first move turns A–Z into the user's own order (arrange_packs), which
+  // both windows follow from then on.
+  const commitPackMove = async (name: string, target: string, after: boolean) => {
+    const order = packNames()
+    const next = C.movePack(order, name, target, after)
+    if (next.every((n, i) => n === order[i])) return
+    await m.arrangePacks(next)
+  }
+  // Keyboard pack move: swap with the pack above or below
+  const movePack = (name: string, dir: -1 | 1) => {
+    const order = packNames()
+    const neighbor = order[order.indexOf(name) + dir]
+    if (!neighbor) {
+      setAnnounce(`"${name}" is already at the ${dir < 0 ? "top" : "bottom"}`)
+      return
+    }
+    void commitPackMove(name, neighbor, dir > 0).then(
+      () => setAnnounce(`Moved "${name}" ${dir < 0 ? "up" : "down"}`),
+      () => {} // already toasted
+    )
+  }
+
+  // While a pack is lifted, track the pack under the pointer (its header
+  // and everything under it) and commit on release
+  useEffect(() => {
+    if (!packDrag) return
+    const move = (e: PointerEvent) => {
+      dragMoved.current = true
+      const el = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(
+        "[data-pack]"
+      ) as HTMLElement | null
+      const name = el?.dataset.pack
+      if (!el || name === undefined || name === packDrag) {
+        setPackOver(null)
+        return
+      }
+      const r = el.getBoundingClientRect()
+      setPackOver({ name, after: e.clientY > r.top + r.height / 2 })
+    }
+    const up = () => {
+      if (packOver) void commitPackMove(packDrag, packOver.name, packOver.after).catch(() => {})
+      if (dragMoved.current) suppressClick.current = true
+      setPackDrag(null)
+      setPackOver(null)
+    }
+    document.addEventListener("pointermove", move)
+    document.addEventListener("pointerup", up)
+    return () => {
+      document.removeEventListener("pointermove", move)
+      document.removeEventListener("pointerup", up)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packDrag, packOver, packNames])
+
   // While a drag is live, track the row under the pointer and commit on release
   useEffect(() => {
     if (!drag) return
@@ -291,11 +378,7 @@ export function Sidebar() {
 
   // Mouse and keyboard events both carry the modifier flags this reads
   const handleRowClick = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }, id: string) => {
-    // A completed drag still fires a click on release — swallow it
-    if (suppressClick.current) {
-      suppressClick.current = false
-      return
-    }
+    if (swallowDragClick()) return
     m.showSettings(false)
     let sel: Set<string>
     let anchor: string | null = m.selectionAnchor
@@ -360,9 +443,10 @@ export function Sidebar() {
       return
     }
     if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-      if (row.kind !== "prompt") return
+      if (row.kind === "group") return
       e.preventDefault()
-      moveRow(row.id, e.key === "ArrowUp" ? -1 : 1)
+      if (row.kind === "pack") movePack(row.name, e.key === "ArrowUp" ? -1 : 1)
+      else moveRow(row.id, e.key === "ArrowUp" ? -1 : 1)
       return
     }
     if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
@@ -433,7 +517,7 @@ export function Sidebar() {
     openGroupCtx,
     openRowCtx,
     openNewMenu,
-  } = useLibraryMenus({ surface: "sidebar", moveRow })
+  } = useLibraryMenus({ surface: "sidebar", moveRow, movePack })
 
   // A new prompt or pack can land below the fold of a long list, and a pack
   // opened from the editor's crumbs may sit there too: bring what is shown
@@ -555,26 +639,7 @@ export function Sidebar() {
           mark !== null &&
             (mark ? "shadow-[0_3px_0_0_var(--primary)]" : "shadow-[0_-3px_0_0_var(--primary)]")
         )}
-        onPointerDown={(e) => {
-          if (e.button !== 0) return
-          downPos.current = { x: e.clientX, y: e.clientY }
-          dragMoved.current = false
-          cancelHold()
-          holdTimer.current = setTimeout(() => {
-            holdTimer.current = null
-            setDrag({ id: s.id, pack: s.pack || DEFAULT_PACK })
-          }, 180)
-        }}
-        onPointerMove={(e) => {
-          // Moving before the hold delay elapses means a click, not a drag
-          if (!holdTimer.current || drag) return
-          const d = downPos.current
-          if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) cancelHold()
-        }}
-        onPointerUp={cancelHold}
-        onPointerLeave={() => {
-          if (!drag) cancelHold()
-        }}
+        {...holdToDrag(() => setDrag({ id: s.id, pack: s.pack || DEFAULT_PACK }))}
         onClick={(e) => handleRowClick(e, s.id)}
         onContextMenu={(e) => {
           e.preventDefault()
@@ -602,19 +667,29 @@ export function Sidebar() {
     const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
     const selected = shown?.pack === name && !shown.group
     const total = packTotals.get(name) ?? count
+    const lifted = packDrag === name
+    const hold = holdToDrag(() => setPackDrag(name))
     return (
       <div
         {...treeitemProps(rowByKey.get(`pack:${name}`)!)}
         aria-expanded={!isCollapsed}
         aria-selected={selected}
         aria-label={`${name}, ${q ? `${count} of ${total}` : count} prompt${total === 1 ? "" : "s"}${m.isLocked(name) ? ", locked" : ""}`}
-        title={`${name} — click or Enter shows its prompts · ← → fold · right-click or Shift+F10 for actions`}
+        title={`${name} — click or Enter shows its prompts · hold and drag (Alt+↑ ↓) to move · ← → fold · right-click or Shift+F10 for actions`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover focus-ring",
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) transition-[transform,box-shadow] duration-150 hover:bg-hover focus-ring",
           selected && "bg-accent hover:bg-accent",
-          faded && "opacity-45"
+          faded && "opacity-45",
+          lifted ? "z-10 scale-[1.02] cursor-grabbing bg-sidebar shadow-lg ring-1 ring-ring/40" : "hover:cursor-grab"
         )}
-        onClick={() => m.openOverview({ pack: name })}
+        {...hold}
+        // The chevron, the dots and the rename field are not handles
+        onPointerDown={(e) => {
+          if (renaming !== name && !(e.target as HTMLElement).closest("button, input")) hold.onPointerDown(e)
+        }}
+        onClick={() => {
+          if (!swallowDragClick()) m.openOverview({ pack: name })
+        }}
         onDoubleClick={(e) => {
           e.stopPropagation()
           setRenaming(name)
@@ -799,7 +874,7 @@ export function Sidebar() {
           a pack or group — so nothing lands in a default place. It sits
           above the scrolling list, not in it, so the list's scrollbar
           gutter never narrows it against the filter row. */}
-      <div className="px-3 pb-3">
+      <div className="px-3 pb-2">
         <button
           type="button"
           aria-haspopup="menu"
@@ -813,7 +888,9 @@ export function Sidebar() {
           New
         </button>
       </div>
-      <div ref={listRef} className="flex-1 overflow-y-auto px-3 pb-3">
+      <div ref={listRef} className="flex-1 overflow-y-auto px-3 pt-1 pb-3">
+        {/* pt-1 (taken from the row above) is room for a drag's insertion mark
+            above the first row, which the scroll box would otherwise clip */}
         {/* An empty library says so in the pane, not here as well: the New
             button above is the sidebar's way in */}
         {/* One tree for assistive tech: packs at level 1, their prompts and
@@ -827,7 +904,16 @@ export function Sidebar() {
               const faded = !!q && p.count === 0
               const isCollapsed = faded || (!q && collapsed.has(p.name))
               return (
-                <div key={p.name} data-pack={p.name} role="presentation" className="mb-2">
+                <div
+                  key={p.name}
+                  data-pack={p.name}
+                  role="presentation"
+                  className={cn(
+                    "mb-2 rounded-md",
+                    packDrag && packDrag !== p.name && packOver?.name === p.name &&
+                      (packOver.after ? "shadow-[0_3px_0_0_var(--primary)]" : "shadow-[0_-3px_0_0_var(--primary)]")
+                  )}
+                >
                   {sectionTitle(p.name, p.count, isCollapsed, faded)}
                   {!isCollapsed && (
                     <div role="group" className="mt-0.5 flex flex-col gap-0.5 pl-4">
