@@ -192,6 +192,8 @@ interface PromptlineCore {
   orderPacks(names: string[], arranged: string[] | null): string[]
   /** `order` with `name` moved before `target`, or after it when `after` */
   movePack(order: string[], name: string, target: string, after: boolean): string[]
+  /** `list` (in display order) with `group` swapped past its neighbour in `pack`; null at the edge */
+  moveGroup<T extends Pick<Snippet, "pack" | "group">>(list: T[], pack: string, group: string, dir: -1 | 1, defaultPack: string): T[] | null
   /** Packs in `packNames` order (every one, even empty; others after by name) with their groups and prompts, in the given row order */
   packTree<T extends Pick<Snippet, "pack" | "group">>(snippets: T[], packNames: string[], defaultPack: string): PackNode<T>[]
   /** A group's identity: its pack and its label */

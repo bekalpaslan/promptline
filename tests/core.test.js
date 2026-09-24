@@ -1073,3 +1073,18 @@ test('resolveTheme: system follows the OS, explicit choices win, legacy values a
   assert.equal(core.resolveTheme('sand', false), 'dark');
   assert.equal(core.resolveTheme(null, false), 'dark');
 });
+
+test('moveGroup swaps a group past its neighbour in the pack and leaves every other row in its slot', () => {
+  const list = [
+    prompt('u1', 'Work', ''), prompt('o1', 'Other', 'X'), prompt('a1', 'Work', 'A'),
+    prompt('a2', 'Work', 'A'), prompt('b1', 'Work', 'B'), prompt('o2', 'Other', 'Y'),
+  ];
+  const ids = (l) => l.map((s) => s.id);
+  assert.deepEqual(ids(core.moveGroup(list, 'Work', 'B', -1, 'My prompts')), ['u1', 'o1', 'b1', 'a1', 'a2', 'o2']);
+  assert.deepEqual(ids(core.moveGroup(list, 'Work', 'A', 1, 'My prompts')), ['u1', 'o1', 'b1', 'a1', 'a2', 'o2']);
+  // Nothing to pass at either edge, and no such group
+  assert.equal(core.moveGroup(list, 'Work', 'A', -1, 'My prompts'), null);
+  assert.equal(core.moveGroup(list, 'Work', 'B', 1, 'My prompts'), null);
+  assert.equal(core.moveGroup(list, 'Work', 'Nope', 1, 'My prompts'), null);
+  assert.deepEqual(ids(list), ['u1', 'o1', 'a1', 'a2', 'b1', 'o2'], 'never mutates');
+});

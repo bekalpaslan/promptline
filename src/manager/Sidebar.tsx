@@ -105,9 +105,6 @@ export function Sidebar() {
   // What a screen reader hears after a keyboard move
   const [announce, setAnnounce] = useState("")
   const [over, setOver] = useState<{ id: string; after: boolean } | null>(null)
-  // Packs drag the same way, by their header, among the other packs
-  const [packDrag, setPackDrag] = useState<string | null>(null)
-  const [packOver, setPackOver] = useState<{ name: string; after: boolean } | null>(null)
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const downPos = useRef<{ x: number; y: number } | null>(null)
   const dragMoved = useRef(false)
@@ -131,13 +128,13 @@ export function Sidebar() {
       }, 180)
     },
     onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
-      if (!holdTimer.current || drag || packDrag) return
+      if (!holdTimer.current || drag) return
       const d = downPos.current
       if (d && Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) cancelHold()
     },
     onPointerUp: cancelHold,
     onPointerLeave: () => {
-      if (!drag && !packDrag) cancelHold()
+      if (!drag) cancelHold()
     },
   })
   // A completed drag still fires a click on release — swallow it
@@ -288,16 +285,16 @@ export function Sidebar() {
     void commitReorder(id, neighbor, dir > 0).then(() => setAnnounce(`Moved "${me.title}" ${dir < 0 ? "up" : "down"}`))
   }
 
-  // Move a pack next to another, in the order the sidebar draws them. The
-  // first move turns A–Z into the user's own order (arrange_packs), which
-  // both windows follow from then on.
+  // Move a pack next to another, in the order the sidebar draws them (the
+  // ⋯ menu's Move up/down, Alt+Up/Down). The first move turns A–Z into the
+  // user's own order (arrange_packs), which both windows follow from then on.
   const commitPackMove = async (name: string, target: string, after: boolean) => {
     const order = packNames()
     const next = C.movePack(order, name, target, after)
     if (next.every((n, i) => n === order[i])) return
     await m.arrangePacks(next)
   }
-  // Keyboard pack move: swap with the pack above or below
+  // Swap a pack with the one above or below
   const movePack = (name: string, dir: -1 | 1) => {
     const order = packNames()
     const neighbor = order[order.indexOf(name) + dir]
@@ -311,37 +308,42 @@ export function Sidebar() {
     )
   }
 
-  // While a pack is lifted, track the pack under the pointer (its header
-  // and everything under it) and commit on release
-  useEffect(() => {
-    if (!packDrag) return
-    const move = (e: PointerEvent) => {
-      dragMoved.current = true
-      const el = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(
-        "[data-pack]"
-      ) as HTMLElement | null
-      const name = el?.dataset.pack
-      if (!el || name === undefined || name === packDrag) {
-        setPackOver(null)
-        return
-      }
-      const r = el.getBoundingClientRect()
-      setPackOver({ name, after: e.clientY > r.top + r.height / 2 })
+  // Swap a group with the one above or below in its pack (the ⋯ menu's
+  // Move up/down, Alt+Up/Down). A group's place is where its prompts sit in
+  // the library, so this rewrites the pack's prompts in the order drawn
+  // (C.moveGroup) and, like a prompt drag, switches the list to "Custom" so
+  // the new order is what the list shows
+  const moveGroup = (pack: string, group: string, dir: -1 | 1) => {
+    const shownOrder = () => C.displayOrder(m.snippets, orderBy, grouped, packNames(), DEFAULT_PACK)
+    if (!C.moveGroup(shownOrder(), pack, group, dir, DEFAULT_PACK)) {
+      setAnnounce(`"${group}" is already at the ${dir < 0 ? "top" : "bottom"}`)
+      return
     }
-    const up = () => {
-      if (packOver) void commitPackMove(packDrag, packOver.name, packOver.after).catch(() => {})
-      if (dragMoved.current) suppressClick.current = true
-      setPackDrag(null)
-      setPackOver(null)
+    // An updater: the menu that calls this outlives its render
+    void m
+      .persist((cur) => C.moveGroup(C.displayOrder(cur, orderBy, grouped, packNames(), DEFAULT_PACK), pack, group, dir, DEFAULT_PACK) ?? cur)
+      .then(
+        () => {
+          setAnnounce(`Moved "${group}" ${dir < 0 ? "up" : "down"}`)
+          if (orderBy !== "custom") {
+            setOrderBy("custom")
+            say('Sorting is now "Custom" — switch back under list view options')
+          }
+        },
+        () => {} // already toasted
+      )
+  }
+
+  // A pack or group header's click (and Enter): it unfolds or folds, like a
+  // folder in a file tree, and the pane shows what it holds. A search holds
+  // every fold open, so there it only shows.
+  const openHeader = (pack: string, group?: string) => {
+    if (!q) {
+      if (group === undefined) toggleCollapsed(pack)
+      else toggleCollapsedGroup(groupKey(pack, group))
     }
-    document.addEventListener("pointermove", move)
-    document.addEventListener("pointerup", up)
-    return () => {
-      document.removeEventListener("pointermove", move)
-      document.removeEventListener("pointerup", up)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [packDrag, packOver, packNames])
+    m.openOverview(group === undefined ? { pack } : { pack, group })
+  }
 
   // While a drag is live, track the row under the pointer and commit on release
   useEffect(() => {
@@ -438,15 +440,16 @@ export function Sidebar() {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault()
       if (row.kind === "prompt") handleRowClick(e, row.id)
-      else if (row.kind === "pack") m.openOverview({ pack: row.name })
-      else m.openOverview({ pack: row.pack, group: row.group })
+      else if (row.kind === "pack") openHeader(row.name)
+      else openHeader(row.pack, row.group)
       return
     }
     if (e.altKey && (e.key === "ArrowUp" || e.key === "ArrowDown")) {
-      if (row.kind === "group") return
       e.preventDefault()
-      if (row.kind === "pack") movePack(row.name, e.key === "ArrowUp" ? -1 : 1)
-      else moveRow(row.id, e.key === "ArrowUp" ? -1 : 1)
+      const dir = e.key === "ArrowUp" ? -1 : 1
+      if (row.kind === "pack") movePack(row.name, dir)
+      else if (row.kind === "group") moveGroup(row.pack, row.group, dir)
+      else moveRow(row.id, dir)
       return
     }
     if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return
@@ -517,7 +520,7 @@ export function Sidebar() {
     openGroupCtx,
     openRowCtx,
     openNewMenu,
-  } = useLibraryMenus({ surface: "sidebar", moveRow, movePack })
+  } = useLibraryMenus({ surface: "sidebar", moveRow, movePack, moveGroup })
 
   // A new prompt or pack can land below the fold of a long list, and a pack
   // opened from the editor's crumbs may sit there too: bring what is shown
@@ -545,12 +548,12 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         aria-selected={selected}
         aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
-        title={`${group} — click or Enter shows its prompts · ← → fold · right-click or Shift+F10 for actions`}
+        title={`${group} — click or Enter folds it and shows its prompts · ⋯ or right-click (Shift+F10) for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-medium text-(--heading) hover:bg-hover focus-ring",
           selected && "bg-accent hover:bg-accent"
         )}
-        onClick={() => m.openOverview({ pack, group })}
+        onClick={() => openHeader(pack, group)}
         onDoubleClick={(e) => {
           e.stopPropagation()
           setRenamingGroup(key)
@@ -667,29 +670,19 @@ export function Sidebar() {
     const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
     const selected = shown?.pack === name && !shown.group
     const total = packTotals.get(name) ?? count
-    const lifted = packDrag === name
-    const hold = holdToDrag(() => setPackDrag(name))
     return (
       <div
         {...treeitemProps(rowByKey.get(`pack:${name}`)!)}
         aria-expanded={!isCollapsed}
         aria-selected={selected}
         aria-label={`${name}, ${q ? `${count} of ${total}` : count} prompt${total === 1 ? "" : "s"}${m.isLocked(name) ? ", locked" : ""}`}
-        title={`${name} — click or Enter shows its prompts · hold and drag (Alt+↑ ↓) to move · ← → fold · right-click or Shift+F10 for actions`}
+        title={`${name} — click or Enter folds it and shows its prompts · ⋯ or right-click (Shift+F10) for actions, Move up/down among them`}
         className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) transition-[transform,box-shadow] duration-150 hover:bg-hover focus-ring",
+          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover focus-ring",
           selected && "bg-accent hover:bg-accent",
-          faded && "opacity-45",
-          lifted ? "z-10 scale-[1.02] cursor-grabbing bg-sidebar shadow-lg ring-1 ring-ring/40" : "hover:cursor-grab"
+          faded && "opacity-45"
         )}
-        {...hold}
-        // The chevron, the dots and the rename field are not handles
-        onPointerDown={(e) => {
-          if (renaming !== name && !(e.target as HTMLElement).closest("button, input")) hold.onPointerDown(e)
-        }}
-        onClick={() => {
-          if (!swallowDragClick()) m.openOverview({ pack: name })
-        }}
+        onClick={() => openHeader(name)}
         onDoubleClick={(e) => {
           e.stopPropagation()
           setRenaming(name)
@@ -904,16 +897,7 @@ export function Sidebar() {
               const faded = !!q && p.count === 0
               const isCollapsed = faded || (!q && collapsed.has(p.name))
               return (
-                <div
-                  key={p.name}
-                  data-pack={p.name}
-                  role="presentation"
-                  className={cn(
-                    "mb-2 rounded-md",
-                    packDrag && packDrag !== p.name && packOver?.name === p.name &&
-                      (packOver.after ? "shadow-[0_3px_0_0_var(--primary)]" : "shadow-[0_-3px_0_0_var(--primary)]")
-                  )}
-                >
+                <div key={p.name} data-pack={p.name} role="presentation" className="mb-2">
                   {sectionTitle(p.name, p.count, isCollapsed, faded)}
                   {!isCollapsed && (
                     <div role="group" className="mt-0.5 flex flex-col gap-0.5 pl-4">

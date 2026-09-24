@@ -543,6 +543,25 @@
     return rest;
   }
 
+  // A group moved past the group above (dir -1) or below (1) in its pack.
+  // `list` is the library in the order the sidebar draws it (displayOrder);
+  // the pack's prompts are laid back into the slots they held there, the
+  // ungrouped run first and then each group in the new order, so every
+  // other pack and the rows within each group stay as they were. Null when
+  // there is no group to pass.
+  function moveGroup(list, pack, group, dir, defaultPack) {
+    const inPack = s => (s.pack || defaultPack) === pack;
+    const node = packTree(list.filter(inPack), [], defaultPack)[0];
+    const names = node ? node.groups.map(g => g.name) : [];
+    const at = names.indexOf(group);
+    const to = at + dir;
+    if (at === -1 || to < 0 || to >= names.length) return null;
+    [names[at], names[to]] = [names[to], names[at]];
+    const items = [...node.ungrouped, ...names.flatMap(n => node.groups.find(g => g.name === n).items)];
+    let i = 0;
+    return list.map(s => (inPack(s) ? items[i++] : s));
+  }
+
   // Packs, their groups, and the prompts in each: the one shape both manager
   // surfaces draw. Packs come in the order of `packNames` (orderPacks), any
   // other after them by name, and every name in `packNames` is present
@@ -891,6 +910,7 @@
     sortPrompts,
     orderPacks,
     movePack,
+    moveGroup,
     packTree,
     groupKey,
     displayOrder,

@@ -96,7 +96,18 @@ test("Left folds a pack and Right unfolds it", async ({ page }) => {
   await expect(promptRow(page, "Loose prompt")).toBeVisible()
 })
 
-test("a pack header held and dragged moves the pack, and Alt+Down moves it back", async ({ page }) => {
+test("a pack header's click folds it and shows its prompts; it is no drag handle", async ({ page }) => {
+  const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
+  await expect(pack).toHaveAttribute("aria-expanded", "true")
+  expect(await pack.evaluate((el) => getComputedStyle(el).cursor)).toBe("pointer")
+  await pack.click()
+  await expect(pack).toHaveAttribute("aria-expanded", "false")
+  await expect(page.getByRole("region", { name: "Mock Groups", exact: true })).toBeVisible()
+  await pack.click()
+  await expect(pack).toHaveAttribute("aria-expanded", "true")
+})
+
+test("a pack moves from its menu and with Alt+Down, and the order is saved", async ({ page }) => {
   const packRows = tree(page).locator('[role="treeitem"][aria-level="1"]')
   const order = async () =>
     (await packRows.evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? ""))).map((l) => l.split(",")[0])
@@ -104,31 +115,35 @@ test("a pack header held and dragged moves the pack, and Alt+Down moves it back"
   expect(before.length).toBeGreaterThan(2)
   // A–Z until the user arranges them
   expect(before).toEqual([...before].sort((a, b) => a.localeCompare(b)))
-  // Folded, every header is on screen
-  for (let i = 0; i < before.length; i++) {
-    await packRows.nth(i).focus()
-    await page.keyboard.press("ArrowLeft")
-  }
 
-  const last = before[before.length - 1]
-  const from = (await packRows.last().boundingBox())!
-  const to = (await packRows.first().boundingBox())!
-  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2)
-  await page.mouse.down()
-  await page.waitForTimeout(300) // the hold that lifts it
-  await page.mouse.move(to.x + to.width / 2, to.y + 2, { steps: 8 })
-  await page.mouse.up()
-
-  const moved = [last, ...before.slice(0, -1)]
+  await packRows.first().click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Move down" }).click()
+  const moved = [before[1], before[0], ...before.slice(2)]
   await expect.poll(order).toEqual(moved)
   const [arranged] = await calls(page, "arrange_packs")
   expect(arranged.args?.names).toEqual(moved)
-  // The release is not a click: no overview opened
-  await expect(page.getByRole("region", { name: last, exact: true })).toHaveCount(0)
 
-  await packRows.first().focus()
-  await page.keyboard.press("Alt+ArrowDown")
-  await expect.poll(order).toEqual([before[0], last, ...before.slice(1, -1)])
+  await packRows.nth(1).focus()
+  await page.keyboard.press("Alt+ArrowUp")
+  await expect.poll(order).toEqual(before)
+})
+
+test("a group moves within its pack from its menu", async ({ page }) => {
+  const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
+  const groups = pack.locator("xpath=..").locator('[role="treeitem"][aria-level="2"][aria-expanded]')
+  const order = async () =>
+    (await groups.evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? ""))).map((l) => l.split(",")[0])
+  await expect.poll(order).toEqual(["Debugging", "Review"])
+  const saves = (await calls(page, "save_snippets")).length
+
+  await tree(page).getByRole("treeitem", { name: /^Review, / }).click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Move up" }).click()
+  await expect.poll(order).toEqual(["Review", "Debugging"])
+  expect((await calls(page, "save_snippets")).length).toBe(saves + 1)
+  // At the top already: nothing to save
+  await tree(page).getByRole("treeitem", { name: /^Review, / }).click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Move up" }).click()
+  expect((await calls(page, "save_snippets")).length).toBe(saves + 1)
 })
 
 test("a pack title opens its overview, a group heading opens the group, Escape goes up", async ({ page }) => {

@@ -61,6 +61,10 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 
 ## Manager
 
+- **Popup groups in the manager's order** — the popup sorts a pack's groups
+  A–Z (`byGroup` in `src/popup/App.tsx`), while the manager draws them in
+  library order, which the group menu's Move up/down now arranges. Packs
+  already share one order (`C.orderPacks`); groups could follow `packTree`.
 - **Pack colour, as a setting** — a colour per pack (a swatch on its header,
   carried by its groups' guide lines and in the popup) for telling packs
   apart where their prompts mix. Direction B of the 2026-09-22 sidebar
