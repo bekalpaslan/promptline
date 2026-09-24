@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "d10e15350ebfd2bd3621cf2185e264544abc869a"
+      "revision": "2b631d7f78a239029dd09ceda687c481434305a7"
     },
     "viewBox": [
       1300,
@@ -67,12 +67,12 @@
       "sources": [
         {
           "path": "src/popup/App.tsx",
-          "line": 58,
+          "line": 57,
           "label": "Popup App"
         },
         {
           "path": "src/popup/App.tsx",
-          "line": 316,
+          "line": 317,
           "label": "invoke paste_snippet"
         }
       ]
@@ -94,12 +94,12 @@
       "sources": [
         {
           "path": "ui/core.js",
-          "line": 214,
+          "line": 228,
           "label": "rankSnippets"
         },
         {
           "path": "ui/core.js",
-          "line": 518,
+          "line": 554,
           "label": "packTree"
         },
         {
@@ -126,12 +126,12 @@
       "sources": [
         {
           "path": "src/manager/App.tsx",
-          "line": 28,
+          "line": 27,
           "label": "Manager App"
         },
         {
           "path": "src/manager/App.tsx",
-          "line": 409,
+          "line": 423,
           "label": "snippets-changed"
         }
       ]
@@ -174,7 +174,7 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 234,
+          "line": 235,
           "end_line": 254,
           "label": "TrayIconBuilder"
         }
@@ -273,7 +273,7 @@
       "sources": [
         {
           "path": "src-tauri/src/store.rs",
-          "line": 312,
+          "line": 318,
           "end_line": 332,
           "label": "data_dir paths"
         },
