@@ -1,0 +1,62 @@
+{
+  "$comment": "The library the screenshots show (`?mock=showcase`, `npm run shots`): the shipped packs from packs/*.json plus the packs below, with pins, use counts, saved config values and a clipboard, so every shot is staged and nothing personal appears. Titles are the keys; a title here must exist in some pack.",
+  "clipboard": "TypeError: Cannot read properties of undefined (reading 'map')\n    at OrderList (src/components/OrderList.tsx:42:23)\n    at renderWithHooks (react-dom.development.js:16305:18)\n    at mountIndeterminateComponent (react-dom.development.js:20074:13)",
+  "order": ["Everyday", "Acme Shop", "Starter", "Session Flow"],
+  "packs": [
+    {
+      "name": "Acme Shop",
+      "prompts": [
+        {
+          "title": "Trace this checkout failure",
+          "group": "Debugging",
+          "tags": ["debug"],
+          "text": "This failed in {{service}} during checkout:\n\n{clipboard}\n\nTrace it from the request handler down. Name the file and line where it goes wrong before you suggest a fix."
+        },
+        {
+          "title": "Flaky test triage",
+          "group": "Debugging",
+          "tags": ["debug", "test"],
+          "text": "{test_name} fails about one run in ten. List what could make it depend on order or timing, most likely first, and how to confirm each."
+        },
+        {
+          "title": "Review against our conventions",
+          "group": "Review",
+          "tags": ["review"],
+          "text": "Review this diff against {{style_guide}}. Only flag what breaks it, and cite the rule.\n\n{clipboard}"
+        },
+        {
+          "title": "Migration safety check",
+          "group": "Review",
+          "tags": ["review", "db"],
+          "text": "Is this migration safe to run on a live table with {row_count} rows? Cover locks, how long a backfill takes, and how to roll it back.\n\n{clipboard}"
+        },
+        {
+          "title": "Release notes from commits",
+          "group": "Release",
+          "tags": ["writing"],
+          "text": "Turn these commits into release notes for customers: what they will notice, grouped by area, no internal names.\n\n{clipboard}"
+        }
+      ]
+    }
+  ],
+  "pins": ["Explain this error", "Root cause first", "Bugs only, no style", "Trace this checkout failure", "Commit message for this"],
+  "uses": {
+    "Explain this error": 48,
+    "Root cause first": 41,
+    "Bugs only, no style": 33,
+    "Trace this checkout failure": 27,
+    "Commit message for this": 25,
+    "Smallest change that works": 19,
+    "Just the command": 17,
+    "Review against our conventions": 14,
+    "Three ways, pick one": 12,
+    "TL;DR this": 11,
+    "Session kickoff": 9,
+    "Plan before code": 8
+  },
+  "config": {
+    "Trace this checkout failure": { "service": "the orders API" },
+    "Review against our conventions": { "style_guide": "docs/CONVENTIONS.md" },
+    "Session kickoff": { "standing_instructions": "Run the tests before you say something works. Ask before adding a dependency." }
+  }
+}
