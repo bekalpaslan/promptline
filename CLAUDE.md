@@ -20,6 +20,10 @@ backlog, not from another audit, unless asked.
   changes.
 - `README.md` — the app as a user sees it.
 - `BACKLOG.md` — deferred ideas. Add to it rather than widening a change.
+- `docs/MARKETING.md` — the marketing strategy and the decisions behind
+  it (sell the binary, source stays MIT; macOS before the pitch; community
+  packs as repo files first). Exported from a Claude doc; refresh the
+  export when a decision changes.
 - `docs/history/` — the review, audit and benchmark trackers (`REVIEW.md`,
   `RELEASE-AUDIT.md`, `BUG-HUNT-*.md`) and the 2026-07 UI rework roadmap,
   each with its own rules at the top. Test names cite these files'
