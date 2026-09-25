@@ -16,7 +16,10 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:image" content="https://promptline.cc/og.png">
   <meta name="color-scheme" content="light dark">
+  <!-- The app's own icon: vector, plus the app icon set's PNGs (copied in by the Pages workflow) -->
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="favicon-32.png" type="image/png" sizes="32x32">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <style>
     /* Tokens from design/tokens.json ("Promptline Tool UI"), light and dark.
        The page follows the system theme; the header's switch can pin one
@@ -166,7 +169,7 @@
     .nav { display: flex; align-items: center; justify-content: space-between; height: 56px; gap: 16px; }
     .brand { display: flex; align-items: center; gap: 10px; color: var(--ink); font-weight: 600; font-size: 17px; }
     .brand:hover { text-decoration: none; }
-    .brand svg { width: 24px; height: 24px; color: var(--accent); }
+    .brand svg { width: 26px; height: 26px; }
     .nav-right { display: flex; align-items: center; gap: 22px; }
     .nav nav { display: flex; gap: 20px; font-size: 14px; }
     .nav nav a { color: var(--ink-2); }
@@ -240,7 +243,7 @@
       border-bottom: 1px solid var(--line); font-size: 12px; color: var(--ink-2);
     }
     .titlebar .t { display: flex; align-items: center; gap: 8px; }
-    .titlebar .t svg { width: 14px; height: 14px; color: var(--accent); }
+    .titlebar .t svg { width: 16px; height: 16px; }
     .titlebar .c { display: flex; height: 100%; }
     .titlebar .c span { width: 44px; display: grid; place-items: center; color: var(--ink-3); }
     .titlebar .c svg { width: 10px; height: 10px; }
@@ -362,10 +365,13 @@
   </style>
 </head>
 <body>
+  <!-- The app icon (src-tauri/icons/source/promptline.png) as vector, drawn
+       wherever the page shows it: the header and the window frames -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="logo" viewBox="0 0 1250 1250"><defs><filter id="pl-shadow" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx="10" dy="12" stdDeviation="9" flood-color="#000" flood-opacity="0.35"/></filter></defs><g filter="url(#pl-shadow)"><polygon points="396,72 854,72 1178,396 1178,854 854,1178 396,1178 72,854 72,396" fill="#ff7b7b" stroke="#ff7b7b" stroke-width="80" stroke-linejoin="round"/></g><polygon points="416,121 834,121 1129,416 1129,834 834,1129 416,1129 121,834 121,416" fill="#000" stroke="#000" stroke-width="52" stroke-linejoin="round"/><polygon points="375,408 879,599 879,691 375,880 375,799 795,645 375,490" fill="#fff"/></symbol></svg>
   <header>
     <div class="wrap nav">
       <a class="brand" href="/" aria-label="Promptline home">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6.5 9.5l3 2.5-3 2.5M12 15h5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>
         Promptline
       </a>
       <div class="nav-right">
@@ -408,7 +414,7 @@
       <div class="composite" aria-label="The manager window with the popup open over it">
         <div class="window">
           <div class="titlebar" aria-hidden="true">
-            <span class="t"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 9.5l3 2.5-3 2.5M12 15h5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Promptline</span>
+            <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
             <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
           </div>
           <img class="light-only" src="shots/manager-overview-light.png" width="1000" height="800" alt="The manager showing the Acme Shop pack: its Debugging, Review and Release groups as prompt cards, with the clipboard and saved values already filled in">
@@ -525,7 +531,7 @@
         <div class="tile reveal">
           <div class="window">
             <div class="titlebar" aria-hidden="true">
-              <span class="t"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 9.5l3 2.5-3 2.5M12 15h5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Promptline</span>
+              <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
               <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
             </div>
             <img class="light-only" src="shots/manager-overview-light.png" width="1000" height="800" loading="lazy" alt="The manager showing the Acme Shop pack as cards in three groups, the orders API and the copied error filled in">
@@ -547,7 +553,7 @@
         <div class="tile reveal">
           <div class="window">
             <div class="titlebar" aria-hidden="true">
-              <span class="t"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 9.5l3 2.5-3 2.5M12 15h5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Promptline</span>
+              <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
               <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
             </div>
             <img class="light-only" src="shots/manager-editor-light.png" width="1000" height="800" loading="lazy" alt="The editor for Trace this checkout failure: its text, its tags, and the built-ins, fill-in fields and the saved service value">
@@ -569,7 +575,7 @@
         <div class="tile reveal">
           <div class="window">
             <div class="titlebar" aria-hidden="true">
-              <span class="t"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 9.5l3 2.5-3 2.5M12 15h5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Promptline</span>
+              <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
               <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
             </div>
             <img class="light-only" src="shots/manager-generate-light.png" width="1000" height="800" loading="lazy" alt="Generate pack with AI at its review step: three new prompts ticked, one marked dupe and one marked hidden text left unticked, and an Add 3 prompts button">
@@ -591,7 +597,7 @@
         <div class="tile reveal">
           <div class="window">
             <div class="titlebar" aria-hidden="true">
-              <span class="t"><svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M6.5 9.5l3 2.5-3 2.5M12 15h5.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>Promptline</span>
+              <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
               <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
             </div>
             <img class="light-only" src="shots/manager-settings-light.png" width="1000" height="800" loading="lazy" alt="Settings: the global hotkey and startup, the theme, popup density, font and scale, and the library with its export and import buttons">
