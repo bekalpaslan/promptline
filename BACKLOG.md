@@ -6,9 +6,9 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 
 - ~~**Import pack from file**~~ — **shipped 2026-07-12** (`rfd` picker +
   diagnostic parse errors distinguishing empty / not-JSON / malformed-likely-
-  terminal-corruption / wrong-shape). Export-to-file remains open as the
-  natural sibling.
-- **Export pack/library to file** — save dialog counterpart to the file import.
+  terminal-corruption / wrong-shape).
+- ~~**Export pack/library to file**~~ — **shipped 0.2.15** (`export_pack_file`;
+  a pack's menu and Settings → Your library).
 - **Community pack library** (parked 2026-09-24 over safety and legal
   concerns). Packs as `library/<slug>.json` in the repo (the pack format
   plus `description` and `author`, which `parsePacks` already ignores),

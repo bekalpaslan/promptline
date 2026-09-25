@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, groupKey, useManager, type Surface } from "./state"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr, sayUndo } from "./status"
+import { exportToClipboard, exportToFile, packJson } from "./export"
 
 export { groupKey } from "./state"
 
@@ -119,8 +120,6 @@ export function useLibraryMenus(opts: {
     )
   }
 
-  const packToJson = (name: string) =>
-    C.packToJson(name, m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name))
   // The groups a pack holds, A–Z, for the New and Move-to menus
   const groupsIn = (pack: string) => C.groupsIn(m.snippets, pack, DEFAULT_PACK)
 
@@ -263,12 +262,13 @@ export function useLibraryMenus(opts: {
       },
       {
         kind: "item",
-        label: "Export pack",
-        run: () => {
-          void invoke("set_clipboard_text", { text: JSON.stringify(packToJson(name), null, 2) }).then(() =>
-            say(`Pack "${name}" copied to clipboard`)
-          )
-        },
+        label: "Export to clipboard",
+        run: () => void exportToClipboard(packJson(m.snippets, name), `Pack "${name}"`),
+      },
+      {
+        kind: "item",
+        label: "Export to file…",
+        run: () => void exportToFile(packJson(m.snippets, name), name, `Pack "${name}"`),
       },
       ...packFileItems(name),
       { kind: "sep" },

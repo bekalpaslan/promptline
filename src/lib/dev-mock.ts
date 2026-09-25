@@ -190,6 +190,8 @@ export function installMock(mode: string | null) {
     // dialog's agent step both go through `read_pack_file`
     read_pack_file: (a) => JSON.stringify(MOCK_FILE_PACK(String(a.path)), null, 2),
     import_pack_file: () => JSON.stringify(MOCK_FILE_PACK("picked.json"), null, 2),
+    // The Save dialog "picks" a file named from `name`; `calls` holds the text
+    export_pack_file: (a) => `C:\\mock\\export\\${String(a.name)}.json`,
     // Window and shell commands: nothing to do in a browser, but they must
     // not read as unhandled (an unhandled `hide_popup` would be a real bug)
     edit_in_manager: () => null,

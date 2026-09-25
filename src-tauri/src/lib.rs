@@ -172,6 +172,7 @@ pub fn run() {
             commands::rename_pack,
             commands::save_prefs,
             commands::import_pack_file,
+            commands::export_pack_file,
             commands::create_pack_file,
             commands::create_generated_file,
             commands::read_pack_file,

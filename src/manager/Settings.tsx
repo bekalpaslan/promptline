@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
 import { ImportCuration } from "./ImportCuration"
 import { say, sayErr } from "./status"
+import { exportToClipboard, exportToFile, libraryJson, librarySummary, packJson } from "./export"
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -143,9 +144,6 @@ export function Settings() {
       setAutostart(!enabled)
     }
   }
-
-  const packToJson = (name: string) =>
-    C.packToJson(name, m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name))
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
@@ -374,11 +372,7 @@ export function Settings() {
                           <Button
                             size="compact"
                             variant="secondary"
-                            onClick={() =>
-                              void invoke("set_clipboard_text", {
-                                text: JSON.stringify(packToJson(name), null, 2),
-                              }).then(() => say(`Pack "${name}" copied to clipboard`))
-                            }
+                            onClick={() => void exportToClipboard(packJson(m.snippets, name), `Pack "${name}"`)}
                           >
                             Export to clipboard
                           </Button>
@@ -467,13 +461,21 @@ export function Settings() {
             size="compact"
             variant="secondary"
             onClick={() => {
-              const packs = m.packNames().map(packToJson).filter((p) => p.prompts.length)
-              void invoke("set_clipboard_text", { text: JSON.stringify(packs, null, 2) }).then(() =>
-                say(`Exported ${C.plural(packs.length, "pack")} (${C.plural(m.snippets.length, "prompt")}) to clipboard`)
-              )
+              const packs = libraryJson(m.snippets, m.packNames())
+              void exportToClipboard(packs, librarySummary(packs))
             }}
           >
-            Export library
+            Export to clipboard
+          </Button>
+          <Button
+            size="compact"
+            variant="secondary"
+            onClick={() => {
+              const packs = libraryJson(m.snippets, m.packNames())
+              void exportToFile(packs, "Promptline library", librarySummary(packs))
+            }}
+          >
+            Export to file…
           </Button>
           <Button
             size="compact"

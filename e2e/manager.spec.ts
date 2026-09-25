@@ -268,3 +268,25 @@ test("an import marks a prompt with hidden characters and leaves it unticked", a
   await expect.poll(async () => (await library(page)).map((s) => s.title)).toContain("Plain")
   expect((await library(page)).map((s) => s.title)).not.toContain("Smuggled")
 })
+
+test("a pack and the library export to a file, in the JSON Import reads", async ({ page }) => {
+  type Pack = { name: string; prompts: { title: string; group?: string }[] }
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Export to file…" }).click()
+  await expect(page.getByText('Pack "Mock Groups" saved to C:\\mock\\export\\Mock Groups.json')).toBeVisible()
+  const [packCall] = await calls(page, "export_pack_file")
+  expect(packCall.args?.name).toBe("Mock Groups")
+  const pack = JSON.parse(String(packCall.args?.text)) as Pack
+  expect(pack.name).toBe("Mock Groups")
+  expect(pack.prompts.map((p) => p.group ?? "")).toEqual(["Debugging", "Debugging", "Review", ""])
+
+  // Settings exports the whole library as an array of packs
+  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Export to file…" }).click()
+  const [, libraryCall] = await calls(page, "export_pack_file")
+  expect(libraryCall.args?.name).toBe("Promptline library")
+  const packs = JSON.parse(String(libraryCall.args?.text)) as Pack[]
+  const snippets = await library(page)
+  expect(packs.map((p) => p.name).sort()).toEqual([...new Set(snippets.map((s) => s.pack))].sort())
+  expect(packs.reduce((n, p) => n + p.prompts.length, 0)).toBe(snippets.length)
+})

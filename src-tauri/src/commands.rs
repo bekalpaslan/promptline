@@ -11,9 +11,9 @@ use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 use crate::packs::{
-    arrange_packs_in, back_pack_in, new_pack_file, packs_after_sync, relativize_pack_path,
-    remove_pack_in, rename_pack_in, resolve_pack_path, retire_pack_file, set_pack_locked_in,
-    sync_pack_files, validate_pack_name, with_resolved_pack_paths, PackMeta,
+    arrange_packs_in, back_pack_in, export_file_name, new_pack_file, packs_after_sync,
+    relativize_pack_path, remove_pack_in, rename_pack_in, resolve_pack_path, retire_pack_file,
+    set_pack_locked_in, sync_pack_files, validate_pack_name, with_resolved_pack_paths, PackMeta,
 };
 use crate::store::{
     check_revision, current_revision, data_dir, first_free, library, load_config_from_disk,
@@ -467,6 +467,25 @@ pub(crate) async fn import_pack_file() -> Result<Option<String>, String> {
             .map_err(|e| e.to_string()),
         None => Ok(None),
     }
+}
+
+/// Save an export to a file the user picks: `text` is a pack, or the
+/// library as an array of packs, in the format Import reads, and `name`
+/// only suggests the file name. The path comes from the dialog, never from
+/// the webview. None when the user cancels.
+#[tauri::command]
+pub(crate) async fn export_pack_file(name: String, text: String) -> Result<Option<String>, String> {
+    let Some(file) = rfd::AsyncFileDialog::new()
+        .add_filter("JSON pack", &["json"])
+        .set_file_name(export_file_name(&name))
+        .save_file()
+        .await
+    else {
+        return Ok(None);
+    };
+    let path = file.path();
+    write_atomic(path, text.as_bytes()).map_err(|e| format!("{}: {e}", path.display()))?;
+    Ok(Some(path.display().to_string()))
 }
 
 /// Open the manager focused on a specific prompt (from the popup's action panel).

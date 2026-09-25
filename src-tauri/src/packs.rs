@@ -79,6 +79,12 @@ pub(crate) fn with_resolved_pack_paths(mut config: Config, packs_dir: &Path) -> 
     config
 }
 
+/// The file name the Export dialog suggests for `name` (a pack, or
+/// "Promptline library"): the name a pack's own file would take.
+pub(crate) fn export_file_name(name: &str) -> String {
+    format!("{}.json", sanitize_pack_filename(name))
+}
+
 fn sanitize_pack_filename(name: &str) -> String {
     let mut s = String::new();
     for c in name.chars() {
@@ -591,6 +597,18 @@ mod tests {
         assert_eq!(sanitize_pack_filename("Rust + Tauri!!"), "rust-tauri");
         assert_eq!(sanitize_pack_filename("---"), "pack");
         assert_eq!(sanitize_pack_filename("Ünïcode Pack"), "ünïcode-pack");
+    }
+
+    #[test]
+    fn an_export_suggests_the_name_a_pack_file_would_take() {
+        assert_eq!(export_file_name("Git commands"), "git-commands.json");
+        assert_eq!(
+            export_file_name("Promptline library"),
+            "promptline-library.json"
+        );
+        // Nothing usable, or a device name: still a file Windows can create
+        assert_eq!(export_file_name("???"), "pack.json");
+        assert_eq!(export_file_name("con"), "con-pack.json");
     }
 
     #[test]

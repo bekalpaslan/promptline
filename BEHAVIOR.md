@@ -431,6 +431,19 @@ Two guards follow from that:
   it, for the same reason (`delete_pack` retires the named pack's file;
   renaming keeps the file, so nothing is ever retired by a rename).
 
+**An export goes to the clipboard or to a file, in the JSON an import
+reads.** A pack's menu and Settings → Your library each offer *Export to
+clipboard* and *Export to file…*: a pack as one pack document
+(`C.packToJson`: title, text, tags and group, none of the personal state),
+the library as an array of every pack that holds a prompt. The file goes
+through `export_pack_file`, whose Save dialog is Rust's and suggests the
+name a pack file would take (`git-commands.json`, `promptline-library.json`);
+the webview hands over the text and a name, never a path, like every other
+command. It is a copy the user keeps, not a pack's file: nothing tracks it,
+and exporting into `packs/` makes an orphan that a pack of the same name
+could later adopt, as any file dropped there. Windows opens the dialog in
+the folder last used from the app, which is often `packs/` after an import.
+
 **An import flags hidden characters and leaves those prompts unticked**
 (`hiddenChars` in `ui/core.js`, checked over the pack name, title, group and
 text). A pack from a colleague, a website or an AI reply can carry text the
