@@ -9,6 +9,9 @@
 // don't), held in memory per page: the manager and
 // the popup are separate pages and don't see each other's writes, and a
 // reload starts over. `?mock=empty` starts with no prompts (first run).
+// `?mock=showcase` is the library the screenshots show (e2e/showcase.json:
+// the shipped packs plus a project pack, with pins, uses, saved config
+// values, the packs in an arranged order and a staged clipboard).
 //
 // `window.__mock` is the handle for a test driver:
 //   calls              every invoke as { cmd, args }, oldest first
@@ -52,10 +55,47 @@ const MOCK_FILE_PACK = (path: string) => ({
   ],
 })
 
+interface Showcase {
+  clipboard: string
+  order: string[]
+  packs: { name: string; prompts: { title: string; text: string; tags?: string[]; group?: string }[] }[]
+  pins: string[]
+  uses: Record<string, number>
+  config: Record<string, Record<string, string>>
+}
+
+const shippedPacks = () =>
+  Object.values(import.meta.glob<string>("/packs/*.json", { query: "?raw", import: "default", eager: true })).flatMap(
+    (raw) => C.parsePacks(raw)
+  )
+
+const showcaseData = () =>
+  Object.values(import.meta.glob<Showcase>("/e2e/showcase.json", { import: "default", eager: true }))[0]
+
+function showcaseSeed(sc: Showcase): Snippet[] {
+  let n = 0
+  return [...shippedPacks(), ...sc.packs].flatMap((p) =>
+    p.prompts.map((q) => {
+      const pin = sc.pins.indexOf(q.title)
+      return {
+        id: `show-${n++}`,
+        title: q.title,
+        text: q.text,
+        tags: q.tags ?? [],
+        pack: p.name,
+        group: q.group ?? "",
+        uses: sc.uses[q.title] ?? 0,
+        pinned: pin >= 0,
+        pinnedAt: pin >= 0 ? pin + 1 : 0,
+        configValues: sc.config[q.title] ?? {},
+      }
+    })
+  )
+}
+
 function seed(empty: boolean): Snippet[] {
   if (empty) return []
-  const files = import.meta.glob<string>("/packs/*.json", { query: "?raw", import: "default", eager: true })
-  const packs = [...Object.values(files).flatMap((raw) => C.parsePacks(raw)), GROUPED_PACK]
+  const packs = [...shippedPacks(), GROUPED_PACK]
   let n = 0
   return packs.flatMap((p) =>
     p.prompts.map((q, i) => ({
@@ -74,10 +114,14 @@ function seed(empty: boolean): Snippet[] {
 }
 
 export function installMock(mode: string | null) {
-  const lib: Library = { snippets: seed(mode === "empty"), revision: 1 }
-  let packs: PackMeta[] = []
-  let packsArranged = false
-  const config = { hotkey: "Ctrl+Alt+Space", theme: "dark", density: "comfortable", scale: "100", font: "system" }
+  const showcase = mode === "showcase" ? showcaseData() : null
+  const lib: Library = { snippets: showcase ? showcaseSeed(showcase) : seed(mode === "empty"), revision: 1 }
+  let packs: PackMeta[] = showcase
+    ? showcase.order.map((name) => ({ name, locked: false, path: `C:\\Users\\you\\AppData\\Roaming\\io.github.bekalpaslan.promptline\\packs\\${name.toLowerCase().replace(/\W+/g, "-")}.json` }))
+    : []
+  let packsArranged = !!showcase
+  // The showcase follows the system theme, so a shot can ask for either
+  const config = { hotkey: "Ctrl+Alt+Space", theme: showcase ? "system" : "dark", density: "comfortable", scale: "100", font: "system" }
   const calls: Call[] = []
   const callbacks = new Map<number, (data: unknown) => void>()
   const listeners = new Map<string, number[]>()
@@ -96,7 +140,7 @@ export function installMock(mode: string | null) {
 
   const mock = {
     calls,
-    clipboard: "TypeError: cannot read properties of undefined (reading 'id')",
+    clipboard: showcase?.clipboard ?? "TypeError: cannot read properties of undefined (reading 'id')",
     library: lib,
     pasteResult: "pasted" as "pasted" | "copied",
     emit(event: string, payload?: unknown) {
