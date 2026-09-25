@@ -40,7 +40,7 @@ fn mutate_library(
     let mut snippets = load_snippets_from_disk(app)?;
     if f(&mut snippets) {
         write_snippets(app, &snippets)?;
-        sync_pack_files(app);
+        sync_pack_files(app, &snippets);
         notify_other_window(app, window);
     }
     Ok(Library {
@@ -137,7 +137,7 @@ pub(crate) fn save_snippets(
     let _guard = state.store.lock().unwrap();
     check_revision(base_revision, current_revision(&app))?;
     write_snippets(&app, &snippets)?;
-    sync_pack_files(&app);
+    sync_pack_files(&app, &snippets);
     notify_other_window(&app, &window);
     Ok(current_revision(&app))
 }
@@ -331,7 +331,7 @@ pub(crate) fn rename_pack(
     rename_pack_in(&mut config, &mut snippets, &from, &to)?;
     save_config(&app, &config)?;
     write_snippets(&app, &snippets)?;
-    sync_pack_files(&app);
+    sync_pack_files(&app, &snippets);
     notify_other_window(&app, &window);
     Ok(Library {
         snippets,

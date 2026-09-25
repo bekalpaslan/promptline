@@ -76,9 +76,9 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   errors (`restrict-template-expressions` 12, `unbound-method` 3,
   `no-unsafe-argument` 3, …); fix them in one pass, then enable it
   (release audit L13, declined for 0.2.9).
-- **Three config re-reads per write** — every intent-level write parses
-  `config.json` in `mutate_library`, `sync_pack_files` and
-  `ensure_packs_backed`; pass it through once (release audit L8 leftover).
+- ~~**Three config re-reads per write**~~ — **shipped 0.2.15**: a write
+  hands `sync_pack_files` the library it just wrote, and config.json is
+  read once.
 - **Popup options contain buttons** — the tag pills and pack headers inside
   `role=listbox` options are invalid ARIA, though they work with
   `aria-activedescendant`; move tag filtering to the action panel (release
