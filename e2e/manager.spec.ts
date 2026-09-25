@@ -128,6 +128,17 @@ test("a pack moves from its menu and with Alt+Down, and the order is saved", asy
   await expect.poll(order).toEqual(before)
 })
 
+test("an arranged pack order holds from the first paint, not only after a save", async ({ page }) => {
+  // The showcase library's registry is arranged Everyday, Acme Shop, Starter,
+  // Session Flow; startup used to read the registry but not the flag, so the
+  // manager drew A–Z until its first write
+  await open(page, "manager", "showcase")
+  const packRows = tree(page).locator('[role="treeitem"][aria-level="1"]')
+  await expect
+    .poll(async () => (await packRows.evaluateAll((els) => els.map((el) => el.getAttribute("aria-label") ?? ""))).map((l) => l.split(",")[0]))
+    .toEqual(["Everyday", "Acme Shop", "Starter", "Session Flow"])
+})
+
 test("a group moves within its pack from its menu", async ({ page }) => {
   const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
   const groups = pack.locator("xpath=..").locator('[role="treeitem"][aria-level="2"][aria-expanded]')

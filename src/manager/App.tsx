@@ -369,6 +369,7 @@ export function App() {
         if (cancelled) return
         setHotkeyState(config.hotkey)
         setPackMeta(Array.isArray(config.packs) ? config.packs : [])
+        setPacksArranged(!!config.packsArranged)
         // "system" follows the OS; the legacy "sand"/"sundown" read as dark
         const theme = config.theme === "light" || config.theme === "system" ? config.theme : "dark"
         const loaded: Prefs = {
