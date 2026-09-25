@@ -1,6 +1,6 @@
 {
   "$comment": "The library the screenshots show (`?mock=showcase`, `npm run shots`): the shipped packs from packs/*.json plus the packs below, with pins, use counts, saved config values and a clipboard, so every shot is staged and nothing personal appears. Titles are the keys; a title here must exist in some pack.",
-  "clipboard": "TypeError: Cannot read properties of undefined (reading 'map')\n    at OrderList (src/components/OrderList.tsx:42:23)\n    at renderWithHooks (react-dom.development.js:16305:18)\n    at mountIndeterminateComponent (react-dom.development.js:20074:13)",
+  "clipboard": "TypeError: Cannot read properties of undefined (reading 'map')\n    at OrderList (src/components/OrderList.tsx:42:23)",
   "order": ["Everyday", "Acme Shop", "Starter", "Session Flow"],
   "packs": [
     {

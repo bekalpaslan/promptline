@@ -1,0 +1,49 @@
+<!doctype html>
+<!-- The social card (docs/og.png, 1200x630), composed by e2e/shots.spec.ts:
+     the two image sources below become data: URLs of fresh 2x captures.
+     Colours are the dark tokens from design/tokens.json. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  html, body { margin: 0; width: 1200px; height: 630px; overflow: hidden; }
+  body {
+    position: relative;
+    background:
+      radial-gradient(900px 520px at 88% 18%, rgba(76, 194, 245, 0.16), transparent 60%),
+      linear-gradient(160deg, #15181b 0%, #101214 100%);
+    color: #e8ebee;
+    font-family: 'Segoe UI Variable Display', 'Segoe UI', system-ui, sans-serif;
+  }
+  .copy { position: absolute; left: 64px; top: 72px; width: 400px; }
+  .brand { display: flex; align-items: center; gap: 12px; font-size: 26px; font-weight: 600; }
+  .brand svg { width: 34px; height: 34px; color: #4cc2f5; }
+  h1 { font-size: 48px; line-height: 1.07; letter-spacing: -0.02em; margin: 40px 0 20px; font-weight: 700; }
+  p { font-size: 21px; line-height: 1.45; color: #a3abb5; margin: 0; }
+  .keys { display: flex; gap: 8px; margin-top: 30px; }
+  kbd {
+    font-family: 'Cascadia Code', 'JetBrains Mono', Consolas, monospace; font-size: 17px;
+    padding: 4px 11px; border: 1px solid #3a4048; border-bottom-width: 3px; border-radius: 5px;
+    background: #22272c; color: #e8ebee;
+  }
+  .url { position: absolute; left: 64px; bottom: 54px; font-size: 19px; color: #4cc2f5; font-family: 'Cascadia Code', Consolas, monospace; }
+  .shot { position: absolute; display: block; border-radius: 12px; }
+  .manager { left: 610px; top: 64px; width: 720px; border: 1px solid #2a2f35; box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55); }
+  .popup { left: 488px; top: 150px; width: 290px; border: 1px solid #3a4048; box-shadow: 0 34px 90px rgba(0, 0, 0, 0.75), 0 0 0 1px rgba(76, 194, 245, 0.18); }
+</style>
+</head>
+<body>
+  <div class="copy">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="3" width="20" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M6.5 9.5l3 2.5-3 2.5M12 15h5.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      Promptline
+    </div>
+    <h1>Your prompts, one hotkey away.</h1>
+    <p>Pick a prompt in any window; it's pasted with your clipboard already inside.</p>
+    <div class="keys"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>V</kbd></div>
+  </div>
+  <div class="url">promptline.cc</div>
+  <img class="shot manager" src="{{manager}}" alt="">
+  <img class="shot popup" src="{{popup}}" alt="">
+</body>
+</html>

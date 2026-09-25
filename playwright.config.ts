@@ -9,6 +9,8 @@ const PORT = 5179
 
 export default defineConfig({
   testDir: "./e2e",
+  // The screenshots have their own run (`npm run shots`, playwright.shots.config.ts)
+  testIgnore: "shots.spec.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
