@@ -54,19 +54,31 @@ pub(crate) struct AppState {
     // once at startup: `show_popup` used to parse config.json on every
     // hotkey press to find out.
     pub(crate) popup_seen: AtomicBool,
+    // Set while Windows is ending the session: the manager's `quit_now`
+    // then only reports its flush done (`flushed`) and Windows does the
+    // exiting. Tray Quit clears it, so a late answer can't strand a Quit.
+    pub(crate) session_ending: AtomicBool,
+    pub(crate) flushed: AtomicBool,
 }
 
-/// Quit, but let the manager flush a pending autosave first: the editor
-/// saves on a 600 ms debounce, so Quit from the tray right after typing
-/// used to drop the last edit. The manager answers `quit-requested` with
-/// `quit_now`; if it doesn't (webview gone or hung) we exit anyway after a
-/// grace period, so Quit can never hang.
-fn request_quit(app: &AppHandle) {
-    let asked = app
-        .get_webview_window("main")
+/// Ask the manager to run a pending autosave, the editor's 600 ms debounce;
+/// it answers `quit-requested` with `quit_now`. False when there is no
+/// manager to ask.
+fn ask_to_flush(app: &AppHandle) -> bool {
+    app.get_webview_window("main")
         .map(|w| w.emit("quit-requested", ()).is_ok())
-        .unwrap_or(false);
-    if !asked {
+        .unwrap_or(false)
+}
+
+/// Quit, but let the manager flush a pending autosave first: Quit from the
+/// tray right after typing used to drop the last edit. If the manager
+/// doesn't answer (webview gone or hung) we exit anyway after a grace
+/// period, so Quit can never hang.
+fn request_quit(app: &AppHandle) {
+    app.state::<AppState>()
+        .session_ending
+        .store(false, Ordering::SeqCst);
+    if !ask_to_flush(app) {
         app.exit(0);
         return;
     }
@@ -253,6 +265,25 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            // Shutdown, restart and sign-out get the same flush as Quit, and
+            // Windows does the exiting (see `platform::on_session_end`)
+            if let Some(w) = handle.get_webview_window("main") {
+                let (ask, done) = (handle.clone(), handle.clone());
+                platform::on_session_end(
+                    &w,
+                    platform::SessionEnd {
+                        ask: Box::new(move || {
+                            let state = ask.state::<AppState>();
+                            state.flushed.store(false, Ordering::SeqCst);
+                            state.session_ending.store(true, Ordering::SeqCst);
+                            ask_to_flush(&ask)
+                        }),
+                        done: Box::new(move || done.state::<AppState>().flushed.load(Ordering::SeqCst)),
+                        grace: Duration::from_millis(2000),
+                    },
+                );
+            }
 
             Ok(())
         })

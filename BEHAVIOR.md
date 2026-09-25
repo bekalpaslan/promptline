@@ -637,6 +637,27 @@ its own after 1.5 s if the webview never answers, so Quit can't hang.
 `beforeunload` would not have done it — `app.exit` tears the webview down
 without firing it.
 
+**Shutting Windows down flushes the same way.** Shutdown, restart and
+sign-out send every top-level window `WM_QUERYENDSESSION`, then
+`WM_ENDSESSION`, and the process can be killed once that is answered. Tao
+turns `WM_ENDSESSION` into `RunEvent::Exit`, by which point the webview can
+send nothing, so the query is where the flush happens:
+`platform::on_session_end` subclasses the manager's window, and on the
+query emits the same `quit-requested`, then holds its reply while it keeps
+dispatching the thread's messages (the webview's invokes arrive through
+them) until the manager's `quit_now` lands or 2 s pass. While
+`session_ending` is set, `quit_now` only records that the flush is done;
+Windows does the exiting. Tray Quit clears the flag, so a late answer from
+a cancelled shutdown can't leave Quit waiting. The reply is always yes: an
+app that holds up a shutdown gets Windows' "this app is preventing
+shutdown" screen after 5 s. Measured against the debug build by sending the
+query to the process's windows 5 ms after an edit: every reply was back and
+the edit on disk within about 75 ms, well inside the 600 ms debounce.
+Tao ends its loop on `WM_ENDSESSION` and panics on the next message it
+handles ("cannot move state from Destroyed") if the process is still
+alive; at a real shutdown Windows has killed it by then, and a test that
+sends `WM_ENDSESSION` by hand sees the panic, 0.2.14 included.
+
 **Closing a window hides it, whichever window it is.** The main window going
 to the tray is the visible half of that; the popup needs it just as much,
 because it is created once at startup and never rebuilt — Alt+F4 on it used to
