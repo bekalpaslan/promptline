@@ -322,7 +322,12 @@ pack's prompts back into the slots they held (ungrouped run first, then
 the groups in their new order; every other pack and every row inside a
 group stays put), and saves it, switching the list to Custom as a prompt
 drag does, or Most used would put the old order straight back. The popup
-still sorts groups A–Z (BACKLOG).
+follows it: it ranks prompts by use, so it can't take the order from its
+rows, and instead places each group where it first appears in the library
+array (`C.groupOrder`), which is the manager's Custom order, the order a
+move saves, and an imported pack's file order. Until 0.2.15 the popup sorted
+groups A–Z, so an unarranged library can show its groups in a new order
+there after the update: the order they were made or imported in.
 
 **The manager's New asks where.** Its menu makes a pack straight away (named
 "New pack", selected, its name open for typing), a group in a pack the user

@@ -1088,3 +1088,18 @@ test('moveGroup swaps a group past its neighbour in the pack and leaves every ot
   assert.equal(core.moveGroup(list, 'Work', 'Nope', 1, 'My prompts'), null);
   assert.deepEqual(ids(list), ['u1', 'o1', 'a1', 'a2', 'b1', 'o2'], 'never mutates');
 });
+
+test('groupOrder ranks groups by first appearance in the library, so the popup follows a moved group', () => {
+  const list = [
+    prompt('u1', 'Work', ''), prompt('z1', 'Work', 'Zed'), prompt('o1', '', 'X'),
+    prompt('a1', 'Work', 'Alpha'), prompt('z2', 'Work', 'Zed'),
+  ];
+  const at = core.groupOrder(list, 'My prompts');
+  assert.ok(at.get(core.groupKey('Work', 'Zed')) < at.get(core.groupKey('Work', 'Alpha')), 'library order, not A–Z');
+  assert.ok(at.has(core.groupKey('My prompts', 'X')), 'a packless prompt is in the default pack');
+  assert.equal(at.size, 3, 'ungrouped rows take no place');
+  // After a move, the popup's order changes with it
+  const moved = core.moveGroup(list, 'Work', 'Alpha', -1, 'My prompts');
+  const after = core.groupOrder(moved, 'My prompts');
+  assert.ok(after.get(core.groupKey('Work', 'Alpha')) < after.get(core.groupKey('Work', 'Zed')));
+});

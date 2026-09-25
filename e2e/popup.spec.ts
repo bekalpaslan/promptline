@@ -204,3 +204,18 @@ test("the preview flags a clipboard carrying hidden characters", async ({ page }
   await expect(page.getByRole("tooltip")).toContainText("TypeError: x is undefined")
   await expect(page.getByRole("tooltip").getByText("hidden text")).toHaveCount(0)
 })
+
+test("groups follow the library's order, as the manager arranges them, not A–Z", async ({ page }) => {
+  const groupsIn = (pack: string) =>
+    page.getByRole("group", { name: pack, exact: true }).getByRole("group").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))
+  await expect.poll(() => groupsIn("Mock Groups")).toEqual(["Debugging", "Review"])
+  // The manager's Move up on "Review" saves its prompt ahead of Debugging's
+  await page.evaluate(() => {
+    const lib = (window as unknown as { __mock: { library: { snippets: { title: string; pack: string }[] } } }).__mock.library
+    const at = lib.snippets.findIndex((s) => s.title === "Review for bugs")
+    const first = lib.snippets.findIndex((s) => s.pack === "Mock Groups")
+    lib.snippets.splice(first, 0, ...lib.snippets.splice(at, 1))
+  })
+  await emit(page, "popup-shown")
+  await expect.poll(() => groupsIn("Mock Groups")).toEqual(["Review", "Debugging"])
+})

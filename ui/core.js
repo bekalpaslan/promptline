@@ -586,6 +586,21 @@
     return orderPacks([...packs.keys()], packNames).map(n => packs.get(n));
   }
 
+  // Where each group sits within its pack, for a surface that sorts its own
+  // rows (the popup ranks by use): the group's first appearance in the
+  // library array, keyed by `groupKey`. That is the manager's order under
+  // Custom, the order a group move (moveGroup) saves, and an imported
+  // pack's file order.
+  function groupOrder(snippets, defaultPack) {
+    const at = new Map();
+    for (const s of snippets) {
+      if (!s.group) continue;
+      const key = groupKey(s.pack || defaultPack, s.group);
+      if (!at.has(key)) at.set(key, at.size);
+    }
+    return at;
+  }
+
   // ---- The manager's tree, as rows ----------------------------------------------
   // A group is a label scoped to its pack; this is its identity key wherever
   // the manager holds groups in a set (folds, the rename state, row keys).
@@ -913,6 +928,7 @@
     moveGroup,
     packTree,
     groupKey,
+    groupOrder,
     displayOrder,
     treeRows,
     freeName,

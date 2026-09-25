@@ -115,6 +115,7 @@ export function App() {
   // Ranking is a pure core function (tested); this only memoizes it
   const filtered = useMemo<Entry[]>(() => C.rankSnippets(query, snippets), [snippets, query])
   const derived = useMemo(() => new Map(snippets.map((s) => [s.id, derive(s)])), [snippets])
+  const groupAt = useMemo(() => C.groupOrder(snippets, DEFAULT_PACK), [snippets])
 
   const hasQuery = !!C.parseQuery(query).text
   // A filter-only query (#tag, @pack, >group, no free text) keeps the pack
@@ -241,11 +242,13 @@ export function App() {
       if (!map.has(key)) map.set(key, [])
       map.get(key)!.push(e)
     }
-    // Within a pack: ungrouped prompts first, then groups alphabetically, so
-    // the list can render a sub-header wherever the group changes. Sorted
-    // here so keyboard order (visible) matches what is drawn (sections).
-    const byGroup = (a: Entry, b: Entry) =>
-      (a.s.group ? 1 : 0) - (b.s.group ? 1 : 0) || (a.s.group || "").localeCompare(b.s.group || "")
+    // Within a pack: ungrouped prompts first, then groups in the library's
+    // order (C.groupOrder, what the manager's Move up/down arranges), so the
+    // list can render a sub-header wherever the group changes. Sorted here so
+    // keyboard order (visible) matches what is drawn (sections); the sort is
+    // stable, so each group's prompts keep their rank.
+    const rank = (e: Entry) => (e.s.group ? (groupAt.get(groupKey(e.s.pack || DEFAULT_PACK, e.s.group)) ?? 0) : -1)
+    const byGroup = (a: Entry, b: Entry) => rank(a) - rank(b)
     // Packs in the manager's order: A–Z, or as the user arranged them
     const packs = C.orderPacks([...map.keys()], packsArranged ? packMeta.map((p) => p.name) : null).map(
       (n) => [n, [...map.get(n)!].sort(byGroup)] as [string, Entry[]]
@@ -268,7 +271,7 @@ export function App() {
       ),
     ]
     return { sections, visible }
-  }, [filtered, hasQuery, effCollapsed, effCollapsedGroups, packMeta, packsArranged])
+  }, [filtered, hasQuery, effCollapsed, effCollapsedGroups, packMeta, packsArranged, groupAt])
 
   // Row index within `visible`, for selection
   const rowIndex = useMemo(() => new Map(visible.map((e, i) => [e.s.id, i])), [visible])

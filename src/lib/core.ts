@@ -198,6 +198,8 @@ interface PromptlineCore {
   packTree<T extends Pick<Snippet, "pack" | "group">>(snippets: T[], packNames: string[], defaultPack: string): PackNode<T>[]
   /** A group's identity: its pack and its label */
   groupKey(pack: string, group: string): string
+  /** Each group's place in its pack (first appearance in the library array), keyed by `groupKey` */
+  groupOrder(snippets: Pick<Snippet, "pack" | "group">[], defaultPack: string): Map<string, number>
   /** The library in the order the sidebar draws it (sorted, by pack when grouped); "custom" is the array itself */
   displayOrder<T extends Pick<Snippet, "title" | "uses" | "pinned" | "pack" | "group">>(snippets: T[], orderBy: OrderBy, grouped: boolean, packNames: string[], defaultPack: string): T[]
   /** Every row of the grouped sidebar in order, folds applied (a search holds them all open) */
