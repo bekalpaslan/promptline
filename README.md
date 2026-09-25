@@ -11,7 +11,10 @@ browser, Cursor, a PR
 comment box, anywhere.
 
 <p align="center">
-  <img src="docs/popup.png" width="400" alt="The Promptline popup: a search box, pinned prompts with Ctrl+1..3 slots, packs with their groups, and a preview card showing a prompt with the clipboard already substituted for {clipboard}">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/popup-preview-dark.png">
+    <img src="docs/screenshots/popup-preview-light.png" width="400" alt="The Promptline popup: a search box, pinned prompts on Ctrl+1 to 5, packs with their groups, and a preview card showing Root cause first with the copied error already in place of {clipboard}">
+  </picture>
 </p>
 
 ## The killer move

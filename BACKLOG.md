@@ -83,9 +83,9 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   `role=listbox` options are invalid ARIA, though they work with
   `aria-activedescendant`; move tag filtering to the action panel (release
   audit L20 leftover).
-- **Real-library screenshot** — `docs/popup.png` (README and the website)
-  is the mock's data ("Mock Groups", a `{2}` chip); retake it from a real
-  library over CDP.
+- ~~**Real-library screenshot**~~ — **done 2026-09-25** differently: every
+  screen is staged against a demo library (`npm run shots`), in both
+  themes, for the site's tour and the README.
 
 ## Popup
 

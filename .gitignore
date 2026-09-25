@@ -19,7 +19,7 @@ docs/architecture/**/*.visual-check.json
 docs/architecture/**/*.receipt.json
 
 # Copied in from docs/ by the Pages workflow; a local preview copy only
-site/popup.png
+site/og.png
 
 # Playwright output (npm run test:e2e)
 test-results/

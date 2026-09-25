@@ -33,18 +33,25 @@ backlog, not from another audit, unless asked.
   project (see *Architecture map* below).
 - `site/` — the one-page website at https://promptline.cc, published to
   GitHub Pages by `.github/workflows/pages.yml` on every push to `master`
-  that touches it (the workflow copies `docs/popup.png` and
+  that touches it (the workflow copies `docs/og.png` and
   `docs/screenshots/*.png` in; `site/` holds no binaries). Plain HTML and
-  CSS on the tokens from `design/tokens.json`; the three screenshots play
-  as a slideshow under the hero, and a new screenshot is a file under
-  `docs/screenshots/` plus a slide in `site/index.html`;
+  CSS on the tokens from `design/tokens.json`: a hero with the manager and
+  popup composed, then a tour with one chapter per screen, each shot in
+  both themes (only the one showing loads; the header's switch pins one
+  for the visit, nothing stored). The screenshots and the social card
+  are made, not taken: `npm run shots` (`e2e/shots.spec.ts`) stages each
+  screen against the demo library (`?mock=showcase`, `e2e/showcase.json`)
+  and writes `docs/screenshots/<shot>-<light|dark>.png` at 2x and
+  `docs/og.png`; rerun it after a visible UI change and commit the images.
+  A new screen is a shot in that spec plus a chapter in `site/index.html`;
   the Download button is a plain link to
   `releases/latest/download/Promptline-setup.exe`, the stable-named copy
   each release carries (step 5 of *Releasing*), so a release needs no site
   change and a visitor's browser talks to nothing but GitHub Pages and,
   on a click, GitHub Releases. The footer's privacy note says so; keep it
-  true (no analytics, no cookies, no remote fonts or scripts). Preview it with `python -m http.server` in `site/` after
-  copying the screenshot in. Live with HTTPS enforced since 2026-09-23;
+  true (no analytics, no cookies, no remote fonts or scripts). Preview it
+  with `python -m http.server` in `site/` after copying `docs/og.png` and
+  `docs/screenshots/*.png` in (both gitignored there). Live with HTTPS enforced since 2026-09-23;
   DNS is at GoDaddy (four Pages A records, `www` CNAME). The bundle
   identifier stays `io.github.bekalpaslan.promptline` on purpose: it names
   the data folder, and a domain can lapse.
