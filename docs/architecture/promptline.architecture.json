@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "2b631d7f78a239029dd09ceda687c481434305a7"
+      "revision": "67000092a1d345ee94cd4347041776f05a61ef02"
     },
     "viewBox": [
       1300,
@@ -72,7 +72,7 @@
         },
         {
           "path": "src/popup/App.tsx",
-          "line": 317,
+          "line": 320,
           "label": "invoke paste_snippet"
         }
       ]
@@ -99,7 +99,7 @@
         },
         {
           "path": "ui/core.js",
-          "line": 554,
+          "line": 573,
           "label": "packTree"
         },
         {
@@ -131,7 +131,7 @@
         },
         {
           "path": "src/manager/App.tsx",
-          "line": 423,
+          "line": 422,
           "label": "snippets-changed"
         }
       ]
@@ -152,8 +152,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 137,
-          "end_line": 142,
+          "line": 149,
+          "end_line": 154,
           "label": "shortcut handler"
         }
       ]
@@ -174,8 +174,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 235,
-          "end_line": 254,
+          "line": 248,
+          "end_line": 267,
           "label": "TrayIconBuilder"
         }
       ]
@@ -196,8 +196,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 118,
-          "end_line": 291,
+          "line": 130,
+          "end_line": 323,
           "label": "run()"
         },
         {
@@ -252,7 +252,7 @@
       "sources": [
         {
           "path": "src-tauri/src/platform.rs",
-          "line": 83,
+          "line": 89,
           "label": "send_ctrl_v"
         }
       ]
@@ -300,12 +300,12 @@
       "sources": [
         {
           "path": "src-tauri/src/packs.rs",
-          "line": 258,
+          "line": 273,
           "label": "sync_pack_files"
         },
         {
           "path": "src-tauri/src/packs.rs",
-          "line": 360,
+          "line": 375,
           "label": "write_pack_files"
         }
       ]
