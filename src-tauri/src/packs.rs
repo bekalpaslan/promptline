@@ -213,10 +213,16 @@ pub(crate) fn ensure_packs_backed(app: &AppHandle) {
     else {
         return;
     };
+    back_packs(app, &mut config, &snippets);
+}
 
+/// `ensure_packs_backed` over a config and library already in hand, saving
+/// the config when it changed; a write passes what it just wrote rather
+/// than parsing both files again.
+fn back_packs(app: &AppHandle, config: &mut Config, snippets: &[Snippet]) {
     let dir = packs_dir(app);
     let mut changed = false;
-    for name in packs_in_play(&config, &snippets) {
+    for name in packs_in_play(config, snippets) {
         match config.packs.iter_mut().find(|p| p.name == name) {
             // Known pack, already backed
             Some(pm) if !pm.path.is_empty() => {}
@@ -247,30 +253,33 @@ pub(crate) fn ensure_packs_backed(app: &AppHandle) {
         }
     }
     if changed {
-        if let Err(e) = save_config(app, &config) {
+        if let Err(e) = save_config(app, config) {
             log::error!("couldn't save the pack registry to config.json: {e}");
         }
     }
 }
 
-// Write each file-backed pack's shareable content (title/tags/text only —
-// never personal state like uses, pins, or config values) to its file.
-pub(crate) fn sync_pack_files(app: &AppHandle) {
-    ensure_packs_backed(app);
-    let Ok(config) = load_config_from_disk(app) else {
-        return;
-    };
+/// Write each file-backed pack's shareable content (title/tags/text only —
+/// never personal state like uses, pins, or config values) to its file,
+/// backing any pack that has none first. `snippets` is the library the
+/// caller just wrote; config.json is read once, and the registry as it
+/// stands afterwards is returned (None when it can't be read).
+pub(crate) fn sync_pack_files(app: &AppHandle, snippets: &[Snippet]) -> Option<Config> {
+    let mut config = load_config_from_disk(app).ok()?;
+    back_packs(app, &mut config, snippets);
     if config.packs.iter().all(|p| p.path.is_empty()) {
-        return;
+        return Some(config);
     }
-    let Ok(snippets) = load_snippets_from_disk(app) else {
-        return;
-    };
     let dir = packs_dir(app);
-    let result = write_pack_files(&dir, &config.packs, &snippets);
-    if result.failed.is_empty() {
-        return;
+    let result = write_pack_files(&dir, &config.packs, snippets);
+    if !result.failed.is_empty() {
+        report_pack_write_failures(app, &dir, &result);
     }
+    Some(config)
+}
+
+/// Every failed pack file to the log, and the first to the user.
+fn report_pack_write_failures(app: &AppHandle, dir: &Path, result: &PackWrites) {
     for failure in &result.failed {
         log::warn!("pack file not written: {failure}");
     }
@@ -399,8 +408,15 @@ fn write_pack_files(packs_dir: &Path, packs: &[PackMeta], snippets: &[Snippet]) 
 /// follows every write (it may have just backed a pack that got its
 /// metadata here), with paths resolved the way `get_config` returns them.
 pub(crate) fn packs_after_sync(app: &AppHandle) -> Result<Vec<PackMeta>, String> {
-    sync_pack_files(app);
-    Ok(with_resolved_pack_paths(load_config_from_disk(app)?, &packs_dir(app)).packs)
+    // An unreadable library skips the sync, as it always has
+    let synced = load_snippets_from_disk(app)
+        .ok()
+        .and_then(|snippets| sync_pack_files(app, &snippets));
+    let config = match synced {
+        Some(config) => config,
+        None => load_config_from_disk(app)?,
+    };
+    Ok(with_resolved_pack_paths(config, &packs_dir(app)).packs)
 }
 
 /// The name a new or renamed pack may not take: one that reads as an
