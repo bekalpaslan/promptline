@@ -10,6 +10,7 @@ on:
     paths:
       - "site/**"
       - "docs/og.png"
+      - "src-tauri/icons/**"
       - "docs/screenshots/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -34,6 +35,8 @@ jobs:
       - uses: actions/checkout@v4
       - run: |
           cp docs/og.png site/og.png
+          cp src-tauri/icons/32x32.png site/favicon-32.png
+          cp src-tauri/icons/128x128@2x.png site/apple-touch-icon.png
           mkdir -p site/shots
           cp docs/screenshots/*.png site/shots/
       - uses: actions/configure-pages@v5

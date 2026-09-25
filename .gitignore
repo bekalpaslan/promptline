@@ -20,6 +20,8 @@ docs/architecture/**/*.receipt.json
 
 # Copied in from docs/ by the Pages workflow; a local preview copy only
 site/og.png
+site/favicon-32.png
+site/apple-touch-icon.png
 
 # Playwright output (npm run test:e2e)
 test-results/
