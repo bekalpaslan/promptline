@@ -4,6 +4,7 @@
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 
 use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
@@ -514,9 +515,17 @@ pub(crate) fn set_clipboard_text(text: String) -> Result<(), String> {
     c.set_text(text).map_err(|e| e.to_string())
 }
 
+/// The manager's answer to `quit-requested`: its pending autosave is on
+/// disk. Tray Quit exits here; when Windows is ending the session it only
+/// says so, and Windows ends the process.
 #[tauri::command]
 pub(crate) fn quit_now(app: AppHandle) {
-    app.exit(0);
+    let state = app.state::<AppState>();
+    if state.session_ending.load(Ordering::SeqCst) {
+        state.flushed.store(true, Ordering::SeqCst);
+    } else {
+        app.exit(0);
+    }
 }
 
 #[cfg(test)]
