@@ -133,8 +133,8 @@ them, plus config values. Invisible until you want it.
   a deleted pack (the pack comes back, not just its prompts), an ungroup, a
   regroup, and a merge
 - Sidebar groups by **pack** (collapsible); each pack and group header has a
-  menu button on hover (right-click works too) to rename / lock / export /
-  delete it; right-click prompts for multi-select actions (move to pack or
+  menu button on hover (right-click works too) to rename / lock / export
+  (to the clipboard or a file) / delete it; right-click prompts for multi-select actions (move to pack or
   group, add tag, pin/unpin, export, delete) — Ctrl/Shift+click to select
   several. Inline renames commit on Enter only
 - **Groups** sit inside a pack: one pack per project, a group per practice
@@ -170,8 +170,8 @@ them, plus config values. Invisible until you want it.
   then **Apply** it; autostart (a login launch stays in the tray; the
   manager opens from the tray icon); theme (System / Light / Dark, System
   follows Windows); popup density; UI font (Outfit / system / serif / mono); UI
-  scale (90–125%); and **Your library** — export the whole library, import
-  from the clipboard or a file, or **Open folder** to see the data folder
+  scale (90–125%); and **Your library** — export the whole library to the
+  clipboard or a file, import from the clipboard or a file, or **Open folder** to see the data folder
   (library, packs and the log file) in Explorer, plus per-pack rows to
   import from, export, or create that pack's file; and **About**, with the
   version you're running
