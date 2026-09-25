@@ -1,15 +1,15 @@
 name: Site
 
 # Publishes site/ to GitHub Pages at https://promptline.cc. The screenshots
-# live in docs/ (the README uses the popup one too) and are copied in at
-# publish time rather than kept twice in the repo: docs/popup.png for the
-# social card, docs/screenshots/ for the slideshow.
+# live in docs/ (the README uses them too; `npm run shots` makes them) and
+# are copied in at publish time rather than kept twice in the repo:
+# docs/og.png for the social card, docs/screenshots/ for the page.
 on:
   push:
     branches: [master]
     paths:
       - "site/**"
-      - "docs/popup.png"
+      - "docs/og.png"
       - "docs/screenshots/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
@@ -33,7 +33,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: |
-          cp docs/popup.png site/popup.png
+          cp docs/og.png site/og.png
           mkdir -p site/shots
           cp docs/screenshots/*.png site/shots/
       - uses: actions/configure-pages@v5
