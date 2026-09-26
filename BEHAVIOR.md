@@ -714,8 +714,37 @@ Promptline* and *Quit*, which stays offered until the update installs,
 even past a toast that was silenced. Clicking either the toast or the tray
 item shows the manager and emits `update-offer` with `{ version, notes }`;
 opening only ever happens on that click, so nothing steals focus from
-whatever the user was doing (D-05). The manager's side of the offer — the
-dialog, Install and Later, the Settings switch and button — is 03-03's.
+whatever the user was doing (D-05).
+
+**The offer shows the release's own notes, as plain text.** `UpdateOffer.tsx`
+renders "Promptline X.Y.Z is available", then `notes` run through
+`releaseNotesBlocks` (`ui/core.js`) — `### heading`s, `-`/`*` items, and
+paragraphs, inline marks (`` `code` ``, `*em*`, `**strong**`, `[text](url)`)
+dropped — as `<h3>`/`<ul>`/`<p>` in a scrollable region, never as HTML: no
+link from the feed is ever live, and nothing it carries reaches
+`innerHTML`. **Install and restart** flushes the editor's pending autosave
+first (`pendingFlush`, the same one `quit-requested` uses) — the updater
+plugin ends the process once the install starts, so anything still only
+debounced would otherwise be lost — then calls `install_update`; both
+buttons read disabled and "Installing…" until it either restarts the app
+or fails, when it says why and re-enables them. **Later** calls
+`dismiss_update(version)` (silencing just that version, D-07) and closes,
+same as Escape or a click on the overlay. A store build's `supported:
+false` means `App.tsx` never opens the dialog at all, whatever event
+arrives.
+
+**Settings → About mirrors the same state.** A *Check for updates* button
+beside the Version row (D-04, works with the automatic check off) calls
+`check_for_updates` by hand: a version opens the same offer, none says
+"You're on the latest version", and a failure says why. When the state
+already holds a found version (from a startup/daily check, or from Later
+on the offer) a second button, *Update to X.Y.Z*, reopens the offer
+without asking again — the About card keeps offering what Later put off.
+A *Check for updates automatically* checkbox saves through
+`set_update_check`, optimistic with a revert and a toast on failure. All
+of this — the buttons, the checkbox, and its help paragraph naming
+`promptline.cc/latest.json` and how to turn the check off — is gated on
+`update?.supported`: a store build's Settings shows none of it (UPD-03).
 
 **The toast is a real Windows notification, not the webview.** Shown under
 the app's AUMID (`update::APP_ID`, the same string as `tauri.conf.json`'s
@@ -952,7 +981,12 @@ and the bare-U undo, Ctrl+N's title. The manager's follow "Shape": the
 tree's counts and its single tab stop, folding, the editor's autosave
 caption and one `update_snippet`, Ctrl+F and the `#tag` / `>group` filter,
 the overview and Escape going up, Settings and the theme preference, New →
-Pack and New → Prompt, and delete-with-Undo through `save_snippets`. What
+Pack and New → Prompt, delete-with-Undo through `save_snippets`, the
+update offer (its title, notes and buttons, Install asking `install_update`,
+Later silencing through `dismiss_update`, and the About card still
+offering it afterward), the manual check's three outcomes and the
+automatic-check switch through `set_update_check`, and a store build
+showing no update controls anywhere in the manager. What
 the backend was asked is read from `window.__mock.calls`, so a case can
 say what would have been pasted without a paste happening.
 
