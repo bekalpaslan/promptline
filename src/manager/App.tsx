@@ -17,6 +17,8 @@ import { Editor } from "./Editor"
 import { Overview } from "./Overview"
 import { Settings } from "./Settings"
 import { GenerateDialog } from "./GenerateDialog"
+import { UpdateOffer } from "./UpdateOffer"
+import { getUpdateState, setUpdateCheck, UPDATE_AVAILABLE, UPDATE_OFFER, type UpdateInfo, type UpdateState } from "@/lib/update"
 
 /** Something Rust needs the user to see; see `notify` in lib.rs */
 interface Notice {
@@ -34,6 +36,8 @@ export function App() {
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [genOpen, setGenOpen] = useState(false)
+  const [update, setUpdate] = useState<UpdateState | null>(null)
+  const [offerOpen, setOfferOpen] = useState(false)
   const [hotkey, setHotkeyState] = useState("ctrl+alt+v")
   const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100", font: "system" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
@@ -347,6 +351,24 @@ export function App() {
     [prefs]
   )
 
+  // The offer opens either from an event (a found version, unasked) or from
+  // Settings' manual check (which already has the answer); `info` records it
+  // when given, so a manual find and Later-then-reopen show the same version
+  const openUpdateOffer = useCallback((info?: UpdateInfo) => {
+    if (info) setUpdate((u) => (u ? { ...u, available: info } : u))
+    setOfferOpen(true)
+  }, [])
+
+  const setAutoUpdateCheck = useCallback(async (enabled: boolean) => {
+    setUpdate((u) => (u ? { ...u, autoCheck: enabled } : u))
+    try {
+      await setUpdateCheck(enabled)
+    } catch (e) {
+      setUpdate((u) => (u ? { ...u, autoCheck: !enabled } : u))
+      sayErr(`Couldn't save the setting: ${e}`)
+    }
+  }, [])
+
   // ---- Init ----
   useEffect(() => {
     // StrictMode runs this twice in development; a run whose effect was
@@ -400,6 +422,12 @@ export function App() {
     }
   }, [applyLibrary])
 
+  // An old Rust answering null (or a store build's stub) is fine either way:
+  // `update` stays null and the manager shows no update controls
+  useEffect(() => {
+    getUpdateState().then(setUpdate).catch(() => {})
+  }, [])
+
   // The first-run banner's "done" state fades on its own; the timer lives
   // here rather than inside a state updater, which must stay pure
   useEffect(() => {
@@ -418,6 +446,16 @@ export function App() {
       setView({ kind: "prompt" })
     })
     const unNotice = listen<Notice>("notice", ({ payload }) => sayPersistent(payload.message))
+    // A check (automatic or by hand, elsewhere) found a version: update the
+    // About card's offer, but don't pop anything over what the user is doing
+    const unUpdateAvailable = listen<UpdateInfo>(UPDATE_AVAILABLE, ({ payload }) =>
+      setUpdate((u) => (u ? { ...u, available: payload } : u))
+    )
+    // The toast or the tray item was clicked: open the offer
+    const unUpdateOffer = listen<UpdateInfo>(UPDATE_OFFER, ({ payload }) => {
+      setUpdate((u) => (u ? { ...u, available: payload } : u))
+      setOfferOpen(true)
+    })
     const unFirst = listen("first-popup", () => setFirstRun((state) => (state === "show" ? "done" : state)))
     // The popup writes too (create-from-clipboard, pins, use counts) — refresh
     const unChanged = listen<number>("snippets-changed", () => void reloadLibrary())
@@ -435,6 +473,8 @@ export function App() {
     return () => {
       void unEdit.then((f) => f())
       void unNotice.then((f) => f())
+      void unUpdateAvailable.then((f) => f())
+      void unUpdateOffer.then((f) => f())
       void unFirst.then((f) => f())
       void unChanged.then((f) => f())
       void unQuit.then((f) => f())
@@ -515,8 +555,11 @@ export function App() {
       settingsOpen,
       showSettings,
       pendingFlush,
+      update,
+      openUpdateOffer,
+      setAutoUpdateCheck,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen]
+    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
   )
 
   const fmtHotkey = C.fmtHotkey(hotkey)
@@ -576,6 +619,12 @@ export function App() {
         </main>
 
         <GenerateDialog open={genOpen} onOpenChange={setGenOpen} />
+        <UpdateOffer
+          open={offerOpen && !!update?.supported && !!update?.available}
+          info={update?.available ?? null}
+          onClose={() => setOfferOpen(false)}
+          flush={() => pendingFlush.current?.() ?? Promise.resolve()}
+        />
         {/* Bottom-right: top-right sat over the editor's title row */}
         <Toaster position="bottom-right" />
       </div>
