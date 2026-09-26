@@ -328,9 +328,12 @@ build is still what ships.
    the four `X_*` variables set (custody below) in the human's own
    PowerShell, like the signed build. The script checks that the release
    page answers 200 before it posts, so it can't announce a tag that
-   isn't there, and prints the post's url on success. Why after the
-   feed: the post is the one step that reaches people, so everything it
-   points at (the release, the installers, the update) is already live.
+   isn't there, and prints the post's url on success. Each post costs
+   $0.20 (X's pay-per-use price for a post carrying a url, 2026-09), paid
+   from credits bought in the developer console; there is no free tier.
+   Why after the feed: the post is the one step that reaches people, so
+   everything it points at (the release, the installers, the update) is
+   already live.
 8. If windows, commands, events or storage changed since the last map
    refresh, refresh the architecture map against the tagged commit (its
    own commit, pushed after).

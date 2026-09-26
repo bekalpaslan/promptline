@@ -102,9 +102,10 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   upload (chunked `INIT`/`APPEND`/`FINALIZE`, then `media.media_ids` on
   the post) and a second post replying to the first for a thread. Both
   are more script than the text post, and every release in the quiet
-  phase is one plain post, so they wait for the launch. The Free tier's
-  monthly write cap is far above one post per release; check it again
-  before a thread of several.
+  phase is one plain post, so they wait for the launch. X's API has no
+  free tier since 2025: it's pay-per-use from prepaid credits, and a post
+  carrying a url is $0.20 per request (2026-09), so a thread is a few
+  times that; check the pricing page before building it.
 
 - **Code signing** — unsigned installers trip Windows SmartScreen.
 - ~~**Auto-update**~~ — **built for the release after 0.2.16**: the Tauri
