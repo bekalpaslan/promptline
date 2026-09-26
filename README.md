@@ -39,7 +39,9 @@ bootstrapper, which is the one moment installation needs the network.
 
 The installers are not code-signed yet, so SmartScreen shows "Windows protected
 your PC" on first run — choose **More info → Run anyway**. Signing is on the
-list; it needs a certificate, not a code change.
+way through SignPath Foundation's free programme for open-source projects; the
+[Code signing policy](https://promptline.cc/code-signing/) says what will be
+signed and who approves it.
 
 After installing, Promptline sits in the tray: left-click the icon for the
 manager, press the hotkey anywhere for the popup. Promptline checks for a
