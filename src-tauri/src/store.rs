@@ -262,6 +262,12 @@ fn default_hotkey() -> String {
     "ctrl+alt+v".into()
 }
 
+// On for every install, including one upgraded from 0.2.16 or earlier:
+// unlike the hotkey there is no pin, the release notes say so instead (D-02)
+fn default_update_check() -> bool {
+    true
+}
+
 #[derive(Serialize, Deserialize, Clone)]
 pub(crate) struct Config {
     // Defaulted like every other field: a hand-edited config.json without it
@@ -298,6 +304,15 @@ pub(crate) struct Config {
     pub(crate) popup_width: f64,
     #[serde(default, rename = "popupHeight")]
     pub(crate) popup_height: f64,
+    // The daily update check (Settings → About). On for every install,
+    // including one upgraded from 0.2.16 or earlier: unlike the hotkey there
+    // is no pin, the release notes say so instead
+    #[serde(default = "default_update_check", rename = "updateCheck")]
+    pub(crate) update_check: bool,
+    // The newest version the user has been told about (its toast shown, or
+    // Later pressed, or found by hand): no second toast for it. "" = none
+    #[serde(default, rename = "updateNotified")]
+    pub(crate) update_notified: String,
 }
 
 impl Default for Config {
@@ -313,6 +328,8 @@ impl Default for Config {
             popup_seen: false,
             popup_width: 0.0,
             popup_height: 0.0,
+            update_check: true,
+            update_notified: String::new(),
         }
     }
 }
@@ -619,6 +636,8 @@ mod tests {
         assert!(!c.popup_seen);
         assert_eq!(c.popup_width, 0.0);
         assert_eq!(c.popup_height, 0.0);
+        assert!(c.update_check);
+        assert_eq!(c.update_notified, "");
 
         let with_packs: Config = serde_json::from_str(
             r#"{"hotkey": "x", "packs": [{"name": "Starter", "locked": true}, {"name": "Open"}]}"#,
@@ -905,6 +924,25 @@ mod tests {
         assert!(notice.is_none());
         assert_eq!(present[0].tags, vec!["debug"]);
         assert_eq!(present[0].pack, "My prompts");
+    }
+
+    #[test]
+    fn an_older_config_gets_the_update_check_on() {
+        // A config from 0.2.16 or earlier has neither field: it reads as on,
+        // with nothing dismissed (D-01, D-02) — no pin like the hotkey's
+        let c: Config = serde_json::from_str("{}").unwrap();
+        assert!(c.update_check);
+        assert_eq!(c.update_notified, "");
+        assert!(Config::default().update_check);
+
+        // Both fields round-trip
+        let c: Config =
+            serde_json::from_str(r#"{"updateCheck": false, "updateNotified": "0.2.18"}"#).unwrap();
+        assert!(!c.update_check);
+        assert_eq!(c.update_notified, "0.2.18");
+        let json = serde_json::to_string(&c).unwrap();
+        assert!(json.contains(r#""updateCheck":false"#), "{json}");
+        assert!(json.contains(r#""updateNotified":"0.2.18""#), "{json}");
     }
 
     #[test]
