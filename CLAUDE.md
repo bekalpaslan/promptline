@@ -326,7 +326,7 @@ build is still what ships.
 **Signing key custody.** The private key is
 `%USERPROFILE%\.tauri\promptline-updater.key`, encrypted with a password;
 both are in the maintainer's password manager, never in the repo or in
-GitHub secrets until Phase 4 wires CI to build what ships (the updater
+GitHub secrets until CI builds what ships (the updater
 signature has to cover the code-signed installer, so CI signs only once
 it produces that binary). The public key is in `tauri.conf.json`
 `plugins.updater.pubkey` and must never change once a release carries
