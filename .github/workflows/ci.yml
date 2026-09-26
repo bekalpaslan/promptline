@@ -57,6 +57,8 @@ jobs:
           retention-days: 7
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      # The store build (no updater, `--no-default-features`) must stay clean too
+      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --no-default-features -- -D warnings
       - run: npm run test:rust
 
   installers:
@@ -78,7 +80,9 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
-      - run: npm run tauri build
+      # The updater signature needs the private key, which stays off CI
+      # until CI builds what ships (D-10, Phase 4) — build unsigned here.
+      - run: npm run tauri build -- --config src-tauri/tauri.unsigned.conf.json
       - uses: actions/upload-artifact@v4
         with:
           name: installers-${{ github.ref_name }}

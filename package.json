@@ -10,6 +10,8 @@
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
+    "build:store": "tauri build --config src-tauri/tauri.store.conf.json -- --no-default-features",
+    "build:unsigned": "tauri build --config src-tauri/tauri.unsigned.conf.json",
     "ui:dev": "vite",
     "ui:build": "tsc -b && vite build",
     "typecheck": "tsc -b --noEmit",
