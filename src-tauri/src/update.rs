@@ -17,7 +17,9 @@ use crate::AppState;
 /// The AUMID and the bundle identifier (`tauri.conf.json`'s `identifier`):
 /// the toast is shown under this id, and the Start Menu shortcut the
 /// installer made carries the same one, so the process, its windows and
-/// its toasts are one app to Windows.
+/// its toasts are one app to Windows. Unused in a store build: it claims
+/// no AUMID and shows no toast.
+#[cfg(feature = "updater")]
 pub(crate) const APP_ID: &str = "io.github.bekalpaslan.promptline";
 
 /// What the manager shows in the offer: the version found and its release
@@ -165,6 +167,7 @@ mod imp {
             log::warn!("update check failed: {e}");
         }
         if let Ok(Some(info)) = &result {
+            crate::offer_update_in_tray(app, &info.version);
             let state = app.state::<AppState>();
             let _guard = state.store.lock().unwrap();
             if let Ok(mut config) = load_config_from_disk(app) {
@@ -188,6 +191,96 @@ mod imp {
         // installer's passive mode relaunches Promptline itself (D-08). This
         // covers the platforms where it doesn't.
         app.restart()
+    }
+
+    /// First check about 10 s after startup, so it doesn't compete with
+    /// everything else `setup` does.
+    const STARTUP_DELAY: std::time::Duration = std::time::Duration::from_secs(10);
+    /// The loop wakes hourly rather than sleeping a full day: a monotonic
+    /// sleep stalls across system sleep, and re-reading the config on each
+    /// wake means the Settings switch takes effect without a restart (D-03).
+    const WAKE: std::time::Duration = std::time::Duration::from_secs(3600);
+
+    /// Registers the plugin, then a startup check followed by an
+    /// hourly-woken daily one (`due`), each gated on `Config.update_check`
+    /// read fresh so a switch flipped in Settings takes effect without a
+    /// restart. Called once from `setup`, after the tray exists.
+    pub(crate) fn start(app: &AppHandle) {
+        if let Err(e) = app.plugin(tauri_plugin_updater::Builder::new().build()) {
+            log::warn!("couldn't register the updater plugin: {e}");
+            return;
+        }
+        app.manage(UpdateSlot::default());
+
+        let handle = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(STARTUP_DELAY);
+            let mut last: Option<SystemTime> = None;
+            loop {
+                let now = SystemTime::now();
+                if due(last, now) {
+                    let enabled = load_config_from_disk(&handle)
+                        .map(|c| c.update_check)
+                        .unwrap_or(true);
+                    if enabled {
+                        tauri::async_runtime::block_on(auto_check(&handle));
+                    }
+                    last = Some(now);
+                }
+                std::thread::sleep(WAKE);
+            }
+        });
+    }
+
+    /// The startup and daily check: a failure stays silent (a warning in
+    /// promptline.log), a find offers the tray item always and the toast
+    /// only when `should_notify` says this version hasn't been shown yet.
+    async fn auto_check(app: &AppHandle) {
+        let found = match check(app).await {
+            Err(e) => {
+                log::warn!("update check failed: {e}");
+                return;
+            }
+            Ok(None) => return,
+            Ok(Some(info)) => info,
+        };
+        crate::offer_update_in_tray(app, &found.version);
+        let notify = {
+            let state = app.state::<AppState>();
+            let _guard = state.store.lock().unwrap();
+            let mut config = match load_config_from_disk(app) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!("update check: couldn't read the config: {e}");
+                    return;
+                }
+            };
+            let notify = should_notify(&found.version, &config.update_notified);
+            if notify {
+                config.update_notified = found.version.clone();
+                if let Err(e) = save_config(app, &config) {
+                    log::warn!("update check: couldn't save the config: {e}");
+                }
+            }
+            notify
+        };
+        if notify {
+            show_toast(app, &found.version);
+        }
+    }
+
+    fn show_toast(app: &AppHandle, version: &str) {
+        let handle = app.clone();
+        let title = format!("Promptline {version} is available");
+        let result = crate::platform::show_toast(
+            super::APP_ID,
+            &title,
+            "Click to see what's new and install it.",
+            Box::new(move || super::open_offer(&handle)),
+        );
+        if let Err(e) = result {
+            log::warn!("couldn't show the update toast: {e}");
+        }
     }
 
     #[cfg(test)]
@@ -247,11 +340,28 @@ mod imp {
         Err("This copy is updated by the store".into())
     }
 
+    /// Nothing to start: no plugin, no loop, no network request at all.
+    pub(crate) fn start(_app: &AppHandle) {}
+
     #[cfg(test)]
     mod tests {
         #[test]
         fn a_store_build_reports_unsupported() {
-            assert!(!super::SUPPORTED);
+            assert!(!std::hint::black_box(super::SUPPORTED));
         }
+    }
+}
+
+pub(crate) use imp::start;
+
+/// Opens on a click (the toast or the tray item): shows the manager, then
+/// hands it the pending offer. Opening happens only on a click — nothing
+/// steals focus (D-05).
+#[cfg(feature = "updater")]
+pub(crate) fn open_offer(app: &AppHandle) {
+    use tauri::Emitter;
+    crate::show_main(app);
+    if let Some(info) = imp::pending_info(app) {
+        let _ = app.emit("update-offer", info);
     }
 }

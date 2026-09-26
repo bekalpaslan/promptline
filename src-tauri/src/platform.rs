@@ -115,6 +115,53 @@ mod imp {
     // arriving through the pump doesn't start a second wait inside it
     static WAITING: AtomicBool = AtomicBool::new(false);
 
+    /// Claims the process's AppUserModelID before any window exists, so
+    /// taskbar grouping and toast origin follow it rather than the exe's
+    /// path. The Start Menu shortcut the installer made carries the same
+    /// id, so the process, its windows and its toasts read as one app to
+    /// Windows. Debug builds skip this (see `show_toast`): an uninstalled
+    /// dev build has no shortcut for our id.
+    #[cfg(feature = "updater")]
+    pub(crate) fn claim_app_id(id: &str) {
+        if let Err(e) = unsafe {
+            windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(&HSTRING::from(id))
+        } {
+            log::warn!("couldn't claim the AppUserModelID {id}: {e}");
+        }
+    }
+
+    /// One Windows toast, shown under `app_id` (or PowerShell's own id in a
+    /// debug build, which has no installed shortcut to claim `app_id` for).
+    /// `on_click` fires when the toast is activated; the `Toast` is kept
+    /// alive for the process (leaked — `Toast` isn't `Send`, so it can't
+    /// live in a `Mutex` the way the update slot does, and one small leak
+    /// per new version found is cheaper than tearing down and rebuilding
+    /// this plumbing per toast).
+    #[cfg(feature = "updater")]
+    pub(crate) fn show_toast(
+        app_id: &str,
+        title: &str,
+        body: &str,
+        on_click: Box<dyn Fn() + Send + 'static>,
+    ) -> Result<(), String> {
+        use tauri_winrt_notification::Toast;
+        let id = if cfg!(debug_assertions) {
+            Toast::POWERSHELL_APP_ID
+        } else {
+            app_id
+        };
+        let toast = Toast::new(id)
+            .title(title)
+            .text1(body)
+            .on_activated(move |_| {
+                on_click();
+                Ok(())
+            });
+        toast.show().map_err(|e| e.to_string())?;
+        Box::leak(Box::new(toast));
+        Ok(())
+    }
+
     /// Shutdown, restart and sign-out send WM_QUERYENDSESSION, then
     /// WM_ENDSESSION, and the process can be killed as soon as that one is
     /// answered; tao turns it into Tauri's `RunEvent::Exit`, too late for a
@@ -205,10 +252,25 @@ mod imp {
     pub(crate) fn on_session_end(_window: &tauri::WebviewWindow, _hook: SessionEnd) -> bool {
         false
     }
+
+    #[cfg(feature = "updater")]
+    pub(crate) fn claim_app_id(_id: &str) {}
+
+    #[cfg(feature = "updater")]
+    pub(crate) fn show_toast(
+        _app_id: &str,
+        _title: &str,
+        _body: &str,
+        _on_click: Box<dyn Fn() + Send + 'static>,
+    ) -> Result<(), String> {
+        Err("no toast on this platform".into())
+    }
 }
 
 #[cfg(windows)]
 pub(crate) use imp::open_url;
+#[cfg(feature = "updater")]
+pub(crate) use imp::{claim_app_id, show_toast};
 pub(crate) use imp::{
     focus_window, foreground_window, left_button_down, on_session_end, send_ctrl_v, SessionEnd,
 };
