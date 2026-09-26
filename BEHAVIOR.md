@@ -15,7 +15,7 @@ Two webview windows and a tray icon, over one Rust core.
 |---|---|---|
 | **Popup** | `popup.html` → `src/popup/` | The daily surface. Summoned by hotkey at the cursor, gone in a keystroke. |
 | **Manager** | `index.html` → `src/manager/` | Editing, organising, settings. Opened by left-clicking the tray. |
-| **Tray** | `lib.rs` | Left-click opens the manager; the menu quits. Reuses `default_window_icon()`, so it needs no asset of its own. |
+| **Tray** | `lib.rs` | Left-click opens the manager; the menu opens it, quits, and offers *Update to X.Y.Z* when a newer release is waiting. Reuses `default_window_icon()`, so it needs no asset of its own. |
 
 Both windows are one Vite build sharing `src/index.css`, `src/lib/`, and
 `ui/core.js`. They are separate OS windows with separate JS contexts — they
@@ -682,6 +682,77 @@ same as on a blur — under the store lock, which every hide path
 same lock. It never deadlocked only because the focus event arrives
 asynchronously, which is nothing to build on.
 
+## Updates
+
+**A GitHub-installed copy checks for a newer release on its own.** Once
+about 10 s after startup, then whenever 24 h of wall-clock time have passed
+(checked hourly rather than slept for a day at a stretch, so the check
+survives the machine sleeping through the exact moment it was due, and a
+switch flipped in Settings meanwhile takes effect without a restart),
+`update.rs` fetches one fixed URL — `https://promptline.cc/latest.json`,
+the same for every install, with no version, target or arch baked into it
+(D-12) — through `tauri-plugin-updater`'s own request (`tauri-plugin-updater/2.12.0`
+as its User-Agent, `Accept: application/json`). Nothing about the user goes
+into the request beyond what that GET inevitably carries: the IP address
+to GitHub Pages, and later the installer download from GitHub Releases if
+the user accepts. This is Rust talking to promptline.cc, never the webview,
+so the Content Security Policy below needs no `connect-src` change.
+
+**The switch is `Config.updateCheck`, on by default.** Unlike the hotkey,
+an install upgrading from 0.2.16 or earlier gets it on too — there is no
+pin, the release notes say so instead (D-01, D-02). Settings can turn it
+off; the daily loop re-reads the config on every wake, so the change needs
+no restart. Turning it off does not remove the manual button (03-03):
+a user who wants no background network can still check by hand.
+
+**A version notifies once.** `Config.updateNotified` remembers the last
+version the user was told about — by the toast, by pressing Later, or by
+checking by hand — and a check that finds the same version again shows
+nothing more; a newer one notifies again (`should_notify`). Finding a
+version also adds *Update to X.Y.Z* to the tray menu, between *Open
+Promptline* and *Quit*, which stays offered until the update installs,
+even past a toast that was silenced. Clicking either the toast or the tray
+item shows the manager and emits `update-offer` with `{ version, notes }`;
+opening only ever happens on that click, so nothing steals focus from
+whatever the user was doing (D-05). The manager's side of the offer — the
+dialog, Install and Later, the Settings switch and button — is 03-03's.
+
+**The toast is a real Windows notification, not the webview.** Shown under
+the app's AUMID (`update::APP_ID`, the same string as `tauri.conf.json`'s
+`identifier`), claimed at startup with
+`SetCurrentProcessExplicitAppUserModelID` before any window exists, so
+taskbar grouping and the toast's origin agree with the Start Menu shortcut
+the installer made. A debug build skips claiming it — it has no installed
+shortcut to agree with — and shows the toast under PowerShell's id instead
+(`Toast::POWERSHELL_APP_ID`), which is expected and only affects how the
+toast's origin reads while developing. The `Toast` itself is intentionally
+leaked once per version shown: `tauri-winrt-notification`'s `Toast` isn't
+`Send`, so it can't live in the `Mutex` the pending update does, and it has
+to outlive the moment `show_toast` returns for a later click to still
+reach its handler.
+
+**A failed check is silent.** Whether it's offline, a bad response or a
+bad signature, the automatic check only writes a warning to
+`promptline.log` — nothing is shown, so a flaky connection never
+interrupts anyone. A manual check (03-03's button) reports what happened,
+including "you're on the latest version".
+
+**Installing verifies the signature first, then runs the passive
+installer.** `tauri-plugin-updater` checks the download against
+`plugins.updater.pubkey` before anything runs; only then does it invoke
+the installer in passive mode (a small progress window, no clicks, D-08),
+which relaunches Promptline once it's done — install itself is Rust
+awaiting `download_and_install`, then `app.restart()` for the platforms
+where the installer doesn't already relaunch it.
+
+**A store build has none of this.** `--no-default-features` (paired with
+`tauri.store.conf.json`, which also drops `plugins.updater` from the
+bundle) compiles the plugin, the loop, the toast and the tray item out
+entirely — not merely turned off at runtime — and `get_update_state`
+answers `supported: false`, so the manager shows no update controls at
+all. The store updates that copy on its own; Promptline never checks for
+itself there.
+
 ## Content Security Policy
 
 `tauri.conf.json` sets a CSP: only the app's own scripts, styles (inline
@@ -692,7 +763,9 @@ a dev build that uses the embedded assets; a page served by the Vite dev
 server carries no CSP at all, which is why `devCsp` looks permissive (Fast
 Refresh needs inline scripts and the HMR websocket) yet changes nothing
 under `npm run dev`. Anything new that loads a remote resource, an inline
-script, or a `blob:` URL has to be added to the policy first.
+script, or a `blob:` URL has to be added to the policy first. The update
+check and its download are made by Rust (see *Updates*), not the webview,
+so neither adds anything here.
 
 ## The hotkey
 

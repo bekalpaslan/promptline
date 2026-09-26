@@ -128,7 +128,65 @@ fn log_plugin<R: tauri::Runtime>(dir: PathBuf) -> tauri::plugin::TauriPlugin<R> 
         .build()
 }
 
+/// The tray icon's id, so `offer_update_in_tray` can find it again to swap
+/// in the "Update to X.Y.Z" item.
+const TRAY_ID: &str = "tray";
+
+/// "Open Promptline", then "Update to X.Y.Z" when `update` names a version
+/// waiting to install, then "Quit" — built fresh each time the update item
+/// appears or the tray is first set up, since `Menu` has no single-item
+/// update of its own label text through this API.
+fn tray_menu(
+    app: &impl Manager<tauri::Wry>,
+    update: Option<&str>,
+) -> tauri::Result<Menu<tauri::Wry>> {
+    let open = MenuItem::with_id(app, "open", "Open Promptline", true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    match update {
+        Some(version) => {
+            let update_item = MenuItem::with_id(
+                app,
+                "update",
+                format!("Update to {version}"),
+                true,
+                None::<&str>,
+            )?;
+            Menu::with_items(app, &[&open, &update_item, &quit])
+        }
+        None => Menu::with_items(app, &[&open, &quit]),
+    }
+}
+
+/// Swaps the tray menu to offer the version found: called once a check (by
+/// hand or automatic) finds one. Stays offered until the update installs
+/// and the process restarts.
+#[cfg(feature = "updater")]
+pub(crate) fn offer_update_in_tray(app: &AppHandle, version: &str) {
+    let Some(tray) = app.tray_by_id(TRAY_ID) else {
+        return;
+    };
+    let menu = match tray_menu(app, Some(version)) {
+        Ok(menu) => menu,
+        Err(e) => {
+            log::warn!("couldn't build the tray menu with the update item: {e}");
+            return;
+        }
+    };
+    if let Err(e) = tray.set_menu(Some(menu)) {
+        log::warn!("couldn't offer the update in the tray menu: {e}");
+    }
+}
+
 pub fn run() {
+    // Before any window exists, so taskbar grouping and toast origin follow
+    // it. A debug build stays unclaimed: it has no Start Menu shortcut to
+    // agree with, so the toast falls back to PowerShell's id instead
+    // (`platform::show_toast`).
+    #[cfg(feature = "updater")]
+    if !cfg!(debug_assertions) {
+        platform::claim_app_id(update::APP_ID);
+    }
+
     tauri::Builder::default()
         // A second launch (autostart plus a Start-menu click, or the installer
         // starting the app that was already running) hands its arguments to
@@ -252,10 +310,8 @@ pub fn run() {
                 }
             }
 
-            let open = MenuItem::with_id(app, "open", "Open Promptline", true, None::<&str>)?;
-            let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
-            let menu = Menu::with_items(app, &[&open, &quit])?;
-            TrayIconBuilder::new()
+            let menu = tray_menu(app, None)?;
+            TrayIconBuilder::with_id(TRAY_ID)
                 .icon(app.default_window_icon().unwrap().clone())
                 .tooltip("Promptline")
                 .menu(&menu)
@@ -263,6 +319,8 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => show_main(app),
                     "quit" => request_quit(app),
+                    #[cfg(feature = "updater")]
+                    "update" => update::open_offer(app),
                     _ => {}
                 })
                 .on_tray_icon_event(|tray, event| {
@@ -276,6 +334,11 @@ pub fn run() {
                     }
                 })
                 .build(app)?;
+
+            // The GitHub build's update check: startup + daily, wired up
+            // once the tray exists so it has somewhere to offer a find. A
+            // store build's `start` is a no-op — no plugin, no request.
+            update::start(handle);
 
             // Shutdown, restart and sign-out get the same flush as Quit, and
             // Windows does the exiting (see `platform::on_session_end`)
