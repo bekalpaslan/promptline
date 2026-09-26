@@ -319,7 +319,19 @@ build is still what ships.
    a release or asset that doesn't exist yet, and its urls are the
    versioned `releases/download/vX.Y.Z/…` ones, never `latest/download`
    (same reason as winget).
-7. If windows, commands, events or storage changed since the last map
+7. The post on X, once the feed is live: `node scripts/post-x.mjs --notes
+   <notes> --dry-run` (the same notes file again) prints the post, the
+   notes' lead paragraph without its "Builds on" sentence, then
+   `Promptline X.Y.Z: <release page>`, and its weighted length. Read it;
+   if it needs other words, write them to a file and pass `--text <file>`
+   instead of `--notes`. Then the same command without `--dry-run`, with
+   the four `X_*` variables set (custody below) in the human's own
+   PowerShell, like the signed build. The script checks that the release
+   page answers 200 before it posts, so it can't announce a tag that
+   isn't there, and prints the post's url on success. Why after the
+   feed: the post is the one step that reaches people, so everything it
+   points at (the release, the installers, the update) is already live.
+8. If windows, commands, events or storage changed since the last map
    refresh, refresh the architecture map against the tagged commit (its
    own commit, pushed after).
 
@@ -332,6 +344,17 @@ it produces that binary). The public key is in `tauri.conf.json`
 `plugins.updater.pubkey` and must never change once a release carries
 it: every installed copy trusts only that key, and a new one strands
 every install that's already out.
+
+**X credentials custody.** Step 7 reads `X_API_KEY`, `X_API_SECRET`,
+`X_ACCESS_TOKEN` and `X_ACCESS_SECRET`: the OAuth 1.0a keys of the
+maintainer's app in the X developer portal, generated with Read and
+write permission for the account that posts. They live in the password
+manager, like the updater key's password, and are set only in the shell
+that runs the step, never in the repo, a `.env`, or GitHub secrets (the
+post is a human's step, not CI's, for the same reason the release is).
+OAuth 1.0a rather than 2.0 because its tokens don't expire, so the step
+stays one command with no login flow. Regenerate them in the portal if
+they ever land in a log; `--dry-run` never reads them.
 
 Release notes, as in every release since 0.2.3 (`gh release view v0.2.7`):
 one lead sentence linking the previous release, then a `###` section per
