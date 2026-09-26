@@ -77,7 +77,7 @@ export function Settings() {
     }
   }, [deleteArm])
 
-  const DEFAULT_HOTKEY = "ctrl+shift+v"
+  const DEFAULT_HOTKEY = "ctrl+alt+v"
 
   const onHotkeyKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     // A keydown with no key (autofill) or one during IME composition is no hotkey
@@ -222,8 +222,9 @@ export function Settings() {
           </label>
         </Row>
         <p id="setting-hotkey-help" className="mt-3 text-ui leading-relaxed text-muted-foreground">
-          Click Record, press a combination, then Apply (Esc cancels). The default Ctrl+Shift+V shadows "paste
-          without formatting" in browsers — pick Ctrl+Alt+V if you use that.
+          Click Record, press a combination, then Apply (Esc cancels). The default is Ctrl+Alt+V. An install from
+          0.2.16 or earlier keeps its Ctrl+Shift+V, which shadows paste in Windows Terminal and "paste without
+          formatting" in browsers.
         </p>
       </Card>
 
