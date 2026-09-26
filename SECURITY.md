@@ -26,10 +26,14 @@ machine:
   your prompts, packs and settings, plus `promptline.log`. Pack files are meant to
   be shared; they hold titles, tags and prompt text, never your fill-in
   values or config parameters.
-- **No network.** The app has no network code and no telemetry. The only
-  outbound link is the "Buy me a coffee" button in Settings, which opens a
-  fixed https URL in your browser. Nothing is downloaded or uploaded, and
-  there is no auto-update.
+- **One network request.** No telemetry. At startup and once a day the app
+  fetches a fixed URL, `https://promptline.cc/latest.json`, to see whether a
+  newer release exists; the request carries nothing about the user (no
+  version, no ID, no usage). An update installs only after the user accepts
+  it, and only if its signature verifies against the public key built into
+  the app. **Settings → About** turns the check off. The other outbound
+  link is the "Buy me a coffee" button in Settings, which opens a fixed
+  https URL in your browser.
 
 The webviews run under a Content Security Policy that allows only the app's
 own scripts and the Tauri IPC (`BEHAVIOR.md`, "Content Security Policy"),
@@ -37,6 +41,6 @@ with one minimal capability for both windows.
 
 ## Supported versions
 
-Only the latest release is supported. There is no auto-update, so please
-check the [Releases page](https://github.com/bekalpaslan/promptline/releases)
-before reporting.
+Only the latest release is supported. A copy installed from GitHub offers
+new releases itself (**Settings → About → Check for updates**); please
+update before reporting.

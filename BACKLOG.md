@@ -31,8 +31,9 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   text with a "From the Library" mark and no silent updates (the checklist
   already flags and unticks prompts with hidden characters); maintainer-
   written packs first, public PRs later; 2FA and branch protection before
-  the in-app fetch ships; the README's "no network code" line reworded; the
-  submit step saying the PR is public under the user's GitHub name.
+  the in-app fetch ships; the README's privacy paragraph extended to name
+  the Library fetch; the submit step saying the PR is public under the
+  user's GitHub name.
 
 ## Deferred from the UI rework (see docs/history/UI-REWORK-ROADMAP.md)
 
@@ -96,10 +97,9 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 ## Distribution
 
 - **Code signing** — unsigned installers trip Windows SmartScreen.
-- **Auto-update** — Tauri updater plugin + a release feed. The feed can be
-  a static `latest.json` served by the website (`site/` on GitHub Pages at
-  promptline.cc), written by the release step; the updater needs a signing
-  key pair, which is the real work.
+- ~~**Auto-update**~~ — **built for the release after 0.2.16**: the Tauri
+  updater reads `site/latest.json` on promptline.cc, written by the release
+  step (CLAUDE.md, Releasing).
 - ~~**Stable-named installer**~~ — **shipped 2026-09-24**: each release
   carries a `Promptline-setup.exe` copy, and the website links to it
   instead of asking the GitHub API from the visitor's browser.

@@ -42,9 +42,14 @@ your PC" on first run — choose **More info → Run anyway**. Signing is on the
 list; it needs a certificate, not a code change.
 
 After installing, Promptline sits in the tray: left-click the icon for the
-manager, press the hotkey anywhere for the popup. There is no auto-update;
-a newer release installs over the old one and your prompts, packs and
-settings carry over untouched.
+manager, press the hotkey anywhere for the popup. Promptline checks for a
+newer release at startup and once a day; when there is one, Windows shows a
+notification and the tray menu offers **Update to X.Y.Z**. Installing is a
+click, a small progress window and a restart, and your prompts, packs and
+settings carry over untouched. The setup exe updates itself; an MSI install
+updates by installing the new MSI. An install from 0.2.16 or earlier gets
+the daily check too once it has updated to a release that has it. Turn it
+off under **Settings → About**.
 
 ### Build from source
 
@@ -75,7 +80,8 @@ Your library** (see [Data](#data)).
 - **Windows only.** A macOS port needs one module rewritten (see
   [Stack](#stack)); nobody has done it yet.
 - **Unsigned installers**, so SmartScreen warns once (above).
-- **No auto-update.** Watch the Releases page or the repo.
+- **MSI installs don't update themselves.** Install the new MSI over the
+  old one; the setup exe updates itself.
 - **Elevated windows don't accept the paste.** Windows blocks keystrokes
   from a normal process into a window running as administrator (an elevated
   terminal, Regedit, an installer). The popup tells you when that happens;
@@ -88,9 +94,18 @@ Your library** (see [Data](#data)).
   lose the shortcut. Record `Ctrl+Alt+V` (or anything else) in
   **Settings** if you miss either.
 
-Promptline has no network code and no telemetry: it never phones home, and
-the only thing that leaves your machine is what you paste. If something
-goes wrong it writes `promptline.log` under the data folder; attach it to a bug
+**No telemetry. One update check, off in a click.** At startup and once a
+day Promptline fetches one small file, `https://promptline.cc/latest.json`,
+to see whether a newer release exists. The address is fixed and the same
+for everyone; the request carries nothing about you (no version, no ID, no
+usage). Like any web request it reaches GitHub Pages, which hosts
+promptline.cc and logs IP addresses, and it names the updater library as
+its user agent (`tauri-plugin-updater/2.12.0`). If you accept an update,
+the installer downloads from GitHub Releases and is installed only if its
+signature matches the key built into the app. Turn the check off under
+**Settings → About**; *Check for updates* there still works by hand.
+Nothing else leaves your machine except what you paste. If something goes
+wrong it writes `promptline.log` under the data folder; attach it to a bug
 report.
 
 ## Placeholders
