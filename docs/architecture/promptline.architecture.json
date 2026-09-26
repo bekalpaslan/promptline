@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "67000092a1d345ee94cd4347041776f05a61ef02"
+      "revision": "5ed735ea3d42832ebf2409aef091c1ca936ec2f9"
     },
     "viewBox": [
       1300,
@@ -47,6 +47,18 @@
           "manager"
         ],
         "note": "Both windows rank, filter and build the pack tree with the same UMD module, tested under bare node --test."
+      },
+      {
+        "id": "updates",
+        "label": "Updating itself",
+        "focus": [
+          "feed",
+          "rust",
+          "tray",
+          "manager",
+          "store"
+        ],
+        "note": "Rust fetches one fixed feed at startup and daily; a find toasts once and adds a tray item, and a click opens the manager's offer."
       }
     ]
   },
@@ -126,13 +138,18 @@
       "sources": [
         {
           "path": "src/manager/App.tsx",
-          "line": 27,
+          "line": 29,
           "label": "Manager App"
         },
         {
           "path": "src/manager/App.tsx",
-          "line": 422,
+          "line": 461,
           "label": "snippets-changed"
+        },
+        {
+          "path": "src/manager/UpdateOffer.tsx",
+          "line": 14,
+          "label": "UpdateOffer"
         }
       ]
     },
@@ -152,8 +169,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 149,
-          "end_line": 154,
+          "line": 208,
+          "end_line": 212,
           "label": "shortcut handler"
         }
       ]
@@ -162,7 +179,7 @@
       "id": "tray",
       "type": "external",
       "label": "Tray icon",
-      "sublabel": "Open · Quit",
+      "sublabel": "Open · Update · Quit",
       "pos": [
         50,
         500
@@ -174,9 +191,14 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 248,
-          "end_line": 267,
+          "line": 314,
+          "end_line": 336,
           "label": "TrayIconBuilder"
+        },
+        {
+          "path": "src-tauri/src/lib.rs",
+          "line": 147,
+          "label": "Update to X.Y.Z item"
         }
       ]
     },
@@ -184,7 +206,7 @@
       "id": "rust",
       "type": "backend",
       "label": "Rust core",
-      "sublabel": "src-tauri/src · store · packs · commands · paste",
+      "sublabel": "src-tauri/src · store · packs · commands · paste · update",
       "pos": [
         440,
         360
@@ -196,8 +218,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 130,
-          "end_line": 323,
+          "line": 180,
+          "end_line": 397,
           "label": "run()"
         },
         {
@@ -273,14 +295,20 @@
       "sources": [
         {
           "path": "src-tauri/src/store.rs",
-          "line": 318,
-          "end_line": 332,
+          "line": 337,
+          "end_line": 352,
           "label": "data_dir paths"
         },
         {
           "path": "src-tauri/src/store.rs",
           "line": 79,
           "label": "write_atomic"
+        },
+        {
+          "path": "src-tauri/src/store.rs",
+          "line": 310,
+          "end_line": 315,
+          "label": "updateCheck · updateNotified"
         }
       ]
     },
@@ -307,6 +335,39 @@
           "path": "src-tauri/src/packs.rs",
           "line": 375,
           "label": "write_pack_files"
+        }
+      ]
+    },
+    {
+      "id": "feed",
+      "type": "external",
+      "label": "Update feed",
+      "sublabel": "promptline.cc/latest.json",
+      "pos": [
+        1080,
+        190
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "sources": [
+        {
+          "path": "src-tauri/tauri.conf.json",
+          "line": 75,
+          "end_line": 77,
+          "label": "endpoint"
+        },
+        {
+          "path": "src-tauri/src/update.rs",
+          "line": 238,
+          "label": "auto_check"
+        },
+        {
+          "path": "src-tauri/src/update.rs",
+          "line": 181,
+          "end_line": 194,
+          "label": "install"
         }
       ]
     }
@@ -387,6 +448,15 @@
       "toSide": "top"
     },
     {
+      "id": "update-offer",
+      "from": "rust",
+      "to": "manager",
+      "label": "update-offer",
+      "labelDx": 106,
+      "fromSide": "top",
+      "toSide": "bottom"
+    },
+    {
       "id": "popup-core",
       "from": "popup",
       "to": "corejs",
@@ -418,6 +488,15 @@
       "variant": "dashed",
       "fromSide": "bottom",
       "toSide": "top"
+    },
+    {
+      "id": "update-check",
+      "from": "rust",
+      "to": "feed",
+      "label": "daily GET",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
     }
   ],
   "cards": [
