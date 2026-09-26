@@ -12,6 +12,7 @@ import { DEFAULT_PACK, useManager } from "./state"
 import { ImportCuration } from "./ImportCuration"
 import { say, sayErr } from "./status"
 import { exportToClipboard, exportToFile, libraryJson, librarySummary, packJson } from "./export"
+import { checkForUpdates } from "@/lib/update"
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -52,6 +53,7 @@ export function Settings() {
   const [newPackMode, setNewPackMode] = useState(false)
   const [importRaw, setImportRaw] = useState<string | null>(null)
   const [deleteArm, setDeleteArm] = useState<string | null>(null)
+  const [checking, setChecking] = useState(false)
 
   useEffect(() => {
     void invoke<boolean>("get_autostart").then(setAutostart)
@@ -142,6 +144,21 @@ export function Settings() {
     } catch (e) {
       sayErr(String(e))
       setAutostart(!enabled)
+    }
+  }
+
+  // Works with the automatic check off (D-04): a user who wants no
+  // background network can still ask by hand
+  const checkNow = async () => {
+    setChecking(true)
+    try {
+      const found = await checkForUpdates()
+      if (found) m.openUpdateOffer(found)
+      else say("You're on the latest version")
+    } catch (e) {
+      sayErr(`Couldn't check for updates: ${e}`)
+    } finally {
+      setChecking(false)
     }
   }
 
@@ -518,6 +535,20 @@ export function Settings() {
       <Card title="About">
         <Row label="Version">
           <span className="text-ui tabular-nums">{__APP_VERSION__}</span>
+          {/* Hidden entirely in a store build (UPD-03): the store updates that
+              copy on its own, and supported: false means Rust never checks */}
+          {m.update?.supported && (
+            <Button size="compact" variant="secondary" disabled={checking} onClick={() => void checkNow()}>
+              {checking ? "Checking…" : "Check for updates"}
+            </Button>
+          )}
+          {m.update?.supported && m.update.available && (
+            // D-07: Later silenced the toast, not the offer — the About card
+            // keeps it on offer until it's installed
+            <Button size="compact" variant="secondary" onClick={() => m.openUpdateOffer()}>
+              Update to {m.update.available.version}
+            </Button>
+          )}
           {/* Buy Me a Coffee, rendered locally rather than by their CDN script:
               a desktop webview holding the user's clipboard and prompt library
               has no business running remote JS, and this way it still works
@@ -538,6 +569,24 @@ export function Settings() {
             Buy me a coffee
           </Button>
         </Row>
+        {m.update?.supported && (
+          <Row label="Updates">
+            <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <Checkbox
+                checked={m.update.autoCheck}
+                onCheckedChange={(v) => void m.setAutoUpdateCheck(v === true)}
+              />
+              Check for updates automatically
+            </label>
+          </Row>
+        )}
+        {m.update?.supported && (
+          <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
+            At startup and once a day, Promptline fetches promptline.cc/latest.json to see whether there's a
+            newer version. The request is the same for everyone and carries nothing about you. Turn it off
+            here; Check for updates still works.
+          </p>
+        )}
       </Card>
     </div>
   )

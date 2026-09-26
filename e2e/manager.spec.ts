@@ -1,7 +1,7 @@
 // The manager against the fake backend: the tree, the editor's autosave,
 // the filter, the overview and Settings. BEHAVIOR.md "Shape" is the spec.
 import { expect, test } from "@playwright/test"
-import { calls, emit, library, open, setClipboard } from "./mock"
+import { calls, emit, library, open, setClipboard, setUpdate } from "./mock"
 
 type P = Parameters<typeof open>[0]
 const tree = (page: P) => page.getByRole("tree", { name: "Library" })
@@ -335,4 +335,45 @@ test("a store build never opens an update offer", async ({ page }) => {
   await open(page, "manager", "store")
   await emit(page, "update-offer", V)
   await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toHaveCount(0)
+})
+
+test("Check for updates opens the offer when a newer version is found", async ({ page }) => {
+  await setUpdate(page, { next: V })
+  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Check for updates" }).click()
+  await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toBeVisible()
+  await expect.poll(async () => (await calls(page, "check_for_updates")).length).toBe(1)
+})
+
+test("Check for updates says so when the app is current", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("button", { name: "Check for updates" }).click()
+  await expect(page.getByText("You're on the latest version")).toBeVisible()
+})
+
+test("the automatic update check is a setting saved through Rust", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings" }).click()
+  const checkbox = page.getByRole("checkbox", { name: "Check for updates automatically" })
+  await expect(checkbox).toHaveAttribute("aria-checked", "true")
+  await checkbox.click()
+  await expect(checkbox).toHaveAttribute("aria-checked", "false")
+  const [call] = await calls(page, "set_update_check")
+  expect(call.args).toEqual({ enabled: false })
+})
+
+test("after Later the About card still offers the update", async ({ page }) => {
+  await emit(page, "update-offer", V)
+  await page.getByRole("button", { name: "Later" }).click()
+  await page.getByRole("button", { name: "Settings" }).click()
+  const updateButton = page.getByRole("button", { name: "Update to 9.9.9" })
+  await expect(updateButton).toBeVisible()
+  await updateButton.click()
+  await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toBeVisible()
+})
+
+test("a store build has no update controls in Settings", async ({ page }) => {
+  await open(page, "manager", "store")
+  await page.getByRole("button", { name: "Settings" }).click()
+  await expect(page.getByRole("button", { name: "Check for updates" })).toHaveCount(0)
+  await expect(page.getByRole("checkbox", { name: "Check for updates automatically" })).toHaveCount(0)
 })
