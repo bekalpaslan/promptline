@@ -18,6 +18,7 @@
     "test": "node --test tests/*.test.js",
     "test:e2e": "playwright test",
     "shots": "playwright test --config playwright.shots.config.ts",
+    "update:trial": "node scripts/update-trial.mjs",
     "tokens": "node scripts/tokens.mjs",
     "tokens:check": "node scripts/tokens.mjs --check",
     "design:build": "node scripts/tokens.mjs --shim design/dist/shim.css && vite build --config design/vite.config.ts && node scripts/design-pack.mjs",
