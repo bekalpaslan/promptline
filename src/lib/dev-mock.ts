@@ -21,11 +21,19 @@
 //   library            the current { snippets, revision }
 //   pasteResult        what paste_snippet answers: "pasted" (default) or
 //                      "copied" (the manager was in front, copy-only)
+//   update             { supported, autoCheck, available, next } — `next` is
+//                      what the next check_for_updates finds; set it before
+//                      calling to stage a discovered version
 // Commands it doesn't know resolve to null and are logged to the console,
 // so a new command shows up there instead of failing silently.
+//
+// `?mock=store` is a store build: `update.supported` is false, same as
+// `--no-default-features`. It still seeds the normal library — only
+// `mode === "empty"` empties it, `mode === "showcase"` is unchanged.
 
 import type { Library, PackMeta, Snippet } from "@/lib/core"
 import { C } from "@/lib/core"
+import type { UpdateInfo } from "@/lib/update"
 
 interface Call {
   cmd: string
@@ -143,6 +151,12 @@ export function installMock(mode: string | null) {
     clipboard: showcase?.clipboard ?? "TypeError: cannot read properties of undefined (reading 'id')",
     library: lib,
     pasteResult: "pasted" as "pasted" | "copied",
+    update: {
+      supported: mode !== "store",
+      autoCheck: true,
+      available: null as UpdateInfo | null,
+      next: null as UpdateInfo | null,
+    },
     emit(event: string, payload?: unknown) {
       for (const id of listeners.get(event) ?? []) callbacks.get(id)?.({ event, id, payload })
     },
@@ -245,6 +259,18 @@ export function installMock(mode: string | null) {
     show_in_folder: () => null,
     open_data_dir: () => null,
     set_autostart: () => null,
+    get_update_state: () => ({
+      supported: mock.update.supported,
+      autoCheck: mock.update.autoCheck,
+      available: mock.update.available,
+    }),
+    set_update_check: (a) => void (mock.update.autoCheck = a.enabled === true),
+    check_for_updates: () => {
+      if (mock.update.next) mock.update.available = mock.update.next
+      return mock.update.next
+    },
+    install_update: () => null,
+    dismiss_update: () => null,
     // The paste itself can't happen here; `calls` shows what would be pasted.
     // The real one bumps `uses`, and the manager relies on the change event.
     // It answers "pasted", or "copied" when Rust fell back to copy-only

@@ -20,6 +20,7 @@ mod packs;
 mod paste;
 mod platform;
 mod store;
+mod update;
 
 use commands::resolve_hotkey;
 use migrations::{migrate_data_dir, migrate_v1_data, settle_default_hotkey};
@@ -186,6 +187,11 @@ pub fn run() {
             commands::set_clipboard_text,
             paste::hide_popup,
             paste::paste_snippet,
+            update::get_update_state,
+            update::set_update_check,
+            update::check_for_updates,
+            update::install_update,
+            update::dismiss_update,
             commands::quit_now
         ])
         .setup(|app| {
