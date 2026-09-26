@@ -873,6 +873,71 @@
     return (raw || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '');
   }
 
+  // ---- Release notes --------------------------------------------------------------
+  // The update offer shows the release's own notes (the same text as the
+  // GitHub release, carried in latest.json) as plain text blocks, never as
+  // HTML: no link from the feed is ever live, and nothing from it reaches
+  // innerHTML. Inline marks (`code`, *em*, **strong**, [text](url)) lose
+  // their markup here; a snake_case name has no markup to lose.
+  function releaseNotesInline(text) {
+    return (text || '')
+      .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+      .replace(/`([^`]*)`/g, '$1')
+      .replace(/\*\*([^*]*)\*\*/g, '$1')
+      .replace(/\*([^*]*)\*/g, '$1')
+      .trim();
+  }
+
+  function releaseNotesBlocks(markdown) {
+    const lines = (markdown || '').replace(/\r\n/g, '\n').split('\n');
+    const blocks = [];
+    let textLines = null;
+    let item = null;
+    const flushText = () => {
+      if (textLines && textLines.length) blocks.push({ kind: 'text', text: releaseNotesInline(textLines.join(' ')) });
+      textLines = null;
+    };
+    const flushItem = () => {
+      if (item !== null) blocks.push({ kind: 'item', text: releaseNotesInline(item) });
+      item = null;
+    };
+    for (const raw of lines) {
+      const line = raw.replace(/\s+$/, '');
+      const trimmed = line.trim();
+      if (!trimmed) {
+        flushText();
+        flushItem();
+        continue;
+      }
+      const heading = trimmed.match(/^#{1,6}\s+(.*)$/);
+      if (heading) {
+        flushText();
+        flushItem();
+        blocks.push({ kind: 'heading', text: releaseNotesInline(heading[1]) });
+        continue;
+      }
+      const bullet = trimmed.match(/^[-*]\s+(.*)$/);
+      if (bullet) {
+        flushText();
+        flushItem();
+        item = bullet[1];
+        continue;
+      }
+      // A continuation line (indented, under an open item) joins that item;
+      // anything else joins the running paragraph
+      if (item !== null && /^\s/.test(line)) {
+        item += ' ' + trimmed;
+        continue;
+      }
+      flushItem();
+      if (textLines) textLines.push(trimmed);
+      else textLines = [trimmed];
+    }
+    flushText();
+    flushItem();
+    return blocks;
+  }
+
   // ---- Misc -----------------------------------------------------------------
   // "1 prompt", "2 prompts"; an irregular plural is passed in ("1 entry", "2 entries")
   function plural(n, word, pluralWord) {
@@ -947,6 +1012,7 @@
     plural,
     resolveTheme,
     fmtHotkey,
+    releaseNotesBlocks,
   };
 
   root.PromptlineCore = PromptlineCore;

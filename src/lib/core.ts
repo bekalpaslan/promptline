@@ -234,6 +234,8 @@ interface PromptlineCore {
   plural(n: number, word: string, pluralWord?: string): string
   resolveTheme(pref: string | null | undefined, systemDark: boolean): "light" | "dark"
   fmtHotkey(combo: string): string
+  /** Release notes (markdown) as blocks for the update offer: ### headings, - items, paragraphs; inline marks and link targets dropped */
+  releaseNotesBlocks(markdown: string | null | undefined): { kind: "heading" | "item" | "text"; text: string }[]
 }
 
 export const C = (window as unknown as { PromptlineCore: PromptlineCore }).PromptlineCore
