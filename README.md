@@ -46,10 +46,11 @@ manager, press the hotkey anywhere for the popup. Promptline checks for a
 newer release at startup and once a day; when there is one, Windows shows a
 notification and the tray menu offers **Update to X.Y.Z**. Installing is a
 click, a small progress window and a restart, and your prompts, packs and
-settings carry over untouched. The setup exe updates itself; an MSI install
-updates by installing the new MSI. An install from 0.2.16 or earlier gets
-the daily check too once it has updated to a release that has it. Turn it
-off under **Settings → About**.
+settings carry over untouched. Each installer updates with its own kind:
+a setup exe install with the next setup exe, an MSI install with the next
+MSI. The first release with the check is still installed by hand; from
+then on it updates itself, with the check on even for a library carried
+over from an older version. Turn it off under **Settings → About**.
 
 ### Build from source
 
@@ -80,8 +81,6 @@ Your library** (see [Data](#data)).
 - **Windows only.** A macOS port needs one module rewritten (see
   [Stack](#stack)); nobody has done it yet.
 - **Unsigned installers**, so SmartScreen warns once (above).
-- **MSI installs don't update themselves.** Install the new MSI over the
-  old one; the setup exe updates itself.
 - **Elevated windows don't accept the paste.** Windows blocks keystrokes
   from a normal process into a window running as administrator (an elevated
   terminal, Regedit, an installer). The popup tells you when that happens;
