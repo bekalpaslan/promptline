@@ -58,3 +58,25 @@ export function emit(page: Page, event: string, payload?: unknown) {
     [event, payload]
   )
 }
+
+export interface MockUpdateInfo {
+  version: string
+  notes: string
+}
+
+// Patches `window.__mock.update` before a check: `next` stages what the
+// next check_for_updates finds, `available`/`autoCheck`/`supported` set the
+// state get_update_state answers straight away
+export function setUpdate(
+  page: Page,
+  patch: Partial<{ supported: boolean; autoCheck: boolean; available: MockUpdateInfo | null; next: MockUpdateInfo | null }>
+) {
+  return page.evaluate(
+    (patch) =>
+      Object.assign(
+        (window as unknown as { __mock: { update: Record<string, unknown> } }).__mock.update,
+        patch
+      ),
+    patch
+  )
+}

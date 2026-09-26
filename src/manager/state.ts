@@ -1,5 +1,6 @@
 import { createContext, useContext } from "react"
 import { C, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
+import type { UpdateInfo, UpdateState } from "@/lib/update"
 
 export { DEFAULT_PACK, MAX_PINS } from "@/lib/library"
 
@@ -133,6 +134,12 @@ export interface ManagerApi {
    * flush it: set while a save is scheduled, cleared when it lands.
    */
   pendingFlush: { current: (() => Promise<void>) | null }
+  /** Support, the auto-check setting and any found version; null until `get_update_state` answers */
+  update: UpdateState | null
+  /** Open the offer dialog; `info` records a just-found version first (a manual check's answer) */
+  openUpdateOffer(info?: UpdateInfo): void
+  /** Save the automatic-check setting (set_update_check), optimistic with a revert on failure */
+  setAutoUpdateCheck(enabled: boolean): Promise<void>
 }
 
 export const ManagerCtx = createContext<ManagerApi | null>(null)

@@ -1,12 +1,15 @@
 // The manager against the fake backend: the tree, the editor's autosave,
 // the filter, the overview and Settings. BEHAVIOR.md "Shape" is the spec.
 import { expect, test } from "@playwright/test"
-import { calls, library, open, setClipboard } from "./mock"
+import { calls, emit, library, open, setClipboard } from "./mock"
 
 type P = Parameters<typeof open>[0]
 const tree = (page: P) => page.getByRole("tree", { name: "Library" })
 const filter = (page: P) => page.getByRole("textbox", { name: "Filter prompts" })
 const promptRow = (page: P, title: string) => tree(page).getByRole("treeitem", { name: new RegExp(`^${title}(,|$)`) })
+
+const NOTES = "Fixes for the popup.\n\n### Popup\n- **Enter** pastes the prompt.\n"
+const V = { version: "9.9.9", notes: NOTES }
 
 test.beforeEach(async ({ page }) => {
   await open(page, "manager")
@@ -300,4 +303,36 @@ test("a pack and the library export to a file, in the JSON Import reads", async 
   const snippets = await library(page)
   expect(packs.map((p) => p.name).sort()).toEqual([...new Set(snippets.map((s) => s.pack))].sort())
   expect(packs.reduce((n, p) => n + p.prompts.length, 0)).toBe(snippets.length)
+})
+
+// ---- Updates --------------------------------------------------------------------------
+
+test("an update offer from the tray or toast shows the version, the notes and two buttons", async ({ page }) => {
+  await emit(page, "update-offer", V)
+  await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toBeVisible()
+  const notes = page.getByRole("region", { name: "Release notes" })
+  await expect(notes).toContainText("Enter pastes the prompt.")
+  await expect(notes.getByRole("heading", { name: "Popup" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Install and restart" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "Later" })).toBeVisible()
+})
+
+test("Install and restart asks Rust to install the offered update", async ({ page }) => {
+  await emit(page, "update-offer", V)
+  await page.getByRole("button", { name: "Install and restart" }).click()
+  await expect.poll(async () => (await calls(page, "install_update")).length).toBe(1)
+})
+
+test("Later closes the offer and silences that version", async ({ page }) => {
+  await emit(page, "update-offer", V)
+  await page.getByRole("button", { name: "Later" }).click()
+  await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toHaveCount(0)
+  const [call] = await calls(page, "dismiss_update")
+  expect(call.args).toEqual({ version: "9.9.9" })
+})
+
+test("a store build never opens an update offer", async ({ page }) => {
+  await open(page, "manager", "store")
+  await emit(page, "update-offer", V)
+  await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toHaveCount(0)
 })
