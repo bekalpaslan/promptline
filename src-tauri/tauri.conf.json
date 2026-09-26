@@ -49,7 +49,7 @@
     "publisher": "Alpaslan Bek",
     "copyright": "© 2026 Alpaslan Bek, MIT",
     "shortDescription": "Your prompt vocabulary, one hotkey away, in every window",
-    "longDescription": "A tray app for Windows that keeps your prompt library one hotkey away. Press the hotkey in any window, pick a prompt, and it is pasted where you were, with the clipboard already substituted for {clipboard}. Prompts live as plain JSON under %APPDATA%; packs are files you can share or let an agent write. No network, no telemetry.",
+    "longDescription": "A tray app for Windows that keeps your prompt library one hotkey away. Press the hotkey in any window, pick a prompt, and it is pasted where you were, with the clipboard already substituted for {clipboard}. Prompts live as plain JSON under %APPDATA%; packs are files you can share or let an agent write. No telemetry. One update check, off in a click.",
     "homepage": "https://promptline.cc",
     "licenseFile": "../LICENSE",
     "windows": {
@@ -66,6 +66,18 @@
     ],
     "resources": {
       "../THIRD-PARTY-NOTICES.md": "THIRD-PARTY-NOTICES.md"
+    },
+    "createUpdaterArtifacts": true
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgwMDczNDY3QkYyMjg4OQpSV1NKS1BKN1JuTUFDTDEydUwxQzBma0pFajVhY3VHS0sxWTFzWUw2NFhCTzFhL0RwVUl0eDU3cQo=",
+      "endpoints": [
+        "https://promptline.cc/latest.json"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

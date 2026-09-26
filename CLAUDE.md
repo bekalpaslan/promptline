@@ -4,10 +4,12 @@ A Tauri 2 tray app for Windows: Rust in `src-tauri/src/` (`lib.rs` holds
 `AppState`, the tray and `run()`; `store.rs` files and atomic writes,
 `packs.rs` pack metadata and files, `commands.rs` the Tauri commands,
 `paste.rs` the popup and paste pipeline, `platform.rs` the Win32 calls,
-`migrations.rs` old data), two React windows (`index.html` = manager,
-`popup.html` = popup) built by one Vite config, pure logic in `ui/core.js`
-(plain UMD, tested with bare `node --test`) with its TypeScript face in
-`src/lib/core.ts`.
+`update.rs` the update check, `migrations.rs` old data), two React windows
+(`index.html` = manager, `popup.html` = popup) built by one Vite config,
+pure logic in `ui/core.js` (plain UMD, tested with bare `node --test`) with
+its TypeScript face in `src/lib/core.ts`. The updater is a default-on Cargo
+feature (`updater`); the store build compiles it out with
+`npm run build:store` (`--no-default-features`).
 
 Released as `v0.2.9` on 2026-09-23 after a full audit; everything that
 audit found is closed (`docs/history/RELEASE-AUDIT.md`). Start from the
@@ -56,7 +58,10 @@ backlog, not from another audit, unless asked.
   only on a click: the Download button to GitHub Releases, the coffee
   links to Buy Me a Coffee (plain links, nothing of theirs embedded). The
   footer's privacy note names both; keep it true (no analytics, no
-  cookies, no remote fonts or scripts). Preview it
+  cookies, no remote fonts or scripts). `site/latest.json` is the updater
+  feed that installed copies read at https://promptline.cc/latest.json;
+  the release step writes it (Releasing step 6), never edit it by hand,
+  and a push that touches it deploys it. Preview it
   with `python -m http.server` in `site/` after copying `docs/og.png` and
   `docs/screenshots/*.png` in (both gitignored there). Live with HTTPS enforced since 2026-09-23;
   DNS is at GoDaddy (four Pages A records, `www` CNAME). The bundle
@@ -137,7 +142,9 @@ Seven, and CI runs all of them on every push and PR (`.github/workflows/ci.yml`)
 - `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
   (`rustup component add rustfmt clippy` once; both are clean today, keep
-  them so with fixes, not `#[allow]`)
+  them so with fixes, not `#[allow]`). CI also runs clippy with
+  `--no-default-features` (the store build's feature set) and it must stay
+  clean too.
 
 Two tests enforce the seams, so read their failure text before anything else:
 
@@ -280,25 +287,59 @@ build is still what ships.
    - `src-tauri/Cargo.lock`: only the `name = "promptline"` entry. A blanket
      replace hits other crates at the same version.
    - `src-tauri/tauri.conf.json`
-3. `npm run build` (`tauri build`, several minutes; run it in the background).
-   It writes `src-tauri/target/release/bundle/nsis/Promptline_X.Y.Z_x64-setup.exe`
-   and `…/bundle/msi/Promptline_X.Y.Z_x64_en-US.msi`.
+3. The signed build, run by the human in their own PowerShell because the
+   updater key's password lives in their password manager, never in this
+   session:
+   `$env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.tauri\promptline-updater.key"; $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = [Net.NetworkCredential]::new('', (Read-Host -AsSecureString 'Updater key password')).Password; npm run build`
+   (`tauri build`, several minutes; run it in the background). It writes
+   `src-tauri/target/release/bundle/nsis/Promptline_X.Y.Z_x64-setup.exe`
+   and `…/bundle/msi/Promptline_X.Y.Z_x64_en-US.msi`, and now also
+   `Promptline_X.Y.Z_x64-setup.exe.sig` and
+   `Promptline_X.Y.Z_x64_en-US.msi.sig` beside them. Without the key set,
+   the build fails; `npm run build:unsigned` builds without it and is
+   never for a release.
 4. `git tag -a vX.Y.Z -m "Promptline X.Y.Z"`, then push `master` and the tag.
 5. `gh release create vX.Y.Z --title "Promptline X.Y.Z" --notes-file <notes> --latest`
    with both installers and a copy of the setup exe named
    `Promptline-setup.exe` (the website's Download button links to
    `releases/latest/download/Promptline-setup.exe`; without the copy it
    404s). Check with `gh release list` (`gh release view` has no "latest"
-   field).
-6. If windows, commands, events or storage changed since the last map
+   field), and confirm the assets landed with
+   `gh release view vX.Y.Z --json assets --jq '.assets[].name'` (both
+   installers and `Promptline-setup.exe`).
+6. The feed, last: `node scripts/latest-json.mjs --notes <notes>` (the
+   same notes file as step 5) reads the `.sig` files from step 3 and
+   writes `site/latest.json`. Before committing,
+   `curl -sIL -o /dev/null -w "%{http_code}\n" <each url in it>` must print
+   200 for every url the feed names. Commit it alone as
+   `Site: update feed for X.Y.Z`, push `master`, wait for the Pages run
+   (`gh run list --workflow pages.yml --limit 1`), then
+   `curl -s https://promptline.cc/latest.json` shows the new version
+   (Pages caches up to 10 minutes). Why last: the feed must never point at
+   a release or asset that doesn't exist yet, and its urls are the
+   versioned `releases/download/vX.Y.Z/…` ones, never `latest/download`
+   (same reason as winget).
+7. If windows, commands, events or storage changed since the last map
    refresh, refresh the architecture map against the tagged commit (its
    own commit, pushed after).
+
+**Signing key custody.** The private key is
+`%USERPROFILE%\.tauri\promptline-updater.key`, encrypted with a password;
+both are in the maintainer's password manager, never in the repo or in
+GitHub secrets until Phase 4 wires CI to build what ships (the updater
+signature has to cover the code-signed installer, so CI signs only once
+it produces that binary). The public key is in `tauri.conf.json`
+`plugins.updater.pubkey` and must never change once a release carries
+it: every installed copy trusts only that key, and a new one strands
+every install that's already out.
 
 Release notes, as in every release since 0.2.3 (`gh release view v0.2.7`):
 one lead sentence linking the previous release, then a `###` section per
 area in the user's terms (what they see and press, not the code), a
 behaviour change that could surprise an existing library called out in
-its bullet, and this closing section with the version filled in:
+its bullet — including any release that changes what the app sends over
+the network, in its own bullet — and this closing section with the
+version filled in:
 
 ```md
 ### Install
@@ -307,6 +348,11 @@ its bullet, and this closing section with the version filled in:
 Still unsigned, so SmartScreen warns on first run: *More info → Run anyway*.
 Your prompts, packs and settings carry over untouched.
 ```
+
+The first release carrying the updater says, in its own bullet, that it
+is the last one to install by hand, and that the daily check is on for
+upgraded installs too (no pin, like the hotkey's), switchable under
+Settings → About.
 
 ## Conventions
 
