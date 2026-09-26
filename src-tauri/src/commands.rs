@@ -595,10 +595,10 @@ mod tests {
         assert_eq!(resolve_hotkey("not a hotkey"), default);
         assert_eq!(resolve_hotkey(""), default);
         assert_eq!(
-            resolve_hotkey("ctrl+alt+v"),
-            "ctrl+alt+v".parse::<Shortcut>().unwrap()
+            resolve_hotkey("ctrl+shift+v"),
+            "ctrl+shift+v".parse::<Shortcut>().unwrap()
         );
-        assert_ne!(resolve_hotkey("ctrl+alt+v"), default);
+        assert_ne!(resolve_hotkey("ctrl+shift+v"), default);
     }
 
     #[test]

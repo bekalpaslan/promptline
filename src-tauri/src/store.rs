@@ -256,8 +256,10 @@ fn default_font() -> String {
     "system".into()
 }
 
+// New installs since 0.2.16's successor; an older install that never
+// recorded a hotkey is pinned to ctrl+shift+v by migrations::pin_legacy_hotkey
 fn default_hotkey() -> String {
-    "ctrl+shift+v".into()
+    "ctrl+alt+v".into()
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -301,7 +303,7 @@ pub(crate) struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            hotkey: "ctrl+shift+v".into(),
+            hotkey: default_hotkey(),
             packs: Vec::new(),
             packs_arranged: false,
             theme: default_theme(),
@@ -906,7 +908,7 @@ mod tests {
     }
 
     #[test]
-    fn config_without_a_hotkey_still_parses_with_the_default() {
+    fn config_without_a_hotkey_parses_with_the_new_install_default() {
         // A hand-edited or partially written config.json must not be
         // quarantined over a missing field: the packs and their paths live
         // in the same file
@@ -914,8 +916,11 @@ mod tests {
             serde_json::from_str(r#"{"packs": [{"name": "Work", "locked": true}]}"#).unwrap();
         assert_eq!(config.hotkey, Config::default().hotkey);
         assert_eq!(config.packs.len(), 1);
+        // An install that predates the new default never reaches this:
+        // migrations::pin_legacy_hotkey writes ctrl+shift+v into its
+        // config.json first
         let empty: Config = serde_json::from_str("{}").unwrap();
-        assert_eq!(empty.hotkey, "ctrl+shift+v");
+        assert_eq!(empty.hotkey, "ctrl+alt+v");
     }
 
     #[test]
