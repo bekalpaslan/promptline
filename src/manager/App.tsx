@@ -34,7 +34,7 @@ export function App() {
   const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [genOpen, setGenOpen] = useState(false)
-  const [hotkey, setHotkeyState] = useState("ctrl+shift+v")
+  const [hotkey, setHotkeyState] = useState("ctrl+alt+v")
   const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100", font: "system" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
   const [view, setView] = useState<View>({ kind: "prompt" })

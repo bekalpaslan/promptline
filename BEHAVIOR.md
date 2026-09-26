@@ -712,7 +712,8 @@ folder with none of the three (the log file doesn't count; the log
 plugin creates it first) is a fresh install, and it takes Ctrl+Alt+V. A
 `config.json` that fails to parse is still quarantined and replaced by
 defaults, now Ctrl+Alt+V; the notice says the old hotkey is in the
-quarantined file.
+quarantined file. Settings' Reset offers Ctrl+Alt+V to every install, old
+or new, and its help text says who still has Ctrl+Shift+V.
 
 A combination the OS refuses at startup — another program owns it — is a
 notice, not a fatal error: the tray and the manager still come up, because
