@@ -52,9 +52,11 @@ backlog, not from another audit, unless asked.
   the Download button is a plain link to
   `releases/latest/download/Promptline-setup.exe`, the stable-named copy
   each release carries (step 5 of *Releasing*), so a release needs no site
-  change and a visitor's browser talks to nothing but GitHub Pages and,
-  on a click, GitHub Releases. The footer's privacy note says so; keep it
-  true (no analytics, no cookies, no remote fonts or scripts). Preview it
+  change. A visitor's browser loads from GitHub Pages alone, and leaves it
+  only on a click: the Download button to GitHub Releases, the coffee
+  links to Buy Me a Coffee (plain links, nothing of theirs embedded). The
+  footer's privacy note names both; keep it true (no analytics, no
+  cookies, no remote fonts or scripts). Preview it
   with `python -m http.server` in `site/` after copying `docs/og.png` and
   `docs/screenshots/*.png` in (both gitignored there). Live with HTTPS enforced since 2026-09-23;
   DNS is at GoDaddy (four Pages A records, `www` CNAME). The bundle
