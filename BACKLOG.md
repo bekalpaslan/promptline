@@ -96,6 +96,16 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 
 ## Distribution
 
+- **Release post on X with media** (deferred 2026-09-27, when
+  `scripts/post-x.mjs` shipped text-only). The marketing plan's launch
+  thread wants the GIF and the pack file attached; that is X's media
+  upload (chunked `INIT`/`APPEND`/`FINALIZE`, then `media.media_ids` on
+  the post) and a second post replying to the first for a thread. Both
+  are more script than the text post, and every release in the quiet
+  phase is one plain post, so they wait for the launch. The Free tier's
+  monthly write cap is far above one post per release; check it again
+  before a thread of several.
+
 - **Code signing** — unsigned installers trip Windows SmartScreen.
 - ~~**Auto-update**~~ — **built for the release after 0.2.16**: the Tauri
   updater reads `site/latest.json` on promptline.cc, written by the release
