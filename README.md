@@ -1,10 +1,10 @@
 # Promptline
 
 *Your prompt vocabulary, one hotkey away, in every window.*
-**[promptline.cc](https://promptline.cc)** · [Download](https://github.com/bekalpaslan/promptline/releases/latest)
+**[promptline.cc](https://promptline.cc)** · [Download](https://github.com/bekalpaslan/promptline/releases/latest) · [Buy me a coffee](https://buymeacoffee.com/hurryupbob)
 
 A tiny tray app for people who talk to AI all day. Hit the
-global hotkey (default `Ctrl+Shift+V`), a popup appears at your cursor with
+global hotkey (default `Ctrl+Alt+V`), a popup appears at your cursor with
 your prompt library — pick one and it's pasted straight into the app you were
 just using: Claude Code or Codex in a terminal, ChatGPT or claude.ai in the
 browser, Cursor, a PR
@@ -81,10 +81,12 @@ Your library** (see [Data](#data)).
   terminal, Regedit, an installer). The popup tells you when that happens;
   the prompt is on your clipboard, so paste it by hand.
 - **WebView2 download at install** on the few machines that lack it (above).
-- **The default hotkey is taken in two popular places.** `Ctrl+Shift+V` is
-  *paste* in Windows Terminal and *paste without formatting* in browsers;
-  Promptline wins while it runs, and those apps lose the shortcut. Record
-  `Ctrl+Alt+V` in **Settings** instead if you miss either.
+- **An install from 0.2.16 or earlier keeps `Ctrl+Shift+V`.** New installs
+  start on `Ctrl+Alt+V`, and an upgrade never moves a hotkey you already
+  have. `Ctrl+Shift+V` is *paste* in Windows Terminal and *paste without
+  formatting* in browsers; Promptline wins while it runs, and those apps
+  lose the shortcut. Record `Ctrl+Alt+V` (or anything else) in
+  **Settings** if you miss either.
 
 Promptline has no network code and no telemetry: it never phones home, and
 the only thing that leaves your machine is what you paste. If something
@@ -236,6 +238,13 @@ Tauri 2 (Rust) + React 19 + Vite + Tailwind v4 + [shadcn/ui](https://ui.shadcn.c
 restore via `SetForegroundWindow`, paste via `SendInput`) are isolated in the
 `src-tauri/src/platform.rs`; a macOS port only needs that file
 reimplemented (CGEventPost + Accessibility permission).
+
+## Support
+
+Promptline is free and stays free: the source is MIT and every release's
+installers are on GitHub. If it saves you time,
+[buy me a coffee](https://buymeacoffee.com/hurryupbob); the **Sponsor**
+button at the top of the repository goes to the same page.
 
 ## Credits
 
