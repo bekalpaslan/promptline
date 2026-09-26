@@ -1103,3 +1103,50 @@ test('groupOrder ranks groups by first appearance in the library, so the popup f
   const after = core.groupOrder(moved, 'My prompts');
   assert.ok(after.get(core.groupKey('Work', 'Alpha')) < after.get(core.groupKey('Work', 'Zed')));
 });
+
+// ---- releaseNotesBlocks -------------------------------------------------------------
+
+test('releaseNotesBlocks: empty input is no blocks', () => {
+  assert.deepEqual(core.releaseNotesBlocks(''), []);
+  assert.deepEqual(core.releaseNotesBlocks(null), []);
+  assert.deepEqual(core.releaseNotesBlocks(undefined), []);
+});
+
+test('releaseNotesBlocks turns release notes into headings, items and paragraphs', () => {
+  const notes = '### Popup\n- **Enter** pastes, see [the docs](https://x.y).';
+  assert.deepEqual(core.releaseNotesBlocks(notes), [
+    { kind: 'heading', text: 'Popup' },
+    { kind: 'item', text: 'Enter pastes, see the docs.' },
+  ]);
+});
+
+test('releaseNotesBlocks joins a lead paragraph over two lines into one text block; a blank line starts a new one', () => {
+  const notes = 'Fixes for the popup.\nSee below for details.\n\n### Popup\n- A fix';
+  assert.deepEqual(core.releaseNotesBlocks(notes), [
+    { kind: 'text', text: 'Fixes for the popup. See below for details.' },
+    { kind: 'heading', text: 'Popup' },
+    { kind: 'item', text: 'A fix' },
+  ]);
+});
+
+test('releaseNotesBlocks: a continuation line joins the item above it; "*" is a bullet too', () => {
+  assert.deepEqual(core.releaseNotesBlocks('- one\n  continues here'), [
+    { kind: 'item', text: 'one continues here' },
+  ]);
+  assert.deepEqual(core.releaseNotesBlocks('* star bullet'), [
+    { kind: 'item', text: 'star bullet' },
+  ]);
+});
+
+test('releaseNotesBlocks: inline marks are dropped, an underscore name keeps its underscores', () => {
+  assert.deepEqual(core.releaseNotesBlocks('`code` and *em* and **strong** and update_check'), [
+    { kind: 'text', text: 'code and em and strong and update_check' },
+  ]);
+});
+
+test('releaseNotesBlocks: ## and #### are headings too', () => {
+  assert.deepEqual(core.releaseNotesBlocks('## Two\n#### Four'), [
+    { kind: 'heading', text: 'Two' },
+    { kind: 'heading', text: 'Four' },
+  ]);
+});
