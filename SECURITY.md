@@ -3,11 +3,11 @@
 ## Reporting a problem
 
 Use GitHub's private vulnerability reporting on this repository
-(**Security → Report a vulnerability**), or email the maintainer at
-bekalpaslan@gmail.com. Say what you found, how to reproduce it and which
-release you tested; a fix ships as a normal release. Please don't open a
-public issue for something that could put other users' clipboards or
-libraries at risk before a fix is out.
+(**Security → Report a vulnerability**), or email security@promptline.cc,
+which reaches the maintainer. Say what you found, how to reproduce it and
+which release you tested; a fix ships as a normal release. Please don't
+open a public issue for something that could put other users' clipboards
+or libraries at risk before a fix is out.
 
 ## What the app touches
 
