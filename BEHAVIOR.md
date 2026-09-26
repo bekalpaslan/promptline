@@ -696,6 +696,24 @@ script, or a `blob:` URL has to be added to the policy first.
 
 ## The hotkey
 
+**New installs default to Ctrl+Alt+V; a hotkey an install already has
+never moves.** Ctrl+Shift+V, the default up to 0.2.16, is paste in
+Windows Terminal and "paste without formatting" in browsers, the first
+shortcut a developer trying the app would lose. The default lives in
+`default_hotkey()` (`store.rs`), and serde fills it into any
+`config.json` without a `hotkey` key, so changing it alone would have
+moved every install that never recorded one. `settle_default_hotkey`
+(`migrations.rs`) runs at startup after the folder moves and before
+`ensure_packs_backed`, whose first save would otherwise write the new
+default: a `config.json` without the key gets `ctrl+shift+v` written
+into it, and a library (`snippets.json` or a file in `packs/`) with no
+`config.json` gets a `config.json` holding `ctrl+shift+v`. Only a data
+folder with none of the three (the log file doesn't count; the log
+plugin creates it first) is a fresh install, and it takes Ctrl+Alt+V. A
+`config.json` that fails to parse is still quarantined and replaced by
+defaults, now Ctrl+Alt+V; the notice says the old hotkey is in the
+quarantined file.
+
 A combination the OS refuses at startup — another program owns it — is a
 notice, not a fatal error: the tray and the manager still come up, because
 Settings is the only place the user could fix it. Changing the hotkey

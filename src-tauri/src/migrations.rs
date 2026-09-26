@@ -1,6 +1,7 @@
 //! What older installs carry over: the v1 EasyPaste folder, the
-//! pre-0.2.9 data folder and its absolute pack paths, and the v2 snippet
-//! shape. Old data must keep opening.
+//! pre-0.2.9 data folder and its absolute pack paths, the v2 snippet
+//! shape, and the hotkey default that changed after 0.2.16. Old data must
+//! keep opening.
 
 use std::fs;
 use std::path::Path;
@@ -10,6 +11,80 @@ use tauri::AppHandle;
 use crate::store::{
     data_dir, default_snippets, notify, write_atomic, write_snippets, Config, Snippet,
 };
+
+/// The default of every release up to 0.2.16. An install from then that
+/// never recorded a hotkey keeps it; only a genuinely fresh install takes
+/// the new default in `store::default_hotkey`.
+pub(crate) const LEGACY_HOTKEY: &str = "ctrl+shift+v";
+
+/// True only for a data folder with no earlier evidence of a run: no
+/// `config.json`, no `snippets.json`, and no pack file under `packs/`. The
+/// log file does not count — the log plugin creates it before this runs.
+pub(crate) fn is_fresh_install(dir: &Path) -> bool {
+    if dir.join("config.json").exists() || dir.join("snippets.json").exists() {
+        return false;
+    }
+    match fs::read_dir(dir.join("packs")) {
+        Ok(entries) => !entries.flatten().any(|e| {
+            e.path()
+                .extension()
+                .and_then(|ext| ext.to_str())
+                .is_some_and(|ext| ext == "json")
+        }),
+        // A missing or unreadable packs dir counts as none
+        Err(_) => true,
+    }
+}
+
+/// Pin `LEGACY_HOTKEY` into `dir`'s config.json when it exists but lacks a
+/// `hotkey` key, or write a config holding it when there is no library
+/// config yet. Returns whether the file changed; only reached for an
+/// existing install (the caller checks `is_fresh_install` first).
+fn pin_legacy_hotkey(dir: &Path) -> std::io::Result<bool> {
+    let path = dir.join("config.json");
+    match fs::read_to_string(&path) {
+        Ok(text) => match serde_json::from_str::<serde_json::Value>(&text) {
+            Ok(serde_json::Value::Object(mut map)) if !map.contains_key("hotkey") => {
+                map.insert(
+                    "hotkey".into(),
+                    serde_json::Value::String(LEGACY_HOTKEY.into()),
+                );
+                let bytes = serde_json::to_vec_pretty(&serde_json::Value::Object(map))
+                    .map_err(std::io::Error::other)?;
+                write_atomic(&path, &bytes)?;
+                Ok(true)
+            }
+            // Key present, not an object, or not JSON: leave it (the
+            // typed parse and quarantine still apply later)
+            _ => Ok(false),
+        },
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            let bytes = serde_json::to_vec_pretty(&Config {
+                hotkey: LEGACY_HOTKEY.into(),
+                ..Config::default()
+            })
+            .map_err(std::io::Error::other)?;
+            write_atomic(&path, &bytes)?;
+            Ok(true)
+        }
+        Err(e) => Err(e),
+    }
+}
+
+/// Runs after the folder moves and before `ensure_packs_backed`, whose
+/// first save would otherwise write the new default into an install that
+/// never chose one. Returns whether this is a fresh install (plan 02-03
+/// stores it as the first-launch signal).
+pub(crate) fn settle_default_hotkey(app: &AppHandle) -> bool {
+    let dir = data_dir(app);
+    if is_fresh_install(&dir) {
+        return true;
+    }
+    if let Err(e) = pin_legacy_hotkey(&dir) {
+        log::warn!("couldn't pin the old default hotkey into config.json: {e}");
+    }
+    false
+}
 
 /// One-time migration from the v1 EasyPaste data directory: keep user-created
 /// snippets (dropping the v1 samples) and merge in the new starter pack.
@@ -209,5 +284,99 @@ mod tests {
             "the skipped file stays put"
         );
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn a_fresh_data_folder_is_a_first_launch() {
+        let dir = temp_dir("fresh-install");
+        fs::create_dir_all(dir.join("packs")).unwrap();
+        fs::write(dir.join("promptline.log"), "started\n").unwrap();
+
+        assert!(is_fresh_install(&dir));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn any_earlier_file_marks_an_existing_install() {
+        let snippets_dir = temp_dir("existing-snippets");
+        fs::write(snippets_dir.join("snippets.json"), "[]").unwrap();
+        assert!(!is_fresh_install(&snippets_dir));
+        let _ = fs::remove_dir_all(&snippets_dir);
+
+        let config_dir = temp_dir("existing-config");
+        fs::write(config_dir.join("config.json"), "{}").unwrap();
+        assert!(!is_fresh_install(&config_dir));
+        let _ = fs::remove_dir_all(&config_dir);
+
+        let pack_dir = temp_dir("existing-pack");
+        fs::create_dir_all(pack_dir.join("packs")).unwrap();
+        fs::write(pack_dir.join("packs").join("work.json"), "{}").unwrap();
+        assert!(!is_fresh_install(&pack_dir));
+        let _ = fs::remove_dir_all(&pack_dir);
+    }
+
+    #[test]
+    fn a_library_without_a_config_keeps_ctrl_shift_v() {
+        let dir = temp_dir("library-no-config");
+        fs::write(dir.join("snippets.json"), "[]").unwrap();
+
+        assert!(pin_legacy_hotkey(&dir).unwrap());
+        let config: Config =
+            serde_json::from_str(&fs::read_to_string(dir.join("config.json")).unwrap()).unwrap();
+        assert_eq!(config.hotkey, "ctrl+shift+v");
+
+        assert!(!pin_legacy_hotkey(&dir).unwrap());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_config_without_a_hotkey_is_pinned_and_keeps_the_rest() {
+        let dir = temp_dir("config-no-hotkey");
+        fs::write(
+            dir.join("config.json"),
+            r#"{"packs": [{"name": "Work", "locked": true}], "theme": "light"}"#,
+        )
+        .unwrap();
+
+        assert!(pin_legacy_hotkey(&dir).unwrap());
+        let config: Config =
+            serde_json::from_str(&fs::read_to_string(dir.join("config.json")).unwrap()).unwrap();
+        assert_eq!(config.hotkey, "ctrl+shift+v");
+        assert_eq!(config.packs.len(), 1);
+        assert!(config.packs[0].locked);
+        assert_eq!(config.theme, "light");
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_recorded_hotkey_is_never_touched() {
+        for existing in [
+            r#"{"hotkey": "ctrl+alt+space"}"#,
+            r#"{"hotkey": "ctrl+shift+v"}"#,
+        ] {
+            let dir = temp_dir("recorded-hotkey");
+            fs::write(dir.join("config.json"), existing).unwrap();
+
+            assert!(!pin_legacy_hotkey(&dir).unwrap());
+            assert_eq!(
+                fs::read_to_string(dir.join("config.json")).unwrap(),
+                existing
+            );
+            let _ = fs::remove_dir_all(&dir);
+        }
+    }
+
+    #[test]
+    fn an_unreadable_config_is_left_for_the_quarantine() {
+        let dir = temp_dir("truncated-config");
+        let truncated = r#"{"hotkey": "#;
+        fs::write(dir.join("config.json"), truncated).unwrap();
+
+        assert!(!pin_legacy_hotkey(&dir).unwrap());
+        assert_eq!(
+            fs::read_to_string(dir.join("config.json")).unwrap(),
+            truncated
+        );
+        let _ = fs::remove_dir_all(&dir);
     }
 }

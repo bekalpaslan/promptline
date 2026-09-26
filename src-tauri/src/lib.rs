@@ -22,7 +22,7 @@ mod platform;
 mod store;
 
 use commands::resolve_hotkey;
-use migrations::{migrate_data_dir, migrate_v1_data};
+use migrations::{migrate_data_dir, migrate_v1_data, settle_default_hotkey};
 use packs::ensure_packs_backed;
 use paste::{is_resize_drag, persist_popup_size, show_popup};
 use store::{data_dir, load_config_from_disk, notify, Notice};
@@ -210,6 +210,10 @@ pub fn run() {
 
             migrate_data_dir(handle);
             migrate_v1_data(handle);
+            // Before anything saves config.json: an install that never
+            // recorded a hotkey keeps the old default (the new one is for
+            // fresh installs)
+            settle_default_hotkey(handle);
             // Catches packs that predate file backing, so they get their file
             // without waiting for the next save to touch them
             ensure_packs_backed(handle);
