@@ -73,17 +73,15 @@ fn pin_legacy_hotkey(dir: &Path) -> std::io::Result<bool> {
 
 /// Runs after the folder moves and before `ensure_packs_backed`, whose
 /// first save would otherwise write the new default into an install that
-/// never chose one. Returns whether this is a fresh install (plan 02-03
-/// stores it as the first-launch signal).
-pub(crate) fn settle_default_hotkey(app: &AppHandle) -> bool {
+/// never chose one.
+pub(crate) fn settle_default_hotkey(app: &AppHandle) {
     let dir = data_dir(app);
     if is_fresh_install(&dir) {
-        return true;
+        return;
     }
     if let Err(e) = pin_legacy_hotkey(&dir) {
         log::warn!("couldn't pin the old default hotkey into config.json: {e}");
     }
-    false
 }
 
 /// One-time migration from the v1 EasyPaste data directory: keep user-created
@@ -287,7 +285,7 @@ mod tests {
     }
 
     #[test]
-    fn a_fresh_data_folder_is_a_first_launch() {
+    fn an_empty_data_folder_is_a_fresh_install() {
         let dir = temp_dir("fresh-install");
         fs::create_dir_all(dir.join("packs")).unwrap();
         fs::write(dir.join("promptline.log"), "started\n").unwrap();
