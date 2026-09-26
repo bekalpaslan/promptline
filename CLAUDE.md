@@ -23,7 +23,8 @@ backlog, not from another audit, unless asked.
 - `docs/MARKETING.md` — the marketing strategy and the decisions behind
   it (sell the binary, source stays MIT; macOS before the pitch; community
   packs as repo files first). Exported from a Claude doc; refresh the
-  export when a decision changes.
+  export when a decision changes. Local only since 2026-09-26: untracked
+  and listed in `.git/info/exclude`, so a fresh clone doesn't have it.
 - `docs/history/` — the review, audit and benchmark trackers (`REVIEW.md`,
   `RELEASE-AUDIT.md`, `BUG-HUNT-*.md`) and the 2026-07 UI rework roadmap,
   each with its own rules at the top. Test names cite these files'
