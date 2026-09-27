@@ -1,4 +1,4 @@
-// Posts a release announcement on X (Releasing step 7), after the release
+// Posts a release announcement on X (Releasing step 8), after the release
 // and the feed are live.
 //
 //   node scripts/post-x.mjs --notes <notes.md> [--version X.Y.Z]
