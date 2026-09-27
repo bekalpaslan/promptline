@@ -68,6 +68,30 @@ Requires Rust and Node 22. `npm run build` produces the same two installers
 under `src-tauri/target/release/bundle/` (`nsis/` and `msi/`). See
 [Development](#development).
 
+## Why not…
+
+**Why not Espanso or AutoHotkey?** They're good at what they do: a typed
+trigger expands into text. They know nothing about your clipboard, packs or
+fill-in fields; Promptline is a library you search, with a preview, pins and
+your most used prompts first.
+
+**Why not Raycast snippets?** Raycast is a fine launcher, but it's
+macOS only, and its snippets have no packs, groups or files an agent can
+write. Promptline runs on Windows today, with a macOS version on the way.
+
+**Why not slash commands in Claude Code, or Cursor rules?** They're the
+right tool inside the one tool they belong to. A prompt library hotkey works
+everywhere: the same library pastes into the terminal, the browser, the IDE
+and a PR comment box.
+
+**Why not a clipboard manager?** Ditto and the Windows clipboard history
+remember what you copied, and do it well. Promptline is what you meant to
+say about it: your clipboard, inside the prompt you picked.
+
+**Why not a Notion page of prompts?** It keeps prompts tidy, and it's two
+windows and a copy away. Promptline is one hotkey away, in every window,
+with your clipboard already inside.
+
 ## Uninstall
 
 **Settings → Apps → Installed apps** (Apps & Features), like any other
@@ -88,8 +112,8 @@ Your library** (see [Data](#data)).
 
 ## Known limitations
 
-- **Windows only.** A macOS port needs one module rewritten (see
-  [Stack](#stack)); nobody has done it yet.
+- **Windows only, for now.** A macOS version is on the way; it needs one
+  module rewritten (see [Stack](#stack)).
 - **Unsigned installers**, so SmartScreen warns once (above).
 - **Elevated windows don't accept the paste.** Windows blocks keystrokes
   from a normal process into a window running as administrator (an elevated
