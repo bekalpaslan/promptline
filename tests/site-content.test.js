@@ -82,3 +82,64 @@ test('the <title> still carries "your prompt vocabulary, one hotkey away"', () =
   assert.ok(titleMatch);
   assert.ok(titleMatch[1].includes('your prompt vocabulary, one hotkey away'));
 });
+
+// ---- SITE-02: Why not... ---------------------------------------------------
+
+test('the Why not... section has five always-open Q&As, no <details>, no <table>', () => {
+  const html = read();
+  const why = section(html, 'id="why-not"');
+  assert.equal((why.match(/<h3>/g) || []).length, 5);
+  assert.equal((why.match(/<details/gi) || []).length, 0);
+  assert.equal((why.match(/<table/gi) || []).length, 0);
+  const h2 = /<h2[^>]*>([\s\S]*?)<\/h2>/.exec(why);
+  assert.ok(h2, 'missing <h2>');
+  assert.equal(visibleText(h2[1]), 'Why not…');
+});
+
+test('the Why not... section names all five tools it answers for', () => {
+  const html = read();
+  const text = visibleText(section(html, 'id="why-not"'));
+  for (const name of ['Espanso', 'AutoHotkey', 'Raycast', 'slash commands', 'Cursor rules', 'Ditto', 'clipboard history', 'Notion']) {
+    assert.ok(text.includes(name), `Why not... is missing "${name}"`);
+  }
+});
+
+test('the Raycast answer says macOS only, not "same on both platforms"', () => {
+  const html = read();
+  const why = section(html, 'id="why-not"');
+  const divMatch = /<div><h3>[^<]*Raycast[^<]*<\/h3>([\s\S]*?)<\/div>/.exec(why);
+  assert.ok(divMatch, 'missing the Raycast answer');
+  const text = visibleText(divMatch[1]);
+  assert.match(text, /macOS only/);
+  assert.match(text, /Windows/);
+  assert.ok(!text.includes('same on both platforms'));
+});
+
+test('in the source, #tour comes before #why-not, which comes before #features', () => {
+  const html = read();
+  const tour = html.indexOf('id="tour"');
+  const why = html.indexOf('id="why-not"');
+  const features = html.indexOf('id="features"');
+  assert.ok(tour >= 0 && why >= 0 && features >= 0);
+  assert.ok(tour < why && why < features);
+});
+
+test('the header nav lists How it works, Tour, Why not..., Features, then GitHub', () => {
+  const html = read();
+  const navMatch = /<nav aria-label="Site">([\s\S]*?)<\/nav>/.exec(html);
+  assert.ok(navMatch, 'missing <nav aria-label="Site">');
+  const hrefs = [...navMatch[1].matchAll(/href="([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(hrefs, ['#how', '#tour', '#why-not', '#features', 'https://github.com/bekalpaslan/promptline']);
+});
+
+// ---- SITE-03: search phrases -----------------------------------------------
+
+const PHRASES = ['prompt manager', 'prompt library hotkey', 'snippet manager for ChatGPT', 'prompt templates Claude Code'];
+
+for (const phrase of PHRASES) {
+  test(`search phrase "${phrase}" appears once in the visible text (SITE-03)`, () => {
+    const text = visibleText(read());
+    const n = count(text, phrase);
+    assert.equal(n, 1, `"${phrase}" appears ${n} times; SITE-03 wants exactly one`);
+  });
+}

@@ -325,6 +325,14 @@
     .f h3 { font-size: 16px; margin: 0 0 6px; }
     .f p { margin: 0; font-size: 15px; color: var(--ink-2); }
 
+    /* Why not…: five questions, always open, two columns */
+    .why { padding: 56px 0 24px; border-top: 1px solid var(--line); }
+    .why h2 { font-family: var(--display); font-size: clamp(24px, 3vw, 30px); letter-spacing: -0.01em; margin: 0 0 8px; }
+    .why > p { margin: 0 0 24px; color: var(--ink-2); max-width: 62ch; }
+    .qa { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px 40px; }
+    .qa h3 { font-size: 16px; margin: 0 0 6px; }
+    .qa p { margin: 0; font-size: 15px; color: var(--ink-2); max-width: 60ch; }
+
     /* Trust */
     .trust { padding: 24px 0 56px; }
     .trust ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
@@ -363,6 +371,7 @@
       .tile { padding: 18px; border-radius: 12px; }
       .titlebar .c span { width: 30px; }
       .steps, .grid, .trust ul { grid-template-columns: 1fr; }
+      .qa { grid-template-columns: 1fr; }
       .btn { height: 42px; }
     }
   </style>
@@ -381,6 +390,7 @@
         <nav aria-label="Site">
           <a href="#how">How it works</a>
           <a href="#tour">Tour</a>
+          <a href="#why-not">Why not…</a>
           <a href="#features">Features</a>
           <a href="https://github.com/bekalpaslan/promptline">GitHub</a>
         </nav>
@@ -450,7 +460,7 @@
     <section class="wrap tour" id="tour" aria-labelledby="tour-title">
       <div class="tour-head">
         <h2 id="tour-title">A tour of both windows</h2>
-        <p>The popup is where you spend a second at a time; the manager is where your library lives. These are the real windows, with a demo library in them.</p>
+        <p>Promptline is a prompt manager in two windows: the popup is where you spend a second at a time, the manager is where your library lives. These are the real windows, with a demo library in them.</p>
       </div>
 
       <article class="chapter tall">
@@ -614,13 +624,25 @@
       </article>
     </section>
 
+    <section class="wrap why" id="why-not" aria-labelledby="why-not-title">
+      <h2 id="why-not-title">Why not…</h2>
+      <p>Good tools already cover part of this. Here's where each one stops and Promptline starts.</p>
+      <div class="qa">
+        <div><h3>Why not Espanso or AutoHotkey?</h3><p>They're good at what they do: a typed trigger expands into text. They know nothing about your clipboard, packs or fill-in fields; Promptline is a library you search, with a preview, pins and your most used prompts first.</p></div>
+        <div><h3>Why not Raycast snippets?</h3><p>Raycast is a fine launcher, but it's macOS only, and its snippets have no packs, groups or files an agent can write. Promptline runs on Windows today, with a macOS version on the way.</p></div>
+        <div><h3>Why not slash commands in Claude Code, or Cursor rules?</h3><p>They're the right tool inside the one tool they belong to. A prompt library hotkey works everywhere: the same library pastes into the terminal, the browser, the IDE and a PR comment box.</p></div>
+        <div><h3>Why not a clipboard manager?</h3><p>Ditto and the Windows clipboard history remember what you copied, and do it well. Promptline is what you meant to say about it: your clipboard, inside the prompt you picked.</p></div>
+        <div><h3>Why not a Notion page of prompts?</h3><p>It keeps prompts tidy, and it's two windows and a copy away. Promptline is one hotkey away, in every window, with your clipboard already inside.</p></div>
+      </div>
+    </section>
+
     <section class="wrap features" id="features">
       <h2>What's in the box</h2>
       <div class="grid">
-        <div class="f"><h3>Works in every window</h3><p>Claude Code or Codex in a terminal, ChatGPT or claude.ai in the browser, Cursor, a PR comment box. If it has a text field, the prompt lands in it.</p></div>
+        <div class="f"><h3>Works in every window</h3><p>Claude Code or Codex in a terminal, Cursor, a PR comment box, or ChatGPT and claude.ai in the browser, where it doubles as a snippet manager for ChatGPT. If it has a text field, the prompt lands in it.</p></div>
         <div class="f"><h3>Fill-in fields</h3><p>Write <span class="tok tok-field">{goal}</span> in a prompt and the popup asks for it before pasting. <span class="tok tok-config">{{project}}</span> is remembered once and filled in every time.</p></div>
         <div class="f"><h3>Packs you can share</h3><p>Every pack is a plain JSON file the app keeps current. Commit one to a project, export one for a colleague, or let an agent write one.</p></div>
-        <div class="f"><h3>Let an AI write your packs</h3><p>Describe a topic, or point a coding agent at your project, and import the pack it produces, curated prompt by prompt.</p></div>
+        <div class="f"><h3>Let an AI write your packs</h3><p>Describe a topic, or point a coding agent at your project, and import the pack it produces: prompt templates Claude Code wrote from your own code, curated prompt by prompt.</p></div>
         <div class="f"><h3>Keyboard first</h3><p>Search, pins, groups, a preview with the real clipboard substituted, undo. Every control reachable without a mouse, labelled for screen readers.</p></div>
         <div class="f"><h3>Light, dark or the system's</h3><p>Both windows follow Windows as it switches, or stay the way you set them, with the density, font and scale you like.</p></div>
       </div>
