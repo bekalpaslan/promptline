@@ -326,7 +326,10 @@ build is still what ships.
    if it needs other words, write them to a file and pass `--text <file>`
    instead of `--notes`. Then the same command without `--dry-run`, with
    the four `X_*` variables set (custody below) in the human's own
-   PowerShell, like the signed build. The script checks that the release
+   PowerShell, like the signed build. When the keys are new,
+   `node scripts/post-x.mjs --whoami` first: it signs a read of the
+   account behind them and prints its handle, so a wrong or read-only
+   key fails there and not on the post. The script checks that the release
    page answers 200 before it posts, so it can't announce a tag that
    isn't there, and prints the post's url on success. Each post costs
    $0.20 (X's pay-per-use price for a post carrying a url, 2026-09), paid
