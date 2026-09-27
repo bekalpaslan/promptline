@@ -1,14 +1,6 @@
 # Promptline
 
-*Your prompt vocabulary, one hotkey away, in every window.*
 **[promptline.cc](https://promptline.cc)** · [Download](https://github.com/bekalpaslan/promptline/releases/latest) · [Buy me a coffee](https://buymeacoffee.com/hurryupbob)
-
-A tiny tray app for people who talk to AI all day. Hit the
-global hotkey (default `Ctrl+Alt+V`), a popup appears at your cursor with
-your prompt library — pick one and it's pasted straight into the app you were
-just using: Claude Code or Codex in a terminal, ChatGPT or claude.ai in the
-browser, Cursor, a PR
-comment box, anywhere.
 
 <p align="center">
   <picture>
@@ -16,6 +8,22 @@ comment box, anywhere.
     <img src="docs/screenshots/popup-preview-light.png" width="400" alt="The Promptline popup: a search box, pinned prompts on Ctrl+1 to 5, packs with their groups, and a preview card showing Root cause first with the copied error already in place of {clipboard}">
   </picture>
 </p>
+
+**Copy the error. Hit the hotkey. Paste a real prompt.**
+
+- **Copy, hotkey, paste.** Copy a stack trace, press `Ctrl+Alt+V`, pick a
+  prompt: it lands in Claude Code, Codex or Cursor with the trace already
+  inside.
+- **Packs are files agents write.** One JSON file per project; point Claude
+  Code or Codex at your repo and it drafts the pack for you to review.
+- **No telemetry, no account.** One update check, at startup and once a day, off in a click.
+  Your prompts are JSON files on your disk.
+
+A tiny tray app for developers who run coding agents all day. Hit the
+global hotkey (default `Ctrl+Alt+V`), a popup appears at your cursor with
+your prompt library — pick one and it's pasted straight into the app you were
+just using: Claude Code or Codex in a terminal, ChatGPT or claude.ai in the
+browser, Cursor, a PR comment box, anywhere.
 
 ## The killer move
 
@@ -60,6 +68,30 @@ Requires Rust and Node 22. `npm run build` produces the same two installers
 under `src-tauri/target/release/bundle/` (`nsis/` and `msi/`). See
 [Development](#development).
 
+## Why not…
+
+**Why not Espanso or AutoHotkey?** They're good at what they do: a typed
+trigger expands into text. They know nothing about your clipboard, packs or
+fill-in fields; Promptline is a library you search, with a preview, pins and
+your most used prompts first.
+
+**Why not Raycast snippets?** Raycast is a fine launcher, but it's
+macOS only, and its snippets have no packs, groups or files an agent can
+write. Promptline runs on Windows today, with a macOS version on the way.
+
+**Why not slash commands in Claude Code, or Cursor rules?** They're the
+right tool inside the one tool they belong to. A prompt library hotkey works
+everywhere: the same library pastes into the terminal, the browser, the IDE
+and a PR comment box.
+
+**Why not a clipboard manager?** Ditto and the Windows clipboard history
+remember what you copied, and do it well. Promptline is what you meant to
+say about it: your clipboard, inside the prompt you picked.
+
+**Why not a Notion page of prompts?** It keeps prompts tidy, and it's two
+windows and a copy away. Promptline is one hotkey away, in every window,
+with your clipboard already inside.
+
 ## Uninstall
 
 **Settings → Apps → Installed apps** (Apps & Features), like any other
@@ -80,8 +112,8 @@ Your library** (see [Data](#data)).
 
 ## Known limitations
 
-- **Windows only.** A macOS port needs one module rewritten (see
-  [Stack](#stack)); nobody has done it yet.
+- **Windows only, for now.** A macOS version is on the way; it needs one
+  module rewritten (see [Stack](#stack)).
 - **Unsigned installers**, so SmartScreen warns once (above).
 - **Elevated windows don't accept the paste.** Windows blocks keystrokes
   from a normal process into a window running as administrator (an elevated
