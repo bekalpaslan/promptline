@@ -163,7 +163,7 @@ export async function whoAmI({ credentials, meUrl = ME_URL }) {
 }
 
 function usageError(message) {
-  console.error(`post-x: ${message}`)
+  console.error(`post-x: ${message.replace(/^post-x: /, "")}`)
   return 1
 }
 
