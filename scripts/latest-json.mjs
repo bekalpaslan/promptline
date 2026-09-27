@@ -16,6 +16,7 @@
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { readText } from "./read-text.mjs"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -92,7 +93,9 @@ function main(argv) {
   const out = flag("--out") ?? path.join(root, "site", "latest.json")
   const pubDate = flag("--pub-date") ?? new Date().toISOString()
 
-  const notes = feedNotes(fs.readFileSync(notesFile, "utf8"))
+  // readText: the same notes file the post step takes, and PowerShell 5.1's
+  // `>` writes it as UTF-16
+  const notes = feedNotes(readText(notesFile))
   const names = assetNames(version)
 
   const nsisSig = readSig(bundleDir, "nsis", names.nsis)

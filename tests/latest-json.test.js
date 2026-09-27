@@ -158,6 +158,23 @@ test('CLI writes the expected feed from a temp bundle dir', () => {
   });
 });
 
+test('CLI reads notes written by PowerShell 5.1 redirection (UTF-16 LE with BOM)', () => {
+  withTmp((dir) => {
+    fs.mkdirSync(path.join(dir, 'nsis'), { recursive: true });
+    fs.mkdirSync(path.join(dir, 'msi'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'nsis', 'Promptline_9.9.9_x64-setup.exe.sig'), 'nsis-sig\n');
+    fs.writeFileSync(path.join(dir, 'msi', 'Promptline_9.9.9_x64_en-US.msi.sig'), 'msi-sig\n');
+    fs.writeFileSync(
+      path.join(dir, 'notes.md'),
+      Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('Lead.\r\n\r\n### Changes\r\n- a\r\n\r\n### Install\r\nignored\r\n', 'utf16le')]),
+    );
+    const out = path.join(dir, 'latest.json');
+    const result = spawnSync(process.execPath, [SCRIPT, '--version', '9.9.9', '--notes', path.join(dir, 'notes.md'), '--bundle-dir', dir, '--out', out]);
+    assert.equal(result.status, 0, result.stderr.toString());
+    assert.equal(JSON.parse(fs.readFileSync(out, 'utf8')).notes, 'Lead.\n\n### Changes\n- a');
+  });
+});
+
 test('CLI exits non-zero and names the missing file when the msi .sig is absent', () => {
   withTmp((dir) => {
     fs.mkdirSync(path.join(dir, 'nsis'), { recursive: true });
