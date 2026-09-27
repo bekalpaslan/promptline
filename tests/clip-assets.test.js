@@ -11,6 +11,14 @@ const DIR = path.join(__dirname, '..', 'docs', 'clip');
 const THEMES = ['light', 'dark'];
 const BUDGET = { mp4: 800_000, webm: 800_000, gif: 3_000_000, 'poster.png': 700_000 };
 
+function readNormalized(relPath) {
+  return fs.readFileSync(path.join(__dirname, '..', relPath), 'utf8').replace(/\r\n/g, '\n');
+}
+
+function findVideos(html) {
+  return [...html.matchAll(/<video\b([^>]*)>([\s\S]*?)<\/video>/g)];
+}
+
 function assertBudget(name, ext) {
   const file = path.join(DIR, name);
   const size = fs.statSync(file).size;
@@ -70,3 +78,72 @@ for (const theme of THEMES) {
     assertBudget(name, 'poster.png');
   });
 }
+
+// 06-05: the site and README reference the rendered clip files, one <video>
+// per theme, no autoplay/media-attribute shortcuts, and the README's GIF
+// <picture> follows GitHub's own theme.
+test('site/index.html has exactly one light and one dark clip <video>, no autoplay, preload="none"', () => {
+  const html = readNormalized('site/index.html');
+  assert.equal((html.match(/<video\b/g) || []).length, 2, 'expected exactly 2 <video> elements');
+  assert.equal(html.includes('class="composite"'), false, 'the .composite hero markup must be gone');
+
+  const videos = findVideos(html);
+  assert.equal(videos.length, 2);
+  for (const [, attrs, inner] of videos) {
+    assert.match(attrs, /\bmuted\b/);
+    assert.match(attrs, /\bloop\b/);
+    assert.match(attrs, /\bplaysinline\b/);
+    assert.match(attrs, /preload="none"/);
+    assert.equal(/\bautoplay\b/.test(attrs), false);
+    assert.match(inner, /<source src="clip\/clip-(light|dark)\.webm" type="video\/webm">/);
+    assert.match(inner, /<source src="clip\/clip-(light|dark)\.mp4" type="video\/mp4">/);
+    // no <source> media attribute: the page's theme switch drives it, not the browser
+    assert.equal(/<source\b[^>]*\bmedia=/.test(inner), false);
+  }
+  const lightVideo = videos.find(([, attrs]) => attrs.includes('class="light-only"'));
+  const darkVideo = videos.find(([, attrs]) => attrs.includes('class="dark-only"'));
+  assert.ok(lightVideo, 'expected a light-only clip <video>');
+  assert.ok(darkVideo, 'expected a dark-only clip <video>');
+  assert.match(lightVideo[1], /poster="clip\/clip-light-poster\.png"/);
+  assert.match(darkVideo[1], /poster="clip\/clip-dark-poster\.png"/);
+});
+
+test('site/index.html script drives the clip via syncClip, and the footer names it', () => {
+  const html = readNormalized('site/index.html');
+  assert.ok((html.match(/syncClip/g) || []).length >= 3, 'syncClip should be defined and called at least 3 times');
+  assert.equal(
+    (html.match(/plays the clip for the theme showing/g) || []).length,
+    1,
+    'the script header comment should say it plays the clip for the theme showing',
+  );
+  assert.equal(
+    (html.match(/its one script switches the page between light and dark, plays the clip for the theme showing, and fades the screenshots in/g) || []).length,
+    1,
+    'the footer privacy sentence should mention the clip',
+  );
+});
+
+test('README.md leads with the clip GIF <picture>, not the popup screenshot', () => {
+  const readme = readNormalized('README.md');
+  assert.equal(
+    (readme.match(/srcset="docs\/clip\/clip-dark\.gif"/g) || []).length,
+    1,
+    'README should reference docs/clip/clip-dark.gif once',
+  );
+  assert.equal(readme.includes('popup-preview-light.png'), false, 'the old popup screenshot picture should be gone');
+  assert.match(readme, /<img src="docs\/clip\/clip-light\.gif"/);
+});
+
+test('.github/workflows/pages.yml copies docs/clip into site/clip, and .gitignore ignores it', () => {
+  const pagesYml = readNormalized('.github/workflows/pages.yml');
+  assert.equal((pagesYml.match(/"docs\/clip\/\*\*"/g) || []).length, 1, 'pages.yml paths should list docs/clip/**');
+  assert.equal((pagesYml.match(/cp docs\/clip\//g) || []).length, 1, 'pages.yml should copy docs/clip/* into site/clip');
+
+  const gitignore = readNormalized('.gitignore');
+  assert.match(gitignore, /^site\/clip\/$/m);
+});
+
+test('CLAUDE.md documents the clip in the site paragraph', () => {
+  const claudeMd = readNormalized('CLAUDE.md');
+  assert.ok((claudeMd.match(/docs\/clip/g) || []).length >= 2, 'CLAUDE.md should mention docs/clip at least twice');
+});

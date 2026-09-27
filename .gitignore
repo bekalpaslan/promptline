@@ -29,3 +29,6 @@ playwright-report/
 
 # Copied in from docs/screenshots by the Pages workflow; local preview copies only
 site/shots/
+
+# Copied in from docs/clip by the Pages workflow; local preview copies only
+site/clip/

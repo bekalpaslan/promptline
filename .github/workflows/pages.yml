@@ -3,7 +3,8 @@ name: Site
 # Publishes site/ to GitHub Pages at https://promptline.cc. The screenshots
 # live in docs/ (the README uses them too; `npm run shots` makes them) and
 # are copied in at publish time rather than kept twice in the repo:
-# docs/og.png for the social card, docs/screenshots/ for the page.
+# docs/og.png for the social card, docs/screenshots/ for the page, and
+# docs/clip/ (npm run clip) for the hero's video.
 on:
   push:
     branches: [master]
@@ -12,6 +13,7 @@ on:
       - "docs/og.png"
       - "src-tauri/icons/**"
       - "docs/screenshots/**"
+      - "docs/clip/**"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -39,6 +41,8 @@ jobs:
           cp src-tauri/icons/128x128@2x.png site/apple-touch-icon.png
           mkdir -p site/shots
           cp docs/screenshots/*.png site/shots/
+          mkdir -p site/clip
+          cp docs/clip/*.mp4 docs/clip/*.webm docs/clip/*-poster.png site/clip/
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

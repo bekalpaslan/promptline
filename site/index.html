@@ -186,8 +186,7 @@
     .theme button[aria-checked="true"] { background: var(--surface-raised); color: var(--ink); box-shadow: var(--shadow-menu); }
     .theme svg { width: 16px; height: 16px; }
 
-    /* Hero: the pitch on the left, the manager with the popup over it on
-       the right, the way the two windows meet on screen */
+    /* Hero: the pitch on the left, the clip of the move on the right */
     .hero {
       position: relative;
       padding: 64px 0 72px;
@@ -227,11 +226,17 @@
     .btn svg { width: 18px; height: 18px; }
     .sub { font-size: 13px; color: var(--ink-3); margin-top: 12px; }
 
-    .composite { position: relative; padding: 0 0 56px 64px; }
-    .composite .window { width: 100%; }
-    .composite .panel {
-      position: absolute; left: 0; bottom: 0; width: 44%; max-width: 300px;
+    /* The clip: copy, hotkey, paste in a terminal, 720x540 at 2x. Only the
+       theme showing loads (preload="none"); the script plays it */
+    .clip { position: relative; }
+    .clip video { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-sunk); box-shadow: var(--shadow-shot); }
+    .clip-toggle {
+      position: absolute; right: 12px; bottom: 12px; height: 28px; padding: 0 10px;
+      border: 1px solid var(--line-strong); border-radius: 6px;
+      background: color-mix(in srgb, var(--surface-raised) 88%, transparent); color: var(--ink-2);
+      font: 600 12px var(--sans); cursor: pointer; opacity: 0; transition: opacity 150ms;
     }
+    .clip:hover .clip-toggle, .clip-toggle:focus-visible, .clip-toggle[data-paused] { opacity: 1; }
 
     /* The windows: the manager in a Windows frame, the popup frameless as
        it really is. The images are the app's own pixels at 2x. */
@@ -366,8 +371,6 @@
     }
     @media (max-width: 640px) {
       .nav nav { display: none; }
-      .composite { padding: 0 0 40px 32px; }
-      .composite .panel { width: 52%; }
       .tile { padding: 18px; border-radius: 12px; }
       .titlebar .c span { width: 30px; }
       .steps, .grid, .trust ul { grid-template-columns: 1fr; }
@@ -428,19 +431,16 @@
         </div>
         <p class="sub">Open source (MIT) · installs for the current user, no admin prompt · <a href="https://github.com/bekalpaslan/promptline/releases">all releases</a></p>
       </div>
-      <div class="composite" aria-label="The manager window with the popup open over it">
-        <div class="window">
-          <div class="titlebar" aria-hidden="true">
-            <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
-            <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
-          </div>
-          <img class="light-only" src="shots/manager-overview-light.png" width="1000" height="800" alt="The manager showing the Acme Shop pack: its Debugging, Review and Release groups as prompt cards, with the clipboard and saved values already filled in">
-          <img class="dark-only" src="shots/manager-overview-dark.png" width="1000" height="800" alt="The manager showing the Acme Shop pack: its Debugging, Review and Release groups as prompt cards, with the clipboard and saved values already filled in" loading="lazy">
-        </div>
-        <div class="panel">
-          <img class="light-only" src="shots/popup-preview-light.png" width="400" height="600" alt="The popup: pinned prompts on Ctrl+1 to 5, and a preview of Root cause first with the copied TypeError already in place">
-          <img class="dark-only" src="shots/popup-preview-dark.png" width="400" height="600" alt="The popup: pinned prompts on Ctrl+1 to 5, and a preview of Root cause first with the copied TypeError already in place" loading="lazy">
-        </div>
+      <div class="clip">
+        <video class="light-only" width="720" height="540" muted loop playsinline preload="none" poster="clip/clip-light-poster.png" aria-label="A Windows Terminal running Claude Code: a failing test's stack trace is copied, Ctrl+Alt+V opens the Promptline popup, Root cause first is picked, and the prompt, trace inside, fills Claude Code's input">
+          <source src="clip/clip-light.webm" type="video/webm">
+          <source src="clip/clip-light.mp4" type="video/mp4">
+        </video>
+        <video class="dark-only" width="720" height="540" muted loop playsinline preload="none" poster="clip/clip-dark-poster.png" aria-label="A Windows Terminal running Claude Code: a failing test's stack trace is copied, Ctrl+Alt+V opens the Promptline popup, Root cause first is picked, and the prompt, trace inside, fills Claude Code's input">
+          <source src="clip/clip-dark.webm" type="video/webm">
+          <source src="clip/clip-dark.mp4" type="video/mp4">
+        </video>
+        <button type="button" class="clip-toggle" id="clip-toggle" aria-label="Pause the clip" hidden>Pause</button>
       </div>
     </section>
 
@@ -687,14 +687,14 @@
         <a href="/code-signing/">Code signing policy</a>
       </nav>
     </div>
-    <div class="wrap"><p class="privacy" id="privacy"><b>Privacy.</b> This site sets no cookies, stores nothing in your browser, runs no analytics and loads nothing from other sites; its one script switches the page between light and dark and fades the screenshots in. It is hosted on GitHub Pages, which logs visitors' IP addresses for security (<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>), and the installers download from GitHub Releases. The coffee links go to Buy Me a Coffee, a separate site with its own privacy terms. Promptline itself makes one request: at startup and once a day it fetches promptline.cc/latest.json from GitHub Pages to see whether a newer version exists, sending nothing about you, and Settings → About turns it off; an update you accept downloads from GitHub Releases. The screenshots show a demo library. Questions go to the <a href="https://github.com/bekalpaslan/promptline/issues">issue tracker</a>.</p></div>
+    <div class="wrap"><p class="privacy" id="privacy"><b>Privacy.</b> This site sets no cookies, stores nothing in your browser, runs no analytics and loads nothing from other sites; its one script switches the page between light and dark, plays the clip for the theme showing, and fades the screenshots in. It is hosted on GitHub Pages, which logs visitors' IP addresses for security (<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>), and the installers download from GitHub Releases. The coffee links go to Buy Me a Coffee, a separate site with its own privacy terms. Promptline itself makes one request: at startup and once a day it fetches promptline.cc/latest.json from GitHub Pages to see whether a newer version exists, sending nothing about you, and Settings → About turns it off; an update you accept downloads from GitHub Releases. The screenshots show a demo library. Questions go to the <a href="https://github.com/bekalpaslan/promptline/issues">issue tracker</a>.</p></div>
   </footer>
 
   <script>
     // The page's one script. The theme switch pins light or dark for this
-    // visit (nothing is stored), and each tour tile rises in as it scrolls
-    // into view. Without it the page follows the system theme and shows
-    // everything at once.
+    // visit (nothing is stored), the hero clip plays for the theme showing,
+    // and each tour tile rises in as it scrolls into view. Without it the
+    // videos show their posters and the page shows everything at once.
     (() => {
       const root = document.documentElement;
       root.classList.add("js");
@@ -710,6 +710,7 @@
           r.tabIndex = on ? 0 : -1;
           if (on && focus) r.focus();
         });
+        syncClip();
       };
       radios.forEach((r, i) => {
         r.addEventListener("click", () => choose(r.dataset.theme, false));
@@ -720,6 +721,26 @@
           choose(radios[(i + step + radios.length) % radios.length].dataset.theme, true);
         });
       });
+
+      // The hero clip: both videos wait (preload="none"); only the one for
+      // the theme showing plays, and nothing moves for reduced motion
+      // until asked, or after Pause
+      const clips = [...document.querySelectorAll(".clip video")];
+      const toggle = document.getElementById("clip-toggle");
+      let paused = matchMedia("(prefers-reduced-motion: reduce)").matches;
+      function syncClip() {
+        for (const v of clips) {
+          if (!paused && getComputedStyle(v).display !== "none") v.play().catch(() => {});
+          else v.pause();
+        }
+        toggle.textContent = paused ? "Play" : "Pause";
+        toggle.setAttribute("aria-label", paused ? "Play the clip" : "Pause the clip");
+        toggle.toggleAttribute("data-paused", paused);
+      }
+      toggle.addEventListener("click", () => { paused = !paused; syncClip(); });
+      matchMedia("(prefers-color-scheme: dark)").addEventListener("change", syncClip);
+      toggle.hidden = false;
+
       choose("system", false);
       group.hidden = false;
 
