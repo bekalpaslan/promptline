@@ -40,10 +40,11 @@ backlog, not from another audit, unless asked.
   project (see *Architecture map* below).
 - `site/` — the one-page website at https://promptline.cc, published to
   GitHub Pages by `.github/workflows/pages.yml` on every push to `master`
-  that touches it (the workflow copies `docs/og.png` and
-  `docs/screenshots/*.png` in; `site/` holds no binaries). Plain HTML and
-  CSS on the tokens from `design/tokens.json`: a hero with the manager and
-  popup composed, then a tour with one chapter per screen, each shot in
+  that touches it (the workflow copies `docs/og.png`, `docs/screenshots/*.png`
+  and the clip's video and posters from `docs/clip/` in; `site/` holds no
+  binaries). Plain HTML and CSS on the tokens from `design/tokens.json`:
+  a hero with the launch clip playing in the theme showing, then a tour
+  with one chapter per screen, each shot in
   both themes (only the one showing loads; the header's switch pins one
   for the visit, nothing stored). The screenshots and the social card
   are made, not taken: `npm run shots` (`e2e/shots.spec.ts`) stages each
@@ -70,9 +71,10 @@ backlog, not from another audit, unless asked.
   cookies, no remote fonts or scripts). `site/latest.json` is the updater
   feed that installed copies read at https://promptline.cc/latest.json;
   the release step writes it (Releasing step 6), never edit it by hand,
-  and a push that touches it deploys it. Preview it
-  with `python -m http.server` in `site/` after copying `docs/og.png` and
-  `docs/screenshots/*.png` in (both gitignored there). Live with HTTPS enforced since 2026-09-23;
+  and a push that touches it deploys it. Preview it with
+  `python -m http.server` in `site/` after copying `docs/og.png`,
+  `docs/screenshots/*.png` into `shots/` and `docs/clip/*` into `clip/`
+  (all gitignored there). Live with HTTPS enforced since 2026-09-23;
   DNS is at GoDaddy (four Pages A records, `www` CNAME). The bundle
   identifier stays `io.github.bekalpaslan.promptline` on purpose: it names
   the data folder, and a domain can lapse.

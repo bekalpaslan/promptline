@@ -4,8 +4,8 @@
 
 <p align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/popup-preview-dark.png">
-    <img src="docs/screenshots/popup-preview-light.png" width="400" alt="The Promptline popup: a search box, pinned prompts on Ctrl+1 to 5, packs with their groups, and a preview card showing Root cause first with the copied error already in place of {clipboard}">
+    <source media="(prefers-color-scheme: dark)" srcset="docs/clip/clip-dark.gif">
+    <img src="docs/clip/clip-light.gif" width="720" alt="Copy a failing test's stack trace in a terminal running Claude Code, press Ctrl+Alt+V, pick Root cause first, and the prompt with the trace inside fills Claude Code's input">
   </picture>
 </p>
 
