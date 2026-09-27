@@ -129,7 +129,8 @@ export function installMock(mode: string | null) {
     : []
   let packsArranged = !!showcase
   // The showcase follows the system theme, so a shot can ask for either
-  const config = { hotkey: "Ctrl+Alt+Space", theme: showcase ? "system" : "dark", density: "comfortable", scale: "100", font: "system" }
+  // The hotkey a new install registers (Settings' DEFAULT_HOTKEY), in the lowercase form Rust stores
+  const config = { hotkey: "ctrl+alt+v", theme: showcase ? "system" : "dark", density: "comfortable", scale: "100", font: "system" }
   const calls: Call[] = []
   const callbacks = new Map<number, (data: unknown) => void>()
   const listeners = new Map<string, number[]>()
