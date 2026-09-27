@@ -228,5 +228,8 @@ async function main(argv) {
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  process.exit(await main(process.argv.slice(2)))
+  // exitCode, not process.exit(): exiting while the TLS socket from a fetch
+  // is still closing trips a libuv assertion on Windows (async.c,
+  // UV_HANDLE_CLOSING), seen on the first --whoami run
+  process.exitCode = await main(process.argv.slice(2))
 }
