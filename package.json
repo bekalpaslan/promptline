@@ -18,6 +18,7 @@
     "test": "node --test tests/*.test.js",
     "test:e2e": "playwright test",
     "shots": "playwright test --config playwright.shots.config.ts",
+    "clip": "node scripts/clip-encode.mjs --check && playwright test --config playwright.clip.config.ts && node scripts/clip-encode.mjs",
     "update:trial": "node scripts/update-trial.mjs",
     "tokens": "node scripts/tokens.mjs",
     "tokens:check": "node scripts/tokens.mjs --check",
