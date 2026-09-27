@@ -51,3 +51,52 @@ test('the lead still names Ctrl+Alt+V as the default hotkey', () => {
   const text = read();
   assert.ok(text.includes('Ctrl+Alt+V'));
 });
+
+// ---- Task 2: "Why not…" after Install --------------------------------------
+
+test('"## Why not…" exists once, after Install and before Uninstall', () => {
+  const text = read();
+  const whyNotMatches = text.match(/^## Why not…$/gm) || [];
+  assert.equal(whyNotMatches.length, 1);
+
+  const installIdx = text.indexOf('\n## Install');
+  const whyNotIdx = text.indexOf('\n## Why not…');
+  const uninstallIdx = text.indexOf('\n## Uninstall');
+  assert.ok(installIdx !== -1, 'expected an "## Install" heading');
+  assert.ok(uninstallIdx !== -1, 'expected an "## Uninstall" heading');
+  assert.ok(whyNotIdx > installIdx, 'Why not… must come after Install');
+  assert.ok(whyNotIdx < uninstallIdx, 'Why not… must come before Uninstall');
+});
+
+test('the Why not… section holds exactly five answers naming the expected tools', () => {
+  const text = read();
+  const start = text.indexOf('## Why not…');
+  assert.ok(start !== -1);
+  const rest = text.slice(start + '## Why not…'.length);
+  const nextHeadingIdx = rest.indexOf('\n## ');
+  const section = nextHeadingIdx === -1 ? rest : rest.slice(0, nextHeadingIdx);
+
+  const answers = section.match(/^\*\*Why not .+\?\*\*/gm) || [];
+  assert.equal(answers.length, 5);
+
+  for (const tool of [
+    'Espanso',
+    'AutoHotkey',
+    'Raycast',
+    'slash commands',
+    'Cursor rules',
+    'Ditto',
+    'clipboard history',
+    'Notion',
+  ]) {
+    assert.ok(section.includes(tool), `expected the Why not… section to name ${tool}`);
+  }
+
+  assert.ok(section.includes('macOS only'));
+  assert.equal(section.includes('same on both platforms'), false);
+});
+
+test('the README no longer claims nobody has started a macOS port', () => {
+  const text = read();
+  assert.equal(text.includes('nobody has done it yet'), false);
+});
