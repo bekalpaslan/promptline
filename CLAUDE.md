@@ -50,6 +50,15 @@ backlog, not from another audit, unless asked.
   screen against the demo library (`?mock=showcase`, `e2e/showcase.json`)
   and writes `docs/screenshots/<shot>-<light|dark>.png` at 2x and
   `docs/og.png`; rerun it after a visible UI change and commit the images.
+  The launch clip is made the same way: `npm run clip`
+  (`e2e/clip.spec.ts` around `e2e/clip-terminal.html`, a Windows Terminal
+  running Claude Code with the real popup over it) captures each state as
+  counted frames, so a rerun writes the same frames, and
+  `scripts/clip-encode.mjs` encodes `docs/clip/clip-<light|dark>.{mp4,webm,gif}`
+  plus a `-poster.png`; rerun it after a visible popup change and commit the
+  files. It needs ffmpeg once (`winget install Gyan.FFmpeg`, like
+  `npx playwright install chromium` for the suite); without it the command
+  stops before capturing and says so.
   A new screen is a shot in that spec plus a chapter in `site/index.html`;
   the Download button is a plain link to
   `releases/latest/download/Promptline-setup.exe`, the stable-named copy
