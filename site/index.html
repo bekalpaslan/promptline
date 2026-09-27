@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Promptline — your prompt vocabulary, one hotkey away</title>
-  <meta name="description" content="A tiny Windows tray app: press a hotkey in any window, pick a prompt, and it's pasted with your clipboard already inside it. Free, open source, no telemetry.">
+  <meta name="description" content="A prompt library on a global hotkey for Windows: copy an error, press Ctrl+Alt+V, pick a prompt, and it pastes into Claude Code, Codex, Cursor or any window with your clipboard inside. Packs are JSON files an agent can write. No telemetry.">
   <link rel="canonical" href="https://promptline.cc/">
   <meta property="og:title" content="Promptline">
-  <meta property="og:description" content="Your prompt vocabulary, one hotkey away, in every window.">
+  <meta property="og:description" content="Copy the error. Hit the hotkey. Paste a real prompt.">
   <meta property="og:image" content="https://promptline.cc/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -206,9 +206,12 @@
     }
     .hero h1 {
       font-family: var(--display);
-      font-size: clamp(34px, 4.6vw, 54px); line-height: 1.06; margin: 0 0 18px; letter-spacing: -0.02em; max-width: 16ch;
+      font-size: clamp(34px, 4.6vw, 54px); line-height: 1.06; margin: 0 0 18px; letter-spacing: -0.02em; max-width: 20ch;
     }
-    .hero p.lead { font-size: 18px; color: var(--ink-2); margin: 0 0 28px; max-width: 46ch; }
+    .pitch { list-style: none; margin: 0 0 28px; padding: 0; display: grid; gap: 10px; max-width: 50ch; font-size: 16.5px; color: var(--ink-2); }
+    .pitch li { display: flex; gap: 10px; align-items: baseline; }
+    .pitch li::before { content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); transform: translateY(-2px); }
+    .pitch b { color: var(--ink); font-weight: 600; }
     .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
     .btn {
       display: inline-flex; align-items: center; gap: 8px;
@@ -400,8 +403,12 @@
     <section class="wrap hero">
       <div>
         <span class="eyebrow">Free for Windows 10 and 11</span>
-        <h1>Your prompt vocabulary, one hotkey away, in every window.</h1>
-        <p class="lead">A tiny tray app for people who talk to AI all day. Press the hotkey, pick a prompt, and it's pasted straight into the app you were just using, with your clipboard already inside it.</p>
+        <h1>Copy the error.<br> Hit the hotkey.<br> Paste a real prompt.</h1>
+        <ul class="pitch">
+          <li><span><b>Copy, hotkey, paste.</b> Copy a stack trace, press <kbd>Ctrl</kbd> <kbd>Alt</kbd> <kbd>V</kbd>, pick a prompt: it lands in Claude Code, Codex or Cursor with the trace already inside.</span></li>
+          <li><span><b>Packs are files agents write.</b> One JSON file per project; point Claude Code or Codex at your repo and it drafts the pack for you to review.</span></li>
+          <li><span><b>No telemetry, no account.</b> One update check, at startup and once a day, off in a click. Your prompts are JSON files on your disk.</span></li>
+        </ul>
         <div class="cta" id="install">
           <a class="btn btn-primary" href="https://github.com/bekalpaslan/promptline/releases/latest/download/Promptline-setup.exe">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -621,7 +628,7 @@
 
     <section class="wrap trust">
       <ul>
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span><b>No telemetry</b>One update check, off in a click. Once a day Promptline asks promptline.cc whether there's a newer version, and sends nothing about you. The only other thing that leaves your machine is what you paste.</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg><span><b>No telemetry, no account</b>One update check, off in a click. At startup and once a day Promptline asks promptline.cc whether there's a newer version, and sends nothing about you. The only other thing that leaves your machine is what you paste.</span></li>
         <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><span><b>Plain files you own</b>Prompts, packs and settings are JSON in one folder. Copy it to back up; copy it back to restore.</span></li>
         <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg><span><b>Open source, MIT</b>Rust and React on Tauri 2. Read it, build it, change it.</span></li>
       </ul>
