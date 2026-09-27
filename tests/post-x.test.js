@@ -142,6 +142,19 @@ test('CLI --dry-run prints the post and its length, needs no credentials and tou
   });
 });
 
+test('CLI reads notes written by PowerShell 5.1 redirection (UTF-16 LE with BOM)', async () => {
+  await withTmp((dir) => {
+    fs.writeFileSync(path.join(dir, 'notes.md'), Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from(NOTES.replace(/\n/g, '\r\n'), 'utf16le')]));
+    const result = spawnSync(process.execPath, [SCRIPT, '--version', '9.9.9', '--notes', path.join(dir, 'notes.md'), '--dry-run'], {
+      env: NO_CREDENTIALS,
+      encoding: 'utf8',
+    });
+    assert.equal(result.status, 0, result.stderr);
+    assert.ok(result.stdout.includes('(141 of 280 characters)'), result.stdout);
+    assert.ok(!result.stdout.includes('\0'), result.stdout);
+  });
+});
+
 test('CLI --text posts that file verbatim and refuses one over the limit', async () => {
   await withTmp((dir) => {
     fs.writeFileSync(path.join(dir, 'short.txt'), 'A short post.\r\n');

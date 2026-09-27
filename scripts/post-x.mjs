@@ -25,6 +25,7 @@ import crypto from "node:crypto"
 import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath, pathToFileURL } from "node:url"
+import { readText } from "./read-text.mjs"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
@@ -171,9 +172,9 @@ async function main(argv) {
 
   let text
   try {
-    text = textFile
-      ? fs.readFileSync(textFile, "utf8").replace(/\r\n/g, "\n").trim()
-      : postText({ version, notes: fs.readFileSync(notesFile, "utf8") })
+    // readText: PowerShell 5.1's `>` writes UTF-16, and a fs.readFileSync
+    // "utf8" of that has a NUL after every letter and no blank line
+    text = textFile ? readText(textFile).trim() : postText({ version, notes: readText(notesFile) })
   } catch (e) {
     return usageError(e.message)
   }
