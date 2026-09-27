@@ -307,7 +307,7 @@ build is still what ships.
    field), and confirm the assets landed with
    `gh release view vX.Y.Z --json assets --jq '.assets[].name'` (both
    installers and `Promptline-setup.exe`).
-6. The feed, last: `node scripts/latest-json.mjs --notes <notes>` (the
+6. The feed, after the release: `node scripts/latest-json.mjs --notes <notes>` (the
    same notes file as step 5) reads the `.sig` files from step 3 and
    writes `site/latest.json`. Before committing,
    `curl -sIL -o /dev/null -w "%{http_code}\n" <each url in it>` must print
@@ -315,11 +315,41 @@ build is still what ships.
    `Site: update feed for X.Y.Z`, push `master`, wait for the Pages run
    (`gh run list --workflow pages.yml --limit 1`), then
    `curl -s https://promptline.cc/latest.json` shows the new version
-   (Pages caches up to 10 minutes). Why last: the feed must never point at
+   (Pages caches up to 10 minutes). Why after: the feed must never point at
    a release or asset that doesn't exist yet, and its urls are the
    versioned `releases/download/vX.Y.Z/…` ones, never `latest/download`
    (same reason as winget).
-7. The post on X, once the feed is live: `node scripts/post-x.mjs --notes
+7. The package managers, once `curl -s https://promptline.cc/latest.json`
+   shows X.Y.Z. Both point at the versioned setup exe, never
+   `latest/download`, for the same reason as the feed, and both hash the
+   file on the release rather than a local build (a code-signed installer
+   has different bytes). Run from the maintainer's PowerShell with their
+   own GitHub login; no token is stored in either repo.
+   - winget (`AlpaslanBek.Promptline`, moniker `promptline`), with komac
+     (`winget install RussellBanks.Komac` once; if it isn't on PATH in a
+     fresh shell, its exe is at
+     `%LOCALAPPDATA%\Programs\Komac\bin\komac.exe`):
+     `$env:GITHUB_TOKEN = gh auth token; komac update AlpaslanBek.Promptline --version X.Y.Z --urls https://github.com/bekalpaslan/promptline/releases/download/vX.Y.Z/Promptline_X.Y.Z_x64-setup.exe --release-notes-url https://github.com/bekalpaslan/promptline/releases/tag/vX.Y.Z --submit`.
+     komac downloads the exe, hashes it, carries the rest of the manifest
+     over from the last version and opens the PR on `microsoft/winget-pkgs`
+     from the maintainer's fork (`gh repo fork microsoft/winget-pkgs
+     --clone=false` once, if it doesn't exist yet). Microsoft's validation
+     and a moderator merge it, in hours or days; nothing else waits on it.
+     A CLA-bot comment needs the maintainer's own
+     `@microsoft-github-policy-service agree` reply before validation
+     runs; a manifest-only validation error is fixed by pushing a
+     corrected file to the PR's branch and commenting `@wingetbot run`.
+   - Scoop (`bekalpaslan/scoop-bucket`, checked out beside this repo as
+     `..\scoop-bucket`):
+     `& "$(scoop prefix scoop)\bin\checkver.ps1" -App promptline -Dir ..\scoop-bucket\bucket -Update`
+     reads the version from the feed and rewrites `version`, `url` and
+     `hash` (it downloads the exe to hash it); then in `..\scoop-bucket`,
+     `git commit -am "promptline: Update to version X.Y.Z"` and `git push`.
+     Scoop users get it on their next `scoop update`; `scoop update
+     promptline` runs the manifest's uninstaller script during the bump,
+     but its `$cmd -eq 'uninstall'` guard skips the real removal, so the
+     data folder is never touched.
+8. The post on X, once the feed is live: `node scripts/post-x.mjs --notes
    <notes> --dry-run` (the same notes file again) prints the post, the
    notes' lead paragraph without its "Builds on" sentence, then
    `Promptline X.Y.Z: <release page>`, and its weighted length. Read it;
@@ -337,7 +367,7 @@ build is still what ships.
    Why after the feed: the post is the one step that reaches people, so
    everything it points at (the release, the installers, the update) is
    already live.
-8. If windows, commands, events or storage changed since the last map
+9. If windows, commands, events or storage changed since the last map
    refresh, refresh the architecture map against the tagged commit (its
    own commit, pushed after).
 
