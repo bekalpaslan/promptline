@@ -3,6 +3,7 @@
 //
 //   node scripts/post-x.mjs --notes <notes.md> [--version X.Y.Z]
 //                           [--text <file>] [--dry-run]
+//   node scripts/post-x.mjs --whoami
 //
 // The post is the notes' lead paragraph (the same file steps 5 and 6 take),
 // minus the "Builds on vX.Y.Z" sentence and markdown links, then a line
@@ -18,6 +19,10 @@
 // because its tokens don't expire, so the step is one command with no
 // login flow; OAuth 2.0 user tokens last two hours and need a refresh.
 //
+// `--whoami` signs a read of the account behind the keys and prints its
+// handle: the check that the four values are right and belong to the
+// account meant to post, without posting. Run it when the keys are new.
+//
 // Before posting, the release page must answer 200: a post must never
 // carry a link that 404s (the feed rule, Releasing step 6). A 201 prints
 // the post's url; anything else prints the response and exits 1.
@@ -31,6 +36,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 
 export const REPO = "bekalpaslan/promptline"
 export const API_URL = "https://api.x.com/2/tweets"
+export const ME_URL = "https://api.x.com/2/users/me"
 /** The limit for an account without Premium; weighted, see postLength. */
 export const MAX_LENGTH = 280
 
@@ -146,6 +152,16 @@ export async function createPost({ text, credentials, apiUrl = API_URL }) {
   return JSON.parse(body).data.id
 }
 
+/** GETs the account the credentials belong to; resolves to
+ *  { id, name, username }. */
+export async function whoAmI({ credentials, meUrl = ME_URL }) {
+  const authorization = oauthHeader({ method: "GET", url: meUrl, credentials })
+  const response = await fetch(meUrl, { headers: { authorization } })
+  const body = await response.text()
+  if (response.status !== 200) throw new Error(`post-x: X answered ${response.status}: ${body}`)
+  return JSON.parse(body).data
+}
+
 function usageError(message) {
   console.error(`post-x: ${message}`)
   return 1
@@ -157,6 +173,15 @@ async function main(argv) {
     return i >= 0 ? argv[i + 1] : undefined
   }
   const dryRun = argv.includes("--dry-run")
+  if (argv.includes("--whoami")) {
+    try {
+      const me = await whoAmI({ credentials: credentialsFromEnv(), meUrl: flag("--me-url") ?? ME_URL })
+      console.log(`the keys post as @${me.username} (${me.name}, id ${me.id})`)
+      return 0
+    } catch (e) {
+      return usageError(e.message)
+    }
+  }
   const notesFile = flag("--notes")
   const textFile = flag("--text")
   if (!notesFile && !textFile) return usageError("--notes <file> (or --text <file>) is required")

@@ -255,6 +255,42 @@ test('CLI posts the text as JSON with an OAuth header once the release page answ
   );
 });
 
+test('CLI --whoami signs a GET of /2/users/me and names the account', async () => {
+  const seen = [];
+  await withServer(
+    (req, res) => {
+      seen.push({ method: req.method, url: req.url, auth: req.headers.authorization });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ data: { id: '42', name: 'Promptline', username: 'promptline_cc' } }));
+    },
+    async (base) => {
+      const result = await run(['--whoami', '--me-url', `${base}/2/users/me`], CREDENTIALS);
+      assert.equal(result.status, 0, result.stderr);
+      assert.ok(result.stdout.includes('@promptline_cc (Promptline, id 42)'), result.stdout);
+      assert.deepEqual(seen.map((r) => [r.method, r.url]), [['GET', '/2/users/me']]);
+      assert.ok(seen[0].auth.startsWith('OAuth oauth_consumer_key="key"'), seen[0].auth);
+    },
+  );
+});
+
+test('CLI --whoami reports a 401 with its body, and needs the credentials', async () => {
+  await withServer(
+    (req, res) => {
+      res.writeHead(401, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ title: 'Unauthorized', detail: 'bad signature' }));
+    },
+    async (base) => {
+      const bad = await run(['--whoami', '--me-url', `${base}/2/users/me`], CREDENTIALS);
+      assert.notEqual(bad.status, 0);
+      assert.ok(bad.stderr.includes('401'), bad.stderr);
+      assert.ok(bad.stderr.includes('bad signature'), bad.stderr);
+      const none = await run(['--whoami', '--me-url', `${base}/2/users/me`], NO_CREDENTIALS);
+      assert.notEqual(none.status, 0);
+      assert.ok(none.stderr.includes('X_API_KEY'), none.stderr);
+    },
+  );
+});
+
 test('CLI does not post when the release page is missing', async () => {
   const seen = [];
   await withServer(
