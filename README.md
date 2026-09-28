@@ -46,8 +46,9 @@ with Windows 11 and most Windows 10 machines), the installer downloads its
 bootstrapper, which is the one moment installation needs the network.
 
 The installers are not code-signed yet, so SmartScreen shows "Windows protected
-your PC" on first run — choose **More info → Run anyway**. Signing is on the
-way through SignPath Foundation's free programme for open-source projects; the
+your PC" on first run — choose **More info → Run anyway**. SignPath
+Foundation's free signing programme for open-source projects didn't accept a
+first application, and the project will apply again; the
 [Code signing policy](https://promptline.cc/code-signing/) says what will be
 signed and who approves it.
 
