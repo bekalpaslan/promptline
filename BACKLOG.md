@@ -9,6 +9,17 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   terminal-corruption / wrong-shape).
 - ~~**Export pack/library to file**~~ — **shipped 0.2.15** (`export_pack_file`;
   a pack's menu and Settings → Your library).
+- **Community packs as repo files** (shelved 2026-09-28, before any
+  work). The first step toward the library below, without the in-app
+  fetch: contributed packs in `packs/community/` with `author` and
+  `description`, CC0, a CI check for hidden characters and risky wording,
+  a page per pack on promptline.cc with its full text and a same-origin
+  download, imported through the existing checklist. **Why it's
+  shelved:** functionality ahead of reputation. A library and a submit
+  guide serve contributors the project doesn't have yet; pick it up when
+  people ask to share packs. Prompt injection through a pack's text (an
+  honest-looking instruction, not only hidden characters) needs its own
+  design pass when it comes back.
 - **Community pack library** (parked 2026-09-24 over safety and legal
   concerns). Packs as `library/<slug>.json` in the repo (the pack format
   plus `description` and `author`, which `parsePacks` already ignores),
