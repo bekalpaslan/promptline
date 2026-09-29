@@ -295,6 +295,10 @@ installers are on GitHub. If it saves you time,
 [buy me a coffee](https://buymeacoffee.com/hurryupbob); the **Sponsor**
 button at the top of the repository goes to the same page.
 
+Questions, ideas and the prompts you reach for most go to
+[Discussions](https://github.com/bekalpaslan/promptline/discussions); bugs
+go to the [issue tracker](https://github.com/bekalpaslan/promptline/issues).
+
 ## Credits
 
 - [Outfit](https://github.com/Outfitio/Outfit-Fonts), the UI font, by the
