@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Code signing policy — Promptline</title>
-  <meta name="description" content="How Promptline's Windows releases will be code-signed: what is signed, who approves it, and what the app sends over the network.">
-  <link rel="canonical" href="https://promptline.cc/code-signing/">
-  <meta property="og:title" content="Promptline code signing policy">
-  <meta property="og:url" content="https://promptline.cc/code-signing/">
+  <title>Posts — Promptline</title>
+  <meta name="description" content="Writing about prompts, packs and the tools around them, from the maker of Promptline.">
+  <link rel="canonical" href="https://promptline.cc/posts/">
+  <meta property="og:title" content="Promptline posts">
+  <meta property="og:url" content="https://promptline.cc/posts/">
   <meta property="og:image" content="https://promptline.cc/og.png">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
@@ -184,6 +184,9 @@
     .doc dl { margin: 0 0 14px; }
     .doc dt { font-weight: 600; color: var(--ink); margin-top: 10px; }
     .doc dd { margin: 2px 0 0; }
+    .doc .posts { list-style: none; padding: 0; }
+    .doc .posts li { margin: 0 0 18px; }
+    .doc .posts time { color: var(--ink-3); font-size: 14px; margin-left: 8px; }
   </style>
 </head>
 <body>
@@ -216,42 +219,11 @@
   </header>
 
   <main class="wrap doc">
-<h1>Code signing policy</h1>
-<p class="lead">Promptline's Windows releases are not code-signed yet.</p>
-<p>Promptline means to sign its Windows installers through the free programme <a href="https://signpath.org">SignPath Foundation</a> runs for open-source projects, on the <a href="https://signpath.io">SignPath.io</a> signing service. This page is the policy those signed releases will follow: what is signed, who approves it, and what the app sends over the network.</p>
-<p class="status" id="status"><b>Status.</b> Releases so far are unsigned. SignPath Foundation didn't accept the project's first application, in September 2026; the project will apply again, and this line will name the first signed release.</p>
-
-<h2>What is signed</h2>
-<p>Every Windows release carries two installers built from this repository's source: <code>Promptline_X.Y.Z_x64-setup.exe</code> (NSIS) and <code>Promptline_X.Y.Z_x64_en-US.msi</code>. A signed release is built by GitHub Actions from the release's version tag, on GitHub's own Windows runners, never on a personal machine; the unsigned releases so far were built on the maintainer's machine. In a signed release the app itself, <code>promptline.exe</code>, is signed before it is packed into each installer, and then each installer is signed, so the download and the program it installs carry the same signature.</p>
-<p>The certificate is issued to SignPath Foundation, so Windows names <b>SignPath Foundation</b> as the publisher. Its private key stays in SignPath's hardware security module; this project never holds it. Only binaries built from Promptline's own source are signed; files the installer builder takes from other open-source projects (NSIS's plug-ins, for example) may be included unsigned.</p>
-<p>Separately, each installer carries an updater signature made with the maintainer's own key, which stays on the maintainer's machine and never goes to GitHub. An installed copy of Promptline installs an update only if that signature matches the key built into it.</p>
-
-<h2>How a release is signed</h2>
-<ol>
-  <li>A version tag on <code>master</code> starts the build in GitHub Actions.</li>
-  <li>The build sends <code>promptline.exe</code> to SignPath, and the maintainer approves the signing request on SignPath.</li>
-  <li>The installers are built around the signed program and sent to SignPath, and the maintainer approves that request too.</li>
-  <li>The maintainer checks the signatures, adds the updater signature, and publishes the release on GitHub.</li>
-</ol>
-<p>Nothing is signed without a person approving the request on SignPath.</p>
-
-<h2>Team roles</h2>
-<p>Promptline has one maintainer, who holds every role.</p>
-<dl>
-  <dt>Committers and reviewers</dt>
-  <dd>Alpaslan Bek (<a href="https://github.com/bekalpaslan">@bekalpaslan</a>) writes and reviews every change. Outside contributions arrive as pull requests and are merged only after that review.</dd>
-  <dt>Approvers</dt>
-  <dd>Alpaslan Bek (<a href="https://github.com/bekalpaslan">@bekalpaslan</a>) approves each signing request on SignPath.</dd>
-</dl>
-<p>Team members must use multi-factor authentication on GitHub and on SignPath.</p>
-
-<h2 id="privacy">Privacy</h2>
-<p><b>No telemetry. One update check, off in a click.</b> At startup and once a day Promptline fetches one small file, <code>https://promptline.cc/latest.json</code>, to see whether a newer release exists. The address is fixed and the same for everyone; the request carries nothing about you (no version, no ID, no usage). Like any web request it reaches GitHub Pages, which hosts promptline.cc and logs IP addresses, and it names the updater library as its user agent. If you accept an update, the installer downloads from GitHub Releases and is installed only if its signature matches the key built into the app. Turn the check off under <b>Settings → About</b>; <i>Check for updates</i> there still works by hand. Nothing else leaves your machine except what you paste.</p>
-<p>Promptline collects no user data and transfers none to other systems. The update check sends nothing about you, so the installer has no privacy page or opt-out of its own; Settings → About turns the check off. Your prompts, packs and settings are files on your own machine, and so is the log (<code>promptline.log</code>), which leaves it only if you attach it to a bug report.</p>
-<p>This site's own privacy note is at the foot of the <a href="/#privacy">home page</a>.</p>
-
-<h2>Questions and reports</h2>
-<p>Report a security problem through GitHub's private vulnerability reporting or to security@promptline.cc (<a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md">SECURITY.md</a>). Anything else goes to the <a href="https://github.com/bekalpaslan/promptline/issues">issue tracker</a>.</p>
+<h1>Posts</h1>
+<p class="lead">Writing about prompts, packs and the tools around them.</p>
+<ul class="posts">
+  <li><a href="/posts/prompt-vocabulary/">A prompt vocabulary</a> <time datetime="2026-09-29">29 September 2026</time><br>Name the prompts you keep retyping, and reach for them by name.</li>
+</ul>
   </main>
 
   <footer>
@@ -261,13 +233,14 @@
         <a href="https://github.com/bekalpaslan/promptline">Source</a>
         <a href="https://github.com/bekalpaslan/promptline/releases">Releases</a>
         <a href="https://github.com/bekalpaslan/promptline/discussions">Discussions</a>
+        <a href="/posts/" aria-current="page">Posts</a>
         <a href="/posts/">Posts</a>
         <a href="https://buymeacoffee.com/hurryupbob">Buy me a coffee</a>
         <a href="https://github.com/bekalpaslan/promptline/blob/master/README.md">Docs</a>
         <a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md">Security</a>
         <a href="https://github.com/bekalpaslan/promptline/blob/master/THIRD-PARTY-NOTICES.md">Third-party notices</a>
         <a href="/#privacy">Privacy</a>
-        <a href="/code-signing/" aria-current="page">Code signing policy</a>
+        <a href="/code-signing/">Code signing policy</a>
       </nav>
     </div>
   </footer>
