@@ -74,7 +74,7 @@ test('every site page\'s footer links Posts and Discussions', () => {
   for (const file of pages) {
     const links = nav(read(file), 'Links');
     const where = path.relative(SITE, file);
-    assert.ok(links.includes('href="/posts/"'), `${where}: footer has no Posts link`);
+    assert.equal(links.split('href="/posts/"').length - 1, 1, `${where}: footer should link Posts exactly once`);
     assert.ok(links.includes('href="https://github.com/bekalpaslan/promptline/discussions"'), `${where}: footer has no Discussions link`);
   }
 });
