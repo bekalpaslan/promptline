@@ -146,3 +146,10 @@ test('each post has one h1 and a publication date', () => {
 test('there is at least one post', () => {
   assert.ok(postSlugs().length >= 1, 'site/posts/ has no post directories');
 });
+
+// ---- links into the posts ----
+
+test('the home page links the team-pack post', () => {
+  const home = read(path.join(SITE, 'index.html'));
+  assert.equal(count(home, 'href="/posts/claude-code-writes-your-pack/"'), 1, 'site/index.html should link the team-pack post once, in the Generate chapter');
+});
