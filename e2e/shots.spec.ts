@@ -89,6 +89,25 @@ const SHOTS: Record<string, (page: Page, theme: Theme) => Promise<void>> = {
     await page.keyboard.type("cache the product list")
     await expect(page.getByText("Will paste")).toBeVisible()
   },
+  // The pack Claude Code wrote for the team-pack post, alone in the popup (e2e/post-pack.json; plan 10-07 moves it next to the post)
+  "post-pack": async (page, theme) => {
+    await openWindow(page, "popup", theme)
+    const pack = JSON.parse(readFileSync("e2e/post-pack.json", "utf8")) as {
+      name: string
+      prompts: { title: string; text: string; group?: string; tags?: string[] }[]
+    }
+    await page.evaluate((p) => {
+      const mock = (window as unknown as { __mock: { library: { snippets: unknown[] }; emit: (e: string, d?: unknown) => void } }).__mock
+      mock.library.snippets = p.prompts.map((q, i) => ({
+        id: `post-${i}`, title: q.title, text: q.text, tags: q.tags ?? [], pack: p.name,
+        group: q.group ?? "", uses: 0, pinned: false, pinnedAt: 0, configValues: {},
+      }))
+      mock.emit("popup-shown")
+    }, pack)
+    await expect(page.getByRole("option").first()).toBeVisible()
+    // Only this pack: none of the showcase titles remain
+    await expect(page.getByRole("option", { name: "Root cause first" })).toHaveCount(0)
+  },
   // A pack's prompts as cards, the clipboard and saved values filled in
   "manager-overview": async (page, theme) => {
     await acmeShop(page, theme)
