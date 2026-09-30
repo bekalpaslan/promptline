@@ -89,10 +89,10 @@ const SHOTS: Record<string, (page: Page, theme: Theme) => Promise<void>> = {
     await page.keyboard.type("cache the product list")
     await expect(page.getByText("Will paste")).toBeVisible()
   },
-  // The pack Claude Code wrote for the team-pack post, alone in the popup (e2e/post-pack.json; plan 10-07 moves it next to the post)
+  // The pack Claude Code wrote for the team-pack post, alone in the popup (site/posts/claude-code-writes-your-pack/pack.json, offered for download beside the post)
   "post-pack": async (page, theme) => {
     await openWindow(page, "popup", theme)
-    const pack = JSON.parse(readFileSync("e2e/post-pack.json", "utf8")) as {
+    const pack = JSON.parse(readFileSync("site/posts/claude-code-writes-your-pack/pack.json", "utf8")) as {
       name: string
       prompts: { title: string; text: string; group?: string; tags?: string[] }[]
     }
