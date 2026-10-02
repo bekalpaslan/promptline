@@ -833,6 +833,15 @@ new folder is empty and would look fresh, but the library and its hotkey
 are still in the old one, and a `config.json` written now would stop the
 next launch's move from carrying the old one over.
 
+The manager holds the hotkey as unknown until `get_config` answers, and
+loads the config apart from the library, so a library that fails to load
+(its own notice) cannot leave the first-run banner, the gear's tooltip,
+the editor's empty-state hint and Settings naming a default the install
+never registered. While it is unknown they say nothing about a specific
+combination (the banner waits, the tooltip is just "Settings", the hint
+says "the popup hotkey") and Settings shows an empty field with no
+Reset button; a config that fails to load has its own notice.
+
 A combination the OS refuses at startup — another program owns it — is a
 notice, not a fatal error: the tray and the manager still come up, because
 Settings is the only place the user could fix it. Changing the hotkey
