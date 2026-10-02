@@ -1,11 +1,19 @@
 # Third-party notices
 
 Promptline is MIT-licensed (see `LICENSE`). The installer also carries the
-work of others. Two of them ask for their licence text to travel with the
+work of others. Three of them ask for their licence text to travel with the
 app, so it is reproduced here in full; the rest are listed with their
 licence.
 
-## Outfit (the UI font)
+## Inter (a UI font)
+
+Copyright 2016 The Inter Project Authors (https://github.com/rsms/inter)
+
+Bundled from the `@fontsource-variable/inter` package. This Font Software
+is licensed under the SIL Open Font License, Version 1.1, copied in full
+under Outfit below; the same licence covers both fonts.
+
+## Outfit (a UI font)
 
 Copyright 2021 The Outfit Project Authors (https://github.com/Outfitio/Outfit-Fonts)
 
