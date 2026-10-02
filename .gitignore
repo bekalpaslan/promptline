@@ -32,3 +32,6 @@ site/shots/
 
 # Copied in from docs/clip by the Pages workflow; local preview copies only
 site/clip/
+
+# Claude Code session state: plugin installs, local settings, harness worktrees
+.claude/
