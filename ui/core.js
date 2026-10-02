@@ -869,6 +869,13 @@
     return 'dark';
   }
 
+  // The palette (Settings calls it Theme; the light/dark choice above is
+  // Mode). "indigo" is the one alternative; anything else, including a
+  // config written before the field existed, is the default, "instrument".
+  function resolvePalette(pref) {
+    return pref === 'indigo' ? 'indigo' : 'instrument';
+  }
+
   function normalizeTag(raw) {
     return (raw || '').toLowerCase().replace(/[^a-z0-9_-]+/g, '');
   }
@@ -1011,6 +1018,7 @@
     normalizeTag,
     plural,
     resolveTheme,
+    resolvePalette,
     fmtHotkey,
     releaseNotesBlocks,
   };

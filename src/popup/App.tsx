@@ -1187,7 +1187,7 @@ export function App() {
             ref={previewCardRef}
             id="popup-preview"
             role="tooltip"
-            className="fixed z-10 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-popover p-2 text-ui leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
+            className="fixed z-10 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-(--code-ground) p-2 text-ui leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
             style={{ left, top, width, maxHeight: cap }}
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
             onMouseLeave={onItemMouseLeave}

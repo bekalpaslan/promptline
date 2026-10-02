@@ -70,7 +70,7 @@ export const chipVariants = cva(
     // Resting and active grounds are exclusive: a dark: tint would outrank
     // tag-fill, since variant utilities sort after plain ones
     compoundVariants: [
-      { tone: "tag", active: false, className: "border-transparent tag-tint dark:tag-tint-dark" },
+      { tone: "tag", active: false, className: "tag-tint" },
       { tone: "tag", active: true, className: "tag-fill" },
     ],
     defaultVariants: { tone: "neutral", size: "sm", active: false, add: false },

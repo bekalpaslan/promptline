@@ -871,7 +871,7 @@ export function Sidebar() {
         <button
           type="button"
           aria-haspopup="menu"
-          className="flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+          className="sidebar-new flex h-9 w-full cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-dashed border-border bg-background text-ui font-semibold text-muted-foreground transition-colors hover:border-primary hover:text-primary"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect()
             openNewMenu(r.left, r.bottom + 4)

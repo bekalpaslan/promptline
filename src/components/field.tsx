@@ -25,7 +25,7 @@ export const fieldVariants = cva(
 // focus colour on the border while a query is set.
 export const searchBoxClass = (active?: boolean) =>
   cn(
-    "flex h-8 shrink-0 items-center gap-1.5 rounded-lg border bg-background px-2 text-ui focus-within:border-(--focus)",
+    "flex h-8 shrink-0 items-center gap-1.5 rounded-(--search-radius) border bg-background px-2 text-ui focus-within:border-(--focus)",
     active ? "border-(--focus)" : "border-input"
   )
 

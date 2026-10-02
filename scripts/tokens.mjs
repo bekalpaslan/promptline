@@ -8,6 +8,12 @@
 // `/* @tokens <theme> … */` and `/* @tokens end */` markers; everything
 // outside the markers is hand-written and left alone.
 //
+// A second theme (BEHAVIOR.md → Theming) is a sibling file in the same
+// format, design/<id>.tokens.json, rendered the same way into the regions
+// marked `@tokens <id> light` and `@tokens <id> dark`, which sit under
+// `:root[data-theme="<id>"]` in index.css. PALETTES lists them; the first
+// is the default theme and the only one that emits the font stack.
+//
 // The design-system artifact holds the same file at project/tokens.json.
 // Repo -> page: publish design/tokens.json there. Page -> repo: no script can
 // reach the artifact (it needs a Claude session), so ask Claude to pull it
@@ -28,6 +34,13 @@ import { fileURLToPath } from "node:url"
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 export const TOKENS_PATH = path.join(root, "design", "tokens.json")
 export const CSS_PATH = path.join(root, "src", "index.css")
+
+/** The themes the app ships, in Settings order. `prefix` is what the
+ *  index.css markers carry before the light/dark id ("" for the default). */
+export const PALETTES = [
+  { id: "instrument", file: TOKENS_PATH, prefix: "" },
+  { id: "indigo", file: path.join(root, "design", "indigo.tokens.json"), prefix: "indigo " },
+]
 
 /** Artifact token name → the CSS custom properties it feeds (shadcn's names
  *  plus the app's own). A token absent here is documentation only. */
@@ -58,9 +71,16 @@ export const MAP = {
   "param-field-soft": ["param-field-bg"],
   "param-config": ["param-config"],
   "param-config-soft": ["param-config-bg"],
+  "code-ground": ["code-ground"],
   "shadow-segment": ["shadow-segment"],
   "shadow-menu": ["shadow-pop"],
   "shadow-pop": ["shadow-shell"],
+  // mix: percentages a chip mixes its tag hue at (see index.css tag-tint)
+  "chip-tint": ["chip-tint"],
+  "chip-edge": ["chip-edge"],
+  // radius: strings, one value for both light and dark
+  "radius-2": ["radius"],
+  "radius-search": ["search-radius"],
 }
 
 /** Text on ground, with the WCAG floor each pair must clear in every theme.
@@ -69,6 +89,7 @@ export const CONTRAST = [
   ["ink", "surface-0", 4.5], ["ink", "surface-sunk", 4.5], ["ink", "surface-raised", 4.5], ["ink", "selection", 4.5], ["ink", "hover", 4.5],
   ["ink-2", "surface-0", 4.5], ["ink-2", "surface-sunk", 4.5], ["ink-2", "surface-raised", 4.5], ["ink-2", "selection", 4.5],
   ["ink-3", "surface-0", 4.5], ["ink-3", "surface-sunk", 4.5],
+  ["ink-2", "code-ground", 4.5],
   ["on-btn-primary", "btn-primary", 4.5],
   ["danger", "surface-0", 4.5], ["danger", "danger-soft", 4.5], ["on-danger", "danger", 4.5],
   ["warn", "surface-0", 4.5], ["warn", "surface-sunk", 4.5],
@@ -112,38 +133,52 @@ export function contrastFailures(tokens) {
   return out
 }
 
-/** The generated lines for one theme (no markers, no indentation). */
-export function render(tokens, theme) {
+/** Every token the renderer reads: colours and shadows carry a value per
+ *  theme; mix percentages too; radii are one string for both. */
+export function allTokens(tokens) {
+  return [...tokens.color.tokens, ...(tokens.shadow?.tokens ?? []), ...(tokens.mix?.tokens ?? []), ...tokens.radius.tokens]
+}
+
+/** The generated lines for one theme (no markers, no indentation). The font
+ *  stack goes out only for the default theme's first region (`font`); the
+ *  radii, being one value per theme file, only in its first region. */
+export function render(tokens, theme, { font = true } = {}) {
   const first = tokens.color.themes[0].id
   const lines = []
-  if (theme === first) lines.push(`--app-font: ${tokens.type.families.sans};`)
-  const entries = [...tokens.color.tokens, ...(tokens.shadow?.tokens ?? [])]
-  for (const t of entries) {
+  if (theme === first && font) lines.push(`--app-font: ${tokens.type.families.sans};`)
+  for (const t of allTokens(tokens)) {
+    if (typeof t.value === "string" && theme !== first) continue
     for (const v of MAP[t.name] ?? []) lines.push(`--${v}: ${themeValue(t, theme, first)};`)
-  }
-  if (theme === first) {
-    const r = tokens.radius.tokens.find((t) => t.name === "radius-2")
-    if (r) lines.push(`--radius: ${r.value};`)
   }
   return lines
 }
 
-const marker = (theme) => `/* @tokens ${theme}: generated from design/tokens.json by \`npm run tokens\`; edit the JSON, not these lines */`
+const marker = (id) => `/* @tokens ${id}: generated from design/tokens.json by \`npm run tokens\`; edit the JSON, not these lines */`
 const END = "/* @tokens end */"
 
-/** css with each theme's region replaced; keeps the file's line endings and indentation. */
-export function apply(css, tokens) {
+/** css with each theme's region replaced; keeps the file's line endings and
+ *  indentation. `prefix` goes before the theme id in the marker (PALETTES). */
+export function apply(css, tokens, { prefix = "", font = true } = {}) {
   const eol = css.includes("\r\n") ? "\r\n" : "\n"
   let out = css
   for (const { id } of tokens.color.themes) {
-    const start = out.indexOf(marker(id))
-    if (start < 0) throw new Error(`src/index.css has no "@tokens ${id}" marker`)
+    const start = out.indexOf(marker(prefix + id))
+    if (start < 0) throw new Error(`src/index.css has no "@tokens ${prefix + id}" marker`)
     const end = out.indexOf(END, start)
-    if (end < 0) throw new Error(`src/index.css: "@tokens ${id}" region has no end marker`)
+    if (end < 0) throw new Error(`src/index.css: "@tokens ${prefix + id}" region has no end marker`)
     const indent = /(^|\n)([ \t]*)$/.exec(out.slice(0, start))?.[2] ?? "    "
-    const body = render(tokens, id).map((l) => indent + l).join(eol)
-    out = out.slice(0, start) + marker(id) + eol + body + eol + indent + END + out.slice(end + END.length)
+    const body = render(tokens, id, { font }).map((l) => indent + l).join(eol)
+    out = out.slice(0, start) + marker(prefix + id) + eol + body + eol + indent + END + out.slice(end + END.length)
   }
+  return out
+}
+
+/** css with every theme in PALETTES applied. */
+export function applyAll(css, palettes = PALETTES) {
+  let out = css
+  palettes.forEach((p, i) => {
+    out = apply(out, readTokens(p.file), { prefix: p.prefix, font: i === 0 })
+  })
   return out
 }
 
@@ -154,34 +189,33 @@ export function apply(css, tokens) {
 export function renderShim(tokens) {
   const lines = [`--app-font: ${tokens.type.families.sans};`]
   for (const [name, vars] of Object.entries(MAP)) for (const v of vars) lines.push(`--${v}: var(--${name});`)
-  const r = tokens.radius.tokens.find((t) => t.name === "radius-2")
-  if (r) lines.push(`--radius: var(--${r.name});`)
   const head = "/* generated by scripts/tokens.mjs renderShim: shadcn variables -> artifact tokens */"
   return [head, ":root, .dark {", ...lines.map((l) => "  " + l), "}", ""].join("\n")
 }
 
-export function readTokens() {
-  return JSON.parse(fs.readFileSync(TOKENS_PATH, "utf8"))
+export function readTokens(file = TOKENS_PATH) {
+  return JSON.parse(fs.readFileSync(file, "utf8"))
 }
 
 function main(argv) {
   const check = argv.includes("--check")
-  const tokens = readTokens()
   const shimAt = argv.indexOf("--shim")
   if (shimAt >= 0) {
     const out = argv[shimAt + 1]
     fs.mkdirSync(path.dirname(out), { recursive: true })
-    fs.writeFileSync(out, renderShim(tokens))
+    fs.writeFileSync(out, renderShim(readTokens()))
     console.log("wrote " + path.relative(root, out))
     return 0
   }
-  const failures = contrastFailures(tokens)
-  if (failures.length) {
-    console.error("design/tokens.json: contrast below floor\n  " + failures.join("\n  "))
-    return 1
+  for (const p of PALETTES) {
+    const failures = contrastFailures(readTokens(p.file))
+    if (failures.length) {
+      console.error(`${path.relative(root, p.file)}: contrast below floor\n  ` + failures.join("\n  "))
+      return 1
+    }
   }
   const css = fs.readFileSync(CSS_PATH, "utf8")
-  const next = apply(css, tokens)
+  const next = applyAll(css)
   if (next === css) { console.log("src/index.css is up to date"); return 0 }
   if (check) { console.error("src/index.css is out of date: run `npm run tokens`"); return 1 }
   fs.writeFileSync(CSS_PATH, next)

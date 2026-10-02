@@ -233,6 +233,8 @@ interface PromptlineCore {
   /** "1 prompt", "2 prompts"; pass the plural for an irregular word */
   plural(n: number, word: string, pluralWord?: string): string
   resolveTheme(pref: string | null | undefined, systemDark: boolean): "light" | "dark"
+  /** The saved palette as `data-theme` on <html>: "indigo", or "instrument" for anything else */
+  resolvePalette(pref: string | null | undefined): "instrument" | "indigo"
   fmtHotkey(combo: string): string
   /** Release notes (markdown) as blocks for the update offer: ### headings, - items, paragraphs; inline marks and link targets dropped */
   releaseNotesBlocks(markdown: string | null | undefined): { kind: "heading" | "item" | "text"; text: string }[]

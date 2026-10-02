@@ -205,6 +205,20 @@ test("the preview flags a clipboard carrying hidden characters", async ({ page }
   await expect(page.getByRole("tooltip").getByText("hidden text")).toHaveCount(0)
 })
 
+test("the popup paints the saved theme on first load, from the mirrored preference, before asking Rust", async ({ page }) => {
+  // The manager mirrors the palette to localStorage like the mode; the popup
+  // keys <html> on it in the boot script, so a summon never flashes Instrument
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "instrument")
+  await page.addInitScript(() => localStorage.setItem("palette", "indigo"))
+  await page.reload()
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "indigo")
+  await expect(search(page)).toBeVisible()
+  // The search box is Indigo's pill
+  await expect
+    .poll(() => page.getByRole("search").first().evaluate((e) => getComputedStyle(e).borderRadius))
+    .toBe("999px")
+})
+
 test("groups follow the library's order, as the manager arranges them, not A–Z", async ({ page }) => {
   const groupsIn = (pack: string) =>
     page.getByRole("group", { name: pack, exact: true }).getByRole("group").evaluateAll((els) => els.map((e) => e.getAttribute("aria-label")))

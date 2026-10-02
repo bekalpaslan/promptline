@@ -41,7 +41,7 @@ export function App() {
   // null until get_config answers: showing a default here would be wrong for
   // every install that registered something else (see the Init effect)
   const [hotkey, setHotkeyState] = useState<string | null>(null)
-  const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100", font: "system" })
+  const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", palette: "instrument", density: "comfortable", scale: "100", font: "system" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
   const [view, setView] = useState<View>({ kind: "prompt" })
   // One list order for the sidebar and the overview, so a drag that switches
@@ -335,6 +335,7 @@ export function App() {
       const merged = { ...prefs, ...next }
       setPrefs(merged)
       localStorage.setItem("theme", merged.theme)
+      localStorage.setItem("palette", merged.palette)
       localStorage.setItem("density", merged.density)
       localStorage.setItem("scale", merged.scale)
       localStorage.setItem("font", merged.font)
@@ -342,6 +343,7 @@ export function App() {
       try {
         await invoke("save_prefs", {
           theme: merged.theme,
+          palette: merged.palette,
           density: merged.density,
           scale: merged.scale,
           font: merged.font,
@@ -404,12 +406,14 @@ export function App() {
         const theme = config.theme === "light" || config.theme === "system" ? config.theme : "dark"
         const loaded: Prefs = {
           theme,
+          palette: C.resolvePalette(config.palette),
           density: config.density || "comfortable",
           scale: config.scale || "100",
           font: config.font || "system",
         }
         setPrefs(loaded)
         localStorage.setItem("theme", loaded.theme)
+        localStorage.setItem("palette", loaded.palette)
         localStorage.setItem("density", loaded.density)
         localStorage.setItem("scale", loaded.scale)
         localStorage.setItem("font", loaded.font)

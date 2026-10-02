@@ -1065,6 +1065,14 @@ test('hotkeyKeyName is the vocabulary lib.rs parses: letters, digits, F1–F12, 
 
 // ---- theme ------------------------------------------------------------------------------
 
+test('resolvePalette: indigo is the one alternative, anything else is instrument', () => {
+  assert.equal(core.resolvePalette('indigo'), 'indigo');
+  assert.equal(core.resolvePalette('instrument'), 'instrument');
+  assert.equal(core.resolvePalette(undefined), 'instrument');
+  assert.equal(core.resolvePalette(null), 'instrument');
+  assert.equal(core.resolvePalette('Indigo'), 'instrument');
+});
+
 test('resolveTheme: system follows the OS, explicit choices win, legacy values are dark', () => {
   assert.equal(core.resolveTheme('system', true), 'dark');
   assert.equal(core.resolveTheme('system', false), 'light');

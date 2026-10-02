@@ -13,6 +13,7 @@ export interface Config {
   /** The user has arranged the packs: `packs` is in their order (C.orderPacks) */
   packsArranged?: boolean
   theme?: string
+  palette?: string
   density?: string
   scale?: string
   font?: string

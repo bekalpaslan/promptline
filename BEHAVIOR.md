@@ -865,24 +865,49 @@ message; it used to be recorded and fail at Apply.
 
 ## Theming
 
-**The theme is a setting, not a switch.** System / Light / Dark is a
-segmented control in Settings → Appearance next to density, font and
-scale, where the other appearance choices already were; the sidebar used
-to carry a Light / Dark toggle in its footer, permanent real estate for a
-choice made once. System is the default for a fresh install and follows
-Windows live (`resolveTheme` in `ui/core.js` turns the saved preference
-and the `prefers-color-scheme` match into the class; `applyPrefs` listens
-for the OS switching). An explicit choice saved by an older build stays
-what it was, and the legacy "sand"/"sundown" values still read as dark.
-With the footer gone and the "Prompts" heading with it (the window is
-Promptline and the list is visibly prompts; the landmark keeps its name
-through `aria-label`), the sidebar is search, Display, New and the tree,
-nothing else; the Settings gear sits at the top-right of the pane, above
-whatever the pane shows.
+**Two axes: a theme and a mode.** The theme is a palette with a light and
+a dark side; the mode picks the side. Settings → Appearance has Theme
+(Instrument, the default, or Indigo) as a select and Mode (System / Light
+/ Dark) as a segmented control, next to density, font and scale, where the
+other appearance choices already were; the sidebar used to carry a Light /
+Dark toggle in its footer, permanent real estate for a choice made once.
+System is the default mode for a fresh install and follows Windows live
+(`resolveTheme` in `ui/core.js` turns the saved preference and the
+`prefers-color-scheme` match into the class; `applyPrefs` listens for the
+OS switching). An explicit choice saved by an older build stays what it
+was, and the legacy "sand"/"sundown" values still read as dark. Instrument
+is the theme every install had before there was a choice: a config without
+the field reads as Instrument (`resolvePalette`), so an upgrade changes
+nothing. In config.json and localStorage the mode is still `theme` and
+the theme is `palette`, the names from before there was a second axis;
+renaming the key would have meant a migration for a label. With the footer
+gone and the "Prompts" heading with it (the window is Promptline and the
+list is visibly prompts; the landmark keeps its name through
+`aria-label`), the sidebar is search, Display, New and the tree, nothing
+else; the Settings gear sits at the top-right of the pane, above whatever
+the pane shows.
 
 `.dark` on `<html>` swaps CSS custom properties. It also sets `color-scheme`,
 which is what makes native UI the webview paints itself — scrollbars, `<select>`
 popups, form controls — follow the theme. Tokens alone leave those light.
+`data-theme` on `<html>` picks the palette the same way: `design/tokens.json`
+is Instrument and `design/indigo.tokens.json` is Indigo, the same format
+and the same contrast floors, rendered by `npm run tokens` into regions
+under `:root[data-theme="indigo"]` and `:root[data-theme="indigo"].dark`
+(the attribute outranks `.dark` alone, so each theme keeps both modes).
+Indigo is the AI Chat UI Pro look: a near-black ground, indigo as the one
+accent, 10 px controls and 14 px cards. Three things differ between the
+themes beyond colours, each a token so the components stay one definition:
+the search boxes' radius (`radius-search`, a pill in Indigo), how much of
+a tag's hue a resting chip's ground and edge carry (`chip-tint` and
+`chip-edge`, the `mix` section; Indigo's chips are tint plus edge, the
+file's state pills), and the ground under the popup's hover card
+(`code-ground`, the file's code block). The one exception is the sidebar's
+New button: Instrument keeps it a dashed outline, because the accent is
+text only there, and Indigo fills it, because the file leads with a filled
+primary; a `data-theme` rule in `index.css` does that, not a token. A
+theme never chooses the font: Inter ships beside Outfit under Font, and
+picking Indigo leaves the font where it was.
 
 Three things are tokens on purpose and not literals, because each failed in
 the theme it was not tuned for: the placeholder-kind colours
