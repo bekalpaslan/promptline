@@ -420,17 +420,41 @@ fn open_in_explorer(args: &[&str]) -> Result<(), String> {
     Ok(())
 }
 
-/// Open an https URL in the user's default browser. Restricted to https so a
-/// URL can never turn into a command or a local executable, and handed to
-/// the shell as one string rather than to an `explorer` command line that
-/// would parse it itself.
+/// The links the app opens, which is every link `open_url` will open: the
+/// "Buy me a coffee" button in Settings. A new button adds its address
+/// here; the webview cannot name one of its own.
+const OPENABLE_URLS: &[&str] = &["https://buymeacoffee.com/hurryupbob"];
+
+/// The listed address `url` stands for, or None. The scheme is compared
+/// without regard to case (a URL's scheme is case-insensitive), the rest
+/// exactly, so nothing is opened that isn't on the list.
+fn openable_url(url: &str) -> Option<&'static str> {
+    const HTTPS: &str = "https://";
+    let rest = url
+        .get(..HTTPS.len())
+        .filter(|scheme| scheme.eq_ignore_ascii_case(HTTPS))
+        .map(|_| &url[HTTPS.len()..])?;
+    OPENABLE_URLS
+        .iter()
+        .copied()
+        .find(|listed| listed[HTTPS.len()..] == *rest)
+}
+
+/// Open one of the app's own links in the user's default browser. Only the
+/// addresses in `OPENABLE_URLS` are opened, so a URL can never turn into a
+/// command, a local executable or a page the app never meant to show, and
+/// the listed string, not the caller's, is handed to the shell as one
+/// string rather than to an `explorer` command line that would parse it
+/// itself.
 #[tauri::command]
 pub(crate) fn open_url(url: String) -> Result<(), String> {
-    if !url.starts_with("https://") {
-        return Err("Only https links can be opened".into());
-    }
+    let Some(listed) = openable_url(&url) else {
+        return Err("That link isn't one Promptline opens".into());
+    };
     #[cfg(windows)]
-    platform::open_url(&url)?;
+    platform::open_url(listed)?;
+    #[cfg(not(windows))]
+    let _ = listed;
     Ok(())
 }
 
@@ -587,6 +611,38 @@ mod tests {
             .unwrap_err()
             .contains("missing.json"));
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn wr04_open_url_admits_only_the_links_the_app_opens() {
+        let coffee = "https://buymeacoffee.com/hurryupbob";
+        assert_eq!(openable_url(coffee), Some(coffee));
+        // The scheme's case is not part of the address
+        assert_eq!(
+            openable_url("HTTPS://buymeacoffee.com/hurryupbob"),
+            Some(coffee)
+        );
+        // Everything else is refused: other https pages, other paths and
+        // hosts that merely start with the listed one, other schemes
+        for refused in [
+            "https://example.com",
+            "https://buymeacoffee.com/someone-else",
+            "https://buymeacoffee.com/hurryupbob/extra",
+            "https://buymeacoffee.com/hurryupbob@evil.example",
+            "https://buymeacoffee.com.evil.example/hurryupbob",
+            "http://buymeacoffee.com/hurryupbob",
+            "file:///C:/Windows/System32/calc.exe",
+            "ms-msdt:/id",
+            "calc.exe",
+            "",
+            "https:/",
+            "éééé://buymeacoffee.com/hurryupbob",
+            // A multi-byte character across the scheme's length is no panic
+            "abcdefgé",
+        ] {
+            assert_eq!(openable_url(refused), None, "{refused}");
+        }
+        assert!(open_url("https://example.com".into()).is_err());
     }
 
     #[test]
