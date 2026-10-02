@@ -6,7 +6,9 @@ import reactHooks from "eslint-plugin-react-hooks"
 import globals from "globals"
 
 export default tseslint.config(
-  { ignores: ["dist/", "design/dist/", "node_modules/", "src-tauri/", "ui/core.js", "tests/"] },
+  // The last four are plugin installs and Playwright output, gitignored and
+  // never the product; eslint walks the whole tree and ignores nothing by itself
+  { ignores: ["dist/", "design/dist/", "node_modules/", "src-tauri/", "ui/core.js", "tests/", ".claude/", ".github/", "test-results/", "playwright-report/"] },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   { files: ["scripts/**/*.mjs", "design/vite.config.ts"], languageOptions: { globals: { ...globals.node } } },
