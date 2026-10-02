@@ -1,5 +1,5 @@
 {
-  "name": "Promptline Tool UI",
+  "name": "Promptline Indigo",
   "version": 1,
   "color": {
     "themes": [
@@ -17,23 +17,23 @@
         "name": "surface-0",
         "value": {
           "light": "#ffffff",
-          "dark": "#15181b"
+          "dark": "#0b0c11"
         },
         "usage": "Page and popup list ground."
       },
       {
         "name": "surface-sunk",
         "value": {
-          "light": "#f5f6f8",
-          "dark": "#101214"
+          "light": "#f4f5fa",
+          "dark": "#12141b"
         },
         "usage": "Sidebar, popup hint bar, segmented-control track."
       },
       {
         "name": "control",
         "value": {
-          "light": "#f5f6f8",
-          "dark": "#22272c"
+          "light": "#eef0f7",
+          "dark": "#1f2129"
         },
         "usage": "Ground of secondary buttons, selects, tag chips and the create form fields (shadcn secondary and muted). Sunk in light, one step raised in dark so controls stay visible on the dark shell."
       },
@@ -41,7 +41,7 @@
         "name": "surface-raised",
         "value": {
           "light": "#ffffff",
-          "dark": "#1c2024"
+          "dark": "#12141b"
         },
         "usage": "Cards, menus, dialogs, the hover preview card. Always with a line edge."
       },
@@ -49,87 +49,87 @@
         "name": "segment-active",
         "value": {
           "light": "#ffffff",
-          "dark": "#22272c"
+          "dark": "#25272d"
         },
         "usage": "The raised tile of the active segment in the theme switch; the track is surface-sunk."
       },
       {
         "name": "hover",
         "value": {
-          "light": "#eef0f3",
-          "dark": "#22272c"
+          "light": "#eceef6",
+          "dark": "#1a1c23"
         },
         "usage": "Mouse hover on rows and ghost buttons. Never the keyboard selection colour."
       },
       {
         "name": "selection",
         "value": {
-          "light": "#e3f2fb",
-          "dark": "#1c2f3b"
+          "light": "#e9ebff",
+          "dark": "#1e213c"
         },
         "usage": "Keyboard-selected list row fill in the popup and sidebar; text stays ink."
       },
       {
         "name": "ink",
         "value": {
-          "light": "#1a1d21",
-          "dark": "#e8ebee"
+          "light": "#0f1118",
+          "dark": "#e6e7e7"
         },
         "usage": "Body copy and row titles on surface-0, surface-sunk, surface-raised and selection."
       },
       {
         "name": "ink-2",
         "value": {
-          "light": "#586270",
-          "dark": "#a3abb5"
+          "light": "#5c6275",
+          "dark": "#919294"
         },
         "usage": "Secondary text: prompt first lines, pack names, counts. 4.5:1 on all surfaces in both themes."
       },
       {
         "name": "ink-3",
         "value": {
-          "light": "#636d79",
-          "dark": "#8a929c"
+          "light": "#636a7e",
+          "dark": "#8c8d90"
         },
         "usage": "Hints, placeholders, micro-labels. 4.5:1 on surface-0 and surface-sunk in both themes."
       },
       {
         "name": "line",
         "value": {
-          "light": "#e3e6e9",
-          "dark": "#2a2f35"
+          "light": "#e6e8f0",
+          "dark": "#1c1d22"
         },
         "usage": "Every hairline edge: rows, cards, kbd, menus."
       },
       {
         "name": "line-strong",
         "value": {
-          "light": "#c9cfd6",
-          "dark": "#3a4048"
+          "light": "#cfd3e3",
+          "dark": "#28292e"
         },
         "usage": "Input edges, the popup shell edge, the segmented-control track edge. Decorative, about 1.6:1 on surface-0: state is carried by the focus ring and fills, never by this edge alone."
       },
       {
         "name": "accent",
         "value": {
-          "light": "#0a76a6",
-          "dark": "#4cc2f5"
+          "light": "#5563f0",
+          "dark": "#7380ff"
         },
         "usage": "Links, match highlighting, the active segment label. Text only, never a fill."
       },
       {
         "name": "focus",
         "value": {
-          "light": "#0b7fb4",
-          "dark": "#4cc2f5"
+          "light": "#7380ff",
+          "dark": "#7380ff"
         },
         "usage": "2px solid focus ring outside the control on :focus-visible. 3:1 on every surface in both themes."
       },
       {
         "name": "btn-primary",
         "value": {
-          "light": "#1a1d21",
-          "dark": "#f2f4f6"
+          "light": "#5563f0",
+          "dark": "#5661f2"
         },
         "usage": "The one primary button fill: Paste, Apply, Import."
       },
@@ -137,23 +137,23 @@
         "name": "on-btn-primary",
         "value": {
           "light": "#ffffff",
-          "dark": "#15181b"
+          "dark": "#ffffff"
         },
         "usage": "Text and icon on btn-primary."
       },
       {
         "name": "danger",
         "value": {
-          "light": "#b93227",
-          "dark": "#ff7b6e"
+          "light": "#c0343a",
+          "dark": "#f2666b"
         },
         "usage": "Destructive text on danger-soft and surface-0; the confirmed-delete fill; error status text."
       },
       {
         "name": "danger-soft",
         "value": {
-          "light": "#fbeae8",
-          "dark": "#3a1f1c"
+          "light": "#fdedee",
+          "dark": "#2e1a1f"
         },
         "usage": "Resting fill under danger text on destructive buttons."
       },
@@ -161,79 +161,79 @@
         "name": "on-danger",
         "value": {
           "light": "#ffffff",
-          "dark": "#15181b"
+          "dark": "#0b0c11"
         },
         "usage": "Text on a danger fill."
       },
       {
         "name": "warn",
         "value": {
-          "light": "#b4530a",
-          "dark": "#f5a54b"
+          "light": "#8f5806",
+          "dark": "#ffba43"
         },
         "usage": "Pins, locks, the unset-config warning strip. Text and icon on surface-0 and surface-sunk."
       },
       {
         "name": "heading",
         "value": {
-          "light": "#586270",
-          "dark": "#a3abb5"
+          "light": "#5c6275",
+          "dark": "#919294"
         },
         "usage": "Module titles (Prompt, Preview, Settings cards) and group titles: ink-2, so structure reads from weight and placement, never from the accent (Ink first, hue second)."
       },
       {
         "name": "heading-strong",
         "value": {
-          "light": "#1a1d21",
-          "dark": "#e8ebee"
+          "light": "#0f1118",
+          "dark": "#ffffff"
         },
         "usage": "Pack titles: ink, one step above group and module titles by weight and colour."
       },
       {
         "name": "success",
         "value": {
-          "light": "#2b7a3b",
-          "dark": "#7bd389"
+          "light": "#167a4d",
+          "dark": "#38d48c"
         },
         "usage": "Saved and Pasted confirmations, text only, on surface-0."
       },
       {
         "name": "code-ground",
         "value": {
-          "light": "#ffffff",
-          "dark": "#1c2024"
+          "light": "#f4f5fa",
+          "dark": "#050609"
         },
         "usage": "The popup's hover preview card: where a prompt's text is read whole. Instrument keeps it on surface-raised; Indigo drops it to the file's code-block ground."
       },
       {
         "name": "param-builtin",
         "value": {
-          "light": "#0b6f9e",
-          "dark": "#63c8f2"
+          "light": "#0b7484",
+          "dark": "#4cd1e6"
         },
         "usage": "{clipboard}, {date}, {time} chip text on param-builtin-soft."
       },
       {
         "name": "param-builtin-soft",
         "value": {
-          "light": "#e3f2fb",
-          "dark": "#173040"
+          "light": "#e6f9fc",
+          "dark": "#13242b"
         },
         "usage": "Ground under a built-in placeholder chip and inserted clipboard text in the preview."
       },
       {
         "name": "param-field",
         "value": {
-          "light": "#8a5a05",
-          "dark": "#f0c25a"
+          "light": "#8f5806",
+          "dark": "#ffba43"
         },
         "usage": "Fill-in field chip text on param-field-soft, and the field label in the popup form."
       },
       {
         "name": "param-field-soft",
         "value": {
-          "light": "#fbf1dc",
-          "dark": "#3a2e12"
+          "light": "#fff4e1",
+          "dark": "#282117"
         },
         "usage": "Ground under a fill-in field chip and a filled value in the preview."
       },
@@ -379,27 +379,27 @@
     "tokens": [
       {
         "name": "radius-1",
-        "value": "2px",
+        "value": "6px",
         "usage": "Chips, tag pills, kbd."
       },
       {
         "name": "radius-2",
-        "value": "4px",
+        "value": "10px",
         "usage": "Buttons, inputs, list rows, the selection fill."
       },
       {
         "name": "radius-3",
-        "value": "6px",
+        "value": "14px",
         "usage": "Cards, menus, dialogs, the preview card."
       },
       {
         "name": "radius-4",
-        "value": "8px",
-        "usage": "The popup shell only."
+        "value": "20px",
+        "usage": "The popup shell only; the file's window corners."
       },
       {
         "name": "radius-search",
-        "value": "4px",
+        "value": "999px",
         "usage": "The two search boxes, the field each window is built around. Instrument keeps them at radius-2; Indigo makes them pills."
       }
     ]
@@ -409,23 +409,23 @@
       {
         "name": "shadow-pop",
         "value": {
-          "light": "0 8px 24px rgba(16, 24, 40, 0.16)",
-          "dark": "0 8px 24px rgba(0, 0, 0, 0.55)"
+          "light": "0 24px 80px rgba(0, 0, 0, 0.18)",
+          "dark": "0 24px 80px rgba(0, 0, 0, 0.4)"
         },
         "usage": "The popup shell, paired with a line-strong edge."
       },
       {
         "name": "shadow-menu",
         "value": {
-          "light": "0 4px 12px rgba(16, 24, 40, 0.10)",
-          "dark": "0 4px 12px rgba(0, 0, 0, 0.45)"
+          "light": "0 8px 24px rgba(15, 17, 24, 0.12)",
+          "dark": "0 8px 24px rgba(0, 0, 0, 0.5)"
         },
         "usage": "Context menus, the hover preview card, the Tab action panel."
       },
       {
         "name": "shadow-segment",
         "value": {
-          "light": "0 1px 2px rgba(16, 24, 40, 0.10)",
+          "light": "0 1px 2px rgba(15, 17, 24, 0.10)",
           "dark": "0 1px 2px rgba(0, 0, 0, 0.4)"
         },
         "usage": "Under the active segment tile only."
@@ -437,16 +437,16 @@
       {
         "name": "chip-tint",
         "value": {
-          "light": "12%",
-          "dark": "16%"
+          "light": "10%",
+          "dark": "10%"
         },
         "usage": "How much of a tag's hue a resting chip's ground carries (color-mix with transparent). Chips are tinted grounds, never outlines."
       },
       {
         "name": "chip-edge",
         "value": {
-          "light": "0%",
-          "dark": "0%"
+          "light": "35%",
+          "dark": "35%"
         },
         "usage": "How much of a tag's hue a resting chip's edge carries. 0% in Instrument: an edge marks a state only (tag-fill). Indigo's state pills are tint plus edge."
       }

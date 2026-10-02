@@ -6,7 +6,7 @@ import { SEGMENT_TRACK, Select, fieldVariants, segmentClass } from "@/components
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { C } from "@/lib/core"
-import { FONTS, fontStack } from "@/lib/prefs"
+import { FONTS, PALETTES, fontStack } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
 import { ImportCuration } from "./ImportCuration"
@@ -246,10 +246,27 @@ export function Settings() {
       </Card>
 
       <Card title="Appearance">
-        <Row label="Theme">
+        <Row label="Theme" htmlFor="setting-palette">
+          {/* The palette; each has a light and a dark side, picked by Mode below */}
+          <Select
+            size="sm"
+            id="setting-palette"
+            value={m.prefs.palette}
+            onChange={(e) => {
+              void m.savePrefs({ palette: e.target.value }).then(() => say("Theme updated"))
+            }}
+          >
+            {PALETTES.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.label}
+              </option>
+            ))}
+          </Select>
+        </Row>
+        <Row label="Mode">
           {/* A setting, not a switch: chosen once, so it lives with the other
               appearance choices rather than in the sidebar. System follows Windows */}
-          <div className={cn(SEGMENT_TRACK, "w-full max-w-xs")} role="radiogroup" aria-label="Theme">
+          <div className={cn(SEGMENT_TRACK, "w-full max-w-xs")} role="radiogroup" aria-label="Mode">
             {(
               [
                 { id: "system", label: "System", Icon: RiComputerLine },
@@ -320,8 +337,8 @@ export function Settings() {
           </Select>
         </Row>
         <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
-          Theme, font and scale apply everywhere immediately (popup on its next open); density applies to the
-          popup the next time it opens. System follows the Windows light or dark mode as it changes.
+          Theme, mode, font and scale apply everywhere immediately (popup on its next open); density applies to
+          the popup the next time it opens. System follows the Windows light or dark mode as it changes.
         </p>
       </Card>
 

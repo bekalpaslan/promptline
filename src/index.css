@@ -4,6 +4,7 @@
    runtime dependency and not only a dev tool */
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/outfit";
+@import "@fontsource-variable/inter";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -85,6 +86,7 @@
     --heading: #586270;
     --heading-strong: #1a1d21;
     --success: #2b7a3b;
+    --code-ground: #ffffff;
     --param-builtin: #0b6f9e;
     --param-builtin-bg: #e3f2fb;
     --param-field: #8a5a05;
@@ -94,7 +96,10 @@
     --shadow-shell: 0 8px 24px rgba(16, 24, 40, 0.16);
     --shadow-pop: 0 4px 12px rgba(16, 24, 40, 0.10);
     --shadow-segment: 0 1px 2px rgba(16, 24, 40, 0.10);
+    --chip-tint: 12%;
+    --chip-edge: 0%;
     --radius: 4px;
+    --search-radius: 4px;
     /* @tokens end */
     --module-border: color-mix(in srgb, var(--heading) 35%, transparent);
 }
@@ -130,6 +135,7 @@
     --heading: #a3abb5;
     --heading-strong: #e8ebee;
     --success: #7bd389;
+    --code-ground: #1c2024;
     --param-builtin: #63c8f2;
     --param-builtin-bg: #173040;
     --param-field: #f0c25a;
@@ -139,8 +145,124 @@
     --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.55);
     --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.45);
     --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --chip-tint: 16%;
+    --chip-edge: 0%;
     /* @tokens end */
     --module-border: color-mix(in srgb, var(--heading) 40%, transparent);
+}
+
+/* Indigo, the second theme (Settings → Appearance → Theme; BEHAVIOR.md →
+   Theming): `data-theme` on <html> picks the palette, `.dark` the mode, so
+   each theme has both modes. Values come from design/indigo.tokens.json
+   through the same script; the attribute selector outranks `.dark` on its
+   own, and `.dark[data-theme]` outranks both. */
+:root[data-theme="indigo"] {
+    /* @tokens indigo light: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #ffffff;
+    --sidebar: #f4f5fa;
+    --segment-track: #f4f5fa;
+    --secondary: #eef0f7;
+    --muted: #eef0f7;
+    --card: #ffffff;
+    --popover: #ffffff;
+    --segment-active: #ffffff;
+    --hover: #eceef6;
+    --accent: #e9ebff;
+    --foreground: #0f1118;
+    --card-foreground: #0f1118;
+    --popover-foreground: #0f1118;
+    --secondary-foreground: #0f1118;
+    --accent-foreground: #0f1118;
+    --muted-foreground: #5c6275;
+    --border: #e6e8f0;
+    --input: #cfd3e3;
+    --link: #5563f0;
+    --ring: #7380ff;
+    --focus: #7380ff;
+    --primary: #5563f0;
+    --primary-foreground: #ffffff;
+    --destructive: #c0343a;
+    --warn: #8f5806;
+    --heading: #5c6275;
+    --heading-strong: #0f1118;
+    --success: #167a4d;
+    --code-ground: #f4f5fa;
+    --param-builtin: #0b7484;
+    --param-builtin-bg: #e6f9fc;
+    --param-field: #8f5806;
+    --param-field-bg: #fff4e1;
+    --param-config: #9a2a8c;
+    --param-config-bg: #f9e6f5;
+    --shadow-shell: 0 24px 80px rgba(0, 0, 0, 0.18);
+    --shadow-pop: 0 8px 24px rgba(15, 17, 24, 0.12);
+    --shadow-segment: 0 1px 2px rgba(15, 17, 24, 0.10);
+    --chip-tint: 10%;
+    --chip-edge: 35%;
+    --radius: 10px;
+    --search-radius: 999px;
+    /* @tokens end */
+    --module-border: var(--border);
+}
+
+:root[data-theme="indigo"].dark {
+    /* @tokens indigo dark: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #0b0c11;
+    --sidebar: #12141b;
+    --segment-track: #12141b;
+    --secondary: #1f2129;
+    --muted: #1f2129;
+    --card: #12141b;
+    --popover: #12141b;
+    --segment-active: #25272d;
+    --hover: #1a1c23;
+    --accent: #1e213c;
+    --foreground: #e6e7e7;
+    --card-foreground: #e6e7e7;
+    --popover-foreground: #e6e7e7;
+    --secondary-foreground: #e6e7e7;
+    --accent-foreground: #e6e7e7;
+    --muted-foreground: #919294;
+    --border: #1c1d22;
+    --input: #28292e;
+    --link: #7380ff;
+    --ring: #7380ff;
+    --focus: #7380ff;
+    --primary: #5661f2;
+    --primary-foreground: #ffffff;
+    --destructive: #f2666b;
+    --warn: #ffba43;
+    --heading: #919294;
+    --heading-strong: #ffffff;
+    --success: #38d48c;
+    --code-ground: #050609;
+    --param-builtin: #4cd1e6;
+    --param-builtin-bg: #13242b;
+    --param-field: #ffba43;
+    --param-field-bg: #282117;
+    --param-config: #ea8fdc;
+    --param-config-bg: #3b1e37;
+    --shadow-shell: 0 24px 80px rgba(0, 0, 0, 0.4);
+    --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --chip-tint: 10%;
+    --chip-edge: 35%;
+    /* @tokens end */
+    --module-border: var(--border);
+}
+
+/* Indigo's one structural difference the tokens can't carry: the sidebar's
+   New is the filled accent button (the file's "+ New chat"), where Instrument
+   keeps it a dashed outline and the accent as text only. */
+:root[data-theme="indigo"] .sidebar-new {
+    border-style: solid;
+    border-color: transparent;
+    background-color: var(--primary);
+    color: var(--primary-foreground);
+}
+:root[data-theme="indigo"] .sidebar-new:hover {
+    border-color: transparent;
+    color: var(--primary-foreground);
+    filter: brightness(1.08);
 }
 
 /* Tag hues are tuned for dark surfaces (ui/core.js). A chip sets --tag to
@@ -153,11 +275,12 @@
 @utility tag-text-dark {
   color: var(--tag);
 }
+/* A resting chip: how much of the hue its ground and edge carry are the
+   theme's --chip-tint and --chip-edge (design/tokens.json "mix"), so one
+   utility serves both modes and both themes */
 @utility tag-tint {
-  background-color: color-mix(in srgb, var(--tag) 12%, transparent);
-}
-@utility tag-tint-dark {
-  background-color: color-mix(in srgb, var(--tag) 16%, transparent);
+  background-color: color-mix(in srgb, var(--tag) var(--chip-tint), transparent);
+  border-color: color-mix(in srgb, var(--tag) var(--chip-edge), transparent);
 }
 /* A chip whose #term is in the query: a deeper tint and a solid edge */
 @utility tag-fill {

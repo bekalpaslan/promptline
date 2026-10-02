@@ -244,6 +244,13 @@ fn default_theme() -> String {
     "system".into()
 }
 
+// The palette (Settings calls it Theme; `theme` above is its Mode, named
+// before there was a second axis). "instrument" is the look every install
+// had until the field existed; "indigo" is the alternative.
+fn default_palette() -> String {
+    "instrument".into()
+}
+
 fn default_density() -> String {
     "comfortable".into()
 }
@@ -288,6 +295,8 @@ pub(crate) struct Config {
     // webview profile changes; the manager mirrors them for the popup.
     #[serde(default = "default_theme")]
     pub(crate) theme: String,
+    #[serde(default = "default_palette")]
+    pub(crate) palette: String,
     #[serde(default = "default_density")]
     pub(crate) density: String,
     // UI scale percentage ("90" | "100" | "110" | "125"); rem tokens follow it
@@ -322,6 +331,7 @@ impl Default for Config {
             packs: Vec::new(),
             packs_arranged: false,
             theme: default_theme(),
+            palette: default_palette(),
             density: default_density(),
             scale: default_scale(),
             font: default_font(),
@@ -630,6 +640,7 @@ mod tests {
         assert_eq!(c.hotkey, "ctrl+alt+v");
         assert!(c.packs.is_empty());
         assert_eq!(c.theme, "system");
+        assert_eq!(c.palette, "instrument");
         assert_eq!(c.density, "comfortable");
         assert_eq!(c.scale, "100");
         assert_eq!(c.font, "system");

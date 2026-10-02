@@ -6,28 +6,41 @@ const tokens = require('../scripts/tokens.mjs');
 
 // ---- design/tokens.json → src/index.css -----------------------------------
 
-test('src/index.css matches design/tokens.json (run `npm run tokens` if not)', () => {
+test('src/index.css matches design/tokens.json and design/indigo.tokens.json (run `npm run tokens` if not)', () => {
   const css = fs.readFileSync(tokens.CSS_PATH, 'utf8');
-  assert.equal(tokens.apply(css, tokens.readTokens()), css);
+  assert.equal(tokens.applyAll(css), css);
 });
 
-test('every mapped token exists and every contrast pair clears its floor', () => {
-  const t = tokens.readTokens();
-  const names = new Set([...t.color.tokens, ...t.shadow.tokens].map((x) => x.name));
-  for (const name of Object.keys(tokens.MAP)) assert.ok(names.has(name), `MAP names a missing token: ${name}`);
-  assert.deepEqual(tokens.contrastFailures(t), []);
+test('every mapped token exists in every theme file and every contrast pair clears its floor', () => {
+  for (const p of tokens.PALETTES) {
+    const t = tokens.readTokens(p.file);
+    const names = new Set(tokens.allTokens(t).map((x) => x.name));
+    for (const name of Object.keys(tokens.MAP)) assert.ok(names.has(name), `${p.id}: MAP names a missing token: ${name}`);
+    assert.deepEqual(tokens.contrastFailures(t), [], p.id);
+  }
 });
 
-test('render emits one line per mapped property, the font and radius only in the first theme', () => {
+test('the two theme files declare the same tokens', () => {
+  const [a, b] = tokens.PALETTES.map((p) => tokens.allTokens(tokens.readTokens(p.file)).map((x) => x.name));
+  assert.deepEqual(b, a);
+});
+
+test('render emits one line per mapped property, the font in the first theme and the radii only there', () => {
   const t = tokens.readTokens();
   const light = tokens.render(t, 'light');
   const dark = tokens.render(t, 'dark');
   const mapped = Object.values(tokens.MAP).flat().length;
-  assert.equal(light.length, mapped + 2);
-  assert.equal(dark.length, mapped);
+  const radii = t.radius.tokens.filter((x) => tokens.MAP[x.name]).flatMap((x) => tokens.MAP[x.name]).length;
+  assert.equal(light.length, mapped + 1);
+  assert.equal(dark.length, mapped - radii);
   assert.ok(light[0].startsWith('--app-font:'));
-  assert.ok(light.at(-1).startsWith('--radius:'));
+  assert.ok(light.some((l) => l.startsWith('--radius: ')));
+  assert.ok(!dark.some((l) => l.startsWith('--radius: ')));
   assert.ok(dark.every((l) => /^--[a-z-]+: .+;$/.test(l)));
+  // The second theme's regions carry no font stack: Font is the user's own pref
+  const indigo = tokens.render(tokens.readTokens(tokens.PALETTES[1].file), 'light', { font: false });
+  assert.ok(!indigo.some((l) => l.startsWith('--app-font:')));
+  assert.ok(indigo.some((l) => l === '--search-radius: 999px;'));
 });
 
 test('apply keeps CRLF and indentation and is idempotent', () => {

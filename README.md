@@ -222,9 +222,10 @@ them, plus config values. Invisible until you want it.
   labelled for screen readers
 - **Settings** (⚙, top-right of the pane): record a hotkey by pressing it,
   then **Apply** it; autostart (a login launch stays in the tray; the
-  manager opens from the tray icon); theme (System / Light / Dark, System
-  follows Windows); popup density; UI font (Outfit / system / serif / mono); UI
-  scale (90–125%); and **Your library** — export the whole library to the
+  manager opens from the tray icon); theme (Instrument, the default, or
+  Indigo, each with a light and a dark side); mode (System / Light / Dark,
+  System follows Windows); popup density; UI font (system / Outfit / Inter /
+  serif / mono); UI scale (90–125%); and **Your library** — export the whole library to the
   clipboard or a file, import from the clipboard or a file, or **Open folder** to see the data folder
   (library, packs and the log file) in Explorer, plus per-pack rows to
   import from, export, or create that pack's file; and **About**, with the

@@ -211,7 +211,7 @@ test("a numbered copy of a field used in the library is not offered as a chip", 
 test("Settings replaces the pane and closes again", async ({ page }) => {
   await page.getByRole("button", { name: "Settings" }).click()
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible()
-  await expect(page.getByRole("radiogroup", { name: "Theme" })).toBeVisible()
+  await expect(page.getByRole("radiogroup", { name: "Mode" })).toBeVisible()
   await page.getByRole("button", { name: "Close settings" }).click()
   await expect(page.getByRole("heading", { name: "Settings" })).toHaveCount(0)
 })
@@ -228,13 +228,30 @@ test("a library that won't load leaves the hotkey the install actually has, not 
   await expect(page.getByRole("button", { name: "Reset to Ctrl+Alt+V" })).toBeVisible()
 })
 
-test("a theme choice is saved as a preference and applied to the document", async ({ page }) => {
+test("a mode choice is saved as a preference and applied to the document", async ({ page }) => {
   await page.getByRole("button", { name: "Settings" }).click()
-  await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Light" }).click()
+  await page.getByRole("radiogroup", { name: "Mode" }).getByRole("radio", { name: "Light" }).click()
   await expect.poll(() => calls(page, "save_prefs")).not.toHaveLength(0)
   const saved = (await calls(page, "save_prefs")).at(-1)!
   expect(saved.args).toMatchObject({ theme: "light" })
   await expect(page.locator("html")).not.toHaveClass(/dark/)
+})
+
+test("a theme choice is saved as the palette and keyed on the document, with the mode untouched", async ({ page }) => {
+  // A config from before the field reads as Instrument
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "instrument")
+  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("combobox", { name: "Theme" }).selectOption("indigo")
+  await expect.poll(() => calls(page, "save_prefs")).not.toHaveLength(0)
+  const saved = (await calls(page, "save_prefs")).at(-1)!
+  expect(saved.args).toMatchObject({ palette: "indigo", theme: "dark" })
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "indigo")
+  await expect(page.locator("html")).toHaveClass(/dark/)
+  // Indigo's one structural difference: the sidebar's New is the filled accent button
+  const newButton = page.getByRole("complementary", { name: "Prompts" }).getByRole("button", { name: "New" })
+  await expect
+    .poll(() => newButton.evaluate((b) => getComputedStyle(b).borderStyle))
+    .toBe("solid")
 })
 
 test("a first run shows the empty state and New → Pack makes one to name", async ({ page }) => {

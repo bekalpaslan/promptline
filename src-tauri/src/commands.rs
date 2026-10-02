@@ -463,6 +463,7 @@ pub(crate) fn save_prefs(
     app: AppHandle,
     state: State<AppState>,
     theme: String,
+    palette: String,
     density: String,
     scale: String,
     font: String,
@@ -470,6 +471,7 @@ pub(crate) fn save_prefs(
     let _guard = state.store.lock().unwrap();
     let mut config = load_config_from_disk(&app)?;
     config.theme = theme;
+    config.palette = palette;
     config.density = density;
     config.scale = scale;
     config.font = font;
