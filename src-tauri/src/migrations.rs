@@ -20,19 +20,25 @@ pub(crate) const LEGACY_HOTKEY: &str = "ctrl+shift+v";
 /// True only for a data folder with no earlier evidence of a run: no
 /// `config.json`, no `snippets.json`, and no pack file under `packs/`. The
 /// log file does not count — the log plugin creates it before this runs.
+///
+/// Fails toward "existing": a lock or permission error while looking is not
+/// evidence of absence. Wrongly calling an existing install fresh moves its
+/// hotkey for good; wrongly calling a fresh one existing only costs it
+/// Ctrl+Shift+V. Only a plain "not found" counts as nothing there.
 pub(crate) fn is_fresh_install(dir: &Path) -> bool {
-    if dir.join("config.json").exists() || dir.join("snippets.json").exists() {
-        return false;
+    for name in ["config.json", "snippets.json"] {
+        if !matches!(dir.join(name).try_exists(), Ok(false)) {
+            return false;
+        }
     }
     match fs::read_dir(dir.join("packs")) {
         Ok(entries) => !entries.flatten().any(|e| {
             e.path()
                 .extension()
                 .and_then(|ext| ext.to_str())
-                .is_some_and(|ext| ext == "json")
+                .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
         }),
-        // A missing or unreadable packs dir counts as none
-        Err(_) => true,
+        Err(e) => e.kind() == std::io::ErrorKind::NotFound,
     }
 }
 
@@ -71,17 +77,54 @@ fn pin_legacy_hotkey(dir: &Path) -> std::io::Result<bool> {
     }
 }
 
+/// The hotkey decision for the data folder at `dir`. True when startup may
+/// go on to write config.json: a fresh install, or an existing one whose
+/// hotkey is now recorded. False when an existing install could not be
+/// pinned (config.json held or read-only), which the caller must treat as
+/// "leave config.json alone this launch": a later save would otherwise
+/// write the new default into it.
+fn settle_in(dir: &Path) -> bool {
+    if is_fresh_install(dir) {
+        return true;
+    }
+    match pin_legacy_hotkey(dir) {
+        Ok(_) => true,
+        Err(e) => {
+            log::warn!("couldn't pin the old default hotkey into config.json: {e}");
+            false
+        }
+    }
+}
+
 /// Runs after the folder moves and before `ensure_packs_backed`, whose
 /// first save would otherwise write the new default into an install that
-/// never chose one.
-pub(crate) fn settle_default_hotkey(app: &AppHandle) {
-    let dir = data_dir(app);
-    if is_fresh_install(&dir) {
-        return;
+/// never chose one. `data_moved` is `migrate_data_dir`'s result: after a
+/// failed move the new folder is empty and looks fresh, but the library
+/// and its hotkey are still in the old one, and writing a config.json
+/// here would stop the next launch's move from carrying the old one over.
+///
+/// Returns whether startup may go on to save config.json. When it returns
+/// false, skip `ensure_packs_backed` for this launch and register
+/// `session_hotkey` instead of the loaded config's.
+pub(crate) fn settle_default_hotkey(app: &AppHandle, data_moved: bool) -> bool {
+    if !data_moved {
+        log::warn!("the data folder move failed; leaving config.json alone this launch");
+        return false;
     }
-    if let Err(e) = pin_legacy_hotkey(&dir) {
-        log::warn!("couldn't pin the old default hotkey into config.json: {e}");
-    }
+    settle_in(&data_dir(app))
+}
+
+/// The hotkey to register for a launch whose pin failed: the one
+/// config.json records when it can still be read, else the old default.
+/// Never the serde default, which is for fresh installs.
+pub(crate) fn session_hotkey(app: &AppHandle) -> String {
+    recorded_hotkey(&data_dir(app)).unwrap_or_else(|| LEGACY_HOTKEY.into())
+}
+
+fn recorded_hotkey(dir: &Path) -> Option<String> {
+    let text = fs::read_to_string(dir.join("config.json")).ok()?;
+    let value = serde_json::from_str::<serde_json::Value>(&text).ok()?;
+    value.get("hotkey")?.as_str().map(str::to_owned)
 }
 
 /// One-time migration from the v1 EasyPaste data directory: keep user-created
@@ -90,15 +133,16 @@ pub(crate) fn settle_default_hotkey(app: &AppHandle) {
 /// the project never owned) to `io.github.bekalpaslan.promptline`, which
 /// moves the data folder. Everything under the old folder is moved into
 /// the new one before anything else reads it; a failure is a notice, and
-/// the library stays where it was.
-pub(crate) fn migrate_data_dir(app: &AppHandle) {
+/// the library stays where it was. Returns false for that failure, so the
+/// hotkey decision can treat the install as an existing one.
+pub(crate) fn migrate_data_dir(app: &AppHandle) -> bool {
     let new_dir = data_dir(app);
     let Some(parent) = new_dir.parent() else {
-        return;
+        return true;
     };
     let old_dir = parent.join("com.promptline.app");
     if !old_dir.is_dir() {
-        return;
+        return true;
     }
     if let Err(e) = move_data_dir(&old_dir, &new_dir) {
         notify(
@@ -110,7 +154,9 @@ pub(crate) fn migrate_data_dir(app: &AppHandle) {
                 new_dir.display()
             ),
         );
+        return false;
     }
+    true
 }
 
 /// Move every entry of `old_dir` into `new_dir`, skipping names the new
@@ -375,6 +421,88 @@ mod tests {
             fs::read_to_string(dir.join("config.json")).unwrap(),
             truncated
         );
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wr02_a_packs_folder_that_cannot_be_listed_is_not_a_fresh_install() {
+        // read_dir fails with something other than NotFound (here: packs is
+        // a file); "unsure" must count as an existing install
+        let dir = temp_dir("wr02-unlistable-packs");
+        fs::write(dir.join("packs"), "not a folder").unwrap();
+        assert!(!is_fresh_install(&dir));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wr02_a_config_that_cannot_be_checked_is_not_a_fresh_install() {
+        // A directory where config.json should be: it exists, whatever it is
+        let dir = temp_dir("wr02-odd-config");
+        fs::create_dir_all(dir.join("config.json")).unwrap();
+        assert!(!is_fresh_install(&dir));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wr02_a_pack_file_counts_whatever_the_case_of_its_extension() {
+        let dir = temp_dir("wr02-upper-extension");
+        fs::create_dir_all(dir.join("packs")).unwrap();
+        fs::write(dir.join("packs").join("work.JSON"), "{}").unwrap();
+        assert!(!is_fresh_install(&dir));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wr02_a_folder_with_only_other_files_in_packs_is_still_fresh() {
+        let dir = temp_dir("wr02-packs-notes");
+        fs::create_dir_all(dir.join("packs")).unwrap();
+        fs::write(dir.join("packs").join("notes.txt"), "x").unwrap();
+        assert!(is_fresh_install(&dir));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wr01_a_fresh_install_may_write_its_config_and_nothing_is_pinned() {
+        let dir = temp_dir("wr01-fresh");
+        assert!(settle_in(&dir));
+        assert!(!dir.join("config.json").exists());
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wr01_an_existing_install_is_pinned_and_may_go_on() {
+        let dir = temp_dir("wr01-existing");
+        fs::write(dir.join("snippets.json"), "[]").unwrap();
+        assert!(settle_in(&dir));
+        assert_eq!(recorded_hotkey(&dir).as_deref(), Some("ctrl+shift+v"));
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wr01_a_failed_pin_tells_startup_to_leave_config_alone() {
+        // A directory where config.json should be makes the read fail with
+        // something other than NotFound, the way a held file does
+        let dir = temp_dir("wr01-unpinnable");
+        fs::write(dir.join("snippets.json"), "[]").unwrap();
+        fs::create_dir_all(dir.join("config.json")).unwrap();
+
+        assert!(!settle_in(&dir));
+        assert!(dir.join("config.json").is_dir(), "nothing was written");
+        // And no recorded hotkey means the session runs on the old default
+        assert_eq!(recorded_hotkey(&dir), None);
+        let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn wr01_the_session_hotkey_is_the_recorded_one_when_it_can_be_read() {
+        let dir = temp_dir("wr01-recorded");
+        fs::write(dir.join("config.json"), r#"{"hotkey": "ctrl+alt+space"}"#).unwrap();
+        assert_eq!(recorded_hotkey(&dir).as_deref(), Some("ctrl+alt+space"));
+
+        fs::write(dir.join("config.json"), r#"{"theme": "light"}"#).unwrap();
+        assert_eq!(recorded_hotkey(&dir), None);
+        fs::write(dir.join("config.json"), "{ truncated").unwrap();
+        assert_eq!(recorded_hotkey(&dir), None);
         let _ = fs::remove_dir_all(&dir);
     }
 }

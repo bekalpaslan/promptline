@@ -817,6 +817,22 @@ defaults, now Ctrl+Alt+V; the notice says the old hotkey is in the
 quarantined file. Settings' Reset offers Ctrl+Alt+V to every install, old
 or new, and its help text says who still has Ctrl+Shift+V.
 
+The decision fails toward "existing install", because the two mistakes
+are not equal: calling an existing install fresh moves its hotkey for
+good, while calling a fresh one existing only costs it Ctrl+Shift+V.
+`is_fresh_install` therefore counts only a plain "not found" as
+absence; a lock or permission error on `config.json`, `snippets.json` or
+`packs/` means existing. When the pin itself fails (`config.json` held
+for longer than the rename retries, or read-only), `settle_default_hotkey`
+returns false and startup does not call `ensure_packs_backed`, whose
+save would write the new default over the install's hotkey; the session
+registers the hotkey `config.json` still records, else Ctrl+Shift+V
+(`session_hotkey`), and the next launch tries the pin again. The same
+holds after a failed folder move (`migrate_data_dir` returns false): the
+new folder is empty and would look fresh, but the library and its hotkey
+are still in the old one, and a `config.json` written now would stop the
+next launch's move from carrying the old one over.
+
 A combination the OS refuses at startup — another program owns it — is a
 notice, not a fatal error: the tray and the manager still come up, because
 Settings is the only place the user could fix it. Changing the hotkey
