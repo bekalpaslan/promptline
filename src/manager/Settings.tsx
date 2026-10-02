@@ -184,7 +184,7 @@ export function Settings() {
             id="setting-hotkey"
             ref={hotkeyRef}
             readOnly
-            value={recording ? recordPreview : pending ? C.fmtHotkey(pending) : C.fmtHotkey(m.hotkey)}
+            value={recording ? recordPreview : pending ? C.fmtHotkey(pending) : m.hotkey ? C.fmtHotkey(m.hotkey) : ""}
             placeholder={recording ? "press a combination… (Esc cancels)" : ""}
             aria-describedby="setting-hotkey-help"
             spellCheck={false}
@@ -223,7 +223,7 @@ export function Settings() {
               {recording ? "Recording…" : "Record"}
             </Button>
           )}
-          {m.hotkey !== DEFAULT_HOTKEY && !pending && (
+          {m.hotkey !== null && m.hotkey !== DEFAULT_HOTKEY && !pending && (
             <Button size="compact" variant="secondary" onClick={() => setPending(DEFAULT_HOTKEY)}>
               Reset to {C.fmtHotkey(DEFAULT_HOTKEY)}
             </Button>

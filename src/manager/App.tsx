@@ -38,7 +38,9 @@ export function App() {
   const [genOpen, setGenOpen] = useState(false)
   const [update, setUpdate] = useState<UpdateState | null>(null)
   const [offerOpen, setOfferOpen] = useState(false)
-  const [hotkey, setHotkeyState] = useState("ctrl+alt+v")
+  // null until get_config answers: showing a default here would be wrong for
+  // every install that registered something else (see the Init effect)
+  const [hotkey, setHotkeyState] = useState<string | null>(null)
   const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", density: "comfortable", scale: "100", font: "system" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
   const [view, setView] = useState<View>({ kind: "prompt" })
@@ -386,7 +388,13 @@ export function App() {
           lib.snippets = snips
         }
         applyLibrary(lib)
-
+      } catch (e) {
+        if (cancelled) return
+        sayPersistent(`Couldn't load the library: ${e}`)
+      }
+      // Its own try: a library that won't load must not leave the hotkey,
+      // the packs' registry and the preferences unset
+      try {
         const config = await invoke<Config>("get_config")
         if (cancelled) return
         setHotkeyState(config.hotkey)
@@ -409,7 +417,7 @@ export function App() {
         if (!config.popupSeen) setFirstRun("show")
       } catch (e) {
         if (cancelled) return
-        sayPersistent(`Couldn't load the library: ${e}`)
+        sayPersistent(`Couldn't load your settings: ${e}`)
       }
       // Anything Rust hit before this window was listening (a quarantined
       // file, a refused hotkey) is shown now and stays until dismissed
@@ -562,18 +570,20 @@ export function App() {
     [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
   )
 
-  const fmtHotkey = C.fmtHotkey(hotkey)
+  // null until the config has loaded: the banner, the tooltip and the hints
+  // say nothing about the hotkey rather than name one that may not be bound
+  const fmtHotkey = hotkey ? C.fmtHotkey(hotkey) : null
 
   return (
     <ManagerCtx.Provider value={api}>
       <div className="flex h-dvh flex-col bg-background text-foreground">
-        {firstRun !== "hidden" && (
+        {firstRun !== "hidden" && (firstRun === "done" || fmtHotkey) && (
           <div className="flex items-center gap-2 border-b border-border bg-primary/8 px-4 py-2 text-ui text-primary">
             {firstRun === "done" ? (
               <span className="text-(--success)">✓ That's it — pick a prompt and it pastes right where you were.</span>
             ) : (
               <span>
-                Press <Keys combo={fmtHotkey} />{" "}
+                Press <Keys combo={fmtHotkey ?? ""} />{" "}
                 in any app to open your prompts — try it now
               </span>
             )}
@@ -601,7 +611,7 @@ export function App() {
                 size="icon-xs"
                 aria-label="Settings"
                 aria-pressed={settingsOpen}
-                title={`Settings — popup hotkey: ${C.fmtHotkey(hotkey)}`}
+                title={fmtHotkey ? `Settings — popup hotkey: ${fmtHotkey}` : "Settings"}
                 className={cn("text-muted-foreground", settingsOpen && "bg-secondary text-foreground")}
                 onClick={() => showSettings(!settingsOpen)}
               >

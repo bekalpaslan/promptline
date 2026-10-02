@@ -27,6 +27,10 @@
 // Commands it doesn't know resolve to null and are logged to the console,
 // so a new command shows up there instead of failing silently.
 //
+// `?mock=library-error` is an install upgraded from 0.2.16 whose library
+// can't be read: get_snippets throws, and get_config still answers with the
+// hotkey it kept, ctrl+shift+v.
+//
 // `?mock=store` is a store build: `update.supported` is false, same as
 // `--no-default-features`. It still seeds the normal library — only
 // `mode === "empty"` empties it, `mode === "showcase"` is unchanged.
@@ -130,7 +134,7 @@ export function installMock(mode: string | null) {
   let packsArranged = !!showcase
   // The showcase follows the system theme, so a shot can ask for either
   // The hotkey a new install registers (Settings' DEFAULT_HOTKEY), in the lowercase form Rust stores
-  const config = { hotkey: "ctrl+alt+v", theme: showcase ? "system" : "dark", density: "comfortable", scale: "100", font: "system" }
+  const config = { hotkey: mode === "library-error" ? "ctrl+shift+v" : "ctrl+alt+v", theme: showcase ? "system" : "dark", density: "comfortable", scale: "100", font: "system" }
   const calls: Call[] = []
   const callbacks = new Map<number, (data: unknown) => void>()
   const listeners = new Map<string, number[]>()
@@ -164,7 +168,10 @@ export function installMock(mode: string | null) {
   }
 
   const commands: Record<string, (a: Record<string, unknown>) => unknown> = {
-    get_snippets: () => snapshot(),
+    get_snippets: () => {
+      if (mode === "library-error") throw "the library file couldn't be read"
+      return snapshot()
+    },
     get_config: () => ({ ...config, packs, packsArranged, popupSeen: true }),
     take_notices: () => [],
     get_clipboard_text: () => mock.clipboard,

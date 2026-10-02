@@ -172,7 +172,7 @@ export function Editor() {
       <EmptyState
         icon={RiFileTextLine}
         title="Select a prompt to edit it"
-        hint={`Or press ${C.fmtHotkey(m.hotkey)} in any app to paste one`}
+        hint={m.hotkey ? `Or press ${C.fmtHotkey(m.hotkey)} in any app to paste one` : "Or use the popup hotkey in any app to paste one"}
         actions={[
           { label: "New prompt", onClick: () => void m.newPrompt(), primary: true },
           { label: "Generate pack with AI…", onClick: () => m.openGenerate() },

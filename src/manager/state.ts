@@ -49,7 +49,8 @@ export interface ManagerApi {
   packMeta: PackMeta[]
   activeId: string | null
   selection: Set<string>
-  hotkey: string
+  /** The registered hotkey as Rust stores it; null until get_config has answered */
+  hotkey: string | null
   prefs: Prefs
   view: View
   /** Show a pack's or a group's prompts in the pane; the prompt selection clears */

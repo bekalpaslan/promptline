@@ -216,6 +216,18 @@ test("Settings replaces the pane and closes again", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Settings" })).toHaveCount(0)
 })
 
+test("a library that won't load leaves the hotkey the install actually has, not the new default", async ({ page }) => {
+  // WR-03: the hotkey and the rest of the config load on their own, so a
+  // failed get_snippets can't leave Settings naming Ctrl+Alt+V on an install
+  // that registered Ctrl+Shift+V
+  await open(page, "manager", "library-error")
+  await expect(page.getByText(/Couldn't load the library/)).toBeVisible()
+  await expect(page.getByRole("button", { name: "Settings" })).toHaveAttribute("title", "Settings — popup hotkey: Ctrl+Shift+V")
+  await page.getByRole("button", { name: "Settings" }).click()
+  await expect(page.getByRole("textbox", { name: "Global hotkey" })).toHaveValue("Ctrl+Shift+V")
+  await expect(page.getByRole("button", { name: "Reset to Ctrl+Alt+V" })).toBeVisible()
+})
+
 test("a theme choice is saved as a preference and applied to the document", async ({ page }) => {
   await page.getByRole("button", { name: "Settings" }).click()
   await page.getByRole("radiogroup", { name: "Theme" }).getByRole("radio", { name: "Light" }).click()
