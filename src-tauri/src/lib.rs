@@ -23,7 +23,7 @@ mod store;
 mod update;
 
 use commands::resolve_hotkey;
-use migrations::{migrate_data_dir, migrate_v1_data, settle_default_hotkey};
+use migrations::{migrate_data_dir, migrate_v1_data, session_hotkey, settle_default_hotkey};
 use packs::ensure_packs_backed;
 use paste::{is_resize_drag, persist_popup_size, show_popup};
 use store::{data_dir, load_config_from_disk, notify, Notice};
@@ -272,15 +272,22 @@ pub fn run() {
                 }
             }
 
-            migrate_data_dir(handle);
+            let data_moved = migrate_data_dir(handle);
             migrate_v1_data(handle);
             // Before anything saves config.json: an install that never
             // recorded a hotkey keeps the old default (the new one is for
             // fresh installs)
-            settle_default_hotkey(handle);
-            // Catches packs that predate file backing, so they get their file
-            // without waiting for the next save to touch them
-            ensure_packs_backed(handle);
+            let hotkey_settled = settle_default_hotkey(handle, data_moved);
+            if hotkey_settled {
+                // Catches packs that predate file backing, so they get their
+                // file without waiting for the next save to touch them
+                ensure_packs_backed(handle);
+            } else {
+                // An existing install whose old hotkey couldn't be pinned:
+                // its first save would write the new default over it, so
+                // this launch saves nothing here. Next launch tries again.
+                log::warn!("startup left config.json and pack backing for the next launch");
+            }
 
             // Register the configured global hotkey (fall back to default on bad
             // config). A refusal — another program owns the combination — must
@@ -291,14 +298,19 @@ pub fn run() {
                 .state::<AppState>()
                 .popup_seen
                 .store(config.popup_seen, Ordering::Relaxed);
-            let shortcut = resolve_hotkey(&config.hotkey);
+            let hotkey = if hotkey_settled {
+                config.hotkey.clone()
+            } else {
+                session_hotkey(handle)
+            };
+            let shortcut = resolve_hotkey(&hotkey);
             if let Err(e) = handle.global_shortcut().register(shortcut) {
                 notify(
                     handle,
                     "hotkey-failed",
                     format!(
                         "Couldn't register the hotkey {} ({e}). Another program probably owns it — choose a different combination under Settings → Global hotkey.",
-                        config.hotkey
+                        hotkey
                     ),
                 );
             }
