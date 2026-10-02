@@ -35,3 +35,8 @@ site/clip/
 
 # Claude Code session state: plugin installs, local settings, harness worktrees
 .claude/
+
+# Copilot-style plugin installs (the impeccable skill): not the product
+.github/agents/
+.github/hooks/
+.github/skills/
