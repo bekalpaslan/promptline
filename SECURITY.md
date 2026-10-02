@@ -26,14 +26,16 @@ machine:
   your prompts, packs and settings, plus `promptline.log`. Pack files are meant to
   be shared; they hold titles, tags and prompt text, never your fill-in
   values or config parameters.
-- **One network request.** No telemetry. At startup and once a day the app
+- **The network.** No telemetry. At startup and once a day the app
   fetches a fixed URL, `https://promptline.cc/latest.json`, to see whether a
   newer release exists; the request carries nothing about the user (no
   version, no ID, no usage). An update installs only after the user accepts
   it, and only if its signature verifies against the public key built into
-  the app. **Settings → About** turns the check off. The other outbound
-  link is the "Buy me a coffee" button in Settings, which opens a fixed
-  https URL in your browser.
+  the app. **Settings → About** turns the check off. The app opens one
+  link, the "Buy me a coffee" button in Settings, in your browser. The
+  command behind it (`open_url`) takes an address from the page but
+  opens it only when it is on a short list in the code (that one address
+  today), so a compromised page cannot use it to open anything else.
 
 The webviews run under a Content Security Policy that allows only the app's
 own scripts and the Tauri IPC (`BEHAVIOR.md`, "Content Security Policy"),

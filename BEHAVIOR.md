@@ -947,9 +947,12 @@ canonicalises to a file under the data folder (`path_within`, so `..` and
 junctions can't escape); every path the frontend can know comes from
 there. `open_data_dir` (Settings → "Open folder") takes no path at all:
 it opens the data folder itself, the one place the library, the packs and
-the log file all are. `open_url` takes https only and hands the URL to
-`ShellExecuteW` as one string, where the earlier `explorer <url>` let
-explorer parse the string as its own command line. None of this matters
+the log file all are. `open_url` opens only the addresses listed in
+`OPENABLE_URLS` (today the one behind Settings' "Buy me a coffee"; the
+scheme's case doesn't matter, the rest must match exactly) and refuses
+anything else, then hands the listed string to `ShellExecuteW` as one
+string, where the earlier `explorer <url>` let explorer parse the string
+as its own command line. None of this matters
 unless the bundle is compromised, which is the case it is for.
 
 One oddity lives outside it: the popup hides on blur, but starting a
