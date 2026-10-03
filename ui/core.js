@@ -815,9 +815,47 @@
   // an ellipsis, or a placeholder when there is nothing to paste. The
   // placeholder is a fact, not a hole: an empty clipboard pastes nothing.
   const CLIP_PREVIEW_MAX = 240;
+  // Characters a preview must show rather than obey. A direction override
+  // (U+202E) in copied text reverses everything drawn after it, the badge
+  // and the Copy button included, and an ESC starts a terminal sequence;
+  // each becomes a visible ⟨name⟩ so the preview reads as the paste would
+  // be inspected, not as it would render. Tabs and line breaks stay (the
+  // caller flattens them); tag characters and zero-width ones are counted
+  // by `hiddenChars` and left alone, since a flag emoji is made of tags.
+  const CONTROL_NAMES = {
+    0x202A: 'LRE', 0x202B: 'RLE', 0x202C: 'PDF', 0x202D: 'LRO', 0x202E: 'RLO',
+    0x2066: 'LRI', 0x2067: 'RLI', 0x2068: 'FSI', 0x2069: 'PDI',
+    0x001B: 'ESC', 0x007F: 'DEL', 0x0000: 'NUL', 0x0007: 'BEL', 0x0008: 'BS',
+  };
+  function revealControls(text) {
+    return (text || '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F‪-‮⁦-⁩]/g, c => {
+      const cp = c.codePointAt(0);
+      const name = CONTROL_NAMES[cp] || 'U+' + cp.toString(16).toUpperCase().padStart(4, '0');
+      return '⟨' + name + '⟩';
+    });
+  }
+
+  // A fill-in field's label in the popup's form and anywhere else a field
+  // is named to the user: sentence case, underscores as spaces, so
+  // {standing_instructions} asks as "Standing instructions" and a numbered
+  // copy {goal_2} as "Goal 2". One rule, not a CSS capitalize that gave
+  // "Call To Action" to a voice that is sentence case everywhere else.
+  function fieldLabel(name) {
+    const words = (name || '').replace(/_/g, ' ').trim();
+    return words ? words[0].toUpperCase() + words.slice(1) : '';
+  }
+
+  // How many lines a text has, for a preview that shows them as one: a
+  // trailing newline is the editor's, not a line
+  function lineCount(text) {
+    const t = (text || '').replace(/\r\n?/g, '\n').replace(/\n+$/, '');
+    if (!t) return 0;
+    return t.split('\n').length;
+  }
+
   function clipboardPreview(clip, max) {
     const limit = max || CLIP_PREVIEW_MAX;
-    const flat = (clip || '').replace(/\s+/g, ' ').trim();
+    const flat = revealControls((clip || '').replace(/\s+/g, ' ').trim());
     if (!flat) return '(clipboard is empty)';
     if (flat.length <= limit) return flat;
     // Never cut between the halves of a surrogate pair: an emoji at the
@@ -1012,6 +1050,9 @@
     describeHidden,
     hotkeyKeyName,
     hotkeyFromEvent,
+    revealControls,
+    fieldLabel,
+    lineCount,
     clipboardPreview,
     expandForCopy,
     titleFromClipboard,
