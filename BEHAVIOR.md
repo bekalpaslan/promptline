@@ -204,7 +204,20 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    in reach. An empty field is allowed and never silent, but quiet: its
    placeholder says it pastes nothing, the preview keeps its chip, and the
    button counts the empties. It used to be outlined in red, which shouted
-   at every field of a form the user had only just opened.
+   at every field of a form the user had only just opened. Enter in a field
+   goes to the next field that is still empty and sends only when none is
+   left ahead (`nextEmptyField`), and the hint bar says which: `↵ next
+   field`, then `↵ paste`. Every field's Enter used to send, so the reflex
+   Enter after the first value pasted "it broke between v0.2.18 and ." into
+   the terminal. The step is forward only: a blank behind the caret was
+   passed on purpose, and Enter from the last field sends with the blanks
+   the button counted. Ctrl+Enter copies at once from any field, since it
+   is asked for by name; Shift+Enter is still a newline. The field Enter
+   moves to is scrolled in whole, with its label and its focus ring: at
+   320×280 and a larger UI scale the scroller holds one field, and the
+   next one arrived cut by the button. A form opened to copy (Ctrl+Enter
+   or Ctrl+click on the row) reads `↵ copy` once, not `↵ paste · Ctrl ↵
+   copy`.
 4. **`paste_snippet`** reads the current clipboard, expands `{clipboard}`
    from it, writes the result to the clipboard, and only then hides the popup
    and bumps `uses`. The clipboard write comes first because it is the step
@@ -529,6 +542,15 @@ trail the prompt's last word like part of the sentence and scroll away
 with it. While the card is open the hint bar reads `↵ paste · PgUp PgDn
 scroll · ← back · Esc close`, the page keys only when there is more than
 fits. The card is a `note`, not a `tooltip`, which may not hold a button.
+
+**The card is always the selected row's, or closed.** Typing a query moves
+the selection to the top result, and the card used to stay open on its old
+position in the list: it showed one prompt while Enter pasted another, at
+the moment the card is read to check what Enter will send. Any change of
+the query closes it, before paint, as the arrow keys do; so does the list
+changing under it for another reason (the library reloading, an Undo, a
+fold), when the prompt at the card's position is no longer the one it
+opened on.
 
 **The minimum size keeps what matters in view.** In the Ctrl+N view the
 fields scroll and **Save prompt** does not (it was the last thing in the

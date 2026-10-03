@@ -96,6 +96,8 @@ export function App() {
   }, [])
   const [form, setForm] = useState<FormState | null>(null)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
+  // The field the caret is in: what Enter does depends on what is empty after it
+  const [formFocus, setFormFocus] = useState(0)
   const [panelSel, setPanelSel] = useState(0)
   const [panelFor, setPanelFor] = useState<Snippet | null>(null)
   const [panelNote, setPanelNote] = useState<string | null>(null)
@@ -492,6 +494,7 @@ export function App() {
     if (fields.length) {
       // Every field starts empty: nothing typed last time is kept
       setFormValues(Object.fromEntries(fields.map((f) => [f, ""])))
+      setFormFocus(0)
       const configFields = new Set(C.configNames(snippet.text).filter((n) => fields.includes(n)))
       setForm({ snippet, base, fields, configFields, paste })
       if (base.includes("{clipboard}")) refreshClip()
@@ -659,6 +662,34 @@ export function App() {
     // undo it (sel is already 0), so the Pinned header sat under the fold.
     if (!query && listRef.current) listRef.current.scrollTop = 0
   }, [query])
+
+  // The card describes one prompt, and Enter pastes the selected row. A
+  // query typed while the card was open moved the selection to the top
+  // result and left the card on its old index: it showed one prompt while
+  // Enter pasted another (critique popup 3, P1). Typing closes it, before
+  // paint, like the arrow keys do.
+  useLayoutEffect(() => {
+    hidePreview()
+  }, [query, hidePreview])
+  // The list can also change under an open card with the query untouched
+  // (the library reloads, an Undo puts a row back, a section folds): the
+  // index then points at another prompt, or at none. The card closes
+  // rather than change its subject.
+  const previewOf = useRef<{ idx: number; id: string } | null>(null)
+  useLayoutEffect(() => {
+    if (previewIdx === null) {
+      previewOf.current = null
+      return
+    }
+    const id = visible[previewIdx]?.s.id
+    const was = previewOf.current
+    if (!id || (was && was.idx === previewIdx && was.id !== id)) {
+      previewOf.current = null
+      hidePreview()
+      return
+    }
+    previewOf.current = { idx: previewIdx, id }
+  }, [visible, previewIdx, hidePreview])
 
   // Form and create mode replace the whole tree, so the search input is
   // unmounted while they are up; give it focus back once the list returns
@@ -952,7 +983,15 @@ export function App() {
   ) : panelFor ? (
     <><Hint k="↵">run</Hint><Hint k={`1-${panelActions.length}`}>pick</Hint><Hint k="Esc">back</Hint></>
   ) : form ? (
-    <><Hint k="↵">paste</Hint><Hint k="Ctrl ↵">copy</Hint><Hint k="⇧ ↵" minor>newline</Hint><Hint k="Esc">back</Hint></>
+    // Enter in a field goes to the next empty one and sends only when none
+    // is left ahead; the bar says which, since it is where the eye checks
+    // what Enter does
+    <>
+      <Hint k="↵">{C.nextEmptyField(form.fields, formValues, formFocus) !== -1 ? "next field" : form.paste ? "paste" : "copy"}</Hint>
+      {form.paste && <Hint k="Ctrl ↵">copy</Hint>}
+      <Hint k="⇧ ↵" minor>newline</Hint>
+      <Hint k="Esc">back</Hint>
+    </>
   ) : create ? (
     <><Hint k="↵">save</Hint><Hint k="Esc">back</Hint></>
   ) : !visible.length ? (
@@ -1185,6 +1224,7 @@ export function App() {
                 placeholder="Empty — pastes nothing"
                 spellCheck={false}
                 onChange={(e) => setFormValues((v) => ({ ...v, [f]: e.target.value }))}
+                onFocus={() => setFormFocus(i)}
                 onKeyDown={(e) => {
                   // An IME's Enter commits the candidate, not the form
                   if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
@@ -1192,12 +1232,25 @@ export function App() {
                     // Submitting closes the form; this keydown is spent here
                     // and must not bubble on to the list's Enter
                     e.stopPropagation()
-                    void submitForm(e.ctrlKey)
+                    // Enter after a value is a reflex, and it used to send
+                    // the prompt with every later field a hole (critique
+                    // popup 3, P1). While a field ahead is empty Enter goes
+                    // there; from the last one it sends, blanks and all.
+                    // Ctrl+Enter stays "copy now": it is asked for by name.
+                    const next = e.ctrlKey ? -1 : C.nextEmptyField(form.fields, formValues, i)
+                    if (next !== -1) {
+                      // In a short window the next field is under the fold
+                      // of the scroller: bring it and its ring in whole
+                      // (the field's scroll margins), not just its top edge
+                      const el = document.getElementById(`field-${form.fields[next]}`)
+                      el?.focus({ preventScroll: true })
+                      el?.scrollIntoView({ block: "nearest" })
+                    } else void submitForm(e.ctrlKey)
                   }
                 }}
                 className={cn(
                   fieldVariants(),
-                  "block field-sizing-content max-h-[calc(3lh+1rem)] min-h-[calc(1lh+1rem)] w-full resize-none overflow-y-auto py-2 leading-5 placeholder:text-muted-foreground"
+                  "block field-sizing-content max-h-[calc(3lh+1rem)] min-h-[calc(1lh+1rem)] w-full scroll-mt-6 scroll-mb-1 resize-none overflow-y-auto py-2 leading-5 placeholder:text-muted-foreground"
                 )}
                 aria-describedby={form.configFields.has(f) ? `field-${f}-note` : undefined}
               />

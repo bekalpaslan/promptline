@@ -241,6 +241,51 @@ test("a {field} prompt opens a form with every field empty", async ({ page }) =>
   expect(call.args).toMatchObject({ paste: true, text: "Help me bisect: it broke between v1.0 and v1.1." })
 })
 
+test("Enter in a field goes to the next empty field; it pastes only when none is left ahead", async ({ page }) => {
+  await search(page).fill("Bisect a regression")
+  await page.keyboard.press("Enter")
+  const good = page.getByRole("textbox", { name: "Good", exact: true })
+  const bad = page.getByRole("textbox", { name: "Bad", exact: true })
+  await expect(good).toBeFocused()
+  // The bar says what Enter does here
+  await expect(page.getByText("next field", { exact: true })).toBeVisible()
+  await page.keyboard.type("v1.0")
+  await page.keyboard.press("Enter")
+  // No paste with "bad" a hole: the caret moved there instead
+  await expect(bad).toBeFocused()
+  await expect(bad).toBeInViewport({ ratio: 1 })
+  expect(await calls(page, "paste_snippet")).toHaveLength(0)
+  await expect(page.getByText("next field", { exact: true })).toBeHidden()
+  await expect(page.getByText("paste", { exact: true })).toBeVisible()
+  await page.keyboard.type("v1.1")
+  await page.keyboard.press("Enter")
+  await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(1)
+  const [call] = await calls(page, "paste_snippet")
+  expect(call.args).toMatchObject({ paste: true, text: "Help me bisect: it broke between v1.0 and v1.1." })
+})
+
+test("a deliberate blank still pastes: Enter from the last field, or Ctrl+Enter from any", async ({ page }) => {
+  await search(page).fill("Bisect a regression")
+  await page.keyboard.press("Enter")
+  await page.keyboard.type("v1.0")
+  // Ctrl+Enter is "copy now", from the first field too
+  await page.keyboard.press("Control+Enter")
+  await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(1)
+  expect((await calls(page, "paste_snippet"))[0].args).toMatchObject({ paste: false, text: "Help me bisect: it broke between v1.0 and ." })
+})
+
+test("Enter on the last field pastes with the blanks the button counted", async ({ page }) => {
+  await search(page).fill("Bisect a regression")
+  await page.keyboard.press("Enter")
+  await page.keyboard.press("Enter")
+  const bad = page.getByRole("textbox", { name: "Bad", exact: true })
+  await expect(bad).toBeFocused()
+  await expect(page.getByRole("button", { name: "Paste with 2 fields empty" })).toBeVisible()
+  await page.keyboard.press("Enter")
+  await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(1)
+  expect((await calls(page, "paste_snippet"))[0].args).toMatchObject({ paste: true, text: "Help me bisect: it broke between  and ." })
+})
+
 test("Escape leaves the form without hiding the popup", async ({ page }) => {
   await search(page).fill("Bisect a regression")
   await page.keyboard.press("Enter")
@@ -621,6 +666,27 @@ test("the preview card keeps Copy in view, starts at the clipboard and scrolls f
   await page.keyboard.press("ArrowLeft")
   await expect(card).toBeHidden()
   await expect(page.getByText("preview", { exact: true })).toBeVisible()
+})
+
+test("typing closes the preview card: it never shows one prompt while Enter pastes another", async ({ page }) => {
+  await page.keyboard.press("ArrowDown")
+  await page.keyboard.press("ArrowDown")
+  await page.keyboard.press("ArrowRight")
+  const card = page.getByRole("note", { name: "Preview" })
+  await expect(card).toBeVisible()
+  // A query moves the selection to its top result; the card goes with the
+  // row it described, and the bar is the list's again
+  await page.keyboard.type("bisect")
+  await expect(card).toBeHidden()
+  await expect(page.getByText("preview", { exact: true })).toBeVisible()
+  await expect(rows(page).first()).toHaveAttribute("aria-selected", "true")
+  await expect(page.locator('[aria-describedby~="popup-preview"]')).toHaveCount(0)
+  // Reopened, it is the selected row's card, and Enter pastes that row
+  await page.keyboard.press("ArrowRight")
+  await expect(card).toContainText("Bisect a regression")
+  // Clearing the query is a change of list too
+  await search(page).fill("")
+  await expect(card).toBeHidden()
 })
 
 test("at the 320×280 minimum the card takes the list's place, Save prompt stays in view, and a failed paste is read whole", async ({ page }) => {
