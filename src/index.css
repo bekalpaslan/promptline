@@ -15,9 +15,17 @@
     /* Everything a person types or presses: kbd, placeholder tokens, previews */
     --font-mono: 'Cascadia Code', 'JetBrains Mono', Consolas, ui-monospace, monospace;
     --color-hover: var(--hover);
-    /* The UI's body size sits between Tailwind's xs and sm; one name, not text-[13px] */
-    --text-ui: 13px;
+    /* The UI's body size sits between Tailwind's xs and sm; one name, not
+       text-[13px]. In rem, like every other size: Settings' UI scale sets
+       the root font size, and a literal 13px left row titles, the search
+       box and group headers at 13px while 12px and 16px text grew (typeset
+       popup, 2026-10-03). */
+    --text-ui: 0.8125rem;
     --text-ui--line-height: 1.25rem;
+    /* The smallest text: chips, key caps, the popup's hint bar (DESIGN.md's
+       label step, 11px at 100%). One name, not text-[11px] in four places. */
+    --text-micro: 0.6875rem;
+    --text-micro--line-height: 1rem;
     --color-sidebar: var(--sidebar);
     --color-ring: var(--ring);
     --color-input: var(--input);
@@ -272,8 +280,11 @@
 @utility tag-text {
   color: color-mix(in oklch, var(--tag), black 40%);
 }
+/* On a dark surface the hue is lifted a fifth towards white: the raw hues
+   clear 4.5:1 on the page but not on the selected row's tint, where the
+   first row always sits (coral read 3.9:1 there) */
 @utility tag-text-dark {
-  color: var(--tag);
+  color: color-mix(in oklch, var(--tag), white 20%);
 }
 /* A resting chip: how much of the hue its ground and edge carry are the
    theme's --chip-tint and --chip-edge (design/tokens.json "mix"), so one

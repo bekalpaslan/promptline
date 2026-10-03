@@ -21,13 +21,12 @@ export const fieldVariants = cva(
 )
 
 // Each window's search box: the one bordered field, so it reads as the place
-// to type. The caller fills it (icon, input, a scope chip); `active` keeps the
-// focus colour on the border while a query is set.
-export const searchBoxClass = (active?: boolean) =>
-  cn(
-    "flex h-8 shrink-0 items-center gap-1.5 rounded-(--search-radius) border bg-background px-2 text-ui focus-within:border-(--focus)",
-    active ? "border-(--focus)" : "border-input"
-  )
+// to type. The caller fills it (icon, input, a scope chip). The border takes
+// the focus colour only while the box has focus: it used to stay lit while
+// a query was set, which made it a second lit thing beside the selected row
+// (DESIGN.md's One Indicator Rule); the × already says a query is set.
+export const searchBoxClass = () =>
+  "flex h-8 shrink-0 items-center gap-1.5 rounded-(--search-radius) border border-input bg-background px-2 text-ui focus-within:border-(--focus)"
 
 // The × that clears a search box
 export function SearchClear({ label, title, onClick }: { label: string; title?: string; onClick: () => void }) {
