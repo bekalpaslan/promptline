@@ -40,3 +40,8 @@ site/clip/
 .github/agents/
 .github/hooks/
 .github/skills/
+
+# Written by the impeccable plugin's hook, not the product
+.impeccable/
+DESIGN.md
+PRODUCT.md
