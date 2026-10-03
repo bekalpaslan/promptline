@@ -15,6 +15,7 @@ import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
+import { useSlideRows } from "./flip"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
 
@@ -100,7 +101,9 @@ export function Sidebar() {
   const shown = m.view.kind === "overview" ? m.view.focus : null
 
   // Drag-to-reorder: a short press-and-hold lifts the row (so the gesture is
-  // discoverable), then moving it slides an insertion mark between rows.
+  // discoverable), then the rows part for it as it crosses them: the tree
+  // is drawn with the lifted row where the pointer would drop it (`over`,
+  // through C.placePrompt below), and the release saves that same order.
   const [drag, setDrag] = useState<{ id: string; pack: string } | null>(null)
   // What a screen reader hears after a keyboard move
   const [announce, setAnnounce] = useState("")
@@ -166,6 +169,13 @@ export function Sidebar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [hits, q, orderBy, scope]
   )
+  // While a row is lifted, the list is drawn with it placed at the pointer:
+  // the same rule the release saves (commitReorder), so what is on screen
+  // mid-drag is what the drop does, group label included
+  const shownList = useMemo(
+    () => (drag && over ? C.placePrompt(visible, drag.id, over.id, over.after, grouped) : null) ?? visible,
+    [visible, drag, over, grouped]
+  )
   // Pack sizes, for the "hits / all" count a pack shows while searching
   const packTotals = useMemo(() => {
     const t = new Map<string, number>()
@@ -204,7 +214,7 @@ export function Sidebar() {
   // of first appearance, so a custom arrangement holds and any other order
   // carries through from the rows
   const { packNames } = m
-  const tree = useMemo(() => (grouped ? C.packTree(visible, packNames(), DEFAULT_PACK) : null), [visible, grouped, packNames])
+  const tree = useMemo(() => (grouped ? C.packTree(shownList, packNames(), DEFAULT_PACK) : null), [shownList, grouped, packNames])
 
   // Every row as drawn, in order: the keyboard's tree (one tabbable row,
   // arrows move between them) and the flat id list for shift-range
@@ -213,7 +223,7 @@ export function Sidebar() {
   // it). One list is one row per prompt.
   const rows: TreeRow[] = tree
     ? C.treeRows(tree, m.folds, !!q)
-    : visible.map((s) => ({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 1 }))
+    : shownList.map((s) => ({ key: `snip:${s.id}`, kind: "prompt", id: s.id, level: 1 }))
   const rowByKey = new Map(rows.map((r) => [r.key, r]))
   rowsRef.current = rows
   visibleIdsRef.current = rows.flatMap((r) => (r.kind === "prompt" ? [r.id] : []))
@@ -238,20 +248,17 @@ export function Sidebar() {
   // switch to "Custom" that follows would otherwise reveal the array's own
   // order, with every row but the dragged one reshuffled.
   const commitReorder = async (dragId: string, targetId: string, after: boolean) => {
-    const all = C.displayOrder(m.snippets, orderBy, grouped, packNames(), DEFAULT_PACK)
-    const from = all.findIndex((s) => s.id === dragId)
-    if (from === -1) return
-    const [item] = all.splice(from, 1)
-    let to = all.findIndex((s) => s.id === targetId)
-    if (to === -1) return
-    // Dropping among another group's rows moves the prompt into that group
-    const target = all[to]
-    const regrouped = grouped && target.group !== item.group
-    const moved = regrouped ? { ...item, group: target.group } : item
-    if (after) to += 1
-    all.splice(to, 0, moved)
+    const before = C.displayOrder(m.snippets, orderBy, grouped, packNames(), DEFAULT_PACK)
+    // The one rule the preview drew with (shownList): dropping among another
+    // group's rows moves the prompt into that group
+    const all = C.placePrompt(before, dragId, targetId, after, grouped)
+    if (!all) return
+    const from = before.findIndex((s) => s.id === dragId)
+    const item = before[from]
+    const regrouped = all.find((s) => s.id === dragId)!.group !== item.group
     await m.persist(all)
     if (regrouped) {
+      const target = all.find((s) => s.id === targetId)!
       // A drop among another group's rows changes the label as a side
       // effect; say so, and make it reversible. The Undo puts the prompt
       // back at its old index with its old label in the *current* library,
@@ -361,8 +368,12 @@ export function Sidebar() {
       ) as HTMLElement | null
       const id = el?.dataset.snipId
       const snip = id ? m.snippets.find((s) => s.id === id) : undefined
-      // Grouped view: only reorder within the pack the drag started in
-      if (!snip || (grouped && (snip.pack || DEFAULT_PACK) !== drag.pack)) {
+      // Between rows, or over the lifted row itself (it sits where the
+      // pointer last placed it): the place holds. Grouped view: a row of
+      // another pack is no target, and the preview falls back to the order
+      // as it was, which says so
+      if (!snip || snip.id === drag.id) return
+      if (grouped && (snip.pack || DEFAULT_PACK) !== drag.pack) {
         setOver(null)
         return
       }
@@ -560,6 +571,8 @@ export function Sidebar() {
   useEffect(() => {
     if (m.activeId) listRef.current?.querySelector(`[data-id="${CSS.escape(m.activeId)}"]`)?.scrollIntoView({ block: "nearest" })
   }, [m.activeId])
+  // Rows slide into the places the preview gives them while a row is lifted
+  useSlideRows(listRef, !!drag)
   const shownPack = shown && !shown.group ? shown.pack : null
   useEffect(() => {
     if (shownPack)
@@ -654,7 +667,6 @@ export function Sidebar() {
     const multi = m.selection.size > 1 && m.selection.has(s.id)
     const active = s.id === m.activeId && m.selection.size <= 1
     const lifted = drag?.id === s.id
-    const mark = drag && drag.id !== s.id && over?.id === s.id ? over.after : null
     const title = s.title || "(untitled)"
     return (
       <div
@@ -671,9 +683,7 @@ export function Sidebar() {
             ? "bg-accent text-foreground"
             : "text-foreground hover:bg-hover",
           multi && "outline outline-1 -outline-offset-1 outline-primary",
-          lifted ? "z-10 scale-[1.02] cursor-grabbing shadow-lg ring-1 ring-ring/40" : "hover:cursor-grab",
-          mark !== null &&
-            (mark ? "shadow-[0_3px_0_0_var(--primary)]" : "shadow-[0_-3px_0_0_var(--primary)]")
+          lifted ? "z-10 scale-[1.02] cursor-grabbing shadow-lg ring-1 ring-ring/40" : "hover:cursor-grab"
         )}
         {...holdToDrag(() => setDrag({ id: s.id, pack: s.pack || DEFAULT_PACK }))}
         onClick={(e) => handleRowClick(e, s.id)}
@@ -968,7 +978,7 @@ export function Sidebar() {
           ) : (
             // One list: each row says where it lives, since no header does
             <div role="presentation" className="flex flex-col gap-0.5">
-              {visible.map((s) => snipRow(s, s.group ? `${s.pack || DEFAULT_PACK} › ${s.group}` : s.pack || DEFAULT_PACK))}
+              {shownList.map((s) => snipRow(s, s.group ? `${s.pack || DEFAULT_PACK} › ${s.group}` : s.pack || DEFAULT_PACK))}
             </div>
           )}
         </div>
