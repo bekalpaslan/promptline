@@ -452,6 +452,23 @@ the Copy button included, so the one warning built for that input read as
 garbage. Tag characters and zero-width ones are counted by the badge and
 left alone, since a flag emoji is made of tags.
 
+**One inset.** Every strip of the popup shares the search box's edges, and
+its content starts 8 px in: the search icon, the clipboard icon, a pack's
+name, a row's icon, the first key of the hint bar. The list used to carry
+2 px of side padding, so a row's fill was narrower than the box above it,
+and the five strips began on five different lines (9, 8, 10, 6 and 4 px).
+The search box's own padding is 8 px less its 1 px border (the manager's
+filter box shares the class and moves with it). In the fill-in form and
+the Ctrl+N view the boxes (fields, the preview, the button) run edge to
+edge and the loose text (the title, labels, notes) starts 8 px in; fields
+were inset 8 px, the preview 4 and the button 0. The list's scrollbar
+lives in the shell's right padding, its 8 px reserved whether or not the
+list scrolls (`scrollbar-gutter: stable`): inside the list it took the
+rows' right edge 8 px short of the search box's whenever the list
+scrolled, so the slot keys never lined up with the `Ctrl N` key above
+them. The form's scroller keeps its scrollbar inside, where it shows only
+in a window too short for the form.
+
 **The pointer never moves the selection.** Hover is the grey on the row
 and, after a pause, the preview card; the keyboard selection moves on keys
 or a click, and a click pastes the row it lands on. A hover card is the

@@ -27,6 +27,37 @@ test("lists the seeded library with the search box focused", async ({ page }) =>
   await expect(search(page)).toBeFocused()
 })
 
+test("one 8 px inset: the strips share the search box's edges, and their content starts on one line", async ({ page }) => {
+  const x = async (l: ReturnType<typeof rows>) => (await l.boundingBox())!.x
+  const box = page.getByRole("search")
+  const row = rows(page).first()
+  const [boxRect, rowRect] = await Promise.all([box.boundingBox(), row.boundingBox()])
+  // A row's fill runs edge to edge under the search box
+  expect(Math.abs(rowRect!.x - boxRect!.x)).toBeLessThan(0.6)
+  expect(Math.abs(rowRect!.width - boxRect!.width)).toBeLessThan(0.6)
+  // The search icon, the clipboard icon, a pack's name, a row's icon and the
+  // first key of the hint bar start 8 px in
+  const starts = await Promise.all([
+    x(box.locator("svg").first()),
+    x(clipLine(page).locator("xpath=..").locator("svg").first()),
+    x(page.locator("button", { hasText: "Everyday" }).first().locator("span").first()),
+    x(row.locator("svg").first()),
+    x(page.getByText("paste", { exact: true }).locator("xpath=..").locator("kbd").first()),
+  ])
+  for (const s of starts) expect(Math.abs(s - (boxRect!.x + 8))).toBeLessThan(0.6)
+  // The fill-in form: fields and the button are boxes, edge to edge; the
+  // title and the labels are text, 8 px in
+  await search(page).fill("Bisect a regression")
+  await page.keyboard.press("Enter")
+  const field = page.getByRole("textbox", { name: "Good", exact: true })
+  const button = page.getByRole("button", { name: /^Paste/ })
+  expect(Math.abs((await x(field)) - boxRect!.x)).toBeLessThan(0.6)
+  expect(Math.abs((await x(button)) - boxRect!.x)).toBeLessThan(0.6)
+  const label = page.locator('label[for="field-good"]')
+  const pad = await label.evaluate((e) => parseFloat(getComputedStyle(e).paddingLeft))
+  expect(Math.abs((await x(label)) + pad - (boxRect!.x + 8))).toBeLessThan(0.6)
+})
+
 test("a row is one pill, the slot key on the title line, and no button inside the option", async ({ page }) => {
   // The slot rows carry their key at the title's right edge, above the
   // row's middle: Ctrl is printed once, on the first, and the rest show

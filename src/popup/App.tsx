@@ -1185,11 +1185,15 @@ export function App() {
             void saveCreate()
           }}
         >
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-1">
+          {/* Boxes (fields, the preview, the button) run edge to edge like
+              the search box; loose text (headings, labels, notes) starts 8 px
+              in, like a row's. The scroller bleeds 4 px into the shell's
+              padding so a field's focus ring, drawn outside it, isn't clipped */}
+          <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-1">
           <SectionHeader>New prompt from clipboard</SectionHeader>
-          <div className="px-1">
+          <div>
             {/* Real labels, as the fill-in form's: a screen reader names each control */}
-            <label htmlFor="create-title" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Title</label>
+            <label htmlFor="create-title" className="mb-1 block px-2 text-xs font-medium tracking-[0.04em] text-muted-foreground">Title</label>
             <input
               id="create-title"
               autoFocus
@@ -1200,8 +1204,8 @@ export function App() {
               className={cn(fieldVariants(), "w-full")}
             />
           </div>
-          <div className="px-1">
-            <label htmlFor="create-pack" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Pack</label>
+          <div>
+            <label htmlFor="create-pack" className="mb-1 block px-2 text-xs font-medium tracking-[0.04em] text-muted-foreground">Pack</label>
             <Select
               id="create-pack"
               value={create.pack}
@@ -1221,8 +1225,8 @@ export function App() {
             )
             if (!gs.length) return null
             return (
-              <div className="px-1">
-                <label htmlFor="create-group" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Group</label>
+              <div>
+                <label htmlFor="create-group" className="mb-1 block px-2 text-xs font-medium tracking-[0.04em] text-muted-foreground">Group</label>
                 <Select
                   id="create-group"
                   value={create.group}
@@ -1245,7 +1249,7 @@ export function App() {
           {/* The clipboard is the body: with nothing copied there is nothing
               to save, and an empty draft would only be swept by the manager */}
           {!clip && (
-            <div className="px-1 text-xs text-destructive">Copy something first — the clipboard is the prompt body</div>
+            <div className="px-2 text-xs text-destructive">Copy something first — the clipboard is the prompt body</div>
           )}
           </div>
           <Button size="lg" className="shrink-0" onClick={() => void saveCreate()} disabled={!clip}>
@@ -1269,11 +1273,11 @@ export function App() {
     return (
       <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys}>
         {/* Fields and preview scroll; the button stays in reach below them */}
-        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1">
+        <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1">
           <SectionHeader name>{form.snippet.title}</SectionHeader>
           {form.fields.map((f, i) => (
-            <div key={f} className="px-1">
-              <label htmlFor={`field-${f}`} className="mb-0.5 block text-xs font-medium tracking-[0.04em] text-muted-foreground">
+            <div key={f}>
+              <label htmlFor={`field-${f}`} className="mb-0.5 block px-2 text-xs font-medium tracking-[0.04em] text-muted-foreground">
                 {C.fieldLabel(f)}
               </label>
               <textarea
@@ -1319,7 +1323,7 @@ export function App() {
                 aria-describedby={form.configFields.has(f) ? `field-${f}-note` : undefined}
               />
               {form.configFields.has(f) && (
-                <div id={`field-${f}-note`} className="mt-0.5 text-xs text-muted-foreground">
+                <div id={`field-${f}-note`} className="mt-0.5 px-2 text-xs text-muted-foreground">
                   A config parameter: set it once in the manager's editor, under Placeholders, and it stops asking
                 </div>
               )}
@@ -1461,7 +1465,15 @@ export function App() {
         id="popup-list"
         role="listbox"
         aria-label="Prompts"
-        className="flex-1 overflow-y-auto px-0.5"
+        // No side padding: a row's fill runs edge to edge under the search
+        // box, and every strip's content starts 8 px in (the row's own
+        // padding). The list was 2 px narrower than the box above it, and
+        // five strips began their content on five different lines.
+        // The scrollbar's 8 px live in the shell's right padding, reserved
+        // whether or not the list scrolls: inside the list they took the
+        // rows' right edge 8 px short of the search box's whenever it
+        // scrolled, which is nearly always.
+        className="-mr-2 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
         onScroll={hidePreview}
       >
         {/* Hidden from assistive tech here (a listbox holds only options);
@@ -1495,7 +1507,7 @@ export function App() {
           // largest text in the popup, above the titles the scene is about.
           // 24 px tall, not 28: four headers above the fold cost a row.
           const headerClass = cn(
-            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-ui font-semibold",
+            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-ui font-semibold",
             sec.collapsible && "cursor-pointer",
             sec.isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
           )
@@ -1793,7 +1805,7 @@ function Shell({
       {/* Wraps rather than clips: at 125% scale, or with the mono font, the
           list's five hints are wider than the window and the shell's
           overflow-hidden used to eat the last of them */}
-      <div className="@container flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-1 pt-2 font-mono text-micro text-muted-foreground">
+      <div className="@container flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-2 pt-2 font-mono text-micro text-muted-foreground">
         {hint}
       </div>
     </div>
