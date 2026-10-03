@@ -39,7 +39,9 @@ type CreateState = { title: string; pack: string; group: string; prefilled: stri
 // "fresh" in the session that deleted (bare U works while nothing is typed),
 // "kept" on the one summon it survives (Ctrl+Z and the button only: U is
 // the first letter of a query the user came back to type).
-type Notice = { text: string; kind: "error" | "info" | "success"; undo?: "fresh" | "kept" }
+// `recover`: the paste failed after Rust put the prompt on the clipboard.
+// While it shows, Enter dismisses it and does not pick (see the key handler)
+type Notice = { text: string; kind: "error" | "info" | "success"; undo?: "fresh" | "kept"; recover?: boolean }
 
 
 // window (125% scale, the mono font) wraps between hints instead of being
@@ -57,9 +59,12 @@ type Notice = { text: string; kind: "error" | "info" | "success"; undo?: "fresh"
 // as every warning in DESIGN.md.
 // A `wider` one waits for 500 px: beside the warning's long label, actions
 // and preview fit on the line only there (at 440 px they wrapped the bar).
-function Hint({ k, minor, wide, wider, warn, children }: { k: string; minor?: boolean; wide?: boolean; wider?: boolean; warn?: boolean; children: React.ReactNode }) {
+// `tiny`: gives way only in the narrowest bar there is, the 320 px minimum
+// at a 125% UI scale (about 15 rem), where a Warn hint and one more hint
+// wrapped the bar to two lines and took a row from the window
+function Hint({ k, tiny, minor, wide, wider, warn, children }: { k: string; tiny?: boolean; minor?: boolean; wide?: boolean; wider?: boolean; warn?: boolean; children: React.ReactNode }) {
   return (
-    <span className={cn("flex shrink-0 items-center gap-1", minor && "hidden @min-[21.375rem]:flex", wide && "hidden @min-[26.375rem]:flex", wider && "hidden @min-[30.125rem]:flex")}>
+    <span className={cn("flex shrink-0 items-center gap-1", tiny && "hidden @min-[17rem]:flex", minor && "hidden @min-[21.375rem]:flex", wide && "hidden @min-[26.375rem]:flex", wider && "hidden @min-[30.125rem]:flex")}>
       <Keys combo={k} />
       <span className={cn(warn && "text-(--warn)")}>{children}</span>
     </span>
@@ -343,6 +348,13 @@ export function App() {
     if (hideTimer.current) clearTimeout(hideTimer.current)
     setPreviewIdx(null)
   }, [])
+  // A card opened with → belongs to the selected row: the hint bar speaks
+  // for it and PgUp, PgDn and ← act on it. A hover card belongs to the
+  // pointer's row, which Enter does not paste, so it changes neither. It
+  // used to switch the bar to "↵ paste · ← back" while Enter pasted the
+  // selected row, another prompt than the one on the card (critique popup
+  // 4, P1); the popup opens at the cursor, so the pointer is always on a row.
+  const keyCard = previewIdx !== null && !!previewPos?.key
 
   // The panel's items take keyboard focus while it is open (below), so
   // closing it hands focus back to the search box
@@ -483,8 +495,10 @@ export function App() {
 
   const pick = useCallback((snippet: Snippet, paste: boolean) => {
     // One paste at a time: a second Enter inside the ~150 ms before Rust
-    // hides the window used to run paste_snippet twice (two Ctrl+V, uses +2)
-    if (pickedRef.current) return
+    // hides the window used to run paste_snippet twice (two Ctrl+V, uses +2).
+    // Nor while "Copied to clipboard" is up: the popup is about to hide, and
+    // an Enter in those 600 ms pasted what Ctrl+Enter had only copied.
+    if (pickedRef.current || copyHideTimer.current) return
     hidePreview()
     closePanel()
     let base = C.expandConfig(snippet.text, snippet.configValues)
@@ -495,6 +509,9 @@ export function App() {
       // Every field starts empty: nothing typed last time is kept
       setFormValues(Object.fromEntries(fields.map((f) => [f, ""])))
       setFormFocus(0)
+      // A passing remark about the list ("Copy something first") has no
+      // business under the form's button; an Undo offer and an error stay
+      setNotice((n) => (n && n.kind === "info" && !n.undo ? null : n))
       const configFields = new Set(C.configNames(snippet.text).filter((n) => fields.includes(n)))
       setForm({ snippet, base, fields, configFields, paste })
       if (base.includes("{clipboard}")) refreshClip()
@@ -507,7 +524,7 @@ export function App() {
   const submitForm = useCallback(async (forceCopy: boolean) => {
     // The same guard as pick: the form's Enter fires again before React has
     // unmounted the textarea, and once it has, the list's Enter is next
-    if (!form || pickedRef.current) return
+    if (!form || pickedRef.current || copyHideTimer.current) return
     // A function replacer in core: a value containing `$&` or `$$` must paste
     // as typed, not as a replacement pattern
     const text = C.fillFields(form.base, formValues)
@@ -643,8 +660,12 @@ export function App() {
     // send Ctrl+V (an elevated window) and says why; the prompt is still on
     // the clipboard. An error, so it stays until Esc or the next summon.
     const unFailed = listen<{ message: string }>("paste-failed", (e) => {
-      setNotice({ text: e.payload.message, kind: "error" })
+      setNotice({ text: e.payload.message, kind: "error", recover: true })
       setPicked(null)
+      // The clipboard is the prompt now, not what was copied before: the
+      // line under the search box said "Clipboard TypeError…" beside a
+      // message saying the prompt is on the clipboard
+      refreshClip()
     })
     void reload()
     return () => {
@@ -810,7 +831,7 @@ export function App() {
       // keyboard has of reading what will be pasted, and a long prompt or a
       // short window used to leave the rest of it out of reach (critique
       // popup, 2026-10-03).
-      if (previewIdx !== null && (e.key === "PageDown" || e.key === "PageUp")) {
+      if (keyCard && (e.key === "PageDown" || e.key === "PageUp")) {
         e.preventDefault()
         const body = previewBodyRef.current
         if (body) body.scrollTop += (e.key === "PageDown" ? 1 : -1) * Math.max(40, body.clientHeight - 20)
@@ -854,7 +875,7 @@ export function App() {
           setPreviewPos(rect ? { x: rect.left + 16, y: rect.bottom + 4, above: rect.top - 4, key: true } : null)
           setPreviewIdx(sel)
         }
-      } else if (e.key === "ArrowLeft" && previewIdx !== null) {
+      } else if (e.key === "ArrowLeft" && keyCard) {
         e.preventDefault()
         hidePreview()
       } else if (e.key === "ArrowLeft" && !hasQuery && visible[sel] && !visible[sel].s.pinned) {
@@ -868,12 +889,18 @@ export function App() {
         if (visible[sel]) { hidePreview(); setPanelFor(visible[sel].s); setPanelSel(0) }
       } else if (e.key === "Enter") {
         e.preventDefault()
-        if (visible[sel]) pick(visible[sel].s, !e.ctrlKey)
+        // The prompt that failed to paste is on the clipboard. Enter here
+        // used to send the row again, into the same window, and a
+        // {clipboard} row would wrap the prompt in itself. The recovery is
+        // Ctrl+V in the target; Enter, like Esc, only clears the message,
+        // and the next Enter picks as usual.
+        if (notice?.recover) setNotice(null)
+        else if (visible[sel]) pick(visible[sel].s, !e.ctrlKey)
       }
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, filterKey, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, filterKey, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live preview index
   // through a ref instead of closing over it. The pointer never moves the
@@ -977,6 +1004,18 @@ export function App() {
   const selEntry = visible[sel]
   const selDerived = selEntry ? derived.get(selEntry.s.id) : undefined
   const selHole = !!selEntry && !!selDerived && rowIcon(selEntry.s, selDerived, clipEmpty, false) === "clipboard-empty"
+  // The other two things Enter can send that are not what the row promises,
+  // said the same way, in Warn on the Enter hint (critique popup 4):
+  // the clipboard is the prompt this popup sent last and the selected row
+  // would wrap it (the same rows that hollow their icon on an empty
+  // clipboard: a fill-in row shows the clipboard in its form first)…
+  const selSelfWrap =
+    !clipEmpty && lastSent.current?.text === clip &&
+    !!selEntry && !!selDerived && rowIcon(selEntry.s, selDerived, true, false) === "clipboard-empty"
+  // …and a form whose Enter sends now, with fields still empty
+  const formEmpty = form ? form.fields.filter((f) => !(formValues[f] ?? "").trim()).length : 0
+  const formSends = !!form && C.nextEmptyField(form.fields, formValues, formFocus) === -1
+  const formVerb = form?.paste ? "paste" : "copy"
   const hint = panelFor && deleteArmed ? (
     // The question on screen, answered in the bar: what Enter does now
     <><Hint k="↵">delete</Hint><Hint k="Esc">cancel</Hint></>
@@ -986,14 +1025,27 @@ export function App() {
     // Enter in a field goes to the next empty one and sends only when none
     // is left ahead; the bar says which, since it is where the eye checks
     // what Enter does
+    // Sending with fields empty is allowed and never silent: the button
+    // counts them, and so does the bar, in Warn, in the button's words. The
+    // longer label takes the room of copy and newline in a narrow window.
     <>
-      <Hint k="↵">{C.nextEmptyField(form.fields, formValues, formFocus) !== -1 ? "next field" : form.paste ? "paste" : "copy"}</Hint>
-      {form.paste && <Hint k="Ctrl ↵">copy</Hint>}
-      <Hint k="⇧ ↵" minor>newline</Hint>
-      <Hint k="Esc">back</Hint>
+      {!formSends ? (
+        <Hint k="↵">next field</Hint>
+      ) : formEmpty ? (
+        <Hint k="↵" warn>{`${formVerb} with ${C.plural(formEmpty, "field")} empty`}</Hint>
+      ) : (
+        <Hint k="↵">{formVerb}</Hint>
+      )}
+      {form.paste && <Hint k="Ctrl ↵" minor={formSends && formEmpty > 0}>copy</Hint>}
+      <Hint k="⇧ ↵" minor={!(formSends && formEmpty > 0)} wider={formSends && formEmpty > 0}>newline</Hint>
+      <Hint k="Esc" tiny={formSends && formEmpty > 0}>back</Hint>
     </>
   ) : create ? (
     <><Hint k="↵">save</Hint><Hint k="Esc">back</Hint></>
+  ) : notice?.recover ? (
+    // The paste failed and the prompt is on the clipboard: the bar leads
+    // with the recovery, and says Enter no longer pastes
+    <><Hint k="Ctrl V" tiny>in the target</Hint><Hint k="↵ Esc">dismiss</Hint></>
   ) : !visible.length ? (
     // No rows: paste, copy, actions and preview have nothing to act on.
     // What can be done is save the clipboard as a prompt, or leave.
@@ -1011,9 +1063,20 @@ export function App() {
       <Hint k="Ctrl ↵" minor>copy</Hint>
       <Hint k="Tab" wider>actions</Hint>
       <Hint k="→" wider>preview</Hint>
-      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+      <Hint k="Esc" tiny>{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
     </>
-  ) : previewIdx !== null ? (
+  ) : selSelfWrap ? (
+    // The clipboard holds the prompt pasted last, and this row would paste
+    // it again inside itself. Rarely meant; said, not blocked, like the
+    // empty clipboard, and with the same room rules.
+    <>
+      <Hint k="↵" warn>paste, wraps last prompt</Hint>
+      <Hint k="Ctrl ↵" minor>copy</Hint>
+      <Hint k="Tab" wider>actions</Hint>
+      <Hint k="→" wider>preview</Hint>
+      <Hint k="Esc" tiny>{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+    </>
+  ) : keyCard ? (
     // The card is open: what the keys do to it. The page keys only when
     // there is more of it than fits, and both of them: the card opens at
     // the clipboard, which is often its end. Copy is on the card's own
@@ -1055,7 +1118,8 @@ export function App() {
     if (clipEmpty) return { label: "Clipboard is empty", detail: anyUsesClip ? "— prompts paste without it" : null, warn: anyUsesClip, text: null }
     const last = lastSent.current
     const label = last && last.text === clip ? (last.verb === "pasted" ? "Last pasted prompt" : "Last copied prompt") : "Clipboard"
-    return { label, detail: null, warn: false, text: C.clipboardPreview(clip) }
+    // In Warn while the selected row would wrap that prompt in itself
+    return { label, detail: null, warn: selSelfWrap, text: C.clipboardPreview(clip) }
   })()
 
   // What a screen reader hears when the state changes (UM14)
@@ -1261,12 +1325,26 @@ export function App() {
               )}
             </div>
           ))}
-          <SectionHeader>Will paste</SectionHeader>
+          {/* A form opened to copy says so here too, as its button does */}
+          <SectionHeader>{form.paste ? "Will paste" : "Will copy"}</SectionHeader>
           <div className={cn(PREVIEW_BOX, "min-h-15 flex-1 overflow-y-auto")}>
             <PromptTokens text={C.expandBuiltins(form.base)} clipboard={clip} fieldValues={formValues} />
           </div>
         </div>
-        <Button size="lg" className="shrink-0" onClick={(e) => void submitForm(e.ctrlKey)}>
+        <Button
+          size="lg"
+          className="shrink-0"
+          onClick={(e) => void submitForm(e.ctrlKey)}
+          // A button's own Enter is a click, but Ctrl+Enter is not: the bar
+          // offers "Ctrl ↵ copy" and it did nothing with focus here
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && e.ctrlKey) {
+              e.preventDefault()
+              e.stopPropagation()
+              void submitForm(true)
+            }
+          }}
+        >
           {submitLabel}
         </Button>
       </Shell>
