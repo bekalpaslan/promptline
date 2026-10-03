@@ -136,6 +136,18 @@
       Object.prototype.hasOwnProperty.call(v, name) ? v[name] : match);
   }
 
+  // The fill-in form's Enter: the next field after `from` that is still
+  // empty, or -1 when Enter should submit. Forward only: a field behind the
+  // caret was passed on purpose (a deliberate blank is legitimate), and a
+  // search that wrapped would bounce between two blanks and never submit.
+  function nextEmptyField(fields, values, from) {
+    const v = values || {};
+    for (let i = Math.max(0, (from == null ? -1 : from) + 1); i < (fields || []).length; i++) {
+      if (!String(v[fields[i]] == null ? '' : v[fields[i]]).trim()) return i;
+    }
+    return -1;
+  }
+
   function expandBuiltins(text, now) {
     const d = now || new Date();
     return text
@@ -1083,6 +1095,7 @@
     downgradeUnsetConfig,
     requiredInputs,
     fillFields,
+    nextEmptyField,
     expandBuiltins,
     fuzzyScore,
     bodyScore,

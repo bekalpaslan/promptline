@@ -77,6 +77,26 @@ test('fillFields leaves builtins and unvalued fields alone', () => {
   assert.equal(core.fillFields('{goal}'), '{goal}');
 });
 
+test('nextEmptyField: Enter steps to the next empty field and submits only when none is ahead (critique popup 3, P1)', () => {
+  const fields = ['good', 'bad', 'area'];
+  // Typed the first, two still empty: go to the second
+  assert.equal(core.nextEmptyField(fields, { good: 'v1', bad: '', area: '' }, 0), 1);
+  // A filled field ahead is skipped
+  assert.equal(core.nextEmptyField(fields, { good: 'v1', bad: 'v2', area: '' }, 0), 2);
+  // Whitespace is empty
+  assert.equal(core.nextEmptyField(fields, { good: 'v1', bad: '  \n', area: 'x' }, 0), 1);
+  // Nothing empty ahead: submit, from the last field and from a full form
+  assert.equal(core.nextEmptyField(fields, { good: 'v1', bad: 'v2', area: '' }, 2), -1);
+  assert.equal(core.nextEmptyField(fields, { good: 'v1', bad: 'v2', area: 'x' }, 0), -1);
+  // Forward only: a blank behind the caret was passed on purpose, and two
+  // deliberate blanks must not bounce Enter between them
+  assert.equal(core.nextEmptyField(fields, { good: '', bad: 'v2', area: '' }, 2), -1);
+  // Missing values count as empty; no fields, no step
+  assert.equal(core.nextEmptyField(fields, {}, 0), 1);
+  assert.equal(core.nextEmptyField(fields, null, -1), 0);
+  assert.equal(core.nextEmptyField([], {}, 0), -1);
+});
+
 test('expandBuiltins replaces date and time from the injected clock (L23)', () => {
   const now = new Date(2026, 6, 12, 9, 5);
   // The exact strings the locale produces for that instant, not merely "the tokens went away"

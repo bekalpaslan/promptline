@@ -151,6 +151,8 @@ interface PromptlineCore {
   requiredInputs(snippet: Pick<Snippet, "text" | "configValues">): string[]
   /** Substitute runtime {field} values literally (safe for `$` patterns) */
   fillFields(text: string, values?: Record<string, string>): string
+  /** The fill-in form's Enter: the next empty field after `from`, or -1 to submit */
+  nextEmptyField(fields: string[], values: Record<string, string> | null | undefined, from: number): number
   /** {date} and {time} from `now` (the clock when omitted) */
   expandBuiltins(text: string, now?: Date): string
   fuzzyScore(query: string, target: string): FuzzyResult | null
