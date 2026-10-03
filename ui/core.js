@@ -188,6 +188,43 @@
     return { score: worst };
   }
 
+  // What a row shows on its second line when the search found it by its
+  // body: the body on one line, starting a few words before the first hit,
+  // with the positions to underline. A row found by its body used to show
+  // the prompt's opening words like any other, so nothing on screen said
+  // why it was in the results. Mirrors bodyScore (the query outright, or
+  // every word of it starting a word); null when the body is not what
+  // matched. `indices` are UTF-16 offsets into the returned text.
+  function bodyExcerpt(query, text, lead) {
+    const q = (query || '').trim().toLowerCase();
+    const flat = (text || '').replace(/\s+/g, ' ').trim();
+    if (!q || !flat) return null;
+    const low = flat.toLowerCase();
+    const hits = [];
+    const at = low.indexOf(q);
+    if (at >= 0) hits.push([at, q.length]);
+    else {
+      const words = q.split(/\s+/).filter(Boolean);
+      if (words.length < 2) return null;
+      for (const w of words) {
+        const i = wordStartIndex(low, w);
+        if (i < 0) return null;
+        hits.push([i, w.length]);
+      }
+    }
+    const first = Math.min(...hits.map(h => h[0]));
+    let start = Math.max(0, first - (lead == null ? 16 : lead));
+    // Begin on a word, not inside one
+    if (start > 0) start = flat.lastIndexOf(' ', start) + 1;
+    const prefix = start > 0 ? '\u2026' : '';
+    const indices = [];
+    for (const [i, n] of hits) {
+      if (i < start) continue;
+      for (let k = 0; k < n; k++) indices.push(prefix.length + i - start + k);
+    }
+    return { text: prefix + flat.slice(start), indices: indices.sort((a, b) => a - b) };
+  }
+
   // Where `word` starts a word in `text` (already lowercased), or -1
   function wordStartIndex(text, word) {
     let from = 0;
@@ -873,6 +910,23 @@
     return t.split('\n').length;
   }
 
+  // The one icon a popup row shows, by what the user most needs to know
+  // before Enter. `row` is { pinned, asks, clip }: pinned, asks for values
+  // before pasting, wraps {clipboard}.
+  //  1. 'clipboard-empty': the prompt wraps the clipboard, the clipboard is
+  //     empty and no fill-in form stands between Enter and the paste. It
+  //     wins over the pin: pinned rows are the ones pasted most, by
+  //     Ctrl+1..5 without a look at the hint bar, and they were the only
+  //     rows that never showed the hole (critique popup P1, 2026-10-03).
+  //  2. 'pin', except under the Pinned heading, where every row is pinned
+  //     and the slot says the kind instead, as in every other section.
+  //  3. the kind: 'asks', 'clipboard' or 'plain'.
+  function rowIcon(row, clipEmpty, underPinned) {
+    if (clipEmpty && row.clip && !row.asks) return 'clipboard-empty';
+    if (row.pinned && !underPinned) return 'pin';
+    return row.asks ? 'asks' : row.clip ? 'clipboard' : 'plain';
+  }
+
   function clipboardPreview(clip, max) {
     const limit = max || CLIP_PREVIEW_MAX;
     const flat = revealControls((clip || '').replace(/\s+/g, ' ').trim());
@@ -1032,6 +1086,7 @@
     expandBuiltins,
     fuzzyScore,
     bodyScore,
+    bodyExcerpt,
     DRAFT_TITLE,
     isEmptyDraft,
     rankSnippets,
@@ -1075,6 +1130,7 @@
     fieldLabel,
     lineCount,
     clipboardPreview,
+    rowIcon,
     expandForCopy,
     titleFromClipboard,
     normalizeTag,

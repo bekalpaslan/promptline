@@ -16,7 +16,7 @@ import { type Config, DEFAULT_PACK, MAX_PINS, defaultPackFor, isLockedIn, packNa
 const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
-import { CLIP_LINE_ID, type Entry, Row, derive } from "@/popup/Row"
+import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { Button } from "@/components/ui/button"
 import { MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
@@ -28,12 +28,18 @@ import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components
 // asked for every day is one the user never learned could be set once
 type FormState = { snippet: Snippet; base: string; fields: string[]; configFields: Set<string>; paste: boolean }
 type PanelAction = { label: string; danger?: boolean; run: () => void }
+// Where Delete sits in the action panel (its digit is this plus one)
+const DELETE_AT = 4
 type CreateState = { title: string; pack: string; group: string; prefilled: string }
 // One line of feedback above the hint bar: the popup's only channel for an
 // error (a failed paste or save), a confirmation that something landed
 // (copied, saved, restored: Success text, no fill, as every confirmation in
 // DESIGN.md) or a note (undo offered, press Esc again)
-type Notice = { text: string; kind: "error" | "info" | "success" }
+// `undo`: the note offers the last delete back, as a button in the strip.
+// "fresh" in the session that deleted (bare U works while nothing is typed),
+// "kept" on the one summon it survives (Ctrl+Z and the button only: U is
+// the first letter of a query the user came back to type).
+type Notice = { text: string; kind: "error" | "info" | "success"; undo?: "fresh" | "kept" }
 
 
 // window (125% scale, the mono font) wraps between hints instead of being
@@ -42,11 +48,20 @@ type Notice = { text: string; kind: "error" | "info" | "success" }
 // wrapped to two lines and ate a row (L20). A `wide` one shows only from
 // 440 px, in a window the user has widened: the five resting hints fill
 // the default 400 px, and a sixth wrapped the bar the same way.
-function Hint({ k, minor, wide, children }: { k: string; minor?: boolean; wide?: boolean; children: React.ReactNode }) {
+// Those widths are the window's at 100% UI scale. The breakpoints are
+// container queries on the bar, in rem (the window's width less the
+// shell's 18 px of padding and border), so they grow with the UI scale:
+// as viewport pixels they kept showing five hints at 125%, where the type
+// is a quarter wider, and the bar wrapped at every width.
+// A `warn` hint says what the key is about to do wrong, in Warn: text only,
+// as every warning in DESIGN.md.
+// A `wider` one waits for 500 px: beside the warning's long label, actions
+// and preview fit on the line only there (at 440 px they wrapped the bar).
+function Hint({ k, minor, wide, wider, warn, children }: { k: string; minor?: boolean; wide?: boolean; wider?: boolean; warn?: boolean; children: React.ReactNode }) {
   return (
-    <span className={cn("flex shrink-0 items-center gap-1", minor && "hidden min-[360px]:flex", wide && "hidden min-[440px]:flex")}>
+    <span className={cn("flex shrink-0 items-center gap-1", minor && "hidden @min-[21.375rem]:flex", wide && "hidden @min-[26.375rem]:flex", wider && "hidden @min-[30.125rem]:flex")}>
       <Keys combo={k} />
-      <span>{children}</span>
+      <span className={cn(warn && "text-(--warn)")}>{children}</span>
     </span>
   )
 }
@@ -64,6 +79,10 @@ function SectionHeader({ children, name }: { children: React.ReactNode; name?: b
 export function App() {
   const [snippets, setSnippets] = useState<Snippet[]>([])
   const [clip, setClip] = useState("")
+  // One test for "empty", shared by the clipboard line, the rows and the
+  // hint bar: whitespace alone pastes a hole as surely as nothing does, and
+  // the line used to call it empty while the rows did not
+  const clipEmpty = !clip.trim()
   const [query, setQuery] = useState("")
   const [sel, setSel] = useState(0)
   // The prompt whose paste is in flight: its row is tinted, and no other
@@ -84,12 +103,22 @@ export function App() {
   const [previewIdx, setPreviewIdx] = useState<number | null>(null)
   // Where the preview card anchors: its top-left at (x, y) when it fits
   // below, its bottom edge at `above` otherwise. The cursor on hover, the
-  // selected row on keyboard → (so the card never covers that row)
-  const [previewPos, setPreviewPos] = useState<{ x: number; y: number; above: number } | null>(null)
+  // selected row on keyboard → (so the card never covers that row). `key`:
+  // opened from the keyboard, which is what lets it take the list's place
+  // in a window too short to hold it beside the row (below).
+  const [previewPos, setPreviewPos] = useState<{ x: number; y: number; above: number; key?: boolean } | null>(null)
   // The card's measured height, so a short card near the bottom is clamped by
   // what it takes up rather than by its max; null until the card is measured
   const previewCardRef = useRef<HTMLDivElement>(null)
   const [previewH, setPreviewH] = useState<number | null>(null)
+  // The card's text scrolls inside it; its Copy button does not. Whether
+  // there is more than fits decides if the hint bar offers PgDn.
+  const previewBodyRef = useRef<HTMLDivElement>(null)
+  const [previewScrolls, setPreviewScrolls] = useState(false)
+  // The list's top and bottom edges as they are with the card open, measured
+  // after the commit: opening the card changes the hint bar, which can wrap
+  // (a larger UI scale) and move the list's bottom edge up under the card
+  const [previewList, setPreviewList] = useState<{ top: number; bottom: number } | null>(null)
   const [compact, setCompact] = useState(isCompact())
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
   const [packsArranged, setPacksArranged] = useState(false)
@@ -97,7 +126,7 @@ export function App() {
   const [notice, setNotice] = useState<Notice | null>(null)
   // The popup's own undo: the last deleted prompt, offered for a few seconds
   // (D8: popup-local, so it works with the manager closed)
-  const lastDeleted = useRef<{ snippet: Snippet; timer: ReturnType<typeof setTimeout> } | null>(null)
+  const lastDeleted = useRef<{ snippet: Snippet; summoned: boolean } | null>(null)
   // Escape in create mode with an edited title asks once before discarding
   const createEscArmed = useRef(false)
 
@@ -505,15 +534,12 @@ export function App() {
       return
     }
     closePanel()
-    if (lastDeleted.current) clearTimeout(lastDeleted.current.timer)
-    lastDeleted.current = {
-      snippet: s,
-      timer: setTimeout(() => {
-        lastDeleted.current = null
-        setNotice((n) => (n?.text.startsWith("Deleted ") ? null : n))
-      }, 8000),
-    }
-    setNotice({ text: `Deleted "${s.title}" — U or Ctrl+Z to undo`, kind: "info" })
+    // No clock on the offer: it lasts this session and the next summon
+    // (`reload`), then goes. Eight seconds was shorter than reading the
+    // strip, and Esc or a paste in that time made the delete permanent
+    // (critique popup P1, 2026-10-03).
+    lastDeleted.current = { snippet: s, summoned: false }
+    setNotice({ text: `Deleted "${s.title}"`, kind: "info", undo: "fresh" })
   }, [closePanel, fail])
 
   // Put the last deleted prompt back, with everything it had (same id, uses,
@@ -521,7 +547,6 @@ export function App() {
   const undoDelete = useCallback(async () => {
     const last = lastDeleted.current
     if (!last) return
-    clearTimeout(last.timer)
     lastDeleted.current = null
     // Highlight what came back, wherever the ranking puts it
     pendingAnchor.current = { follow: last.snippet.id }
@@ -536,18 +561,32 @@ export function App() {
 
   const panelActions = useMemo<PanelAction[]>(() => {
     if (!panelFor) return []
+    // The panel covers the hint bar's warning with its own hints, so its
+    // Paste and Copy say what the bar said: this row sends a hole
+    const d = derived.get(panelFor.id)
+    const hole = !!d && rowIcon(panelFor, d, clipEmpty, false) === "clipboard-empty"
     return [
-      { label: "Paste", run: () => pick(panelFor, true) },
-      { label: "Copy only", run: () => pick(panelFor, false) },
+      { label: hole ? "Paste without clipboard" : "Paste", run: () => pick(panelFor, true) },
+      { label: hole ? "Copy without clipboard" : "Copy only", run: () => pick(panelFor, false) },
       { label: panelFor.pinned ? "Unpin" : "Pin", run: () => void togglePin(panelFor) },
       { label: "Edit in manager", run: () => void invoke("edit_in_manager", { id: panelFor.id }) },
       {
         label: deleteArmed ? "Really delete?" : "Delete",
         danger: true,
-        run: () => (deleteArmed ? void deleteSnippet(panelFor) : setDeleteArmed(true)),
+        // Arming takes the highlight with it, however it was armed (its
+        // digit, a click, Enter): "Really delete?" used to sit under a
+        // highlight still on Paste, so the Enter that answered it pasted
+        // the prompt into the terminal (critique popup P1, 2026-10-03)
+        run: () => {
+          if (deleteArmed) void deleteSnippet(panelFor)
+          else {
+            setDeleteArmed(true)
+            setPanelSel(DELETE_AT)
+          }
+        },
       },
     ]
-  }, [panelFor, deleteArmed, pick, togglePin, deleteSnippet])
+  }, [panelFor, deleteArmed, pick, togglePin, deleteSnippet, derived, clipEmpty])
 
   const reload = useCallback(async () => {
     applyPrefs()
@@ -555,9 +594,17 @@ export function App() {
     closePanel()
     setForm(null)
     setCreate(null)
-    setNotice(null)
-    if (lastDeleted.current) clearTimeout(lastDeleted.current.timer)
-    lastDeleted.current = null
+    // A delete's undo survives one hide and summon: the popup is gone in a
+    // keystroke, and "undoable, never lost" can't depend on not pressing
+    // Esc. The summon after that starts clean.
+    const last = lastDeleted.current
+    if (last && !last.summoned) {
+      last.summoned = true
+      setNotice({ text: `Deleted "${last.snippet.title}"`, kind: "info", undo: "kept" })
+    } else {
+      lastDeleted.current = null
+      setNotice(null)
+    }
     if (copyHideTimer.current) clearTimeout(copyHideTimer.current)
     copyHideTimer.current = null
     hidePreview()
@@ -675,9 +722,12 @@ export function App() {
       // irrelevant — nothing here re-handles a key handled in a view.
       if (e.defaultPrevented) return
       if (panelFor) {
-        if (e.key === "Escape") { e.preventDefault(); closePanel() }
-        else if (e.key === "ArrowDown") { e.preventDefault(); setPanelSel((p) => (p + 1) % panelActions.length) }
-        else if (e.key === "ArrowUp") { e.preventDefault(); setPanelSel((p) => (p - 1 + panelActions.length) % panelActions.length) }
+        // An armed delete is a question: Esc answers no and stays in the
+        // panel, and moving off the item withdraws it, so it can't be
+        // found still armed on the way back
+        if (e.key === "Escape") { e.preventDefault(); if (deleteArmed) setDeleteArmed(false); else closePanel() }
+        else if (e.key === "ArrowDown") { e.preventDefault(); setDeleteArmed(false); setPanelSel((p) => (p + 1) % panelActions.length) }
+        else if (e.key === "ArrowUp") { e.preventDefault(); setDeleteArmed(false); setPanelSel((p) => (p - 1 + panelActions.length) % panelActions.length) }
         else if (e.key === "Enter") { e.preventDefault(); panelActions[panelSel]?.run() }
         else if (/^[1-9]$/.test(e.key)) { e.preventDefault(); panelActions[Number(e.key) - 1]?.run() }
         else if (e.key === "Tab") { e.preventDefault(); closePanel() }
@@ -708,7 +758,7 @@ export function App() {
         !e.altKey &&
         !e.metaKey &&
         ((e.ctrlKey && e.key.toLowerCase() === "z") ||
-          (!e.ctrlKey && e.key.toLowerCase() === "u" && query === ""))
+          (!e.ctrlKey && e.key.toLowerCase() === "u" && query === "" && !lastDeleted.current.summoned))
       ) {
         e.preventDefault()
         void undoDelete()
@@ -723,6 +773,16 @@ export function App() {
       if (e.ctrlKey && e.key.toLowerCase() === "n") {
         e.preventDefault()
         openCreate()
+        return
+      }
+      // The open card scrolls from the keyboard. → is the only way a
+      // keyboard has of reading what will be pasted, and a long prompt or a
+      // short window used to leave the rest of it out of reach (critique
+      // popup, 2026-10-03).
+      if (previewIdx !== null && (e.key === "PageDown" || e.key === "PageUp")) {
+        e.preventDefault()
+        const body = previewBodyRef.current
+        if (body) body.scrollTop += (e.key === "PageDown" ? 1 : -1) * Math.max(40, body.clientHeight - 20)
         return
       }
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
@@ -760,7 +820,7 @@ export function App() {
           const rect = listRef.current
             ?.querySelector('[data-selected="true"]')
             ?.getBoundingClientRect()
-          setPreviewPos(rect ? { x: rect.left + 16, y: rect.bottom + 4, above: rect.top - 4 } : null)
+          setPreviewPos(rect ? { x: rect.left + 16, y: rect.bottom + 4, above: rect.top - 4, key: true } : null)
           setPreviewIdx(sel)
         }
       } else if (e.key === "ArrowLeft" && previewIdx !== null) {
@@ -782,7 +842,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, filterKey, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, filterKey, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live preview index
   // through a ref instead of closing over it. The pointer never moves the
@@ -818,7 +878,29 @@ export function App() {
   // uses its real height; a new card starts from the max-height fallback
   useLayoutEffect(() => {
     setPreviewH(previewIdx === null ? null : previewCardRef.current?.offsetHeight ?? null)
+    const r = previewIdx === null ? null : listRef.current?.getBoundingClientRect()
+    setPreviewList((was) => (!r ? null : was && was.top === r.top && was.bottom === r.bottom ? was : { top: r.top, bottom: r.bottom }))
   }, [previewIdx, previewPos])
+  // Once the card has its final box: does its text overflow, and if the
+  // clipboard's place in the prompt is below the fold, start there. The
+  // card exists to show the clipboard in the prompt; opening on the
+  // prompt's first lines with the clipboard out of sight showed the part
+  // the row already shows.
+  useLayoutEffect(() => {
+    const body = previewBodyRef.current
+    if (previewIdx === null || !body) {
+      setPreviewScrolls(false)
+      return
+    }
+    const chip = body.querySelector("[data-clip]")
+    if (chip) {
+      const c = chip.getBoundingClientRect()
+      const b = body.getBoundingClientRect()
+      // One line of the prompt stays above it for context
+      if (c.bottom > b.bottom) body.scrollTop += c.top - b.top - 24
+    }
+    setPreviewScrolls(body.scrollHeight > body.clientHeight + 1)
+  }, [previewIdx, previewPos, previewH, previewList])
   // A pill or header funnel toggles its filter term: first click adds it to
   // the query, second click removes it again, other terms stay put
   const toggleFilter = useCallback((prefix: "#" | "@" | ">", name: string) => {
@@ -858,12 +940,51 @@ export function App() {
   )
 
   // --- Hint bar (kit kbd-chip idiom) -------------------------------------------
-  const hint = panelFor ? (
+  // The selected row wraps the clipboard, the clipboard is empty and no
+  // fill-in form will show the hole first: the same test as the row's hollow
+  // icon (`rowIcon`), for the row Enter is about to send
+  const selEntry = visible[sel]
+  const selDerived = selEntry ? derived.get(selEntry.s.id) : undefined
+  const selHole = !!selEntry && !!selDerived && rowIcon(selEntry.s, selDerived, clipEmpty, false) === "clipboard-empty"
+  const hint = panelFor && deleteArmed ? (
+    // The question on screen, answered in the bar: what Enter does now
+    <><Hint k="↵">delete</Hint><Hint k="Esc">cancel</Hint></>
+  ) : panelFor ? (
     <><Hint k="↵">run</Hint><Hint k={`1-${panelActions.length}`}>pick</Hint><Hint k="Esc">back</Hint></>
   ) : form ? (
     <><Hint k="↵">paste</Hint><Hint k="Ctrl ↵">copy</Hint><Hint k="⇧ ↵" minor>newline</Hint><Hint k="Esc">back</Hint></>
   ) : create ? (
     <><Hint k="↵">save</Hint><Hint k="Esc">back</Hint></>
+  ) : !visible.length ? (
+    // No rows: paste, copy, actions and preview have nothing to act on.
+    // What can be done is save the clipboard as a prompt, or leave.
+    <>
+      {!clipEmpty && <Hint k="Ctrl N">new prompt</Hint>}
+      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+    </>
+  ) : selHole ? (
+    // Enter on this row pastes a hole where the clipboard should be, and the
+    // bar is where the eye checks what Enter does. The longer label takes the
+    // room of the hints it pushes out: copy goes below 360 px, actions and
+    // preview below 500 px, so the bar stays one line at every width.
+    <>
+      <Hint k="↵" warn>paste without clipboard</Hint>
+      <Hint k="Ctrl ↵" minor>copy</Hint>
+      <Hint k="Tab" wider>actions</Hint>
+      <Hint k="→" wider>preview</Hint>
+      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+    </>
+  ) : previewIdx !== null ? (
+    // The card is open: what the keys do to it. The page keys only when
+    // there is more of it than fits, and both of them: the card opens at
+    // the clipboard, which is often its end. Copy is on the card's own
+    // button, with its key.
+    <>
+      <Hint k="↵">paste</Hint>
+      {previewScrolls && <Hint k="PgUp PgDn">scroll</Hint>}
+      <Hint k="←">back</Hint>
+      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+    </>
   ) : (
     <>
       <Hint k="↵">paste</Hint>
@@ -887,27 +1008,67 @@ export function App() {
   // were an error the user copied.
   const anyUsesClip = useMemo(() => [...derived.values()].some((d) => d.clip), [derived])
   const clipLine = (() => {
-    if (!clip.trim()) return { label: anyUsesClip ? "Clipboard is empty — {clipboard} rows paste nothing" : "Clipboard is empty", text: null }
+    // Empty: the fact first, in Warn while it costs something, then what it
+    // costs, in the words the hint bar and the action panel use ("paste
+    // without clipboard"). It said "{clipboard} rows paste nothing", which
+    // they don't: they paste the prompt, with nothing where the clipboard
+    // goes; and at 35 characters it was cut short at the default width.
+    if (clipEmpty) return { label: "Clipboard is empty", detail: anyUsesClip ? "— prompts paste without it" : null, warn: anyUsesClip, text: null }
     const last = lastSent.current
     const label = last && last.text === clip ? (last.verb === "pasted" ? "Last pasted prompt" : "Last copied prompt") : "Clipboard"
-    return { label, text: C.clipboardPreview(clip) }
+    return { label, detail: null, warn: false, text: C.clipboardPreview(clip) }
   })()
 
   // What a screen reader hears when the state changes (UM14)
+  // What the list says when it has no rows: a first run, a filter that
+  // excludes everything, or a query nothing answers
+  const emptyText = !snippets.length
+    ? "No prompts yet — copy some text and press Ctrl+N to save it as one, or left-click the Promptline tray icon to open the manager"
+    : parsed.tags.length || parsed.packs.length || parsed.groups.length
+      ? "No matches — #tag, @pack and >group terms narrow the list; remove one to widen it"
+      : clipEmpty
+        ? "No matches"
+        : "No matches — Ctrl+N saves the clipboard as a new prompt"
+
+  // The strip's Undo button, and the keys it can honestly show: the form,
+  // the create view and the action panel take the keyboard for themselves;
+  // bare U is the list's, in the session that deleted, while nothing is typed
+  const onUndo = () => {
+    void undoDelete()
+    inputRef.current?.focus()
+  }
+  const undoKeys =
+    panelFor || form || create ? [] : notice?.undo === "fresh" && query === "" ? ["U", "Ctrl+Z"] : ["Ctrl+Z"]
+
+  // The armed item keeps focus and only changes its label, which a screen
+  // reader does not re-read; the status region says the question
   const announce = panelFor
-    ? `Actions for ${panelFor.title}`
+    ? deleteArmed
+      ? `Really delete ${panelFor.title}? Enter deletes it, Escape cancels`
+      : `Actions for ${panelFor.title}`
     : form
       ? `Fill in ${C.plural(form.fields.length, "field")} for ${form.snippet.title}`
       : create
         ? "New prompt from clipboard"
-        : `${C.plural(visible.length, "prompt")}${hasQuery ? " match" : ""}`
+        : // Any query narrows the list, a #tag as much as a word; and one
+          // prompt matches, it doesn't "match"
+          // With no rows it says what the list says: that message sits in
+          // the listbox, where only options are read, so it was never heard
+          !visible.length
+          ? emptyText
+          : query.trim()
+            ? visible.length === 1 ? "1 prompt matches" : `${visible.length} prompts match`
+            : C.plural(visible.length, "prompt")
 
   // --- Create-from-clipboard confirmation --------------------------------------
   if (create) {
     return (
-      <Shell hint={hint} notice={notice} announce={announce}>
+      <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys}>
+        {/* The fields scroll; Save does not. At the minimum height the
+            button used to be the last thing in the scroller, below the fold
+            of a form whose hint bar said Enter saves. */}
         <div
-          className="flex flex-1 flex-col gap-3 overflow-y-auto p-1"
+          className="flex min-h-0 flex-1 flex-col gap-2"
           // Enter saves from any field, as the hint bar promises: the pack and
           // group selects have no Enter of their own, and the document listener
           // stays out of this view. Arrow keys reach the selects untouched, and
@@ -921,10 +1082,11 @@ export function App() {
             void saveCreate()
           }}
         >
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-1">
           <SectionHeader>New prompt from clipboard</SectionHeader>
           <div className="px-1">
             {/* Real labels, as the fill-in form's: a screen reader names each control */}
-            <label htmlFor="create-title" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Name</label>
+            <label htmlFor="create-title" className="mb-1 block text-xs font-medium tracking-[0.04em] text-muted-foreground">Title</label>
             <input
               id="create-title"
               autoFocus
@@ -982,7 +1144,8 @@ export function App() {
           {!clip && (
             <div className="px-1 text-xs text-destructive">Copy something first — the clipboard is the prompt body</div>
           )}
-          <Button size="lg" onClick={() => void saveCreate()} disabled={!clip}>
+          </div>
+          <Button size="lg" className="shrink-0" onClick={() => void saveCreate()} disabled={!clip}>
             Save prompt
           </Button>
         </div>
@@ -1001,7 +1164,7 @@ export function App() {
     const submitLabel =
       emptyCount === 0 ? verb : `${verb} with ${C.plural(emptyCount, "field")} empty`
     return (
-      <Shell hint={hint} notice={notice} announce={announce}>
+      <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys}>
         {/* Fields and preview scroll; the button stays in reach below them */}
         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1">
           <SectionHeader name>{form.snippet.title}</SectionHeader>
@@ -1034,7 +1197,7 @@ export function App() {
                 }}
                 className={cn(
                   fieldVariants(),
-                  "block field-sizing-content max-h-[calc(3lh+1rem)] min-h-[calc(1lh+1rem)] w-full resize-none overflow-y-auto py-2 leading-5 placeholder:text-muted-foreground/70"
+                  "block field-sizing-content max-h-[calc(3lh+1rem)] min-h-[calc(1lh+1rem)] w-full resize-none overflow-y-auto py-2 leading-5 placeholder:text-muted-foreground"
                 )}
                 aria-describedby={form.configFields.has(f) ? `field-${f}-note` : undefined}
               />
@@ -1058,7 +1221,7 @@ export function App() {
   }
 
   // --- List mode ------------------------------------------------------------------
-  const row = (entry: Entry, i: number) => (
+  const row = (entry: Entry, i: number, underPinned: boolean) => (
     <Row
       key={entry.s.id}
       entry={entry}
@@ -1073,13 +1236,15 @@ export function App() {
       onTag={onTagClick}
       activeTags={activeTags}
       previewed={previewIdx === i}
-      clipEmpty={!clip}
+      clipEmpty={clipEmpty}
+      underPinned={underPinned}
+      queryText={parsed.text}
       slot={slotOf.get(entry.s.id)}
     />
   )
 
   return (
-    <Shell hint={hint} notice={notice} announce={announce}>
+    <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys}>
       {/* Search: the same box as the manager's filter */}
       <div role="search" className={searchBoxClass()}>
         <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -1123,14 +1288,20 @@ export function App() {
       <div className="flex h-5 shrink-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
         <RiClipboardLine className="size-3.5 shrink-0 opacity-70" aria-hidden />
         <span id={CLIP_LINE_ID} className="flex min-w-0 flex-1 items-center gap-1.5">
-          {/* With text beside it the label keeps its width and the text gives
-              way; alone (empty clipboard) it is the thing that truncates at
-              the 320 px minimum */}
-          <span className={cn("truncate", clipLine.text ? "shrink-0" : "min-w-0")}>{clipLine.label}</span>
+          {/* The label keeps its width; what follows it gives way: the
+              clipboard's text, or, empty, the consequence. At the 320 px
+              minimum "Clipboard is empty" is what must survive. */}
+          <span className={cn("shrink-0", clipLine.warn && "text-(--warn)")}>{clipLine.label}</span>
+          {clipLine.detail && <>{" "}<span className="min-w-0 truncate">{clipLine.detail}</span></>}
           {clipLine.text && (
             <>
               <ClipboardMarks clipboard={clip} />
-              <bdi className="min-w-0 flex-1 truncate rounded-sm bg-(--param-builtin-bg) px-1 text-foreground" title="The clipboard as it is now">
+              {/* On Control grey here, not the built-in tint: in Instrument
+                  that tint is the selection's own colour, and the line sits
+                  right above the selected row, so two things glowed where
+                  DESIGN.md allows one. In a preview, inside the prompt's
+                  text, the tint still marks what was inserted. */}
+              <bdi className="min-w-0 flex-1 truncate rounded-sm bg-secondary px-1 text-foreground" title="The clipboard as it is now">
                 {clipLine.text}
               </bdi>
             </>
@@ -1142,8 +1313,12 @@ export function App() {
           // The visible text (the key caps) is part of the name, for anyone
           // who says what they see (WCAG 2.5.3)
           aria-label="New prompt from clipboard (Ctrl N)"
-          title="New prompt from clipboard (Ctrl+N)"
-          className="focus-ring flex shrink-0 cursor-pointer items-center rounded-sm hover:bg-hover"
+          // Nothing to save from an empty clipboard: the key is drawn
+          // unavailable. It still answers, with the strip's "Copy something
+          // first", so pressing it is never silent.
+          aria-disabled={clipEmpty || undefined}
+          title={clipEmpty ? "Copy something first — Ctrl+N saves the clipboard as a new prompt" : "New prompt from clipboard (Ctrl+N)"}
+          className={cn("focus-ring flex shrink-0 cursor-pointer items-center rounded-sm hover:bg-hover", clipEmpty && "opacity-50")}
           onClick={openCreate}
         >
           <Keys combo="Ctrl+N" />
@@ -1158,16 +1333,10 @@ export function App() {
         className="flex-1 overflow-y-auto px-0.5"
         onScroll={hidePreview}
       >
+        {/* Hidden from assistive tech here (a listbox holds only options);
+            the status region says the same words */}
         {filtered.length === 0 && (
-          <div className="px-4 py-4 text-center text-ui text-muted-foreground">
-            {!snippets.length
-              ? "No prompts yet — copy some text and press Ctrl+N to save it as one, or left-click the Promptline tray icon to open the manager"
-              : C.parseQuery(query).tags.length || C.parseQuery(query).packs.length || C.parseQuery(query).groups.length
-                ? "No matches — #tag, @pack and >group terms narrow the list; remove one to widen it"
-                : clip.trim()
-                  ? "No matches — Ctrl+N saves the clipboard as a new prompt"
-                  : "No matches"}
-          </div>
+          <div aria-hidden className="px-4 py-4 text-center text-ui text-muted-foreground">{emptyText}</div>
         )}
         {sections.map((sec) => {
           // A pack's rows split like the sidebar: the ungrouped run, then one
@@ -1184,14 +1353,18 @@ export function App() {
               groups.get(e.s.group)!.push(e)
             }
           }
-          const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!))
+          // The app's own Pinned list, not a pack the user named "Pinned"
+          // (a pack is collapsible)
+          const underPinned = flat && sec.name === "Pinned"
+          const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!, underPinned))
           const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
           const filtered = sec.collapsible && packActive(sec.name)
           // A pack title as in the sidebar: the body size at 600, one step
           // above a group's 500 and a row's 500 in Ink 2. At 16px it was the
           // largest text in the popup, above the titles the scene is about.
+          // 24 px tall, not 28: four headers above the fold cost a row.
           const headerClass = cn(
-            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-1 py-1 text-left text-ui font-semibold",
+            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-1 py-0.5 text-left text-ui font-semibold",
             sec.collapsible && "cursor-pointer",
             sec.isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
           )
@@ -1203,7 +1376,11 @@ export function App() {
             </>
           )
           return (
-            <div key={sec.name} className="mb-3" role="group" aria-label={sec.name}>
+            // Rhythm: 2 px between rows (the rounded fill already parts
+            // them), 8 px between packs. It was 6 and 12, a pitch of 50 px
+            // for a 44 px row, which showed seven prompts in the default
+            // window; the same window now shows nine or ten.
+            <div key={sec.name} className="mb-2" role="group" aria-label={sec.name}>
               {/* Pack title, as in the sidebar: a disclosure button (← / Ctrl+→
                   from a row do the same); Pinned / Results are plain headings.
                   Hidden from assistive tech: a listbox may hold only options
@@ -1235,7 +1412,7 @@ export function App() {
                 <div aria-hidden className={headerClass}>{headerBody}</div>
               )}
               {!sec.isCollapsed && (
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-0.5">
                   {rows(ungrouped)}
                   {[...groups.entries()].map(([g, es]) => {
                     const key = groupKey(sec.name, g)
@@ -1243,7 +1420,13 @@ export function App() {
                     const GChev = gc ? RiArrowRightSLine : RiArrowDownSLine
                     const gf = groupActive(g)
                     return (
-                      <div key={g} className="flex flex-col gap-1.5 pl-2.5" role="group" aria-label={g}>
+                      // No indent on a group's rows: every title in the
+                      // list starts on one edge. The group's name sits on
+                      // that same edge (the header's pl-7 is the row's
+                      // padding, icon and gap), so the outer edge holds
+                      // icons and pack names, the inner one group names and
+                      // titles. Indented, titles sat on two edges 10 px apart.
+                      <div key={g} className="flex flex-col gap-0.5" role="group" aria-label={g}>
                         <div aria-hidden className={cn("group/hdr flex items-center rounded-md pr-0.5", gf && "bg-(--focus)/10")}>
                           <button
                             type="button"
@@ -1252,7 +1435,7 @@ export function App() {
                             title={gc ? "Unfold (Ctrl+→ unfolds all)" : "Fold (← on a row folds its pack or group)"}
                             className={cn(
                               // A group name is the user's words: shown as typed, never uppercased
-                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-left text-ui font-medium",
+                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1 rounded-md py-0.5 pl-7 pr-1 text-left text-ui font-medium",
                               gc ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
                             )}
                             onClick={() => {
@@ -1290,43 +1473,71 @@ export function App() {
         const width = Math.min(320, window.innerWidth - pad * 2)
         const pos = previewPos ?? { x: 16, y: 56, above: 56 }
         const left = Math.max(pad, Math.min(pos.x, window.innerWidth - width - pad))
-        const roomBelow = window.innerHeight - pad - pos.y
+        // The floor is the list's bottom edge, not the window's: the card
+        // used to hang over the feedback strip and the hint bar, the one
+        // place that says which keys act on it
+        const list = previewList
+        const floor = list ? list.bottom : window.innerHeight - pad
+        const roomBelow = floor - pos.y
         const roomAbove = pos.above - pad
         const below = natural <= roomBelow || (natural > roomAbove && roomBelow >= roomAbove)
-        const cap = Math.min(maxH, Math.max(60, below ? roomBelow : roomAbove))
-        const top = below ? pos.y : Math.max(pad, pos.above - Math.min(natural, cap))
+        let cap = Math.min(maxH, Math.max(60, below ? roomBelow : roomAbove))
+        let top = below ? pos.y : Math.max(pad, pos.above - Math.min(natural, cap))
+        // A window too short to hold the card on either side of the row (the
+        // 320×280 minimum leaves it about 85 px): opened from the keyboard,
+        // the card takes the list's place instead. It covers the row it
+        // describes, the one case where it may, because it carries that
+        // row's whole title; a strip three lines tall showed neither the
+        // prompt nor its clipboard. A hover never does this: a card under
+        // the pointer would hide the rows the pointer is moving across.
+        if (pos.key && list && Math.max(roomBelow, roomAbove) < 120 && natural > cap) {
+          top = list.top
+          cap = list.bottom - list.top
+        }
         return (
           <div
             ref={previewCardRef}
             id="popup-preview"
-            role="tooltip"
-            className="fixed z-10 overflow-y-auto whitespace-pre-wrap break-words rounded-xl border border-border bg-(--code-ground) p-2 text-ui leading-relaxed text-muted-foreground shadow-(--shadow-pop)"
+            // A note, not a tooltip: it holds a button, which a tooltip may not
+            role="note"
+            aria-label="Preview"
+            className="fixed z-10 flex flex-col rounded-xl border border-border bg-(--code-ground) p-2 shadow-(--shadow-pop)"
             style={{ left, top, width, maxHeight: cap }}
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
             onMouseLeave={onItemMouseLeave}
           >
-            {/* The whole title: the row cuts a long one and has no tooltip
-                (the hover is this card), so this is where it can be read */}
-            <div className="name-label mb-1 break-words">{visible[previewIdx].s.title}</div>
-            <PromptTokens
-              text={visible[previewIdx].s.text}
-              clipboard={clip}
-              configValues={visible[previewIdx].s.configValues}
-            />
-            {/* The same copy-only path as Ctrl+↵: asks for fill-ins first */}
-            <Button
-              variant="secondary"
-              size="sm"
-              tabIndex={-1}
-              className="mt-2"
-              onClick={(e) => {
-                e.stopPropagation()
-                pick(visible[previewIdx].s, false)
-              }}
+            <div
+              ref={previewBodyRef}
+              className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words text-ui leading-relaxed text-muted-foreground"
             >
-              <RiFileCopyLine aria-hidden />
-              Copy
-            </Button>
+              {/* The whole title: the row cuts a long one and has no tooltip
+                  (the hover is this card), so this is where it can be read */}
+              <div className="name-label mb-1 break-words">{visible[previewIdx].s.title}</div>
+              <PromptTokens
+                text={visible[previewIdx].s.text}
+                clipboard={clip}
+                configValues={visible[previewIdx].s.configValues}
+              />
+            </div>
+            {/* A row of its own under the text, always in view: it trailed
+                the prompt's last word like part of the sentence, and scrolled
+                away with it. The same copy-only path as Ctrl+↵ (asks for
+                fill-ins first), so it carries that key. */}
+            <div className="mt-1.5 flex shrink-0 items-center">
+              <Button
+                variant="secondary"
+                size="sm"
+                tabIndex={-1}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  pick(visible[previewIdx].s, false)
+                }}
+              >
+                <RiFileCopyLine aria-hidden />
+                Copy
+                <Keys combo="Ctrl ↵" />
+              </Button>
+            </div>
           </div>
         )
       })()}
@@ -1336,24 +1547,35 @@ export function App() {
           ref={panelRef}
           role="menu"
           aria-label={`Actions for ${panelFor.title}`}
-          className={cn("fixed inset-x-2 bottom-10 z-20", MENU_PANEL)}
+          // Capped to the window above the hint bar and scrolling: at the
+          // minimum height with a larger UI scale its five items are taller
+          // than the room, and the top ones were cut off
+          className={cn("fixed inset-x-2 bottom-10 z-20 max-h-[calc(100dvh-3rem)] overflow-y-auto", MENU_PANEL)}
         >
           <SectionHeader name>{panelFor.title}</SectionHeader>
           {panelNote && <div role="alert" className="px-2 pb-1 text-xs text-destructive">{panelNote}</div>}
           {panelActions.map((a, i) => (
             <button
-              key={a.label}
+              // By position, not label: keyed by label, "Really delete?" was
+              // a new button, and the focus it replaced fell to the body
+              key={i}
               type="button"
               role="menuitem"
               tabIndex={-1}
               className={cn(
                 MENU_ITEM,
                 "justify-between",
-                i === panelSel && "bg-accent",
+                // Armed, the highlight is the danger's soft fill, not the
+                // accent: the item is no longer one choice among five
+                i === panelSel && (a.danger && deleteArmed ? "bg-destructive/10 font-medium dark:bg-destructive/15" : "bg-accent"),
                 a.danger && "text-destructive"
               )}
               onClick={a.run}
-              onMouseMove={() => setPanelSel(i)}
+              onMouseMove={() => {
+                if (i === panelSel) return
+                setDeleteArmed(false)
+                setPanelSel(i)
+              }}
             >
               <span>{a.label}</span>
               <Kbd>{i + 1}</Kbd>
@@ -1371,10 +1593,16 @@ function Shell({
   hint,
   notice,
   announce,
+  onUndo,
+  undoKeys,
 }: {
   children: React.ReactNode
   hint: React.ReactNode
   notice: Notice | null
+  /** Puts the last deleted prompt back; the strip's Undo button */
+  onUndo?: () => void
+  /** The keys that undo right now, drawn on the button; none while a view has the keyboard */
+  undoKeys?: readonly string[]
   /** What a screen reader should hear about the current state (results, mode) */
   announce: string
 }) {
@@ -1391,9 +1619,28 @@ function Shell({
           paste's message is the one that says where the prompt went, and it
           was cut at the default width (critique popup P1). */}
       <div role="status" aria-live="polite" className="shrink-0 empty:hidden">
-        {notice?.kind === "info" && (
+        {notice?.kind === "info" && !notice.undo && (
           <div className="line-clamp-2 break-words rounded-md bg-primary/15 px-2 py-1 text-ui text-foreground" title={notice.text}>
             {notice.text}
+          </div>
+        )}
+        {/* The undo offer: what was deleted, and a button that carries its
+            keys as key caps. It was a sentence naming keys ("U or Ctrl+Z to
+            undo") with nothing to click, and it went on naming U while a
+            typed query had already taken that key. The title gives way; the
+            button never does. */}
+        {notice?.kind === "info" && notice.undo && (
+          <div className="flex min-w-0 items-center gap-2 rounded-md bg-primary/15 py-1 pl-2 pr-1 text-ui text-foreground">
+            <span className="min-w-0 flex-1 truncate" title={notice.text}>{notice.text}</span>
+            <button
+              type="button"
+              tabIndex={-1}
+              className="focus-ring flex shrink-0 cursor-pointer items-center gap-1.5 rounded-sm px-1 font-medium hover:bg-hover"
+              onClick={onUndo}
+            >
+              Undo
+              {undoKeys?.map((k) => <Keys key={k} combo={k} />)}
+            </button>
           </div>
         )}
         {notice?.kind === "success" && (
@@ -1404,7 +1651,10 @@ function Shell({
       </div>
       <div role="alert" className="shrink-0 empty:hidden">
         {notice?.kind === "error" && (
-          <div className="line-clamp-2 break-words rounded-md bg-destructive/15 px-2 py-1 text-ui text-destructive" title={notice.text}>
+          // Three lines, where a confirmation gets two: the failed paste's
+          // message ends with how to recover ("press Ctrl+V there…"), and at
+          // the 320 px minimum two lines cut it off before that
+          <div className="line-clamp-3 break-words rounded-md bg-destructive/15 px-2 py-1 text-ui text-destructive" title={notice.text}>
             {notice.text}
           </div>
         )}
@@ -1412,7 +1662,7 @@ function Shell({
       {/* Wraps rather than clips: at 125% scale, or with the mono font, the
           list's five hints are wider than the window and the shell's
           overflow-hidden used to eat the last of them */}
-      <div className="flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-1 pt-2 font-mono text-micro text-muted-foreground">
+      <div className="@container flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-1 pt-2 font-mono text-micro text-muted-foreground">
         {hint}
       </div>
     </div>
