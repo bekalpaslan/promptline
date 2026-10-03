@@ -6,9 +6,22 @@
   <title>Code signing policy — Promptline</title>
   <meta name="description" content="How Promptline's Windows releases will be code-signed: what is signed, who approves it, and what the app sends over the network.">
   <link rel="canonical" href="https://promptline.cc/code-signing/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Promptline">
+  <meta property="og:locale" content="en_US">
   <meta property="og:title" content="Promptline code signing policy">
+  <meta property="og:description" content="How Promptline&#x27;s Windows releases will be code-signed: what is signed, who approves it, and what the app sends over the network.">
   <meta property="og:url" content="https://promptline.cc/code-signing/">
   <meta property="og:image" content="https://promptline.cc/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The Promptline popup over its manager window, with the tagline: Your prompts, one hotkey away.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@promptlinecc">
+  <meta name="twitter:title" content="Promptline code signing policy">
+  <meta name="twitter:description" content="How Promptline&#x27;s Windows releases will be code-signed: what is signed, who approves it, and what the app sends over the network.">
+  <meta name="twitter:image" content="https://promptline.cc/og.png">
+  <meta name="twitter:image:alt" content="The Promptline popup over its manager window, with the tagline: Your prompts, one hotkey away.">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
@@ -190,6 +203,30 @@
     .doc dt { font-weight: 600; color: var(--ink); margin-top: 10px; }
     .doc dd { margin: 2px 0 0; }
   </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Promptline",
+            "item": "https://promptline.cc/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Code signing policy",
+            "item": "https://promptline.cc/code-signing/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="logo" viewBox="0 0 1250 1250"><defs><filter id="pl-shadow" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx="10" dy="12" stdDeviation="9" flood-color="#000" flood-opacity="0.35"/></filter></defs><g filter="url(#pl-shadow)"><polygon points="396,72 854,72 1178,396 1178,854 854,1178 396,1178 72,854 72,396" fill="#ff7b7b" stroke="#ff7b7b" stroke-width="80" stroke-linejoin="round"/></g><polygon points="416,121 834,121 1129,416 1129,834 834,1129 416,1129 121,834 121,416" fill="#000" stroke="#000" stroke-width="52" stroke-linejoin="round"/><polygon points="375,408 879,599 879,691 375,880 375,799 795,645 375,490" fill="#fff"/></symbol></svg>
@@ -203,7 +240,7 @@
         <nav aria-label="Site">
           <a href="/">Home</a>
           <a href="/#install">Download</a>
-          <a href="https://github.com/bekalpaslan/promptline">GitHub</a>
+          <a href="https://github.com/bekalpaslan/promptline" rel="noopener noreferrer">GitHub</a>
         </nav>
         <div class="theme" role="radiogroup" aria-label="Page theme" id="theme" hidden>
           <button type="button" role="radio" data-theme="system" aria-label="Follow the system theme" title="System">
@@ -223,7 +260,7 @@
   <main class="wrap doc">
 <h1>Code signing policy</h1>
 <p class="lead">Promptline's Windows releases are not code-signed yet.</p>
-<p>Promptline means to sign its Windows installers through the free programme <a href="https://signpath.org">SignPath Foundation</a> runs for open-source projects, on the <a href="https://signpath.io">SignPath.io</a> signing service. This page is the policy those signed releases will follow: what is signed, who approves it, and what the app sends over the network.</p>
+<p>Promptline means to sign its Windows installers through the free programme <a href="https://signpath.org" rel="noopener noreferrer">SignPath Foundation</a> runs for open-source projects, on the <a href="https://signpath.io" rel="noopener noreferrer">SignPath.io</a> signing service. This page is the policy those signed releases will follow: what is signed, who approves it, and what the app sends over the network.</p>
 <p class="status" id="status"><b>Status.</b> Releases so far are unsigned. SignPath Foundation didn't accept the project's first application, in September 2026; the project will apply again, and this line will name the first signed release.</p>
 
 <h2>What is signed</h2>
@@ -244,9 +281,9 @@
 <p>Promptline has one maintainer, who holds every role.</p>
 <dl>
   <dt>Committers and reviewers</dt>
-  <dd>Alpaslan Bek (<a href="https://github.com/bekalpaslan">@bekalpaslan</a>) writes and reviews every change. Outside contributions arrive as pull requests and are merged only after that review.</dd>
+  <dd>Alpaslan Bek (<a href="https://github.com/bekalpaslan" rel="noopener noreferrer">@bekalpaslan</a>) writes and reviews every change. Outside contributions arrive as pull requests and are merged only after that review.</dd>
   <dt>Approvers</dt>
-  <dd>Alpaslan Bek (<a href="https://github.com/bekalpaslan">@bekalpaslan</a>) approves each signing request on SignPath.</dd>
+  <dd>Alpaslan Bek (<a href="https://github.com/bekalpaslan" rel="noopener noreferrer">@bekalpaslan</a>) approves each signing request on SignPath.</dd>
 </dl>
 <p>Team members must use multi-factor authentication on GitHub and on SignPath.</p>
 
@@ -256,21 +293,21 @@
 <p>This site's own privacy note is at the foot of the <a href="/#privacy">home page</a>.</p>
 
 <h2>Questions and reports</h2>
-<p>Report a security problem through GitHub's private vulnerability reporting or to security@promptline.cc (<a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md">SECURITY.md</a>). Anything else goes to the <a href="https://github.com/bekalpaslan/promptline/issues">issue tracker</a>.</p>
+<p>Report a security problem through GitHub's private vulnerability reporting or to security@promptline.cc (<a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md" rel="noopener noreferrer">SECURITY.md</a>). Anything else goes to the <a href="https://github.com/bekalpaslan/promptline/issues" rel="noopener noreferrer">issue tracker</a>.</p>
   </main>
 
   <footer>
     <div class="wrap row">
       <span>© 2026 Promptline · MIT License</span>
       <nav aria-label="Links">
-        <a href="https://github.com/bekalpaslan/promptline">Source</a>
-        <a href="https://github.com/bekalpaslan/promptline/releases">Releases</a>
-        <a href="https://github.com/bekalpaslan/promptline/discussions">Discussions</a>
+        <a href="https://github.com/bekalpaslan/promptline" rel="noopener noreferrer">Source</a>
+        <a href="https://github.com/bekalpaslan/promptline/releases" rel="noopener noreferrer">Releases</a>
+        <a href="https://github.com/bekalpaslan/promptline/discussions" rel="noopener noreferrer">Discussions</a>
         <a href="/posts/">Posts</a>
-        <a href="https://buymeacoffee.com/hurryupbob">Buy me a coffee</a>
-        <a href="https://github.com/bekalpaslan/promptline/blob/master/README.md">Docs</a>
-        <a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md">Security</a>
-        <a href="https://github.com/bekalpaslan/promptline/blob/master/THIRD-PARTY-NOTICES.md">Third-party notices</a>
+        <a href="https://buymeacoffee.com/hurryupbob" rel="noopener noreferrer">Buy me a coffee</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/README.md" rel="noopener noreferrer">Docs</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md" rel="noopener noreferrer">Security</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/THIRD-PARTY-NOTICES.md" rel="noopener noreferrer">Third-party notices</a>
         <a href="/#privacy">Privacy</a>
         <a href="/code-signing/" aria-current="page">Code signing policy</a>
       </nav>

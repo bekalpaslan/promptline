@@ -6,9 +6,22 @@
   <title>Posts — Promptline</title>
   <meta name="description" content="Writing about prompts, packs and the tools around them, from the maker of Promptline.">
   <link rel="canonical" href="https://promptline.cc/posts/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Promptline">
+  <meta property="og:locale" content="en_US">
   <meta property="og:title" content="Promptline posts">
+  <meta property="og:description" content="Writing about prompts, packs and the tools around them, from the maker of Promptline.">
   <meta property="og:url" content="https://promptline.cc/posts/">
   <meta property="og:image" content="https://promptline.cc/og.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The Promptline popup over its manager window, with the tagline: Your prompts, one hotkey away.">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@promptlinecc">
+  <meta name="twitter:title" content="Promptline posts">
+  <meta name="twitter:description" content="Writing about prompts, packs and the tools around them, from the maker of Promptline.">
+  <meta name="twitter:image" content="https://promptline.cc/og.png">
+  <meta name="twitter:image:alt" content="The Promptline popup over its manager window, with the tagline: Your prompts, one hotkey away.">
   <meta name="color-scheme" content="light dark">
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="/favicon-32.png" type="image/png" sizes="32x32">
@@ -193,6 +206,68 @@
     .doc .posts li { margin: 0 0 18px; }
     .doc .posts time { color: var(--ink-3); font-size: 14px; margin-left: 8px; }
   </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Blog",
+        "url": "https://promptline.cc/posts/",
+        "name": "Promptline posts",
+        "description": "Writing about prompts, packs and the tools around them, from the maker of Promptline.",
+        "inLanguage": "en",
+        "publisher": {
+          "@type": "Organization",
+          "@id": "https://promptline.cc/#organization",
+          "name": "Promptline",
+          "url": "https://promptline.cc/",
+          "logo": "https://promptline.cc/apple-touch-icon.png"
+        },
+        "blogPost": [
+          {
+            "@type": "BlogPosting",
+            "headline": "Let Claude Code write your team's prompt pack",
+            "url": "https://promptline.cc/posts/claude-code-writes-your-pack/",
+            "datePublished": "2026-09-30",
+            "author": {
+              "@type": "Person",
+              "name": "Alpaslan Bek",
+              "url": "https://github.com/bekalpaslan"
+            }
+          },
+          {
+            "@type": "BlogPosting",
+            "headline": "A prompt vocabulary",
+            "url": "https://promptline.cc/posts/prompt-vocabulary/",
+            "datePublished": "2026-09-29",
+            "author": {
+              "@type": "Person",
+              "name": "Alpaslan Bek",
+              "url": "https://github.com/bekalpaslan"
+            }
+          }
+        ]
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          {
+            "@type": "ListItem",
+            "position": 1,
+            "name": "Promptline",
+            "item": "https://promptline.cc/"
+          },
+          {
+            "@type": "ListItem",
+            "position": 2,
+            "name": "Posts",
+            "item": "https://promptline.cc/posts/"
+          }
+        ]
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><symbol id="logo" viewBox="0 0 1250 1250"><defs><filter id="pl-shadow" x="-10%" y="-10%" width="125%" height="125%"><feDropShadow dx="10" dy="12" stdDeviation="9" flood-color="#000" flood-opacity="0.35"/></filter></defs><g filter="url(#pl-shadow)"><polygon points="396,72 854,72 1178,396 1178,854 854,1178 396,1178 72,854 72,396" fill="#ff7b7b" stroke="#ff7b7b" stroke-width="80" stroke-linejoin="round"/></g><polygon points="416,121 834,121 1129,416 1129,834 834,1129 416,1129 121,834 121,416" fill="#000" stroke="#000" stroke-width="52" stroke-linejoin="round"/><polygon points="375,408 879,599 879,691 375,880 375,799 795,645 375,490" fill="#fff"/></symbol></svg>
@@ -206,7 +281,7 @@
         <nav aria-label="Site">
           <a href="/">Home</a>
           <a href="/#install">Download</a>
-          <a href="https://github.com/bekalpaslan/promptline">GitHub</a>
+          <a href="https://github.com/bekalpaslan/promptline" rel="noopener noreferrer">GitHub</a>
         </nav>
         <div class="theme" role="radiogroup" aria-label="Page theme" id="theme" hidden>
           <button type="button" role="radio" data-theme="system" aria-label="Follow the system theme" title="System">
@@ -236,14 +311,14 @@
     <div class="wrap row">
       <span>© 2026 Promptline · MIT License</span>
       <nav aria-label="Links">
-        <a href="https://github.com/bekalpaslan/promptline">Source</a>
-        <a href="https://github.com/bekalpaslan/promptline/releases">Releases</a>
-        <a href="https://github.com/bekalpaslan/promptline/discussions">Discussions</a>
+        <a href="https://github.com/bekalpaslan/promptline" rel="noopener noreferrer">Source</a>
+        <a href="https://github.com/bekalpaslan/promptline/releases" rel="noopener noreferrer">Releases</a>
+        <a href="https://github.com/bekalpaslan/promptline/discussions" rel="noopener noreferrer">Discussions</a>
         <a href="/posts/" aria-current="page">Posts</a>
-        <a href="https://buymeacoffee.com/hurryupbob">Buy me a coffee</a>
-        <a href="https://github.com/bekalpaslan/promptline/blob/master/README.md">Docs</a>
-        <a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md">Security</a>
-        <a href="https://github.com/bekalpaslan/promptline/blob/master/THIRD-PARTY-NOTICES.md">Third-party notices</a>
+        <a href="https://buymeacoffee.com/hurryupbob" rel="noopener noreferrer">Buy me a coffee</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/README.md" rel="noopener noreferrer">Docs</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md" rel="noopener noreferrer">Security</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/THIRD-PARTY-NOTICES.md" rel="noopener noreferrer">Third-party notices</a>
         <a href="/#privacy">Privacy</a>
         <a href="/code-signing/">Code signing policy</a>
       </nav>
