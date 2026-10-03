@@ -111,8 +111,10 @@ function Heading({
           <Count>{count}</Count>
         </button>
       )}
-      {/* The sidebar's three dots: hover-revealed way into the same menu right-click opens */}
-      <MenuDots label={`Actions for ${label}`} reveal="group-hover/hdr:opacity-100" onOpen={onMenu} />
+      {/* The sidebar's three dots, resting faint rather than hidden: a
+          heading has no hover to reveal them on a touch screen, and the
+          menu is the heading's only way to its actions without a right-click */}
+      <MenuDots label={`Actions for ${label}`} reveal="opacity-50 group-hover/hdr:opacity-100" onOpen={onMenu} />
       {locked && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
       <span className="ml-auto flex shrink-0 items-center">{children}</span>
     </div>

@@ -7,7 +7,10 @@ import { commitKey, fieldVariants } from "@/components/field"
 
 // Imperative context menu, ported from the legacy openCtx(): menus are built
 // from data at open time (pack lists, selection counts), positioned at the
-// cursor, and support armed destructive items and inline inputs.
+// cursor, and support submenus, radio items and inline inputs. A
+// destructive item opens the one delete dialog (menus.tsx) rather than
+// arming itself: an armed label that disarmed on a timer was a third way to
+// confirm beside the editor's button and the group's dialog.
 export type CtxItem =
   // `name`: the text is something the user wrote (a pack, a group, a prompt
   // title) and is shown as typed, never uppercased like the app's own labels
@@ -23,8 +26,6 @@ export type CtxItem =
       disabled?: boolean
       /** Tooltip — say why a disabled item is disabled, or what a key does */
       hint?: string
-      /** Second label shown after the first click; the second click runs. */
-      confirm?: string
       /** One choice of several (a radio item): set on every item of the set, true on the current one */
       checked?: boolean
       /** Drawn one step in, under the item before it (a group under its pack) */
@@ -41,7 +42,6 @@ const focusables = (root: HTMLElement | null): HTMLElement[] =>
 
 export function useCtxMenu() {
   const [state, setState] = useState<OpenState>(null)
-  const [armed, setArmed] = useState<number | null>(null)
   // Open submenu: which top-level index, and where its panel anchors
   const [sub, setSub] = useState<{ index: number; x: number; y: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
@@ -51,13 +51,11 @@ export function useCtxMenu() {
 
   const open = useCallback((x: number, y: number, items: CtxItem[]) => {
     if (!opener.current) opener.current = document.activeElement as HTMLElement | null
-    setArmed(null)
     setSub(null)
     setState({ x, y, items })
   }, [])
   const close = useCallback(() => {
     setState(null)
-    setArmed(null)
     setSub(null)
     const back = opener.current
     opener.current = null
@@ -221,10 +219,6 @@ export function useCtxMenu() {
         }}
         onClick={(e) => {
           e.stopPropagation()
-          if (it.confirm && armed !== i) {
-            setArmed(i)
-            return
-          }
           const keep = it.run()
           if (keep !== "keep") close()
         }}
@@ -232,14 +226,14 @@ export function useCtxMenu() {
         {it.checked !== undefined && (
           <RiCheckLine className={cn("size-3.5 shrink-0", !it.checked && "invisible")} aria-hidden />
         )}
-        <span className="min-w-0 truncate">{it.confirm && armed === i ? it.confirm : it.label}</span>
+        <span className="min-w-0 truncate">{it.label}</span>
       </button>
     )
   }
 
   // A header followed by radio items (the Display menu's View and Order) is
   // a labelled group, so assistive tech says which choice a radio belongs
-  // to; indices stay the items' own, which `armed` and `sub` are keyed by
+  // to; indices stay the items' own, which `sub` is keyed by
   const groupId = useId()
   const renderPanel = (items: CtxItem[], onSub?: (i: number, el: HTMLElement) => void) => {
     const out: React.ReactNode[] = []

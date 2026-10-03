@@ -510,8 +510,12 @@ the form's own choice, never a phantom default.
 label scoped to its pack, empty meaning ungrouped. It has no metadata, no lock,
 no file. Renaming a group rewrites the label on every prompt that carries it,
 and renaming onto an existing name merges the two. Deleting a group deletes its
-prompts, so it goes through a real dialog rather than an armed menu item, and
-the status bar offers Undo afterwards. Ungroup on a selection clears the
+prompts, so it goes through the delete dialog, and the status bar offers Undo
+afterwards. Since 0.2.19 every delete in the manager asks in that one
+dialog (a prompt, a selection, a pack, a group), which names what goes and
+that Undo follows; until then a prompt's delete was an armed button in the
+editor and a pack's an armed menu item that disarmed on a timer, three ways
+to confirm one kind of action. Ungroup on a selection clears the
 label and nothing else: it used to move every selected prompt into the
 first one's pack, so a selection spanning packs (one list view, a search)
 was silently gathered into one. Pack files carry the label as an
@@ -587,7 +591,7 @@ Two guards follow from that:
   renaming keeps the file, so nothing is ever retired by a rename).
 
 **An export goes to the clipboard or to a file, in the JSON an import
-reads.** A pack's menu and Settings → Your library each offer *Export to
+reads.** A pack's menu and Settings → Backup and import each offer *Export to
 clipboard* and *Export to file…*: a pack as one pack document
 (`C.packToJson`: title, text, tags and group, none of the personal state),
 the library as an array of every pack that holds a prompt. The file goes
@@ -731,7 +735,7 @@ array went stale.
 
 **A library that can't be read is said so in the pane.** Until
 `get_snippets` answers, the pane shows nothing; when the call fails, it
-says the library didn't load and points at Settings → Your library → Open
+says the library didn't load and points at Settings → Backup and import → Open
 folder, beside the persistent toast carrying the error. It used to show
 the empty-library start ("No prompts yet", New), which read as an
 invitation to begin over while the prompts sat unreadable on disk.

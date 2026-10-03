@@ -109,7 +109,7 @@ it to bring a library back. To share prompts rather than the whole library,
 use the pack files: every pack owns a `.json` under `…\packs\` that the app
 keeps current, so you can copy one to a colleague, commit it to a project,
 or let an agent write into it; the other side imports it from **Settings →
-Your library** (see [Data](#data)).
+Backup and import** (see [Data](#data)).
 
 ## Known limitations
 
@@ -232,8 +232,9 @@ built-in or a field name the rest of your library already uses.
   manager opens from the tray icon); theme (Instrument, the default, or
   Indigo, each with a light and a dark side); mode (System / Light / Dark,
   System follows Windows); popup density; UI font (system / Outfit / Inter /
-  serif / mono); UI scale (90–125%); and **Your library** — export the whole library to the
-  clipboard or a file, import from the clipboard or a file, or **Open folder** to see the data folder
+  serif / mono); UI scale (90–125%); **Packs** — each pack and its file, Generate and New pack;
+  and **Backup and import** — export the whole library to the clipboard or a file, import from
+  the clipboard or a file, or **Open folder** to see the data folder
   (library, packs and the log file) in Explorer, plus per-pack rows to
   import from, export, or create that pack's file; and **About**, with the
   version you're running
