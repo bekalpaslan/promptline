@@ -2,9 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
 import {
-  RiAddLine,
   RiArrowDownSLine,
   RiArrowRightSLine,
+  RiClipboardLine,
   RiFileCopyLine,
   RiFilterLine,
   RiSearchLine,
@@ -16,30 +16,37 @@ import { type Config, DEFAULT_PACK, MAX_PINS, defaultPackFor, isLockedIn, packNa
 const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
-import { type Entry, Row, derive } from "@/popup/Row"
-import { Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
+import { CLIP_LINE_ID, type Entry, Row, derive } from "@/popup/Row"
+import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { Button } from "@/components/ui/button"
 import { MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
 import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
 
 
-type FormState = { snippet: Snippet; base: string; fields: string[]; paste: boolean }
+// `configFields`: the fields that are really unset {{config}} parameters,
+// downgraded to ask (BEHAVIOR.md); the form says so under each, since one
+// asked for every day is one the user never learned could be set once
+type FormState = { snippet: Snippet; base: string; fields: string[]; configFields: Set<string>; paste: boolean }
 type PanelAction = { label: string; danger?: boolean; run: () => void }
 type CreateState = { title: string; pack: string; group: string; prefilled: string }
 // One line of feedback above the hint bar: the popup's only channel for an
-// error (a failed paste or save) or a confirmation (copied, saved)
-type Notice = { text: string; kind: "error" | "info" }
+// error (a failed paste or save), a confirmation that something landed
+// (copied, saved, restored: Success text, no fill, as every confirmation in
+// DESIGN.md) or a note (undo offered, press Esc again)
+type Notice = { text: string; kind: "error" | "info" | "success" }
 
 
 // window (125% scale, the mono font) wraps between hints instead of being
 // clipped by the shell's overflow, and never splits a key from its label.
 // A `minor` hint is dropped below 360 px: at the 320 px minimum the bar
-// wrapped to two lines and ate a row (L20).
-function Hint({ k, minor, children }: { k: string; minor?: boolean; children: React.ReactNode }) {
+// wrapped to two lines and ate a row (L20). A `wide` one shows only from
+// 440 px, in a window the user has widened: the five resting hints fill
+// the default 400 px, and a sixth wrapped the bar the same way.
+function Hint({ k, minor, wide, children }: { k: string; minor?: boolean; wide?: boolean; children: React.ReactNode }) {
   return (
-    <span className={cn("flex shrink-0 items-center gap-1", minor && "hidden min-[360px]:flex")}>
+    <span className={cn("flex shrink-0 items-center gap-1", minor && "hidden min-[360px]:flex", wide && "hidden min-[440px]:flex")}>
       <Keys combo={k} />
-      {children}
+      <span>{children}</span>
     </span>
   )
 }
@@ -111,6 +118,13 @@ export function App() {
   // summon inside that window cancels it: a hotkey press right after a
   // Ctrl+Enter used to have the new popup hidden under the user (L22)
   const copyHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // What the last pick put on the clipboard, as Rust writes it ({clipboard}
+  // expanded from what the clipboard held then). The prompt stays on the
+  // clipboard after a paste on purpose (BEHAVIOR.md), so the next summon
+  // can say the clipboard holds a prompt, not an error: firing two
+  // {clipboard} prompts in a row wraps the first's output, and nothing
+  // used to say so.
+  const lastSent = useRef<{ text: string; verb: "pasted" | "copied" } | null>(null)
 
   // Ranking is a pure core function (tested); this only memoizes it
   const filtered = useMemo<Entry[]>(() => C.rankSnippets(query, snippets), [snippets, query])
@@ -299,12 +313,24 @@ export function App() {
     setPreviewIdx(null)
   }, [])
 
+  // The panel's items take keyboard focus while it is open (below), so
+  // closing it hands focus back to the search box
+  const panelRef = useRef<HTMLDivElement>(null)
   const closePanel = useCallback(() => {
     setPanelFor(null)
     setPanelNote(null)
     setDeleteArmed(false)
     setPanelSel(0)
+    inputRef.current?.focus()
   }, [])
+  // Focus follows the highlighted item: a menu whose items are only marked
+  // while focus stays in the search box announces nothing as ArrowDown
+  // moves (critique popup, Sam). The document listener still gets the keys.
+  useEffect(() => {
+    if (!panelFor) return
+    const items = panelRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]')
+    items?.[panelSel]?.focus()
+  }, [panelFor, panelSel])
 
   const fail = useCallback((what: string, e: unknown) => {
     setNotice({ text: `Couldn't ${what}: ${e instanceof Error ? e.message : String(e)}`, kind: "error" })
@@ -325,11 +351,16 @@ export function App() {
       setPicked(null)
       return
     }
+    // The clipboard now holds this, expanded the way Rust expands it
+    lastSent.current = {
+      text: text.split("{clipboard}").join(clip),
+      verb: !paste || result === "copied" ? "copied" : "pasted",
+    }
     if (!paste || result === "copied") {
       // Copy-only: Rust leaves the popup up; confirm, then hide
       setNotice({
         text: result === "copied" && paste ? "Copied to clipboard — the manager was in front" : "Copied to clipboard",
-        kind: "info",
+        kind: "success",
       })
       setPicked(null)
       if (copyHideTimer.current) clearTimeout(copyHideTimer.current)
@@ -338,12 +369,18 @@ export function App() {
         void invoke("hide_popup")
       }, 600)
     }
-  }, [fail, setPicked])
+  }, [fail, setPicked, clip])
 
   // --- Create prompt from clipboard -------------------------------------------
   const openCreate = useCallback(() => {
     hidePreview()
     closePanel()
+    // Nothing to save from: say so in the strip rather than switching the
+    // whole window to a form whose only content is that message
+    if (!clip.trim()) {
+      setNotice({ text: "Copy something first — Ctrl+N saves the clipboard", kind: "info" })
+      return
+    }
     // The clipboard's first line, cut at a word boundary (core); the draft
     // title when there is nothing to cut from
     const title = C.titleFromClipboard(clip) || C.DRAFT_TITLE
@@ -380,7 +417,7 @@ export function App() {
     setQuery("")
     // The new prompt sorts last (uses 0) and its pack may be collapsed, so
     // say where it went rather than hoping the row is visible
-    setNotice({ text: `Saved "${snip.title}" to ${create.pack}${create.group ? ` › ${create.group}` : ""}`, kind: "info" })
+    setNotice({ text: `Saved "${snip.title}" to ${create.pack}${create.group ? ` › ${create.group}` : ""}`, kind: "success" })
   }, [create, clip, fail])
 
   // One prompt's pin state, merged on disk.
@@ -426,7 +463,8 @@ export function App() {
     if (fields.length) {
       // Every field starts empty: nothing typed last time is kept
       setFormValues(Object.fromEntries(fields.map((f) => [f, ""])))
-      setForm({ snippet, base, fields, paste })
+      const configFields = new Set(C.configNames(snippet.text).filter((n) => fields.includes(n)))
+      setForm({ snippet, base, fields, configFields, paste })
       if (base.includes("{clipboard}")) refreshClip()
       return
     }
@@ -490,7 +528,7 @@ export function App() {
     try {
       const lib = await invoke<Library>("add_snippet", { snippet: last.snippet })
       setSnippets(lib.snippets)
-      setNotice({ text: `Restored "${last.snippet.title}"`, kind: "info" })
+      setNotice({ text: `Restored "${last.snippet.title}"`, kind: "success" })
     } catch (e) {
       fail("restore", e)
     }
@@ -569,6 +607,10 @@ export function App() {
   useEffect(() => {
     pendingAnchor.current = null
     setSel(0)
+    // Back to the browsing list: start it at the top. The offset a search
+    // left behind outlived the results, and the keep-in-view effect can't
+    // undo it (sel is already 0), so the Pinned header sat under the fold.
+    if (!query && listRef.current) listRef.current.scrollTop = 0
   }, [query])
 
   // Form and create mode replace the whole tree, so the search input is
@@ -742,10 +784,13 @@ export function App() {
     return () => document.removeEventListener("keydown", onKey)
   }, [panelFor, panelActions, panelSel, form, create, notice, visible, slotEntries, sel, previewIdx, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, filterKey, toggleCollapsed, toggleCollapsedGroup])
 
-  // Stable handlers for the memoized rows: they read the live selection and
-  // preview index through refs instead of closing over them
-  const selRef = useRef(sel)
-  selRef.current = sel
+  // Stable handlers for the memoized rows: they read the live preview index
+  // through a ref instead of closing over it. The pointer never moves the
+  // keyboard selection (DESIGN.md's Pointer Grey Rule): hover is the grey
+  // on the row and, after a pause, the preview card; the selection moves
+  // on keys or a click, and a click pastes the row it lands on. A hover
+  // used to paint the selection tint, so a trackpad brush after summon
+  // changed what Enter pasted (audit popup P2).
   const previewRef = useRef(previewIdx)
   previewRef.current = previewIdx
   const onItemMouseMove = useCallback((i: number, e: React.MouseEvent) => {
@@ -756,7 +801,6 @@ export function App() {
       return
     }
     if (!moved || Date.now() < suppressHoverUntil.current) return
-    if (selRef.current !== i) setSel(i)
     if (previewRef.current !== i) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
@@ -815,7 +859,7 @@ export function App() {
 
   // --- Hint bar (kit kbd-chip idiom) -------------------------------------------
   const hint = panelFor ? (
-    <><Hint k="↵">run</Hint><Hint k="1-9">pick</Hint><Hint k="Esc">back</Hint></>
+    <><Hint k="↵">run</Hint><Hint k={`1-${panelActions.length}`}>pick</Hint><Hint k="Esc">back</Hint></>
   ) : form ? (
     <><Hint k="↵">paste</Hint><Hint k="Ctrl ↵">copy</Hint><Hint k="⇧ ↵" minor>newline</Hint><Hint k="Esc">back</Hint></>
   ) : create ? (
@@ -826,9 +870,28 @@ export function App() {
       <Hint k="Ctrl ↵">copy</Hint>
       <Hint k="Tab" minor>actions</Hint>
       <Hint k="→" minor>preview</Hint>
-      <Hint k="Esc">close</Hint>
+      {/* ← folds the row's pack or group (Ctrl+→ unfolds all); it was the
+          one key with no mention on screen. Room for it only in a widened
+          window; the pack and group headers name it in their tooltip */}
+      <Hint k="←" wide>fold</Hint>
+      {/* An error stays until Esc; the bar says so where the strip used to
+          append it and get truncated (critique popup P1) */}
+      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
     </>
   )
+
+  // The line under the search box: what the clipboard holds, since every
+  // {clipboard} row pastes it and the row itself only shows the word. Empty
+  // is said in words (the rows hollow their icon too); a clipboard that
+  // still holds the last pick is named as that prompt, not shown as if it
+  // were an error the user copied.
+  const anyUsesClip = useMemo(() => [...derived.values()].some((d) => d.clip), [derived])
+  const clipLine = (() => {
+    if (!clip.trim()) return { label: anyUsesClip ? "Clipboard is empty — {clipboard} rows paste nothing" : "Clipboard is empty", text: null }
+    const last = lastSent.current
+    const label = last && last.text === clip ? (last.verb === "pasted" ? "Last pasted prompt" : "Last copied prompt") : "Clipboard"
+    return { label, text: C.clipboardPreview(clip) }
+  })()
 
   // What a screen reader hears when the state changes (UM14)
   const announce = panelFor
@@ -944,8 +1007,8 @@ export function App() {
           <SectionHeader name>{form.snippet.title}</SectionHeader>
           {form.fields.map((f, i) => (
             <div key={f} className="px-1">
-              <label htmlFor={`field-${f}`} className="mb-0.5 block text-xs font-medium capitalize tracking-[0.04em] text-muted-foreground">
-                {f.replace(/_/g, " ")}
+              <label htmlFor={`field-${f}`} className="mb-0.5 block text-xs font-medium tracking-[0.04em] text-muted-foreground">
+                {C.fieldLabel(f)}
               </label>
               <textarea
                 id={`field-${f}`}
@@ -973,7 +1036,13 @@ export function App() {
                   fieldVariants(),
                   "block field-sizing-content max-h-[calc(3lh+1rem)] min-h-[calc(1lh+1rem)] w-full resize-none overflow-y-auto py-2 leading-5 placeholder:text-muted-foreground/70"
                 )}
+                aria-describedby={form.configFields.has(f) ? `field-${f}-note` : undefined}
               />
+              {form.configFields.has(f) && (
+                <div id={`field-${f}-note`} className="mt-0.5 text-xs text-muted-foreground">
+                  A config parameter: set it once in the manager's Advanced options and it stops asking
+                </div>
+              )}
             </div>
           ))}
           <SectionHeader>Will paste</SectionHeader>
@@ -1016,6 +1085,8 @@ export function App() {
         <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
         <input
           ref={inputRef}
+          id="popup-search"
+          name="q"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search  #tag @pack >group"
@@ -1027,6 +1098,7 @@ export function App() {
           aria-expanded={visible.length > 0}
           aria-controls="popup-list"
           aria-activedescendant={visible[sel] ? `row-${visible[sel].s.id}` : undefined}
+          aria-describedby={CLIP_LINE_ID}
           className="min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground"
         />
         {query && (
@@ -1038,6 +1110,44 @@ export function App() {
             }}
           />
         )}
+      </div>
+
+      {/* The clipboard, one line: the text on the builtin's tint as in every
+          preview, its marks (hidden text, line count) before it so they
+          survive the truncation, and at the right the key that saves it as
+          a prompt. That key was a 32 px bar of its own under the list
+          ("New prompt from clipboard…") on every summon; the clipboard is
+          its subject, so it lives on the clipboard's line. The describing
+          span leaves the key out, so a row described by the line hears the
+          clipboard, not a shortcut. */}
+      <div className="flex h-5 shrink-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
+        <RiClipboardLine className="size-3.5 shrink-0 opacity-70" aria-hidden />
+        <span id={CLIP_LINE_ID} className="flex min-w-0 flex-1 items-center gap-1.5">
+          {/* With text beside it the label keeps its width and the text gives
+              way; alone (empty clipboard) it is the thing that truncates at
+              the 320 px minimum */}
+          <span className={cn("truncate", clipLine.text ? "shrink-0" : "min-w-0")}>{clipLine.label}</span>
+          {clipLine.text && (
+            <>
+              <ClipboardMarks clipboard={clip} />
+              <bdi className="min-w-0 flex-1 truncate rounded-sm bg-(--param-builtin-bg) px-1 text-foreground" title="The clipboard as it is now">
+                {clipLine.text}
+              </bdi>
+            </>
+          )}
+        </span>
+        <button
+          type="button"
+          tabIndex={-1}
+          // The visible text (the key caps) is part of the name, for anyone
+          // who says what they see (WCAG 2.5.3)
+          aria-label="New prompt from clipboard (Ctrl N)"
+          title="New prompt from clipboard (Ctrl+N)"
+          className="focus-ring flex shrink-0 cursor-pointer items-center rounded-sm hover:bg-hover"
+          onClick={openCreate}
+        >
+          <Keys combo="Ctrl+N" />
+        </button>
       </div>
 
       <div
@@ -1054,7 +1164,9 @@ export function App() {
               ? "No prompts yet — copy some text and press Ctrl+N to save it as one, or left-click the Promptline tray icon to open the manager"
               : C.parseQuery(query).tags.length || C.parseQuery(query).packs.length || C.parseQuery(query).groups.length
                 ? "No matches — #tag, @pack and >group terms narrow the list; remove one to widen it"
-                : "No matches"}
+                : clip.trim()
+                  ? "No matches — Ctrl+N saves the clipboard as a new prompt"
+                  : "No matches"}
           </div>
         )}
         {sections.map((sec) => {
@@ -1075,8 +1187,11 @@ export function App() {
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!))
           const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
           const filtered = sec.collapsible && packActive(sec.name)
+          // A pack title as in the sidebar: the body size at 600, one step
+          // above a group's 500 and a row's 500 in Ink 2. At 16px it was the
+          // largest text in the popup, above the titles the scene is about.
           const headerClass = cn(
-            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-1 py-1.5 text-left text-base font-semibold",
+            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-1 py-1 text-left text-ui font-semibold",
             sec.collapsible && "cursor-pointer",
             sec.isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
           )
@@ -1090,13 +1205,20 @@ export function App() {
           return (
             <div key={sec.name} className="mb-3" role="group" aria-label={sec.name}>
               {/* Pack title, as in the sidebar: a disclosure button (← / Ctrl+→
-                  from a row do the same); Pinned / Results are plain headings */}
+                  from a row do the same); Pinned / Results are plain headings.
+                  Hidden from assistive tech: a listbox may hold only options
+                  and groups of them, and these buttons inside it had the tree
+                  reported as malformed (audit popup P1). The group above
+                  carries the name; the fold and the filter are reachable by
+                  keyboard (← / Ctrl+→, typing @pack), and the buttons are
+                  tabIndex -1 so nothing hidden is in the tab order. */}
               {sec.collapsible ? (
-                <div className={cn("group/hdr flex items-center rounded-md pr-0.5", filtered && "bg-(--focus)/10")}>
+                <div aria-hidden className={cn("group/hdr flex items-center rounded-md pr-0.5", filtered && "bg-(--focus)/10")}>
                   <button
                     type="button"
                     tabIndex={-1}
                     aria-expanded={!sec.isCollapsed}
+                    title={sec.isCollapsed ? "Unfold (Ctrl+→ unfolds all)" : "Fold (← on a row folds its pack or group)"}
                     className={headerClass}
                     onClick={() => {
                       toggleCollapsed(sec.name)
@@ -1110,7 +1232,7 @@ export function App() {
                   {funnel("@", sec.name, filtered)}
                 </div>
               ) : (
-                <div className={headerClass}>{headerBody}</div>
+                <div aria-hidden className={headerClass}>{headerBody}</div>
               )}
               {!sec.isCollapsed && (
                 <div className="flex flex-col gap-1.5">
@@ -1122,11 +1244,12 @@ export function App() {
                     const gf = groupActive(g)
                     return (
                       <div key={g} className="flex flex-col gap-1.5 pl-2.5" role="group" aria-label={g}>
-                        <div className={cn("group/hdr flex items-center rounded-md pr-0.5", gf && "bg-(--focus)/10")}>
+                        <div aria-hidden className={cn("group/hdr flex items-center rounded-md pr-0.5", gf && "bg-(--focus)/10")}>
                           <button
                             type="button"
                             tabIndex={-1}
                             aria-expanded={!gc}
+                            title={gc ? "Unfold (Ctrl+→ unfolds all)" : "Fold (← on a row folds its pack or group)"}
                             className={cn(
                               // A group name is the user's words: shown as typed, never uppercased
                               "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-left text-ui font-medium",
@@ -1153,16 +1276,6 @@ export function App() {
           )
         })}
       </div>
-
-      {/* Fixed create action — pinned below the list, above the meta bars */}
-      <button
-        onClick={openCreate}
-        className="flex h-8 shrink-0 cursor-pointer items-center gap-2 rounded-lg border-t border-border px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
-      >
-        <RiAddLine className="size-4 shrink-0" />
-        <span className="min-w-0 flex-1 truncate text-left text-ui">New prompt from clipboard…</span>
-        <Keys combo="Ctrl+N" />
-      </button>
 
       {previewIdx !== null && visible[previewIdx] && (() => {
         // Anchored to the trigger point: below it when the card fits there,
@@ -1192,6 +1305,9 @@ export function App() {
             onMouseEnter={() => { if (hideTimer.current) clearTimeout(hideTimer.current) }}
             onMouseLeave={onItemMouseLeave}
           >
+            {/* The whole title: the row cuts a long one and has no tooltip
+                (the hover is this card), so this is where it can be read */}
+            <div className="name-label mb-1 break-words">{visible[previewIdx].s.title}</div>
             <PromptTokens
               text={visible[previewIdx].s.text}
               clipboard={clip}
@@ -1217,6 +1333,7 @@ export function App() {
 
       {panelFor && (
         <div
+          ref={panelRef}
           role="menu"
           aria-label={`Actions for ${panelFor.title}`}
           className={cn("fixed inset-x-2 bottom-10 z-20", MENU_PANEL)}
@@ -1229,7 +1346,6 @@ export function App() {
               type="button"
               role="menuitem"
               tabIndex={-1}
-              aria-current={i === panelSel || undefined}
               className={cn(
                 MENU_ITEM,
                 "justify-between",
@@ -1265,26 +1381,38 @@ function Shell({
   return (
     <div className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-background p-2 text-foreground shadow-(--shadow-shell)">
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
-      {children}
-      {/* Feedback strip: errors stay until Esc or the next summon, confirmations
-          go with the popup. A live region, so it is announced. */}
+      {/* The one landmark: the window's content, whichever mode it is in.
+          `contents`, so the shell's column layout is unchanged */}
+      <main className="contents">{children}</main>
+      {/* Feedback strip: errors stay until Esc or the next summon (the hint
+          bar says so), confirmations go with the popup. Two live regions: a
+          confirmation is polite, an error on a window that has just
+          reappeared is an alert. Two lines, not a truncation: the failed
+          paste's message is the one that says where the prompt went, and it
+          was cut at the default width (critique popup P1). */}
       <div role="status" aria-live="polite" className="shrink-0 empty:hidden">
-        {notice && (
-          <div
-            className={cn(
-              "truncate rounded-md px-2 py-1 text-ui",
-              notice.kind === "error" ? "bg-destructive/15 text-destructive" : "bg-primary/15 text-foreground"
-            )}
-            title={notice.text}
-          >
-            {notice.kind === "error" ? `${notice.text} — Esc to dismiss` : notice.text}
+        {notice?.kind === "info" && (
+          <div className="line-clamp-2 break-words rounded-md bg-primary/15 px-2 py-1 text-ui text-foreground" title={notice.text}>
+            {notice.text}
+          </div>
+        )}
+        {notice?.kind === "success" && (
+          <div className="line-clamp-2 break-words px-2 py-1 text-ui font-medium text-(--success)" title={notice.text}>
+            {notice.text}
+          </div>
+        )}
+      </div>
+      <div role="alert" className="shrink-0 empty:hidden">
+        {notice?.kind === "error" && (
+          <div className="line-clamp-2 break-words rounded-md bg-destructive/15 px-2 py-1 text-ui text-destructive" title={notice.text}>
+            {notice.text}
           </div>
         )}
       </div>
       {/* Wraps rather than clips: at 125% scale, or with the mono font, the
           list's five hints are wider than the window and the shell's
           overflow-hidden used to eat the last of them */}
-      <div className="flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-1 pt-2 font-mono text-[11px] text-muted-foreground">
+      <div className="flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-1 pt-2 font-mono text-micro text-muted-foreground">
         {hint}
       </div>
     </div>

@@ -162,12 +162,18 @@ them, plus config values. Invisible until you want it.
 - **Ctrl+1..5** pastes the top results instantly — pins (max 5) always sit on
   top, so they become stable muscle-memory slots
 - **Tab** opens an action panel: paste / copy / pin / edit in manager / delete
-- **→** shows the full-prompt preview card (also on mouse hover)
+- **→** shows the full-prompt preview card (also on mouse hover), with the
+  prompt's whole title above its text
+- A line under the search box says what the clipboard holds, that it is
+  empty (the rows that would paste nothing hollow their icon), or that it
+  still holds the last prompt you pasted; its **Ctrl N** key saves it as a
+  new prompt
 - Search is fuzzy over titles, tags, and bodies with match highlighting;
   `#tag`, `@pack` and `>group` terms filter (`#debug root cause`); click a tag pill to filter by it
 - With no query, prompts sort by how often you use them, grouped under
-  collapsible pack sections with a collapsible sub-header per group; searching flattens
-  them into one ranked list
+  collapsible pack sections with a collapsible sub-header per group (**←**
+  folds the selected row's group or pack, **Ctrl+→** unfolds everything);
+  searching flattens them into one ranked list
 - **Ctrl+N** turns whatever you just copied into a new prompt without leaving
   the popup — name pre-filled from the first line, pick its pack, confirm.
   Esc with an edited title asks once before discarding
