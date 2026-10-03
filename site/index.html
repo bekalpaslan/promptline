@@ -232,6 +232,19 @@
     .btn-secondary:hover { background: var(--selection); }
     .btn svg { width: 18px; height: 18px; }
     .sub { font-size: 13px; color: var(--ink-3); margin-top: 12px; }
+    /* The other way in: two commands for a terminal. Plain text, selected
+       whole on a click. Each command is a block; one too long for the
+       column wraps at its space and hangs its second line two characters
+       in, so two commands never read as three */
+    .cmd-label { font-size: 13px; color: var(--ink-2); margin: 18px 0 6px; }
+    .cmd {
+      margin: 0; padding: 10px 12px; max-width: 100%; width: fit-content;
+      border: 1px solid var(--line); border-radius: 6px; background: var(--surface-sunk);
+      font-family: var(--mono); font-size: 13px; line-height: 1.6; color: var(--ink);
+      user-select: all;
+    }
+    .cmd code { display: block; font-size: inherit; padding-left: 2ch; text-indent: -2ch; white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (max-width: 480px) { .cmd { font-size: 12px; } }
 
     /* The clip: copy, hotkey, paste in a terminal, 720x540 at 2x. Only the
        theme showing loads (preload="none"); the script plays it */
@@ -494,6 +507,8 @@
           </a>
         </div>
         <p class="sub">Open source (MIT) · installs for the current user, no admin prompt · <a href="#tour">take the tour</a></p>
+        <p class="cmd-label" id="scoop">Or from a terminal, with Scoop:</p>
+        <pre class="cmd" aria-labelledby="scoop" tabindex="0"><code>scoop bucket add promptline https://github.com/bekalpaslan/scoop-bucket</code><code>scoop install promptline</code></pre>
       </div>
       <div class="clip">
         <video class="light-only" width="720" height="540" muted loop playsinline preload="none" poster="clip/clip-light-poster.png" aria-label="A Windows Terminal running Claude Code: a failing test's stack trace is copied, Ctrl+Alt+V opens the Promptline popup, Root cause first is picked, and the prompt, trace inside, fills Claude Code's input">
