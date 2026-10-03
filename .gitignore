@@ -33,8 +33,13 @@ site/shots/
 # Copied in from docs/clip by the Pages workflow; local preview copies only
 site/clip/
 
-# Claude Code session state: plugin installs, local settings, harness worktrees
-.claude/
+# Claude Code session state: plugin installs, local settings, harness
+# worktrees. The project's own skills are the exception and stay tracked.
+.claude/*
+!.claude/skills/
+.claude/skills/*
+!.claude/skills/monthly-theme/
+!.claude/skills/release/
 
 # Copilot-style plugin installs (the impeccable skill): not the product
 .github/agents/

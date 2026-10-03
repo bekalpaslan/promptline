@@ -1,0 +1,157 @@
+<title>THEME_LABEL Theme Trial</title>
+<!-- Before/after page for a theme trial (monthly-theme skill). Copy into
+     the scratchpad, fill the UPPERCASE placeholders and SCREENS, publish
+     with the shots as files under shots/<name>-<mode>-<now|skin>.png. -->
+<style>
+  /* Layout: a sticky control bar (mode), then one chapter per screen with
+     the released build and the skinned build side by side, at the windows'
+     real proportions. Neutrals lean toward the trial's accent. */
+  :root {
+    --bg: #f7f7fb; --panel: #ffffff; --fg: #15161d; --fg-2: #5e6174; --line: #e4e5ee;
+    --accent: ACCENT_LIGHT; --accent-soft: ACCENT_SOFT_LIGHT;
+    --font-body: "Inter", "Segoe UI", system-ui, sans-serif;
+    --font-mono: "Cascadia Code", Consolas, ui-monospace, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b0c11; --panel: #12141b; --fg: rgba(255,255,255,0.9); --fg-2: rgba(255,255,255,0.55);
+      --line: rgba(255,255,255,0.08); --accent: ACCENT_DARK; --accent-soft: ACCENT_SOFT_DARK; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0b0c11; --panel: #12141b; --fg: rgba(255,255,255,0.9); --fg-2: rgba(255,255,255,0.55);
+    --line: rgba(255,255,255,0.08); --accent: ACCENT_DARK; --accent-soft: ACCENT_SOFT_DARK; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 14px/1.5 var(--font-body); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding-inline: 16px; padding-block: 0 48px; }
+  header { padding-block: 32px 16px; }
+  h1 { font-size: 24px; margin: 0 0 6px; letter-spacing: -0.01em; text-wrap: balance; }
+  header p { margin: 0; color: var(--fg-2); max-width: 70ch; }
+  header a { color: var(--accent); }
+  .bar {
+    position: sticky; top: env(safe-area-inset-top, 0px); z-index: 2;
+    display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+    background: var(--bg); border-bottom: 1px solid var(--line); padding-block: 10px;
+  }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--panel); }
+  .seg button { appearance: none; border: 0; background: transparent; color: var(--fg-2); font: inherit; font-weight: 500; padding: 6px 12px; cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--fg); }
+  .seg button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .bar .hint { color: var(--fg-2); font-size: 12px; }
+  section.shot { padding-block: 28px 8px; }
+  section.shot h2 { font-size: 16px; margin: 0 0 2px; }
+  section.shot .sub { color: var(--fg-2); margin: 0 0 12px; font-size: 13px; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .pair.popup { grid-template-columns: repeat(2, minmax(0, 400px)); }
+  figure { margin: 0; min-width: 0; }
+  figcaption { display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-2); margin-bottom: 6px; }
+  figcaption .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--fg-2); }
+  figure.skin figcaption .dot { background: var(--accent); }
+  figure img { display: block; width: 100%; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+  figure img[hidden] { display: none; }
+  @media (max-width: 760px) { .pair, .pair.popup { grid-template-columns: 1fr; } }
+  .notes { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; padding-block: 32px 0; border-top: 1px solid var(--line); margin-top: 24px; }
+  @media (max-width: 760px) { .notes { grid-template-columns: 1fr; } }
+  .notes h2 { font-size: 16px; margin: 0 0 8px; }
+  .notes ul { margin: 0; padding-left: 18px; color: var(--fg-2); }
+  .notes li { margin-bottom: 6px; }
+  .notes li b { color: var(--fg); font-weight: 600; }
+  code { font-family: var(--font-mono); font-size: 12px; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--fg-2); font-weight: 600; font-size: 12px; }
+  .sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid var(--line); vertical-align: -2px; margin-right: 6px; }
+  .tablewrap { overflow-x: auto; }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>The THEME_LABEL look on Promptline</h1>
+    <p>SOURCE_SENTENCE Left is the build as released, right is the same build with the trial stylesheet over its design tokens. Shot against the demo library at the windows' real sizes.</p>
+  </header>
+
+  <div class="bar">
+    <div class="seg" role="group" aria-label="Mode shown">
+      <button type="button" aria-pressed="true" data-theme-pick="dark">Dark</button>
+      <button type="button" aria-pressed="false" data-theme-pick="light">Light</button>
+    </div>
+    <span class="hint">LIGHT_SIDE_NOTE</span>
+  </div>
+
+  <div id="screens"></div>
+
+  <div class="notes">
+    <div>
+      <h2>What the trial maps</h2>
+      <div class="tablewrap">
+      <table>
+        <tr><th>Token</th><th>Trial value</th><th>Was (dark)</th></tr>
+        <!-- one row per token that changed; keep it to the ones a reader would notice -->
+        <tr><td>surface-0</td><td><span class="sw" style="background:#000000"></span><code>#000000</code></td><td><code>#15181b</code></td></tr>
+      </table>
+      </div>
+    </div>
+    <div>
+      <h2>What it changes beyond tokens</h2>
+      <ul>
+        <li><b>Structural touches</b> …</li>
+        <li><b>Not carried over:</b> …</li>
+        <li><b>To keep it:</b> the values go into <code>design/THEME_ID.tokens.json</code> and the wiring script adds the theme; a release carries it.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+  (function () {
+    // name = shot file stem (see shoot-skin.mjs), surface decides the pair's width
+    var SCREENS = [
+      { name: "manager-overview", title: "Manager: pack overview", sub: "…" },
+      { name: "manager-editor", title: "Manager: editor", sub: "…" },
+      { name: "manager-settings", title: "Manager: settings", sub: "…" },
+      { name: "manager-generate", title: "Manager: Generate pack with AI", sub: "…" },
+      { name: "popup", title: "Popup", sub: "…" },
+      { name: "popup-preview", title: "Popup: preview card", sub: "…" },
+      { name: "popup-search", title: "Popup: search", sub: "…" },
+      { name: "popup-form", title: "Popup: fill-in form", sub: "…" },
+    ];
+    var host = document.getElementById("screens");
+    SCREENS.forEach(function (s) {
+      var sec = document.createElement("section"); sec.className = "shot";
+      var h = document.createElement("h2"); h.textContent = s.title; sec.appendChild(h);
+      var p = document.createElement("p"); p.className = "sub"; p.textContent = s.sub; sec.appendChild(p);
+      var pair = document.createElement("div"); pair.className = "pair" + (s.name.indexOf("popup") === 0 ? " popup" : "");
+      ["now", "skin"].forEach(function (v) {
+        var fig = document.createElement("figure"); fig.className = v;
+        var cap = document.createElement("figcaption");
+        var dot = document.createElement("span"); dot.className = "dot"; cap.appendChild(dot);
+        cap.appendChild(document.createTextNode(v === "now" ? "Released build" : "THEME_LABEL trial"));
+        fig.appendChild(cap);
+        ["dark", "light"].forEach(function (t) {
+          var img = document.createElement("img");
+          img.src = "shots/" + s.name + "-" + t + "-" + v + ".png";
+          img.alt = s.name + ", " + t + ", " + (v === "now" ? "released" : "trial");
+          img.setAttribute("data-theme-img", t);
+          img.loading = "lazy";
+          fig.appendChild(img);
+        });
+        pair.appendChild(fig);
+      });
+      sec.appendChild(pair);
+      host.appendChild(sec);
+    });
+    var theme = "dark";
+    try { theme = localStorage.getItem("theme-trial-mode") || "dark"; } catch (e) {}
+    function apply(t) {
+      theme = t;
+      document.querySelectorAll("[data-theme-img]").forEach(function (img) { img.hidden = img.getAttribute("data-theme-img") !== t; });
+      document.querySelectorAll("[data-theme-pick]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-theme-pick") === t)); });
+      try { localStorage.setItem("theme-trial-mode", t); } catch (e) {}
+    }
+    document.querySelectorAll("[data-theme-pick]").forEach(function (b) {
+      b.addEventListener("click", function () { apply(b.getAttribute("data-theme-pick")); });
+    });
+    apply(theme);
+  })();
+</script>
