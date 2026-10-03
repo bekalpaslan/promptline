@@ -1218,3 +1218,51 @@ test('releaseNotesBlocks: ## and #### are headings too', () => {
     { kind: 'heading', text: 'Four' },
   ]);
 });
+
+test('rowIcon shows the hole before the pin, and the kind under the Pinned heading (critique popup P1)', () => {
+  const clip = { pinned: false, asks: false, clip: true };
+  const pinnedClip = { pinned: true, asks: false, clip: true };
+  const pinnedAsks = { pinned: true, asks: true, clip: true };
+  const pinnedPlain = { pinned: true, asks: false, clip: false };
+  // A clipboard to paste: the kind, and the pin wherever the heading doesn't say it
+  assert.equal(core.rowIcon(clip, false, false), 'clipboard');
+  assert.equal(core.rowIcon(pinnedClip, false, false), 'pin');
+  assert.equal(core.rowIcon(pinnedClip, false, true), 'clipboard');
+  assert.equal(core.rowIcon(pinnedAsks, false, true), 'asks');
+  assert.equal(core.rowIcon(pinnedPlain, false, true), 'plain');
+  // Empty clipboard: the hole wins over the pin, in the Pinned section and in results
+  assert.equal(core.rowIcon(clip, true, false), 'clipboard-empty');
+  assert.equal(core.rowIcon(pinnedClip, true, true), 'clipboard-empty');
+  assert.equal(core.rowIcon(pinnedClip, true, false), 'clipboard-empty');
+  // A prompt that asks first shows its form, hole included, before anything is pasted
+  assert.equal(core.rowIcon(pinnedAsks, true, true), 'asks');
+  assert.equal(core.rowIcon({ pinned: false, asks: true, clip: true }, true, false), 'asks');
+  // No {clipboard}, nothing to warn about
+  assert.equal(core.rowIcon(pinnedPlain, true, false), 'pin');
+  assert.equal(core.rowIcon({ pinned: false, asks: false, clip: false }, true, false), 'plain');
+});
+
+test('bodyExcerpt starts a row\'s second line just before the hit and says what to underline', () => {
+  const body = 'Review this diff for correctness bugs only: wrong logic, missed error handling, races.';
+  const hit = core.bodyExcerpt('error', body);
+  assert.equal(hit.text, '\u2026wrong logic, missed error handling, races.');
+  assert.equal(hit.indices.map(i => hit.text[i]).join(''), 'error');
+  // A hit near the start needs no ellipsis, and case does not matter
+  const early = core.bodyExcerpt('REVIEW', body);
+  assert.equal(early.text, body);
+  assert.deepEqual(early.indices, [0, 1, 2, 3, 4, 5]);
+  // Line breaks in the body are one space, as the row draws it
+  assert.equal(core.bodyExcerpt('second', 'first line\n\n  second line').text, 'first line second line');
+});
+
+test('bodyExcerpt follows bodyScore: every word of a multi-word query, or nothing', () => {
+  const body = 'Before fixing, write a minimal reproduction or a failing test for this bug.';
+  const hit = core.bodyExcerpt('failing minimal', body);
+  assert.equal(hit.text, '…fixing, write a minimal reproduction or a failing test for this bug.');
+  assert.equal(hit.indices.map(i => hit.text[i]).join(''), 'minimalfailing');
+  // A single word the body lacks, a word that starts nothing, an empty query
+  assert.equal(core.bodyExcerpt('zebra', body), null);
+  assert.equal(core.bodyExcerpt('failing inimal', body), null);
+  assert.equal(core.bodyExcerpt('  ', body), null);
+  assert.equal(core.bodyExcerpt('bug', ''), null);
+});

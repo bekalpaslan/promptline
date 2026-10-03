@@ -185,7 +185,9 @@ export function TagPill({
       size={size}
       hue={C.tagColor(tag)}
       active={active}
-      className={cn("relative", rowTarget && "cursor-pointer")}
+      // In a row the pill gives way before the first line does: a long
+      // tag used to keep its full width and leave the line a dozen characters
+      className={cn("relative", rowTarget && "min-w-0 max-w-28 cursor-pointer")}
       title={title ?? (onClick || rowTarget ? label : undefined)}
       aria-label={onClick ? label : undefined}
       aria-pressed={onClick ? !!active : undefined}
@@ -200,7 +202,7 @@ export function TagPill({
         })
       }
     >
-      {tag}
+      {rowTarget ? <span className="min-w-0 truncate leading-normal">{tag}</span> : tag}
       {children}
     </Chip>
   )
@@ -223,14 +225,19 @@ export function TagList({
   /** Plain chips the enclosing row acts on (TagPill) */
   rowTarget?: boolean
 }) {
+  // When some tags fold into +N, the ones the query filters by come first:
+  // under #debug a row whose second tag is debug showed "flow +1", the
+  // reason it was in the list hidden inside the +1
+  const isActive = (tag: string) => !!activeTags?.includes(tag.toLowerCase())
+  const shown = activeTags?.length && tags.length > max ? [...tags].sort((a, b) => +isActive(b) - +isActive(a)) : tags
   return (
     <>
-      {tags.slice(0, max).map((tag) => (
-        <TagPill key={tag} tag={tag} active={activeTags?.includes(tag.toLowerCase())} onClick={onTag} rowTarget={rowTarget} />
+      {shown.slice(0, max).map((tag) => (
+        <TagPill key={tag} tag={tag} active={isActive(tag)} onClick={onTag} rowTarget={rowTarget} />
       ))}
-      {tags.length > max && (
-        <Chip tone="muted" className="tabular-nums" title={tags.slice(max).map((t) => `#${t}`).join(", ")}>
-          +{tags.length - max}
+      {shown.length > max && (
+        <Chip tone="muted" className="tabular-nums" title={shown.slice(max).map((t) => `#${t}`).join(", ")}>
+          +{shown.length - max}
         </Chip>
       )}
     </>
@@ -272,15 +279,25 @@ export const MATCH_HIT = "underline decoration-solid underline-offset-2"
 // title is the user's text: a Hebrew one keeps its own direction, and one
 // pasted in with a direction control can't reorder the chips beside it.
 export function HighlightedTitle({ title, indices }: { title: string; indices: number[] | null }) {
-  if (!indices?.length) return <bdi className="truncate">{title}</bdi>
   return (
     <bdi className="truncate">
-      {C.highlightSegments(title, indices).map((seg, i) => (
-        <span key={i} className={seg.hit ? MATCH_HIT : undefined}>
+      <MatchText text={title} indices={indices} />
+    </bdi>
+  )
+}
+
+// Text with its matched characters underlined: a title, or the excerpt of a
+// body the search found. The caller owns the box and the truncation.
+export function MatchText({ text, indices }: { text: string; indices: number[] | null }) {
+  if (!indices?.length) return <>{text}</>
+  return (
+    <>
+      {C.highlightSegments(text, indices).map((seg, i) => (
+        <span key={i} className={seg.hit ? MATCH_HIT : undefined} data-match={seg.hit || undefined}>
           {seg.text}
         </span>
       ))}
-    </bdi>
+    </>
   )
 }
 
@@ -363,6 +380,8 @@ export function PromptTokens({
               <bdi
                 className={cn("rounded-sm px-0.5 text-foreground", tint)}
                 title={part.type === "field" ? `${part.name}, as filled in` : "The clipboard as it is now"}
+                // The popup's preview card scrolls this into view when it opens
+                data-clip={isClip || undefined}
               >
                 {filled}
               </bdi>

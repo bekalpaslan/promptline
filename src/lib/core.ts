@@ -132,6 +132,8 @@ export type PackDiagnosis =
 // a renamed or added export fails `npm test` instead of both windows at
 // runtime; the signatures themselves are still by hand (audit M14). Keep one
 // member per line, name first.
+export type RowIconName = "clipboard-empty" | "pin" | "asks" | "clipboard" | "plain"
+
 interface PromptlineCore {
   /** The built-in placeholder names: clipboard, date, time */
   RESERVED: readonly string[]
@@ -154,6 +156,8 @@ interface PromptlineCore {
   fuzzyScore(query: string, target: string): FuzzyResult | null
   /** How well a prompt body answers a query: contiguous, or every word a word-prefix. Lower is better; null is no match. */
   bodyScore(query: string, text: string): { score: number } | null
+  /** A body-only search hit, as a row shows it: the body on one line from just before the first hit, and what to underline; null when the body didn't match */
+  bodyExcerpt(query: string, text: string, lead?: number): { text: string; indices: number[] } | null
   /** The title "+ New" gives a draft; with an empty body and no uses it is swept at startup */
   DRAFT_TITLE: "New prompt"
   /** An untouched "+ New" draft: the manager's to finish, never the popup's to paste */
@@ -232,6 +236,8 @@ interface PromptlineCore {
   lineCount(text: string | null | undefined): number
   /** What a preview shows for {clipboard}: one line, controls revealed, cut at `max` (240), or "(clipboard is empty)" */
   clipboardPreview(clip: string | null | undefined, max?: number): string
+  /** The one icon a popup row shows: a hole first, then the pin (not under the Pinned heading), then the kind */
+  rowIcon(row: { pinned: boolean; asks: boolean; clip: boolean }, clipEmpty: boolean, underPinned: boolean): RowIconName
   /** What a paste would produce, minus the fill-in form: config and built-ins expanded, the clipboard substituted, {field}s kept */
   expandForCopy(text: string, configValues: Record<string, string>, clip: string | null | undefined, now?: Date): string
   /** Ctrl+N's pre-filled title: the first line, cut at a word boundary within `max` (40); "" when empty */

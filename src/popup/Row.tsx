@@ -1,8 +1,8 @@
 import { memo } from "react"
 import { RiClipboardFill, RiClipboardLine, RiEdit2Line, RiFileTextLine, RiPushpinFill } from "@remixicon/react"
-import { C, type Snippet } from "@/lib/core"
+import { C, type RowIconName, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { HighlightedTitle, InputsBadge, Keys, TagList } from "@/components/prompt-bits"
+import { HighlightedTitle, InputsBadge, Keys, MatchText, TagList } from "@/components/prompt-bits"
 
 // The popup's list row. Its own module so the design-system bundle
 // (design/entry.tsx) can render the real row, not a copy; the pieces it is
@@ -17,16 +17,25 @@ export type Entry = { s: Snippet; indices: number[] | null }
 const MAX_ROW_TAGS = 1
 
 // What a row shows beyond its snippet, worked out once per library load,
-// not once per row per keystroke. A prompt that wraps the clipboard gets a
-// filled clipboard icon; the row hollows it while the clipboard is empty
-// (`usesClip` below), so a paste that would leave a hole is visible before
-// Enter, not in the terminal after it (critique popup P1).
-export type Derived = { inputs: string[]; Icon: typeof RiFileTextLine; clip: boolean }
+// not once per row per keystroke: the values it asks for before pasting,
+// and whether it wraps the clipboard. The row's icon is worked out from
+// these, the pin and the clipboard's state (`rowIcon` below).
+export type Derived = { inputs: string[]; clip: boolean }
 export function derive(s: Snippet): Derived {
-  const inputs = C.requiredInputs(s)
-  const clip = s.text.includes("{clipboard}")
-  const Icon = s.pinned ? RiPushpinFill : inputs.length ? RiEdit2Line : clip ? RiClipboardFill : RiFileTextLine
-  return { inputs, Icon, clip }
+  return { inputs: C.requiredInputs(s), clip: s.text.includes("{clipboard}") }
+}
+
+// The one icon a row shows is core's call (`C.rowIcon`: a hole first, then
+// the pin, then the kind); this is what each name draws
+export function rowIcon(s: Snippet, d: Derived, clipEmpty: boolean, underPinned: boolean): RowIconName {
+  return C.rowIcon({ pinned: s.pinned, asks: d.inputs.length > 0, clip: d.clip }, clipEmpty, underPinned)
+}
+const ROW_ICONS: Record<RowIconName, typeof RiFileTextLine> = {
+  "clipboard-empty": RiClipboardLine,
+  pin: RiPushpinFill,
+  asks: RiEdit2Line,
+  clipboard: RiClipboardFill,
+  plain: RiFileTextLine,
 }
 
 // The clipboard line under the popup's search box; a row that would paste
@@ -49,6 +58,8 @@ export const Row = memo(function Row({
   activeTags,
   previewed,
   clipEmpty,
+  underPinned,
+  queryText,
   slot,
 }: {
   entry: Entry
@@ -69,14 +80,25 @@ export const Row = memo(function Row({
   previewed: boolean
   /** Clipboard is empty, so a `{clipboard}` prompt would paste a hole */
   clipEmpty: boolean
+  /** Drawn under the Pinned heading, which already says what a pin icon would */
+  underPinned?: boolean
+  /** The query's free text, for a row the search found by its body */
+  queryText?: string
 }) {
   const { s, indices } = entry
   const tags = s.tags || []
-  const { inputs, Icon, clip } = derived
+  const { inputs, clip } = derived
   const usesClip = clipEmpty && clip
-  // An empty clipboard hollows the icon; a pinned or fill-in row keeps its
-  // own icon and is still described by the clipboard line
-  const RowIcon = usesClip && Icon === RiClipboardFill ? RiClipboardLine : Icon
+  // An empty clipboard hollows the icon, on a pinned row too; a fill-in row
+  // keeps its pencil (its form shows the hole before anything is pasted),
+  // dimmed, and every such row is described by the clipboard line. Dimmed
+  // to 55%, not 40%: a state icon has to clear 3:1, and at 40% it was
+  // 2.5:1 on Paper and on the selection tint (critique popup, 2026-10-03)
+  const icon = rowIcon(s, derived, clipEmpty, !!underPinned)
+  const RowIcon = ROW_ICONS[icon]
+  // Found by its body (no title match to underline): the second line is
+  // where the body matched, not the prompt's opening words
+  const excerpt = queryText && !indices?.length ? C.bodyExcerpt(queryText, s.text) : null
   // The {N} badge's words reach a screen reader through the description
   const asksId = inputs.length ? `row-${s.id}-asks` : null
   const describedBy = [asksId, previewed && "popup-preview", usesClip && CLIP_LINE_ID].filter(Boolean).join(" ") || undefined
@@ -96,7 +118,10 @@ export const Row = memo(function Row({
       <InputsBadge inputs={inputs} id={asksId ?? undefined} />
     </>
   )
-  const slotKey = slot ? <Keys combo={`Ctrl+${slot}`} /> : null
+  // Ctrl is printed once, on the first slot; the rows under it show their
+  // digit alone, in the same column. Five "Ctrl" caps down the right edge
+  // were the loudest thing in the list and said one thing five times.
+  const slotKey = slot ? <Keys combo={slot === 1 ? "Ctrl+1" : String(slot)} /> : null
   return (
     <div
       id={`row-${s.id}`}
@@ -107,8 +132,9 @@ export const Row = memo(function Row({
       // No name tooltip: it would sit on top of the preview card the same
       // hover opens (the card carries the full title). Only the
       // empty-clipboard warning is worth a title.
-      title={usesClip ? "Clipboard is empty — {clipboard} will paste nothing" : undefined}
+      title={usesClip ? "Clipboard is empty — this prompt pastes without it" : undefined}
       data-selected={selected}
+      data-icon={icon}
       className={cn(
         "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
         compact ? "py-0.5" : "py-1",
@@ -123,7 +149,7 @@ export const Row = memo(function Row({
       onMouseMove={(e) => onMove(index, e)}
       onMouseLeave={onLeave}
     >
-      <RowIcon className={cn("size-3.5 shrink-0", s.pinned ? "text-(--warn)" : usesClip ? "opacity-40" : "opacity-70")} aria-hidden />
+      <RowIcon className={cn("size-3.5 shrink-0", icon === "pin" ? "text-(--warn)" : usesClip ? "opacity-55" : "opacity-70")} aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         {/* The slot key at the title's right edge: it is the row's own
             address, read with the title, not with the tags */}
@@ -135,7 +161,9 @@ export const Row = memo(function Row({
           // The first line of the prompt, with the one pill and the {N}
           // badge after it, level with its text
           <span aria-hidden className="flex min-w-0 items-center gap-1.5">
-            <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">{s.text.replace(/\s+/g, " ")}</span>
+            <span className="min-w-0 flex-1 truncate text-xs font-normal text-muted-foreground">
+              {excerpt ? <MatchText text={excerpt.text} indices={excerpt.indices} /> : s.text.replace(/\s+/g, " ")}
+            </span>
             {chips}
           </span>
         )}

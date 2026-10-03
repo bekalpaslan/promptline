@@ -28,10 +28,16 @@ test("lists the seeded library with the search box focused", async ({ page }) =>
 })
 
 test("a row is one pill, the slot key on the title line, and no button inside the option", async ({ page }) => {
-  // The pinned rows carry Ctrl+1..5 at the title's right edge, above the row's middle
+  // The slot rows carry their key at the title's right edge, above the
+  // row's middle: Ctrl is printed once, on the first, and the rest show
+  // their digit alone
+  await expect(rows(page).first().locator("kbd")).toHaveText(["Ctrl", "1"])
   const row = page.getByRole("option", { name: "Root cause first", exact: true })
   const key = row.locator("kbd").first()
-  await expect(key).toHaveText("Ctrl")
+  await expect(row.locator("kbd")).toHaveText(["3"])
+  // Every title in the list starts on one edge, grouped or not
+  const edges = await page.getByRole("option").evaluateAll((els) => [...new Set(els.map((el) => Math.round(el.querySelector("bdi")!.getBoundingClientRect().left)))])
+  expect(edges).toHaveLength(1)
   const [keyBox, rowBox] = await Promise.all([key.boundingBox(), row.boundingBox()])
   expect(keyBox!.y + keyBox!.height).toBeLessThan(rowBox!.y + rowBox!.height / 2 + 2)
   // A listbox option holds no button: the tag pill is text the row acts on
@@ -105,7 +111,7 @@ test("a screen reader hears a row's name, and its fill-in count as the descripti
 test("the clipboard line's Ctrl N key opens the new-prompt form; there is no separate create bar", async ({ page }) => {
   await expect(page.getByText("New prompt from clipboard…")).toHaveCount(0)
   await page.getByRole("button", { name: "New prompt from clipboard" }).click()
-  await expect(page.getByRole("textbox", { name: "Name" })).toBeFocused()
+  await expect(page.getByRole("textbox", { name: "Title" })).toBeFocused()
 })
 
 test("a title subsequence finds the prompt, a body needs the words", async ({ page }) => {
@@ -117,6 +123,46 @@ test("a title subsequence finds the prompt, a body needs the words", async ({ pa
   await search(page).fill("broke between")
   await expect(rows(page)).toHaveCount(1)
   await expect(rows(page).first()).toHaveAccessibleName("Bisect a regression")
+})
+
+test("a row says why the search found it: where its body matched, and the tag the filter asked for", async ({ page }) => {
+  // Found by its body: the second line starts near the match, underlined,
+  // in place of the prompt's opening words
+  await search(page).fill("broke between")
+  const bisect = page.getByRole("option", { name: "Bisect a regression", exact: true })
+  await expect(bisect.locator("[data-match]").first()).toHaveText(/broke/i)
+  // Found by its title: the second line stays the prompt's own first line
+  const body = (await library(page)).find((s) => s.title === "Bisect a regression")!.text.replace(/\s+/g, " ")
+  await search(page).fill("Bisect a regression")
+  await expect(bisect).toContainText(body.slice(0, 20))
+  // "Try a different angle" is tagged flow, then debug: under #debug the
+  // pill is debug, with flow folded into +1
+  await search(page).fill("#debug")
+  const angle = page.getByRole("option", { name: "Try a different angle", exact: true })
+  await expect(angle.locator("[data-tag]")).toHaveText("debug")
+  await expect(angle).toContainText("+1")
+  // One wording for a narrowed list, and one prompt "matches"
+  const status = page.locator('.sr-only[role="status"]')
+  await expect(status).toHaveText(/^\d+ prompts match$/)
+  await search(page).fill("broke between")
+  await expect(status).toHaveText("1 prompt matches")
+})
+
+test("with no rows the hint bar offers what can still be done", async ({ page }) => {
+  const hint = (label: string) => page.getByText(label, { exact: true })
+  await search(page).fill("zzzz no such prompt")
+  await expect(rows(page)).toHaveCount(0)
+  await expect(hint("new prompt")).toBeVisible()
+  await expect(hint("close")).toBeVisible()
+  // Paste, copy, actions and preview have nothing to act on
+  for (const gone of ["paste", "copy", "actions", "preview"]) await expect(hint(gone)).toHaveCount(0)
+  // Nothing on the clipboard: nothing to save either, and the Ctrl N key says so
+  await setClipboard(page, "")
+  await emit(page, "popup-shown")
+  await search(page).fill("zzzz no such prompt")
+  await expect(hint("new prompt")).toHaveCount(0)
+  await expect(hint("close")).toBeVisible()
+  await expect(page.getByRole("button", { name: "New prompt from clipboard (Ctrl N)" })).toHaveAttribute("aria-disabled", "true")
 })
 
 test("#tag narrows to the prompts carrying it", async ({ page }) => {
@@ -258,18 +304,92 @@ test("Tab opens the row's actions; delete asks twice and U undoes", async ({ pag
   await menu.getByRole("menuitem", { name: /^Really delete\?/ }).click()
   await expect.poll(() => calls(page, "delete_snippet")).toHaveLength(1)
   await expect(rows(page)).toHaveCount(0)
-  await expect(strip(page)).toContainText("undo")
+  // The offer is a button carrying its keys; with a query typed, U is the
+  // query's, so only Ctrl Z is on it
+  const undo = strip(page).getByRole("button", { name: /^Undo/ })
+  await expect(strip(page)).toContainText('Deleted "Loose prompt"')
+  await expect(undo).toHaveText("UndoCtrlZ")
 
   // Bare "u" undoes only while the search box is empty
   await search(page).fill("")
+  await expect(undo).toHaveText("UndoUCtrlZ")
   await page.keyboard.press("u")
   await expect.poll(() => calls(page, "add_snippet")).toHaveLength(1)
   await expect(page.getByRole("option", { name: "Loose prompt", exact: true })).toBeVisible()
 })
 
+test("Enter at \"Really delete?\" deletes and never pastes; Esc or moving away withdraws the question", async ({ page }) => {
+  await search(page).fill("Loose prompt")
+  await page.keyboard.press("Tab")
+  const menu = page.getByRole("menu", { name: "Actions for Loose prompt" })
+  const armed = menu.getByRole("menuitem", { name: /^Really delete\?/ })
+  // The digit arms it and takes the highlight and the focus with it
+  await page.keyboard.press("5")
+  await expect(armed).toBeFocused()
+  // The bar and the status region say what Enter does now
+  await expect(page.getByText("delete", { exact: true })).toBeVisible()
+  await expect(page.getByText("cancel", { exact: true })).toBeVisible()
+  await expect(page.locator('.sr-only[role="status"]')).toHaveText(/Really delete Loose prompt\?/)
+  // Esc answers no and stays in the panel
+  await page.keyboard.press("Escape")
+  await expect(menu).toBeVisible()
+  await expect(armed).toHaveCount(0)
+  await expect(menu.getByRole("menuitem", { name: /^Delete/ })).toBeFocused()
+  // Arrowing off an armed item withdraws it too
+  await page.keyboard.press("Enter")
+  await expect(armed).toBeFocused()
+  await page.keyboard.press("ArrowUp")
+  await expect(armed).toHaveCount(0)
+  await page.keyboard.press("ArrowDown")
+  await expect(menu.getByRole("menuitem", { name: /^Delete/ })).toBeFocused()
+  // Armed again, Enter is the answer: the prompt is deleted, nothing is pasted
+  await page.keyboard.press("5")
+  await page.keyboard.press("Enter")
+  await expect.poll(() => calls(page, "delete_snippet")).toHaveLength(1)
+  expect(await calls(page, "paste_snippet")).toHaveLength(0)
+  await expect(menu).toBeHidden()
+  await expect(search(page)).toBeFocused()
+})
+
+test("a delete's undo survives one hide and summon, then is gone", async ({ page }) => {
+  await search(page).fill("Loose prompt")
+  await page.keyboard.press("Tab")
+  await page.keyboard.press("5")
+  await page.keyboard.press("5")
+  await expect.poll(() => calls(page, "delete_snippet")).toHaveLength(1)
+  const undo = strip(page).getByRole("button", { name: /^Undo/ })
+  await expect(undo).toBeVisible()
+  // The next summon still offers it, by Ctrl Z and the button only: U is
+  // the first letter of whatever the user came back to type
+  await emit(page, "popup-shown")
+  await expect(strip(page)).toContainText('Deleted "Loose prompt"')
+  await expect(undo).toHaveText("UndoCtrlZ")
+  await page.keyboard.press("u")
+  await expect(search(page)).toHaveValue("u")
+  expect(await calls(page, "add_snippet")).toHaveLength(0)
+  // The button puts it back and hands the keyboard to the search box
+  await undo.click()
+  await expect.poll(() => calls(page, "add_snippet")).toHaveLength(1)
+  await expect(strip(page)).toContainText('Restored "Loose prompt"')
+  await expect(search(page)).toBeFocused()
+
+  // Deleted again and left alone: the summon after next starts clean
+  await search(page).fill("Loose prompt")
+  await page.keyboard.press("Tab")
+  await page.keyboard.press("5")
+  await page.keyboard.press("5")
+  await expect.poll(() => calls(page, "delete_snippet")).toHaveLength(2)
+  await emit(page, "popup-shown")
+  await expect(undo).toBeVisible()
+  await emit(page, "popup-shown")
+  await expect(strip(page)).toBeHidden()
+  await page.keyboard.press("Control+z")
+  expect(await calls(page, "add_snippet")).toHaveLength(1)
+})
+
 test("Ctrl+N drafts a prompt titled from the clipboard's first line", async ({ page }) => {
   await page.keyboard.press("Control+n")
-  const title = page.getByRole("textbox", { name: "Name" })
+  const title = page.getByRole("textbox", { name: "Title" })
   await expect(title).toBeFocused()
   // The mock clipboard starts as a TypeError message: 40 characters, cut at a word
   await expect(title).toHaveValue("TypeError: cannot read properties of")
@@ -288,7 +408,7 @@ test("the preview flags a clipboard carrying hidden characters", async ({ page }
   await emit(page, "popup-shown")
   await search(page).fill("Root cause first")
   await page.keyboard.press("ArrowRight")
-  const card = page.getByRole("tooltip")
+  const card = page.getByRole("note", { name: "Preview" })
   await expect(card).toContainText("TypeError: x is undefined")
   await expect(card.getByText("hidden text")).toHaveAttribute("title", /^The clipboard holds 1 direction control and 1 invisible character:/)
   // A clean clipboard has no mark
@@ -296,8 +416,8 @@ test("the preview flags a clipboard carrying hidden characters", async ({ page }
   await emit(page, "popup-shown")
   await search(page).fill("Root cause first")
   await page.keyboard.press("ArrowRight")
-  await expect(page.getByRole("tooltip")).toContainText("TypeError: x is undefined")
-  await expect(page.getByRole("tooltip").getByText("hidden text")).toHaveCount(0)
+  await expect(page.getByRole("note", { name: "Preview" })).toContainText("TypeError: x is undefined")
+  await expect(page.getByRole("note", { name: "Preview" }).getByText("hidden text")).toHaveCount(0)
 })
 
 test("the line under the search says what the clipboard holds, and that it is empty", async ({ page }) => {
@@ -312,10 +432,49 @@ test("the line under the search says what the clipboard holds, and that it is em
   // Empty: said in words, and every {clipboard} row is described by the line
   await setClipboard(page, "")
   await emit(page, "popup-shown")
-  await expect(clipLine(page)).toHaveText(/Clipboard is empty — \{clipboard\} rows paste nothing/)
+  await expect(clipLine(page)).toHaveText("Clipboard is empty — prompts paste without it")
   const clipRow = page.getByRole("option", { name: "Root cause first", exact: true })
   await expect(clipRow).toHaveAttribute("aria-describedby", "popup-clip")
   await expect(page.getByRole("option", { name: "Loose prompt", exact: true })).not.toHaveAttribute("aria-describedby", /popup-clip/)
+})
+
+test("an empty clipboard hollows a pinned {clipboard} row and the hint bar says Enter pastes without it", async ({ page }) => {
+  const pinned = page.getByRole("option", { name: "Root cause first", exact: true })
+  const hint = page.getByText("paste without clipboard", { exact: true })
+  // Under the Pinned heading the slot says the kind, not the pin again
+  await expect(pinned).toHaveAttribute("data-icon", "clipboard")
+  await expect(hint).toBeHidden()
+  // Empty, or whitespace alone: the pinned row shows the hole like any other
+  for (const empty of ["", "  \n\t "]) {
+    await setClipboard(page, empty)
+    await emit(page, "popup-shown")
+    await expect(pinned).toHaveAttribute("data-icon", "clipboard-empty")
+    await expect(pinned).toHaveAttribute("aria-describedby", "popup-clip")
+    // Once it is the selected row, the bar names what Enter is about to do
+    await search(page).fill("Root cause first")
+    await expect(pinned).toHaveAttribute("aria-selected", "true")
+    await expect(pinned).toHaveAttribute("data-icon", "clipboard-empty")
+    await expect(hint).toBeVisible()
+  }
+  // The action panel replaces the bar's hints, so its items carry the warning
+  await page.keyboard.press("Tab")
+  await expect(page.getByRole("menuitem", { name: /^Paste without clipboard/ })).toBeVisible()
+  await expect(page.getByRole("menuitem", { name: /^Copy without clipboard/ })).toBeVisible()
+  await page.keyboard.press("Escape")
+  // One line at the default width: nothing in the bar wrapped under the warning
+  const [hintBox, escBox] = await Promise.all([hint.boundingBox(), page.getByText("close", { exact: true }).boundingBox()])
+  expect(Math.abs(hintBox!.y - escBox!.y)).toBeLessThan(2)
+  // A row that pastes no clipboard has nothing to warn about
+  await search(page).fill("Loose prompt")
+  await expect(page.getByRole("option", { name: "Loose prompt", exact: true })).toHaveAttribute("aria-selected", "true")
+  await expect(hint).toBeHidden()
+  await expect(page.getByText("paste", { exact: true })).toBeVisible()
+  // In results a pinned row is told apart by its pin, once there is a clipboard to paste
+  await setClipboard(page, "TypeError: x is undefined")
+  await emit(page, "popup-shown")
+  await search(page).fill("Root cause first")
+  await expect(pinned).toHaveAttribute("data-icon", "pin")
+  await expect(hint).toBeHidden()
 })
 
 test("after a paste the line names the clipboard as the last pasted prompt, not as copied text", async ({ page }) => {
@@ -344,7 +503,7 @@ test("a direction override on the clipboard is shown as ⟨RLO⟩ and reverses n
   await emit(page, "popup-shown")
   await search(page).fill("Root cause first")
   await page.keyboard.press("ArrowRight")
-  const card = page.getByRole("tooltip")
+  const card = page.getByRole("note", { name: "Preview" })
   await expect(card).toContainText("rm -rf⟨RLO⟩ dedicated")
   await expect(card.getByText("hidden text")).toBeVisible()
   // The inserted text is isolated, so the Copy button reads left to right
@@ -363,13 +522,15 @@ test("the copy names the next step: the panel's digits, Ctrl+N on no match and o
   await page.keyboard.press("Escape")
   // No match with something on the clipboard points at Ctrl+N
   await search(page).fill("zzzz no such prompt")
-  await expect(page.getByText("No matches — Ctrl+N saves the clipboard as a new prompt")).toBeVisible()
+  await expect(page.getByRole("listbox", { name: "Prompts" }).getByText("No matches — Ctrl+N saves the clipboard as a new prompt")).toBeVisible()
+  // The listbox reads only options, so the status region says the same words
+  await expect(page.locator('.sr-only[role="status"]')).toHaveText("No matches — Ctrl+N saves the clipboard as a new prompt")
   // Ctrl+N with nothing copied is one line in the strip, not a form
   await setClipboard(page, "")
   await emit(page, "popup-shown")
   await page.keyboard.press("Control+n")
   await expect(strip(page)).toHaveText("Copy something first — Ctrl+N saves the clipboard")
-  await expect(page.getByRole("textbox", { name: "Name" })).toHaveCount(0)
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveCount(0)
   // An unset {{config}} asks as a field, and says it could be set once
   await search(page).fill("Session kickoff")
   await page.keyboard.press("Enter")
@@ -426,4 +587,79 @@ test("groups follow the library's order, as the manager arranges them, not A–Z
   })
   await emit(page, "popup-shown")
   await expect.poll(() => groupsIn("Mock Groups")).toEqual(["Review", "Debugging"])
+})
+
+test("the preview card keeps Copy in view, starts at the clipboard and scrolls from the keyboard", async ({ page }) => {
+  const trace = ["TypeError: x is undefined", ...Array.from({ length: 30 }, (_, i) => `    at frame${i} (src/file.ts:${i}:1)`)].join("\n")
+  await setClipboard(page, trace)
+  await emit(page, "popup-shown")
+  await search(page).fill("Bugs only")
+  await page.keyboard.press("ArrowRight")
+  const card = page.getByRole("note", { name: "Preview" })
+  const copy = card.getByRole("button", { name: /^Copy/ })
+  // Copy is a row of its own inside the card, carrying its key
+  await expect(copy).toHaveText("CopyCtrl↵")
+  await expect(copy).toBeInViewport({ ratio: 1 })
+  // The clipboard's place in the prompt is on screen without scrolling
+  await expect(card.getByTitle("The clipboard as it is now")).toBeInViewport()
+  // More than fits: the bar offers the page keys, and they move the text,
+  // not the button. The card opened at the clipboard, so up comes first.
+  await expect(page.getByText("scroll", { exact: true })).toBeVisible()
+  const scroller = card.locator("> div").first()
+  const opened = await scroller.evaluate((el) => el.scrollTop)
+  expect(opened).toBeGreaterThan(0)
+  const copyY = (await copy.boundingBox())!.y
+  await page.keyboard.press("PageUp")
+  await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBeLessThan(opened)
+  expect((await copy.boundingBox())!.y).toBe(copyY)
+  await page.keyboard.press("PageDown")
+  await expect.poll(() => scroller.evaluate((el) => el.scrollTop)).toBe(opened)
+  // The card stays clear of the hint bar
+  const [cardBox, barBox] = await Promise.all([card.boundingBox(), page.getByText("back", { exact: true }).boundingBox()])
+  expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(barBox!.y)
+  // ← closes it and the bar goes back to the list's hints
+  await page.keyboard.press("ArrowLeft")
+  await expect(card).toBeHidden()
+  await expect(page.getByText("preview", { exact: true })).toBeVisible()
+})
+
+test("at the 320×280 minimum the card takes the list's place, Save prompt stays in view, and a failed paste is read whole", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 280 })
+  await page.keyboard.press("ArrowRight")
+  const card = page.getByRole("note", { name: "Preview" })
+  const list = page.getByRole("listbox", { name: "Prompts" })
+  const [cardBox, listBox, barBox] = await Promise.all([card.boundingBox(), list.boundingBox(), page.getByText("back", { exact: true }).boundingBox()])
+  // Too short to sit beside the row: it fills the list, and never the hint bar
+  expect(Math.abs(cardBox!.y - listBox!.y)).toBeLessThan(2)
+  expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(barBox!.y)
+  await expect(card.getByRole("button", { name: /^Copy/ })).toBeInViewport({ ratio: 1 })
+  // The bar's hints for the card fit on one line here too
+  const [scrollBox, closeBox] = await Promise.all([page.getByText("scroll", { exact: true }).boundingBox(), page.getByText("close", { exact: true }).boundingBox()])
+  expect(Math.abs(scrollBox!.y - closeBox!.y)).toBeLessThan(2)
+  await page.keyboard.press("ArrowLeft")
+  // The whole message, including how to recover
+  await emit(page, "paste-failed", { message: "Couldn't paste into that window. The prompt is on your clipboard: press Ctrl+V there to paste it yourself." })
+  const alert = strip(page)
+  await expect(alert).toContainText("paste it yourself")
+  expect(await alert.locator("div").first().evaluate((el) => el.scrollHeight <= el.clientHeight + 1)).toBe(true)
+  await page.keyboard.press("Escape")
+  // Ctrl+N: the fields scroll, the button does not
+  await page.keyboard.press("Control+n")
+  await expect(page.getByRole("button", { name: "Save prompt" })).toBeInViewport({ ratio: 1 })
+})
+
+test("at 125% UI scale the hint bar drops hints instead of wrapping", async ({ page }) => {
+  await page.evaluate(() => localStorage.setItem("scale", "125"))
+  await emit(page, "popup-shown")
+  const hint = (label: string) => page.getByText(label, { exact: true })
+  // The type is a quarter wider, so the default window holds three hints, on one line
+  await expect(hint("paste")).toBeVisible()
+  await expect(hint("actions")).toBeHidden()
+  const [a, b] = await Promise.all([hint("paste").boundingBox(), hint("close").boundingBox()])
+  expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
+  // A window widened to match shows all five again
+  await page.setViewportSize({ width: 500, height: 600 })
+  await expect(hint("actions")).toBeVisible()
+  await expect(hint("preview")).toBeVisible()
+  await page.evaluate(() => localStorage.removeItem("scale"))
 })
