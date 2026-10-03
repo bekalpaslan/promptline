@@ -204,7 +204,20 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    in reach. An empty field is allowed and never silent, but quiet: its
    placeholder says it pastes nothing, the preview keeps its chip, and the
    button counts the empties. It used to be outlined in red, which shouted
-   at every field of a form the user had only just opened.
+   at every field of a form the user had only just opened. Enter in a field
+   goes to the next field that is still empty and sends only when none is
+   left ahead (`nextEmptyField`), and the hint bar says which: `↵ next
+   field`, then `↵ paste`. Every field's Enter used to send, so the reflex
+   Enter after the first value pasted "it broke between v0.2.18 and ." into
+   the terminal. The step is forward only: a blank behind the caret was
+   passed on purpose, and Enter from the last field sends with the blanks
+   the button counted. Ctrl+Enter copies at once from any field, since it
+   is asked for by name; Shift+Enter is still a newline. The field Enter
+   moves to is scrolled in whole, with its label and its focus ring: at
+   320×280 and a larger UI scale the scroller holds one field, and the
+   next one arrived cut by the button. A form opened to copy (Ctrl+Enter
+   or Ctrl+click on the row) reads `↵ copy` once, not `↵ paste · Ctrl ↵
+   copy`.
 4. **`paste_snippet`** reads the current clipboard, expands `{clipboard}`
    from it, writes the result to the clipboard, and only then hides the popup
    and bumps `uses`. The clipboard write comes first because it is the step
@@ -212,7 +225,8 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    has to return to a window that is still on screen: the popup shows it in
    its feedback strip and nothing else happens. Copy-only (Ctrl+Enter) leaves
    the popup up for a moment to say "Copied to clipboard"; the popup hides
-   itself afterwards. The command answers with a tag, `"pasted"` when the
+   itself afterwards, and takes no pick in that moment (an Enter in those
+   600 ms pasted what Ctrl+Enter had only copied). The command answers with a tag, `"pasted"` when the
    paste thread was spawned and `"copied"` when it fell back to copy-only
    (`paste_mode`): when the manager was the foreground window at summon
    time there is nothing sane to paste into (Enter would land the prompt in
@@ -243,7 +257,14 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    its second half to truncation at the default width); the popup shows it
    in its feedback strip as an error that stays until Esc or the next
    summon, and the prompt is still on the clipboard to paste by hand. It
-   used to fail with nothing said. One case
+   used to fail with nothing said. While that message is up the popup
+   re-reads the clipboard, so the line under the search box says "Last
+   pasted prompt" (it kept showing what had been copied before, beside a
+   message saying the prompt is on the clipboard), and Enter only clears
+   the message, like Esc: the hint bar reads `Ctrl V in the target · ↵ Esc
+   dismiss`. Enter used to send the row again, into the window that had
+   just refused it, and a `{clipboard}` row would have wrapped the prompt
+   in itself. The Enter after that picks as usual. One case
    still passes silently: UIPI drops input aimed at an elevated window
    without reporting it, so `SendInput` returns success there.
 
@@ -270,14 +291,67 @@ matched nearly every prompt and search stopped narrowing anything. A body has
 to contain the query (`bodyScore`), or, for a multi-word query, start a word
 with each of its words.
 
-**The popup has its own undo.** A delete from the action panel offers
-"U or Ctrl+Z to undo" in the feedback strip for a few seconds and puts the
-prompt back through `add_snippet` with its old id, so nothing about it is
-lost. It is popup-local on purpose: the manager may not be open, and a round
-trip through it would depend on its state. The bare "u" is honoured only while
-the search box is empty — every other key goes to the search box, and an
-unconditional "u" made a query like "unit tests" impossible to type after a
-delete; Ctrl+Z works whatever is typed.
+**Delete asks, and the answer is Enter.** In the action panel, Delete (its
+digit `5`, a click, or Enter on it) relabels to "Really delete?" and takes
+the highlight and the keyboard focus with it, on the danger's soft fill
+instead of the accent; the hint bar reads `↵ delete · Esc cancel` and the
+status region says the question, since a screen reader does not re-read a
+focused item whose label changed. Enter, `5` or a click then deletes. Esc
+answers no and stays in the panel; arrowing or pointing at another item
+withdraws the question, so it is never found still armed on the way back.
+Until 2026-10-03 arming by digit left the highlight on Paste, so the Enter
+that answered "Really delete?" pasted the prompt into the terminal, and the
+item was keyed by its label, so arming it by Enter replaced the focused
+button and focus fell to the body (critique popup P1).
+
+**The popup has its own undo.** A delete from the action panel leaves
+`Deleted "title"` in the feedback strip with an **Undo** button that
+carries its keys as key caps, and puts the prompt back through
+`add_snippet` with its old id, so nothing about it is lost. It is
+popup-local on purpose: the manager may not be open, and a round trip
+through it would depend on its state. The offer has no clock. It lasts the
+session that deleted and survives one hide and summon, where the strip
+shows it again; the summon after that starts clean, and a second delete
+replaces it. It used to expire after eight seconds and on any summon, so
+Esc, or a paste, inside that time made the delete permanent, against
+"undoable, never lost". The bare "u" is honoured only in the session that
+deleted and only while the search box is empty — every other key goes to
+the search box, an unconditional "u" made a query like "unit tests"
+impossible to type after a delete, and on the summon the offer survives
+"u" is the first letter of whatever the user came back to type. Ctrl+Z
+works whatever is typed. The button shows the keys that work right now:
+`U` and `Ctrl Z`, `Ctrl Z` alone once something is typed or after a
+summon, and none while the form, the create view or the action panel has
+the keyboard (a click still undoes). The strip used to name both keys in a
+sentence with nothing to click, and went on naming U after a query had
+taken it.
+
+**A result says why it is one.** A title match is underlined in the title.
+A row the search found by its body shows, on its second line, the body
+from just before the match with the matched words underlined
+(`C.bodyExcerpt`, the same rule as `bodyScore`), in place of the prompt's
+opening words; before, nothing on such a row said why it was in the list.
+Under a `#tag` filter the row's one pill is the tag asked for, with the
+others folded into `+N`: a row tagged *flow, debug* showed "flow +1" under
+`#debug`. Ranking is unchanged. With no rows at all (no match, or an empty
+library) the hint bar drops paste, copy, actions and preview, which have
+nothing to act on, and offers `Ctrl N new prompt` when there is a clipboard
+to save. The status region says "N prompts match" for any query, a `#tag`
+as much as a word, and "1 prompt matches".
+
+**The hint bar's breakpoints follow the UI scale.** Which hints the bar
+shows is decided by container queries on the bar, in rem, so at 125% the
+default window shows three hints on one line and a window widened to
+500 px shows all five. As viewport pixels they kept showing five at 125%,
+where the type is a quarter wider, and the bar wrapped at every width
+(critique popup, 2026-10-03). At 125% in the 320 px minimum the warning
+and the preview bars still take two lines. The clipboard's text on its
+line is on Control grey, not the built-in tint, which in Instrument is the
+selection's own colour and sat right above the selected row; a row's tag
+pill truncates at 7rem so a long tag no longer squeezes the first line;
+the fill-in placeholder is full Ink 2 (at 70% it was 3:1); and with no
+rows the status region says the list's own message, which a listbox, read
+as options only, never voiced.
 
 **The popup's list folds from the keyboard too.** ← folds the selected
 row's group, or its pack on an ungrouped row; Ctrl+→ unfolds every pack and
@@ -288,17 +362,77 @@ reopened with the mouse.
 
 **The clipboard has a line of its own under the search box.** Every
 `{clipboard}` row pastes it, and the row shows only the word, so the line
-says what the clipboard holds (one line on the builtin's tint, as in every
-preview, with the *hidden text* badge and a line count when it has more
-than one), that it is empty ("Clipboard is empty — {clipboard} rows paste
-nothing", and those rows hollow their clipboard icon and are described by
-the line for a screen reader), or that it holds the last prompt the popup
+says what the clipboard holds (one line on Control grey, with the *hidden text* badge and a line count when it has more
+than one), that it is empty ("Clipboard is empty — prompts paste without
+it": the fact in Warn while any prompt wraps the clipboard, and never
+truncated; the consequence after it gives way at the 320 px minimum; those
+rows hollow their clipboard icon and are described by the line for a
+screen reader), or that it holds the last prompt the popup
 pasted or copied ("Last pasted prompt"): the prompt stays on the clipboard
 after a paste on purpose, so without this a second summon showed the first
 prompt's output as if it were something the user had copied. The popup
 keeps what it last sent, expanded the way Rust expands it, and compares.
 Before the line, an empty clipboard was a native tooltip on the row, and a
 hole was found in the terminal.
+
+**A row shows one icon, and a hole comes first.** The slot at the row's
+left holds one of five (`C.rowIcon`), by what matters most before Enter:
+the hollow clipboard when the prompt wraps `{clipboard}`, the clipboard is
+empty and no fill-in form will show the hole first; then the pin, except
+under the Pinned heading; then the kind (a pencil for a prompt that asks, a
+filled clipboard, a page). The pin used to win everywhere, so the pinned
+rows, the ones pasted most and by `Ctrl+1..5` without a look at anything
+else, were the only rows that never hollowed, and a pinned "Explain this
+error" pasted its hole into the terminal unannounced (critique popup P1,
+2026-10-03). Under the Pinned heading every row is pinned, so the slot says
+the kind there, as it does in every pack; in search results, where pinned
+and unpinned rows mix, the pin still tells them apart. A fill-in row keeps
+its pencil, dimmed: Enter opens its form, whose preview shows
+"(clipboard is empty)" before anything is pasted. "Empty" is one test for
+the line, the rows and the hint bar, and whitespace alone counts: it
+pastes a hole as surely as nothing does, and the line used to call it
+empty while the rows did not.
+
+**An empty clipboard is said one way.** The line, the row's tooltip, the
+hint bar and the action panel all say the prompt pastes *without* the
+clipboard. The line and the tooltip used to say such rows "paste nothing",
+which they don't: they paste the prompt with nothing where the clipboard
+goes, and three wordings for one state read as three states (critique
+popup, 2026-10-03). The hollow icon is ink at 55%, not 40%: at 40% it was
+2.5:1 on Paper, under the 3:1 a state icon needs; it is deliberately not
+Warn, since with an empty clipboard a dozen rows show it at once and the
+Warn belongs to the one line and the one hint. The `Ctrl N` key on the
+line is drawn unavailable (half strength, `aria-disabled`) while there is
+nothing to save; it still answers with "Copy something first" in the strip.
+
+**Every hole Enter would send is said in Warn, on the Enter hint.** The
+empty clipboard was the only one. A fill-in form whose Enter sends now
+with fields still empty reads `↵ paste with 1 field empty` (the button's
+words; `copy with…` in a form opened to copy), where it read a neutral `↵
+paste` over a button that counted the hole. And while the clipboard holds
+the prompt the popup sent last, a `{clipboard}` row with no form reads `↵
+paste, wraps last prompt`, with "Last pasted prompt" on the clipboard line
+in Warn too: Enter would paste that prompt inside itself, which is rarely
+meant and looked exactly like a normal paste. Both still paste at once,
+for the reason below. A form opened to copy heads its preview "Will copy",
+not "Will paste", and opening a form clears a passing remark such as "Copy
+something first" from the strip (an Undo offer and an error stay). In
+the narrowest bar there is (320 px at a 125% UI scale) a Warn hint stands
+alone, without `Esc`, and the failed paste's bar keeps only `↵ Esc
+dismiss`: with one more hint each of them wrapped to two lines, the empty
+clipboard's included, and took a row from a window that has one.
+
+**The hint bar says so too.** While the selected row would paste a hole,
+`↵ paste` reads `↵ paste without clipboard` with the label in Warn: the bar
+is where the eye checks what Enter does, and the icon alone is a quiet
+signal. Enter still pastes at once; a second Enter to confirm would add a
+step to the one gesture the popup exists for, and a prompt pasted without
+its clipboard is sometimes what the user wants. The longer label takes the
+room of the hints it displaces, so the bar stays one line: `Ctrl ↵ copy`
+shows from 360 px, `Tab actions` and `→ preview` from 500 px, `← fold` not
+at all. The action panel (Tab) replaces the bar's hints with its
+own, so on such a row its first two items read "Paste without clipboard"
+and "Copy without clipboard".
 
 **The feedback strip wraps and errors are alerts.** The strip used to
 truncate to one line with "— Esc to dismiss" appended, which at the default
@@ -318,9 +452,31 @@ the Copy button included, so the one warning built for that input read as
 garbage. Tag characters and zero-width ones are counted by the badge and
 left alone, since a flag emoji is made of tags.
 
+**One inset.** Every strip of the popup shares the search box's edges, and
+its content starts 8 px in: the search icon, the clipboard icon, a pack's
+name, a row's icon, the first key of the hint bar. The list used to carry
+2 px of side padding, so a row's fill was narrower than the box above it,
+and the five strips began on five different lines (9, 8, 10, 6 and 4 px).
+The search box's own padding is 8 px less its 1 px border (the manager's
+filter box shares the class and moves with it). In the fill-in form and
+the Ctrl+N view the boxes (fields, the preview, the button) run edge to
+edge and the loose text (the title, labels, notes) starts 8 px in; fields
+were inset 8 px, the preview 4 and the button 0. The list's scrollbar
+lives in the shell's right padding, its 8 px reserved whether or not the
+list scrolls (`scrollbar-gutter: stable`): inside the list it took the
+rows' right edge 8 px short of the search box's whenever the list
+scrolled, so the slot keys never lined up with the `Ctrl N` key above
+them. The form's scroller keeps its scrollbar inside, where it shows only
+in a window too short for the form.
+
 **The pointer never moves the selection.** Hover is the grey on the row
 and, after a pause, the preview card; the keyboard selection moves on keys
-or a click, and a click pastes the row it lands on. A hover used to set the
+or a click, and a click pastes the row it lands on. A hover card is the
+pointer's: the hint bar keeps speaking for the selected row, and PgUp,
+PgDn and ← act only on a card opened with →. Any open card used to switch
+the bar to `↵ paste · ← back`, so with the pointer resting on one row (the
+popup opens at the cursor) the card showed one prompt and Enter pasted
+another. A hover used to set the
 selection too, so the pointer painted the selection tint (against
 `DESIGN.md`'s Pointer Grey Rule) and a trackpad brush after summon changed
 what Enter pasted. In the same spirit the search box's border takes the
@@ -353,8 +509,21 @@ is in the tab order (clicking one hands focus straight back to the search
 box). A tree of `treeitem`s, like the sidebar, was the other way; it would
 have made the headers keyboard rows, which they have never been here.
 
+**The list's rhythm.** Rows sit 2 px apart (the rounded fill already
+parts them) and packs 8 px apart; pack and group headers are 24 px tall.
+It was 6 and 12 with 28 px headers, a 50 px pitch for a 44 px row, which
+showed seven prompts in the default window where eight now fit (twelve in
+Compact). A group's rows are not indented: every title in the list starts
+on one edge, and the group's name sits on that same edge, so the outer
+edge holds icons and pack names and the inner one group names and titles.
+Indented, titles sat on two edges 10 px apart. `Ctrl` is printed once, on
+the first slot's key; the rows under it show their digit alone in the same
+column. Five `Ctrl` caps down the right edge were the loudest thing in the
+list and said one thing five times (critique popup, 2026-10-03).
+
 **A row is a title, a first line and one pill.** The title line carries
-the Ctrl+n slot key at its right edge, the row's own address, and the
+the slot key at its right edge (`Ctrl 1` on the first, the digit alone
+after it), the row's own address, and the
 second line is the prompt's first line with one tag pill, a +N for the
 rest and the `{N}` badge. It carried up to three pills and the key, which
 left the first line, the thing that tells two similar titles apart, about
@@ -400,7 +569,44 @@ it can be read.
 opens it below the row when it fits there, above the row otherwise, and on
 whichever side has more room, capped to that room and scrolling, when
 neither fits; clamping it into the window used to slide it up over the
-row near the bottom of the list. The hint bar drops its least-used hints
+row near the bottom of the list. Its floor is the list's bottom edge, so it
+never hangs over the feedback strip or the hint bar. One exception, since
+2026-10-03: in a window too short to hold the card beside the row (under
+120 px on the roomier side; the 320×280 minimum leaves about 85), a card
+opened with → takes the list's place and covers its row. It carries that
+row's whole title, and three lines beside the row showed neither the
+prompt nor its clipboard. A hover never does this: a card under the
+pointer would hide the rows the pointer is crossing.
+
+**The card is read from the keyboard.** Its text scrolls inside it and
+PgUp / PgDn scroll it (→ is the keyboard's only way to see what will be
+pasted, and a long prompt or a short window left the rest out of reach).
+It opens with the clipboard's place in the prompt in view, one line of the
+prompt above it: the card exists to show the clipboard in the prompt, and
+it used to open on the opening words the row already shows. Copy is a row
+of its own under the text, always in view, carrying `Ctrl ↵`; it used to
+trail the prompt's last word like part of the sentence and scroll away
+with it. While the card is open the hint bar reads `↵ paste · PgUp PgDn
+scroll · ← back · Esc close`, the page keys only when there is more than
+fits. The card is a `note`, not a `tooltip`, which may not hold a button.
+
+**The card is always the selected row's, or closed.** Typing a query moves
+the selection to the top result, and the card used to stay open on its old
+position in the list: it showed one prompt while Enter pasted another, at
+the moment the card is read to check what Enter will send. Any change of
+the query closes it, before paint, as the arrow keys do; so does the list
+changing under it for another reason (the library reloading, an Undo, a
+fold), when the prompt at the card's position is no longer the one it
+opened on.
+
+**The minimum size keeps what matters in view.** In the Ctrl+N view the
+fields scroll and **Save prompt** does not (it was the last thing in the
+scroller, below the fold at 320×280, under a hint bar that said Enter
+saves). An error in the strip gets three lines where a confirmation gets
+two: the failed paste's message ends with how to recover, and two lines
+cut it off before that at 320 px. The action panel is capped to the
+window above the hint bar and scrolls, for a larger UI scale. The hint
+bar drops its least-used hints
 (actions, preview, newline) below 360 px, because at the 320 px minimum
 width it wrapped to two lines and ate a row. Ctrl+N's pre-filled title is
 the clipboard's first line cut at a word boundary within 40 characters

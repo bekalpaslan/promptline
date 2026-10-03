@@ -164,9 +164,10 @@ built-in or a field name the rest of your library already uses.
   top, so they become stable muscle-memory slots
 - **Tab** opens an action panel: paste / copy / pin / edit in manager / delete
 - **→** shows the full-prompt preview card (also on mouse hover), with the
-  prompt's whole title above its text
+  prompt's whole title above its text; **PgUp** / **PgDn** scroll it and
+  **←** closes it
 - A line under the search box says what the clipboard holds, that it is
-  empty (the rows that would paste nothing hollow their icon), or that it
+  empty (the rows that would paste without it hollow their icon), or that it
   still holds the last prompt you pasted; its **Ctrl N** key saves it as a
   new prompt
 - Search is fuzzy over titles, tags, and bodies with match highlighting;
@@ -176,9 +177,10 @@ built-in or a field name the rest of your library already uses.
   folds the selected row's group or pack, **Ctrl+→** unfolds everything);
   searching flattens them into one ranked list
 - **Ctrl+N** turns whatever you just copied into a new prompt without leaving
-  the popup — name pre-filled from the first line, pick its pack, confirm.
+  the popup — title pre-filled from the first line, pick its pack, confirm.
   Esc with an edited title asks once before discarding
-- Deleting from the action panel offers **Undo**; copy-only confirms, and any
+- Deleting from the action panel asks once more, then offers **Undo**
+  (a button, **Ctrl Z**) until the summon after next; copy-only confirms, and any
   failure shows in a feedback strip instead of vanishing
 - The whole popup is keyboard-operable and screen-reader labelled (a real
   listbox, announced results, collapsible pack sections from the keyboard)

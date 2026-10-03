@@ -72,7 +72,7 @@ const SHOTS: Record<string, (page: Page, theme: Theme) => Promise<void>> = {
     await expect(page.getByRole("option").first()).toBeVisible()
     await page.keyboard.press("ArrowDown")
     await page.keyboard.press("ArrowRight")
-    await expect(page.getByRole("tooltip")).toContainText("TypeError")
+    await expect(page.getByRole("note", { name: "Preview" })).toContainText("TypeError")
   },
   // A few letters: titles, tags and text, best first
   "popup-search": async (page, theme) => {
