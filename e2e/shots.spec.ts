@@ -114,13 +114,11 @@ const SHOTS: Record<string, (page: Page, theme: Theme) => Promise<void>> = {
   },
   // One prompt: text, tags, fields and a saved config value
   "manager-editor": async (page, theme) => {
-    // Advanced options open (the editor remembers it), so the fields and the
-    // saved config value show
-    await page.addInitScript(() => localStorage.setItem("advancedOpen", "1"))
     await acmeShop(page, theme)
     await tree(page).getByRole("treeitem", { name: /^Trace this checkout failure/ }).click()
     await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("Trace this checkout failure")
-    await expect(page.getByText("Config parameters")).toBeVisible()
+    // The placeholders the text holds, the saved config value among them
+    await expect(page.getByText("Placeholders")).toBeVisible()
   },
   // Generate: the reply reviewed prompt by prompt before anything is added
   "manager-generate": async (page, theme) => {

@@ -100,9 +100,28 @@ not structure, per the design system's "ink first, hue second"; so the
 `heading` tokens are ink colours. In the overview a group is a heading over
 a hairline, not a panel, so it doesn't repeat its pack's look.
 
+**The editor is the prompt and little else.** A crumb line says where
+the prompt sits (pack › group, each crumb opening that overview) and
+holds its use count, its pin and two menus: the crumb's chevron opens the
+same Move-to menu a row's right-click does, with the prompt's own place
+checked, and a ⋯ at the right holds Pin and Delete. Under it the title
+alone, at the heading size nothing else in the pane uses, then the text,
+the tags, and the placeholders the text holds. Placement is the store's,
+never a field of the autosave: the pack select and the free-text group
+field went in 0.2.19, since a move written through the 600 ms debounce
+could undo a move made from a menu meanwhile, and two controls for one
+thing broke the one-indicator rule beside the selected row. Placeholders
+are only what the text holds, each a chip of its kind with an inline ×
+that takes the token out of the text (`removeParamToken`), plus one
+"insert…" chip whose menu takes a typed name (`{{name}}` in braces for a
+config parameter) and offers the built-ins and the library's field names
+the text lacks; the three cards of "Advanced options" offered every name
+in the library to a prompt that used one. Tags are the prompt's own as
+chips with an ×, and a box that completes every other tag as it is typed.
+
 **The editor autosaves, and says so in one place.** Every edit lands
 through a 600 ms debounce (`update_snippet`, only the fields the editor
-owns), and a caption in the header row reads "Saving…" from the first
+owns), and a caption at the tail of the title reads "Saving…" from the first
 keystroke until the write lands, then "Saved" for two seconds. It is the
 only feedback a successful save gets — a toast per save would fire on
 every pause in typing — and a screen reader hears "Saved" once per landing
@@ -331,7 +350,7 @@ its subject, and the list has the 32 px back on every summon.
 case by one rule (`fieldLabel`: "Standing instructions", "Goal 2"), not by
 a CSS `capitalize` that gave "Call To Action". A field that is really an
 unset `{{config}}` parameter says so under itself ("set it once in the
-manager's Advanced options and it stops asking"): downgrading was silent,
+manager's editor, under Placeholders, and it stops asking"): downgrading was silent,
 so a parameter the user never set was asked for every day with nothing
 saying it needn't be. Ctrl+N with nothing on the clipboard is one line in
 the strip ("Copy something first — Ctrl+N saves the clipboard") rather
@@ -494,12 +513,12 @@ was silently gathered into one. Pack files carry the label as an
 optional `"group"` on each prompt; older files and libraries load with it
 empty.
 
-The editor's group field is free text (typing a new name makes the group)
-with a chevron that opens a menu of the pack's groups, the current one
-checked and "No group" first; Arrow Down opens it from the field. It used to
-be a `<datalist>`, and Chromium filters that list by what is typed, so a
-prompt already in a group was offered only that group, in the browser's
-popup and with the browser's white ▼.
+A prompt's group is set from the Move-to menu (a row's right-click, the
+editor's crumb chevron): each pack is a submenu of its groups with "No
+group" first and "New group…" last, the prompt's own place checked. Until
+0.2.19 the editor had a free-text group field with a chevron for the
+pack's groups (and before that a `<datalist>`, which Chromium filters by
+what is typed, so a prompt already in a group was offered only that group).
 
 **Pack operations that touch metadata and prompts happen in one Rust step
 or in a fixed order.** `ensure_packs_backed` runs inside every save, so a

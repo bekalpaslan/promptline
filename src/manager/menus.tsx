@@ -328,6 +328,65 @@ export function useLibraryMenus(opts: {
     ])
   }
 
+  // ---- Move to: the one placement control, in the row menu and the editor's crumb ----
+  // One submenu per pack: hovering lists its groups (a group lives in a
+  // pack, so moving into one moves across packs too); clicking the pack
+  // itself moves there ungrouped. With one prompt, its place is the
+  // checked item, so the menu reads as "where it is" as well as "where to".
+  const moveToItems = (ids: string[], x: number, y: number): CtxItem[] => {
+    const n = ids.length
+    const selected = m.snippets.filter((s) => ids.includes(s.id))
+    const one = n === 1 ? selected[0] : undefined
+    const here = (p: string, g: string) => (one ? (one.pack || DEFAULT_PACK) === p && (one.group || "") === g : undefined)
+    const moveTo = (pk: string, g: string) =>
+      void m
+        .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, pack: pk, group: g } : s)))
+        .then(() => say(g ? `Moved ${n} to "${pk}" › "${g}"` : `Moved ${n} to "${pk}"`))
+    const items: CtxItem[] = m.packNames().map((p): CtxItem => {
+      const locked = m.isLocked(p)
+      return {
+        kind: "submenu",
+        label: (locked ? "🔒 " : "") + p,
+        disabled: locked,
+        hint: locked ? "Locked — unlock it from its header menu" : undefined,
+        run: () => moveTo(p, ""),
+        items: [
+          { kind: "header", text: p, name: true },
+          { kind: "item", label: "No group", checked: here(p, ""), run: () => moveTo(p, "") },
+          ...groupsIn(p).map((g): CtxItem => ({ kind: "item", label: g, checked: here(p, g), run: () => moveTo(p, g) })),
+          { kind: "sep" },
+          {
+            kind: "item",
+            label: "New group…",
+            run: () => {
+              ctx.open(x, y, [
+                { kind: "header", text: `New group in ${p}`, name: true },
+                { kind: "input", placeholder: "Group name — Enter to move", onSubmit: (g) => g && moveTo(p, g) },
+              ])
+              return "keep"
+            },
+          },
+        ],
+      }
+    })
+    // Ungroup clears the label and nothing else: it used to move every
+    // selected prompt into the first one's pack, so a selection spanning
+    // packs (one list view, a search) was silently gathered into one
+    if (selected.some((s) => s.group))
+      items.push({
+        kind: "item",
+        label: "Ungroup",
+        run: () =>
+          void m
+            .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, group: "" } : s)))
+            .then(() => say(n === 1 ? "Ungrouped" : `Ungrouped ${n}`)),
+      })
+    return items
+  }
+  /** The editor's crumb chevron: where this prompt sits, and where it can go */
+  const openMoveTo = (x: number, y: number, id: string) =>
+    ctx.open(x, y, [{ kind: "header", text: "Move to" }, ...moveToItems([id], x, y)])
+
   // ---- Multi-select context menu ----
   // Takes the target ids explicitly: the caller may have just replaced the
   // selection, and reading m.selection here would still see the old one
@@ -375,54 +434,8 @@ export function useLibraryMenus(opts: {
         },
       },
       { kind: "header", text: "Move to" },
+      ...moveToItems(ids, x, y),
     ]
-    // One submenu per pack: hovering lists its groups (a group lives in a
-    // pack, so moving into one moves across packs too); clicking the pack
-    // itself moves there ungrouped
-    const moveTo = (pk: string, g: string) =>
-      void m
-        .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, pack: pk, group: g } : s)))
-        .then(() => say(g ? `Moved ${n} to "${pk}" › "${g}"` : `Moved ${n} to "${pk}"`))
-    for (const p of m.packNames()) {
-      const locked = m.isLocked(p)
-      const gs = groupsIn(p)
-      items.push({
-        kind: "submenu",
-        label: (locked ? "🔒 " : "") + p,
-        disabled: locked,
-        hint: locked ? "Locked — unlock it from its header menu" : undefined,
-        run: () => moveTo(p, ""),
-        items: [
-          { kind: "header", text: p, name: true },
-          { kind: "item", label: "No group", run: () => moveTo(p, "") },
-          ...gs.map((g): CtxItem => ({ kind: "item", label: g, run: () => moveTo(p, g) })),
-          { kind: "sep" },
-          {
-            kind: "item",
-            label: "New group…",
-            run: () => {
-              ctx.open(x, y, [
-                { kind: "header", text: `New group in ${p}`, name: true },
-                { kind: "input", placeholder: "Group name — Enter to move", onSubmit: (g) => g && moveTo(p, g) },
-              ])
-              return "keep"
-            },
-          },
-        ],
-      })
-    }
-    // Ungroup clears the label and nothing else: it used to move every
-    // selected prompt into the first one's pack, so a selection spanning
-    // packs (one list view, a search) was silently gathered into one
-    if (selected.some((s) => s.group))
-      items.push({
-        kind: "item",
-        label: "Ungroup",
-        run: () =>
-          void m
-            .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, group: "" } : s)))
-            .then(() => say(n === 1 ? "Ungrouped" : `Ungrouped ${n}`)),
-      })
     items.push(
       { kind: "sep" },
       {
@@ -587,5 +600,6 @@ export function useLibraryMenus(opts: {
     openNewMenu,
     newPack,
     openRowCtx,
+    openMoveTo,
   }
 }
