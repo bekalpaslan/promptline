@@ -11,6 +11,34 @@ adds the standing decisions the maintainer repeats, the two steps only a
 human can run, the shelf check for the monthly theme, and what the last
 releases taught. Read the Releasing section first, every time; it changes.
 
+## Contents
+
+1. [Standing decisions](#standing-decisions): version, previous release,
+   sources for the notes, overlapped waits, the CI failure path, what to
+   skip, the report.
+2. [The shelf](#0-the-shelf): the month's theme, on a `theme/<id>` branch
+   or already merged, and the optional notes draft.
+3. [Before the bump](#1-before-the-bump): a clean tree, third-party
+   notices, the notes file.
+4. [Bump, push, build](#2-bump-push-build): the bump script, the signed
+   build as the human's step, a worktree when the tree is dirty, the
+   four files to verify before tagging.
+5. [Tag, release, feed](#3-tag-release-feed): tag, `gh release create`
+   with three assets, the tag's CI, the feed with `--bundle-dir`, the
+   hash check.
+6. [Package managers](#4-package-managers): winget with komac or the
+   PR-update script, Scoop with checkver.
+7. [The post, the map, the report](#5-the-post-the-map-the-report): the
+   X dry run handed over, the architecture map remap, the report shape,
+   cleanup.
+8. [What past releases taught](#what-past-releases-taught).
+
+Scripts in `scripts/`: `bump.cjs` (five places, patch step by default),
+`winget-pr-update.cjs` (move an unmerged winget PR to a version, no
+clone), `remap-map.cjs` (the architecture map's line numbers to a commit).
+The feed and the X post use the repo's own `scripts/latest-json.mjs` and
+`scripts/post-x.mjs`.
+
 ## Standing decisions
 
 - **Version.** The current one is in `package.json`; bump the patch step
