@@ -222,7 +222,13 @@ interface PromptlineCore {
   hotkeyKeyName(key: string | undefined): string | null
   /** The combination a keydown stands for ("ctrl+shift+v"), or null: no key, a modifier alone, no modifier, or an unnameable key */
   hotkeyFromEvent(e: HotkeyEvent): string | null
-  /** What a preview shows for {clipboard}: one line, cut at `max` (240), or "(clipboard is empty)" */
+  /** `text` with bidi and control characters shown as ⟨RLO⟩, ⟨ESC⟩…, so a preview reads them instead of obeying them */
+  revealControls(text: string | null | undefined): string
+  /** A field's label to the user: "standing_instructions" as "Standing instructions", "goal_2" as "Goal 2" */
+  fieldLabel(name: string | null | undefined): string
+  /** How many lines `text` has, a trailing newline not counted; 0 when empty */
+  lineCount(text: string | null | undefined): number
+  /** What a preview shows for {clipboard}: one line, controls revealed, cut at `max` (240), or "(clipboard is empty)" */
   clipboardPreview(clip: string | null | undefined, max?: number): string
   /** What a paste would produce, minus the fill-in form: config and built-ins expanded, the clipboard substituted, {field}s kept */
   expandForCopy(text: string, configValues: Record<string, string>, clip: string | null | undefined, now?: Date): string

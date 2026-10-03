@@ -709,6 +709,44 @@ test('clipboardPreview names an empty clipboard instead of showing a hole', () =
   assert.equal(core.clipboardPreview(undefined), '(clipboard is empty)');
 });
 
+test('revealControls shows bidi overrides and terminal escapes as named glyphs (critique popup P1: a U+202E on the clipboard reversed the preview and its badge)', () => {
+  assert.equal(core.revealControls(''), '');
+  assert.equal(core.revealControls(null), '');
+  assert.equal(core.revealControls('plain, with\ttabs\nand lines'), 'plain, with\ttabs\nand lines');
+  assert.equal(core.revealControls('rm -rf‮ dedicated'), 'rm -rf⟨RLO⟩ dedicated');
+  assert.equal(core.revealControls('a⁦b⁩c'), 'a⟨LRI⟩b⟨PDI⟩c');
+  assert.equal(core.revealControls('x\u001b[2Jy\u007f'), 'x⟨ESC⟩[2Jy⟨DEL⟩');
+  // An unnamed C1 control still shows, by code point
+  assert.equal(core.revealControls('a\u0085b'), 'a⟨U+0085⟩b');
+  // Honest invisibles and RTL text itself are left alone: isolation is the renderer's job
+  assert.equal(core.revealControls('שלום‏! ❤️'), 'שלום‏! ❤️');
+});
+
+test('clipboardPreview reveals a direction override instead of obeying it', () => {
+  assert.equal(core.clipboardPreview('TypeError: x‮ is undefined'), 'TypeError: x⟨RLO⟩ is undefined');
+});
+
+test('fieldLabel is sentence case with spaces for underscores (critique popup: capitalize gave "Call To Action")', () => {
+  assert.equal(core.fieldLabel('call_to_action'), 'Call to action');
+  assert.equal(core.fieldLabel('standing_instructions'), 'Standing instructions');
+  assert.equal(core.fieldLabel('goal_2'), 'Goal 2');
+  assert.equal(core.fieldLabel('goal'), 'Goal');
+  assert.equal(core.fieldLabel(''), '');
+  assert.equal(core.fieldLabel(null), '');
+});
+
+test('lineCount counts lines without a trailing newline, and 0 for nothing', () => {
+  assert.equal(core.lineCount(''), 0);
+  assert.equal(core.lineCount(null), 0);
+  assert.equal(core.lineCount('\n\n'), 0);
+  assert.equal(core.lineCount('one line'), 1);
+  assert.equal(core.lineCount('one line\n'), 1);
+  assert.equal(core.lineCount('a\nb\nc'), 3);
+  assert.equal(core.lineCount('a\r\nb\r\n'), 2);
+  // A blank line inside the text is a line
+  assert.equal(core.lineCount('a\n\nb'), 3);
+});
+
 test('clipboardPreview cuts long text at the limit with an ellipsis', () => {
   const out = core.clipboardPreview('a'.repeat(300));
   assert.equal(out.length, 241);

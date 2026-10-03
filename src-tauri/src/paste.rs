@@ -179,7 +179,7 @@ fn expand_clipboard(text: &str, clip: Option<&str>) -> String {
 /// What the popup shows when the paste thread could not deliver. The
 /// popup listens for `paste-failed` with exactly this payload shape.
 const PASTE_FAILED_MESSAGE: &str =
-    "Couldn't paste into that window — the prompt is on your clipboard";
+    "Couldn't paste into that window. The prompt is on your clipboard: press Ctrl+V there to paste it yourself.";
 
 /// The paste thread could not deliver (an elevated window, a foreground
 /// lock held elsewhere, a blocked input queue): bring the popup back where
