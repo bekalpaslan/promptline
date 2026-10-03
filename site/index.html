@@ -196,7 +196,7 @@
     /* Hero: the pitch on the left, the clip of the move on the right */
     .hero {
       position: relative;
-      padding: 64px 0 72px;
+      padding-block: 64px 72px;
       display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 40px; align-items: center;
     }
     .hero::before {
@@ -282,7 +282,7 @@
 
     /* Tour: one chapter per screen, the shot on a tile beside its story,
        sides alternating */
-    .tour { padding: 72px 0 24px; }
+    .tour { padding-block: 72px 24px; }
     .tour-head { max-width: 62ch; margin-bottom: 40px; }
     .tour-head h2 { font-family: var(--display); font-size: clamp(26px, 3vw, 34px); letter-spacing: -0.015em; margin: 0 0 8px; }
     .tour-head p { margin: 0; color: var(--ink-2); font-size: 17px; }
@@ -331,14 +331,14 @@
     }
 
     /* Features */
-    .features { padding: 56px 0 24px; border-top: 1px solid var(--line); }
+    .features { padding-block: 56px 24px; border-top: 1px solid var(--line); }
     .features h2 { font-family: var(--display); font-size: 24px; letter-spacing: -0.01em; margin: 0 0 22px; }
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px 32px; }
     .f h3 { font-size: 16px; margin: 0 0 6px; }
     .f p { margin: 0; font-size: 15px; color: var(--ink-2); }
 
     /* Why not…: five questions, always open, two columns */
-    .why { padding: 56px 0 24px; border-top: 1px solid var(--line); }
+    .why { padding-block: 56px 24px; border-top: 1px solid var(--line); }
     .why h2 { font-family: var(--display); font-size: clamp(24px, 3vw, 30px); letter-spacing: -0.01em; margin: 0 0 8px; }
     .why > p { margin: 0 0 24px; color: var(--ink-2); max-width: 62ch; }
     .qa { display: grid; grid-template-columns: repeat(2, 1fr); gap: 22px 40px; }
@@ -346,7 +346,7 @@
     .qa p { margin: 0; font-size: 15px; color: var(--ink-2); max-width: 60ch; }
 
     /* Trust */
-    .trust { padding: 24px 0 56px; }
+    .trust { padding-block: 24px 56px; }
     .trust ul { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
     .trust li {
       display: flex; gap: 10px; align-items: flex-start;
@@ -369,7 +369,7 @@
     footer .privacy { margin: 14px 0 0; max-width: 72ch; line-height: 1.55; }
 
     @media (max-width: 980px) {
-      .hero { grid-template-columns: 1fr; padding: 40px 0 48px; gap: 36px; }
+      .hero { grid-template-columns: 1fr; padding-block: 40px 48px; gap: 36px; }
       .hero::before { inset: 30% 0 -10% 0; }
       .chapter, .chapter.flip, .chapter.tall, .chapter.tall.flip { grid-template-columns: 1fr; gap: 24px; padding: 36px 0; }
       .chapter.flip .copy { order: 0; }
@@ -488,9 +488,12 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>Download for Windows</span>
           </a>
-          <a class="btn btn-secondary" href="#tour">Take the tour</a>
+          <a class="btn btn-secondary" href="https://github.com/bekalpaslan/promptline/releases" rel="noopener noreferrer">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12V4a1 1 0 011-1h8l9 9-9 9-9-9z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/></svg>
+            <span>GitHub releases</span>
+          </a>
         </div>
-        <p class="sub">Open source (MIT) · installs for the current user, no admin prompt · <a href="https://github.com/bekalpaslan/promptline/releases" rel="noopener noreferrer">all releases</a></p>
+        <p class="sub">Open source (MIT) · installs for the current user, no admin prompt · <a href="#tour">take the tour</a></p>
       </div>
       <div class="clip">
         <video class="light-only" width="720" height="540" muted loop playsinline preload="none" poster="clip/clip-light-poster.png" aria-label="A Windows Terminal running Claude Code: a failing test's stack trace is copied, Ctrl+Alt+V opens the Promptline popup, Root cause first is picked, and the prompt, trace inside, fills Claude Code's input">
