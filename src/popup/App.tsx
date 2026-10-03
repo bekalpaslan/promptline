@@ -131,6 +131,10 @@ export function App() {
   const [packsArranged, setPacksArranged] = useState(false)
   const [create, setCreate] = useState<CreateState | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
+  // The failed paste's message is up: read by `pick`, the one gate every
+  // way of picking goes through
+  const recoverRef = useRef(false)
+  recoverRef.current = !!notice?.recover
   // The popup's own undo: the last deleted prompt, offered for a few seconds
   // (D8: popup-local, so it works with the manager closed)
   const lastDeleted = useRef<{ snippet: Snippet; summoned: boolean } | null>(null)
@@ -205,6 +209,11 @@ export function App() {
   const pendingAnchor = useRef<PendingSel | null>(null)
   // What the list showed when a fold was toggled, for the anchor above
   const visibleRef = useRef<Entry[]>([])
+  // …and the row the keyboard was on
+  const selRef = useRef(0)
+  // When ← last closed a preview card: the same key folds a section, and a
+  // second press on its heels folded one for good (critique popup 5)
+  const cardClosedAt = useRef(0)
   // Folds made under a filter, keyed by that filter so a new filter opens
   // everything again
   const [filterFolds, setFilterFolds] = useState<{ key: string; packs: Set<string>; groups: Set<string> }>({
@@ -236,7 +245,13 @@ export function App() {
       setCollapsed(next)
       localStorage.setItem("popupCollapsedPacks", JSON.stringify([...next]))
     }
-    if (expanding) pendingAnchor.current = { pack: name, expanding }
+    // The selection moves only when its row is in the section that was
+    // toggled (← on that row, which is how the keyboard folds). A click on
+    // another section's header used to carry the selection there, so the
+    // pointer changed what Enter pasted (critique popup 5).
+    const cur = visibleRef.current[selRef.current]
+    if (cur && !(!cur.s.pinned && (cur.s.pack || DEFAULT_PACK) === name)) pendingAnchor.current = { follow: cur.s.id }
+    else if (expanding) pendingAnchor.current = { pack: name, expanding }
     else {
       // The row that takes the section's place is the first one below it
       const first = visibleRef.current.findIndex((e) => !e.s.pinned && (e.s.pack || DEFAULT_PACK) === name)
@@ -258,7 +273,9 @@ export function App() {
       localStorage.setItem("popupCollapsedGroups", JSON.stringify([...next]))
     }
     const [pack, group] = key.split("\u0000")
-    if (expanding) pendingAnchor.current = { pack, group, expanding }
+    const cur = visibleRef.current[selRef.current]
+    if (cur && !(!cur.s.pinned && (cur.s.pack || DEFAULT_PACK) === pack && cur.s.group === group)) pendingAnchor.current = { follow: cur.s.id }
+    else if (expanding) pendingAnchor.current = { pack, group, expanding }
     else {
       const first = visibleRef.current.findIndex(
         (e) => !e.s.pinned && (e.s.pack || DEFAULT_PACK) === pack && e.s.group === group
@@ -266,6 +283,20 @@ export function App() {
       pendingAnchor.current = { at: first < 0 ? 0 : first }
     }
   }, [collapsedGroups, filterKey, folds])
+  // Ctrl+→, and the "N folded" line: every pack and group open again, the
+  // selection on the row it was on
+  const unfoldAll = useCallback(() => {
+    const cur = visibleRef.current[selRef.current]
+    if (cur) pendingAnchor.current = { follow: cur.s.id }
+    if (filterKey) {
+      setFilterFolds({ key: filterKey, packs: new Set(), groups: new Set() })
+    } else {
+      setCollapsed(new Set())
+      setCollapsedGroups(new Set())
+      localStorage.setItem("popupCollapsedPacks", "[]")
+      localStorage.setItem("popupCollapsedGroups", "[]")
+    }
+  }, [filterKey])
 
   // `count` is what the heading shows: for a pack, every prompt it holds,
   // pinned ones included, so the popup agrees with the manager's sidebar even
@@ -401,8 +432,12 @@ export function App() {
     }
     if (!paste || result === "copied") {
       // Copy-only: Rust leaves the popup up; confirm, then hide
+      // Named: Ctrl+Enter copies the selected row, and with a hover card
+      // open on another row the bare "Copied to clipboard" let the user
+      // believe the card's prompt had been copied
+      const what = snippet.title.trim() ? `Copied "${snippet.title.trim()}" to clipboard` : "Copied to clipboard"
       setNotice({
-        text: result === "copied" && paste ? "Copied to clipboard — the manager was in front" : "Copied to clipboard",
+        text: result === "copied" && paste ? `${what} — the manager was in front` : what,
         kind: "success",
       })
       setPicked(null)
@@ -499,6 +534,15 @@ export function App() {
     // Nor while "Copied to clipboard" is up: the popup is about to hide, and
     // an Enter in those 600 ms pasted what Ctrl+Enter had only copied.
     if (pickedRef.current || copyHideTimer.current) return
+    // The prompt that failed to paste is on the clipboard: no way of picking
+    // sends again while that message is up. The first pick only clears it,
+    // as Enter does. The guard was on Enter alone, so a slot key, a click
+    // and the action panel still re-sent the row into the window that had
+    // refused it, a {clipboard} row wrapped in itself (critique popup 5, P1).
+    if (recoverRef.current) {
+      setNotice(null)
+      return
+    }
     hidePreview()
     closePanel()
     let base = C.expandConfig(snippet.text, snippet.configValues)
@@ -585,9 +629,11 @@ export function App() {
     // Paste and Copy say what the bar said: this row sends a hole
     const d = derived.get(panelFor.id)
     const hole = !!d && rowIcon(panelFor, d, clipEmpty, false) === "clipboard-empty"
+    // The same warning as the hint bar's, for the same rows
+    const wraps = !!d && !clipEmpty && lastSent.current?.text === clip && rowIcon(panelFor, d, true, false) === "clipboard-empty"
     return [
-      { label: hole ? "Paste without clipboard" : "Paste", run: () => pick(panelFor, true) },
-      { label: hole ? "Copy without clipboard" : "Copy only", run: () => pick(panelFor, false) },
+      { label: hole ? "Paste without clipboard" : wraps ? "Paste, wraps last prompt" : "Paste", run: () => pick(panelFor, true) },
+      { label: hole ? "Copy without clipboard" : wraps ? "Copy, wraps last prompt" : "Copy only", run: () => pick(panelFor, false) },
       { label: panelFor.pinned ? "Unpin" : "Pin", run: () => void togglePin(panelFor) },
       { label: "Edit in manager", run: () => void invoke("edit_in_manager", { id: panelFor.id }) },
       {
@@ -606,7 +652,7 @@ export function App() {
         },
       },
     ]
-  }, [panelFor, deleteArmed, pick, togglePin, deleteSnippet, derived, clipEmpty])
+  }, [panelFor, deleteArmed, pick, togglePin, deleteSnippet, derived, clipEmpty, clip])
 
   const reload = useCallback(async () => {
     applyPrefs()
@@ -755,6 +801,26 @@ export function App() {
   useEffect(() => {
     visibleRef.current = visible
   }, [visible])
+  useEffect(() => {
+    selRef.current = sel
+  }, [sel])
+  // Folds outlive the popup (they are saved), hide rows, and the key that
+  // undoes them was named nowhere at the default width. While anything is
+  // folded the list says so, with the key, as its first line.
+  const foldedCount = useMemo(() => {
+    let n = 0
+    for (const sec of sections) {
+      if (!sec.collapsible) continue
+      if (sec.isCollapsed) {
+        n++
+        continue
+      }
+      for (const g of new Set(sec.entries.map((e) => e.s.group).filter(Boolean))) {
+        if (effCollapsedGroups.has(groupKey(sec.name, g))) n++
+      }
+    }
+    return n
+  }, [sections, effCollapsedGroups])
 
   // Keep the selected row in view
   useEffect(() => {
@@ -848,14 +914,7 @@ export function App() {
         // packs only, and only while one was folded, so a folded group had
         // no keyboard way back (audit M6).
         e.preventDefault()
-        if (filterKey) {
-          setFilterFolds({ key: filterKey, packs: new Set(), groups: new Set() })
-        } else {
-          setCollapsed(new Set())
-          setCollapsedGroups(new Set())
-          localStorage.setItem("popupCollapsedPacks", "[]")
-          localStorage.setItem("popupCollapsedGroups", "[]")
-        }
+        unfoldAll()
       } else if (e.key === "ArrowDown") {
         e.preventDefault()
         if (visible.length) setSel((s) => (s + 1) % visible.length)
@@ -878,9 +937,14 @@ export function App() {
       } else if (e.key === "ArrowLeft" && keyCard) {
         e.preventDefault()
         hidePreview()
+        cardClosedAt.current = Date.now()
       } else if (e.key === "ArrowLeft" && !hasQuery && visible[sel] && !visible[sel].s.pinned) {
         // ← folds the selected row's group; on an ungrouped row, its pack
         e.preventDefault()
+        // …but not on the heels of the ← that closed the card: "back" and
+        // "fold" are one key, and the second of two quick presses folded a
+        // section, which is saved
+        if (Date.now() - cardClosedAt.current < 400) return
         const { pack, group } = visible[sel].s
         if (group) toggleCollapsedGroup(groupKey(pack || DEFAULT_PACK, group))
         else toggleCollapsed(pack || DEFAULT_PACK)
@@ -900,7 +964,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, filterKey, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live preview index
   // through a ref instead of closing over it. The pointer never moves the
@@ -922,8 +986,12 @@ export function App() {
     if (previewRef.current !== i) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
+      // Under the row, or above it, like the card → opens: hung from the
+      // pointer it covered the lower half of the row it describes
+      const row = e.currentTarget as HTMLElement
       hoverTimer.current = setTimeout(() => {
-        setPreviewPos({ x: lastMouse.current.x + 12, y: lastMouse.current.y + 12, above: lastMouse.current.y - 12 })
+        const r = row.getBoundingClientRect()
+        setPreviewPos({ x: lastMouse.current.x + 12, y: r.bottom + 4, above: r.top - 4 })
         setPreviewIdx(i)
       }, 350)
     }
@@ -1161,7 +1229,9 @@ export function App() {
           ? emptyText
           : query.trim()
             ? visible.length === 1 ? "1 prompt matches" : `${visible.length} prompts match`
-            : C.plural(visible.length, "prompt")
+            : foldedCount
+              ? `${C.plural(visible.length, "prompt")}, ${C.plural(foldedCount, "section")} folded`
+              : C.plural(visible.length, "prompt")
 
   // --- Create-from-clipboard confirmation --------------------------------------
   if (create) {
@@ -1478,6 +1548,25 @@ export function App() {
       >
         {/* Hidden from assistive tech here (a listbox holds only options);
             the status region says the same words */}
+        {foldedCount > 0 && (
+          // Hidden from assistive tech like the headers (a listbox holds
+          // only options); the status region says the count
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden
+            title="Unfold every pack and group"
+            className="mb-1 flex h-5 w-full cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-hover hover:text-foreground"
+            onClick={() => {
+              unfoldAll()
+              inputRef.current?.focus()
+            }}
+          >
+            <span>{C.plural(foldedCount, "section")} folded</span>
+            <Keys combo="Ctrl →" />
+            <span>unfold</span>
+          </button>
+        )}
         {filtered.length === 0 && (
           <div aria-hidden className="px-4 py-4 text-center text-ui text-muted-foreground">{emptyText}</div>
         )}
@@ -1678,7 +1767,9 @@ export function App() {
               >
                 <RiFileCopyLine aria-hidden />
                 Copy
-                <Keys combo="Ctrl ↵" />
+                {/* The key only on the card the keyboard opened: Ctrl+↵
+                    copies the selected row, and a hover card is another's */}
+                {keyCard && <Keys combo="Ctrl ↵" />}
               </Button>
             </div>
           </div>
