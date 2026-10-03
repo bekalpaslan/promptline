@@ -14,7 +14,7 @@ import { Kbd as UiKbd } from "@/components/ui/kbd"
 // label: a label is a Chip.
 export function Kbd({ children }: { children: React.ReactNode }) {
   return (
-    <UiKbd className="h-4 min-w-4 shrink-0 rounded-sm border border-border bg-background px-0.5 font-mono text-[11px] font-normal text-muted-foreground">
+    <UiKbd className="h-4 min-w-4 shrink-0 rounded-sm border border-border bg-background px-0.5 font-mono text-micro font-normal text-muted-foreground">
       {children}
     </UiKbd>
   )
@@ -58,7 +58,7 @@ export const chipVariants = cva(
         primary: "border-transparent bg-primary/15 text-foreground",
       },
       size: {
-        sm: "flex h-4 shrink-0 items-center gap-0.5 whitespace-nowrap px-1.25 text-[11px] leading-none font-normal",
+        sm: "flex h-4 shrink-0 items-center gap-0.5 whitespace-nowrap px-1.25 text-micro leading-none font-normal",
         md: "flex h-5 shrink-0 items-center gap-1 whitespace-nowrap px-2 text-xs font-medium",
         inline: "box-decoration-clone px-1 text-xs font-medium",
       },
@@ -105,6 +105,10 @@ export function Chip({
   children?: React.ReactNode
   "aria-label"?: string
   "aria-pressed"?: boolean
+  /** The tag a plain chip stands for, so an enclosing row can act on a click at it */
+  "data-tag"?: string
+  /** For a row's aria-describedby to point at */
+  id?: string
 }) {
   const cls = cn(chipVariants({ tone, size, active, add }), onClick && "cursor-pointer", className)
   const style = hue ? ({ "--tag": hue } as React.CSSProperties) : undefined
@@ -149,11 +153,15 @@ export function Chip({
 }
 
 // One #tag chip. With `onClick` it is a filter button (`active` when the tag
-// is a filter term in the query, drawn filled); without, plain text.
+// is a filter term in the query, drawn filled); without, plain text. With
+// `rowTarget` it is plain text that carries its tag as `data-tag`, for a
+// row that filters on a click at it: a listbox option may hold no button,
+// and the popup's rows are options (critique popup, Sam).
 export function TagPill({
   tag,
   active,
   onClick,
+  rowTarget,
   size = "sm",
   title,
   children,
@@ -161,6 +169,7 @@ export function TagPill({
   tag: string
   active?: boolean
   onClick?: (tag: string) => void
+  rowTarget?: boolean
   size?: "sm" | "md"
   title?: string
   /** Extra content after the name, such as the editor's delete badge */
@@ -173,10 +182,11 @@ export function TagPill({
       size={size}
       hue={C.tagColor(tag)}
       active={active}
-      className="relative"
-      title={title ?? (onClick ? label : undefined)}
+      className={cn("relative", rowTarget && "cursor-pointer")}
+      title={title ?? (onClick || rowTarget ? label : undefined)}
       aria-label={onClick ? label : undefined}
       aria-pressed={onClick ? !!active : undefined}
+      data-tag={rowTarget ? tag : undefined}
       onClick={
         onClick &&
         ((e) => {
@@ -198,17 +208,20 @@ export function TagList({
   max,
   activeTags,
   onTag,
+  rowTarget,
 }: {
   tags: readonly string[]
   max: number
   /** Lower-cased #terms in the query; a matching chip renders filled */
   activeTags?: readonly string[]
   onTag?: (tag: string) => void
+  /** Plain chips the enclosing row acts on (TagPill) */
+  rowTarget?: boolean
 }) {
   return (
     <>
       {tags.slice(0, max).map((tag) => (
-        <TagPill key={tag} tag={tag} active={activeTags?.includes(tag.toLowerCase())} onClick={onTag} />
+        <TagPill key={tag} tag={tag} active={activeTags?.includes(tag.toLowerCase())} onClick={onTag} rowTarget={rowTarget} />
       ))}
       {tags.length > max && (
         <Chip tone="muted" className="tabular-nums" title={tags.slice(max).map((t) => `#${t}`).join(", ")}>
@@ -219,14 +232,20 @@ export function TagList({
   )
 }
 
-// {N}: the prompt asks for N values before it pastes
-export function InputsBadge({ inputs }: { inputs: readonly string[] }) {
+// {N}: the prompt asks for N values before it pastes. Named in words for a
+// screen reader, which would otherwise read the braces out
+export function InputsBadge({ inputs, id }: { inputs: readonly string[]; id?: string }) {
   if (!inputs.length) return null
+  const asks = `Asks for ${C.plural(inputs.length, "value")} before pasting`
+  // The fill-in tint, since that is what it counts; the warn tint's text
+  // read 4.1:1 on its 15% ground in light
   return (
     <Chip
-      tone="warn"
+      tone="field"
+      id={id}
       className="tabular-nums"
-      title={`Asks for ${inputs.length} value${inputs.length === 1 ? "" : "s"} before pasting: ${inputs.join(", ")}`}
+      title={`${asks}: ${inputs.join(", ")}`}
+      aria-label={asks}
     >
       {"{"}{inputs.length}{"}"}
     </Chip>
@@ -244,17 +263,19 @@ export function Count({ children }: { children: React.ReactNode }) {
 export const MATCH_HIT = "underline decoration-solid underline-offset-2"
 
 // A title with its matched characters marked. Segments come from core so
-// UTF-16 match indices line up with code points (emoji).
+// UTF-16 match indices line up with code points (emoji). A <bdi>, since a
+// title is the user's text: a Hebrew one keeps its own direction, and one
+// pasted in with a direction control can't reorder the chips beside it.
 export function HighlightedTitle({ title, indices }: { title: string; indices: number[] | null }) {
-  if (!indices?.length) return <span className="truncate">{title}</span>
+  if (!indices?.length) return <bdi className="truncate">{title}</bdi>
   return (
-    <span className="truncate">
+    <bdi className="truncate">
       {C.highlightSegments(title, indices).map((seg, i) => (
         <span key={i} className={seg.hit ? MATCH_HIT : undefined}>
           {seg.text}
         </span>
       ))}
-    </span>
+    </bdi>
   )
 }
 
@@ -265,12 +286,47 @@ export function HighlightedTitle({ title, indices }: { title: string; indices: n
 export const PREVIEW_BOX =
   "whitespace-pre-wrap break-words rounded-lg bg-secondary/50 p-2.5 text-ui leading-relaxed text-muted-foreground"
 
+// What a preview says about the clipboard beside its text, in every window:
+// a *hidden text* badge when it carries characters the preview can't show
+// (a web page's hidden instructions, a terminal escape: the paste delivers
+// them), and the line count when it has more than one, since the preview
+// shows it as one line and a ten-line trace would otherwise read as a
+// sentence. Inline chips, so they follow the text wherever it wraps.
+export function ClipboardMarks({ clipboard }: { clipboard: string | null }) {
+  const hidden = useMemo(() => (clipboard ? C.hiddenChars(clipboard) : []), [clipboard])
+  const lines = clipboard ? C.lineCount(clipboard) : 0
+  if (!hidden.length && lines < 2) return null
+  return (
+    <>
+      {hidden.length > 0 && (
+        <Chip
+          tone="warn"
+          size="inline"
+          title={`The clipboard holds ${C.describeHidden(hidden)}: they don't show here, but the paste delivers them`}
+        >
+          hidden text
+        </Chip>
+      )}
+      {lines >= 2 && (
+        <Chip tone="muted" size="inline" className="tabular-nums" title={`The clipboard has ${C.plural(lines, "line")}; the preview shows them as one`}>
+          {C.plural(lines, "line")}
+        </Chip>
+      )}
+    </>
+  )
+}
+
 // Prompt text with its placeholders as typed chips, the one renderer for every
 // preview. {clipboard} shows the clipboard as it is now (BEHAVIOR.md: it
 // expands at paste time, so a preview must show what would go in), on the
 // builtin's tint so it still reads as a placeholder; so does a filled-in
 // field. Those are the prompt's own words, not labels, so not chips. A config
 // parameter shows its saved value when there is one.
+// Inserted text is a <bdi>: it is someone else's text inside the prompt's,
+// and a direction override copied with it must not reverse the words after
+// it (the badge and the Copy button included), nor a Hebrew clipboard flip
+// the English around it. Controls in it are shown as ⟨RLO⟩, ⟨ESC⟩ rather
+// than obeyed (core's revealControls).
 export function PromptTokens({
   text,
   clipboard,
@@ -284,12 +340,6 @@ export function PromptTokens({
   /** Values typed into the fill-in form so far */
   fieldValues?: Record<string, string>
 }) {
-  // Copied text can carry characters the preview can't show (a web page's
-  // hidden instructions, a terminal escape); the paste would deliver them
-  const clipHidden = useMemo(
-    () => (clipboard && text.includes("{clipboard}") ? C.hiddenChars(clipboard) : []),
-    [clipboard, text]
-  )
   return (
     <>
       {C.tokenize(text).map((part, i) => {
@@ -299,27 +349,19 @@ export function PromptTokens({
           isClip && clipboard !== null
             ? C.clipboardPreview(clipboard)
             : part.type === "field" && fieldValues?.[part.name]
-              ? fieldValues[part.name]
+              ? C.revealControls(fieldValues[part.name])
               : null
         if (filled !== null) {
           const tint = part.type === "field" ? "bg-(--param-field-bg)" : "bg-(--param-builtin-bg)"
           return (
             <Fragment key={i}>
-              <span
+              <bdi
                 className={cn("rounded-sm px-0.5 text-foreground", tint)}
                 title={part.type === "field" ? `${part.name}, as filled in` : "The clipboard as it is now"}
               >
                 {filled}
-              </span>
-              {isClip && clipHidden.length > 0 && (
-                <Chip
-                  tone="warn"
-                  size="inline"
-                  title={`The clipboard holds ${C.describeHidden(clipHidden)}: they don't show here, but the paste delivers them`}
-                >
-                  hidden text
-                </Chip>
-              )}
+              </bdi>
+              {isClip && <ClipboardMarks clipboard={clipboard} />}
             </Fragment>
           )
         }

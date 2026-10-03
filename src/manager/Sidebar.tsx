@@ -749,7 +749,7 @@ export function Sidebar() {
           the landmark keeps its name through aria-label. What is shown (the
           filter) apart from how it is shown (Display) */}
       <div className="flex gap-1.5 px-3 pt-3 pb-2">
-        <label className={cn(searchBoxClass(!!q), "min-w-0 flex-1")}>
+        <label className={cn(searchBoxClass(), "min-w-0 flex-1")}>
           <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           {scope && (
             <Chip size="md" className="max-w-[45%]" onRemove={() => setScope(null)} removeLabel="Search everywhere">
