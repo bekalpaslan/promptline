@@ -105,6 +105,10 @@ export function Sidebar() {
   // is drawn with the lifted row where the pointer would drop it (`over`,
   // through C.placePrompt below), and the release saves that same order.
   const [drag, setDrag] = useState<{ id: string; pack: string } | null>(null)
+  // The scrolling list; the rows in it slide into the places the preview
+  // gives them while a row is lifted (snapshotRows before each reorder)
+  const listRef = useRef<HTMLDivElement>(null)
+  const snapshotRows = useSlideRows(listRef)
   // What a screen reader hears after a keyboard move
   const [announce, setAnnounce] = useState("")
   const [over, setOver] = useState<{ id: string; after: boolean } | null>(null)
@@ -374,11 +378,19 @@ export function Sidebar() {
       // as it was, which says so
       if (!snip || snip.id === drag.id) return
       if (grouped && (snip.pack || DEFAULT_PACK) !== drag.pack) {
-        setOver(null)
+        if (over) {
+          snapshotRows()
+          setOver(null)
+        }
         return
       }
       const r = el!.getBoundingClientRect()
-      setOver({ id: snip.id, after: e.clientY > r.top + r.height / 2 })
+      const after = e.clientY > r.top + r.height / 2
+      // Only a change re-renders the list, and only then do the rows slide:
+      // a pointer move inside the same half of the same row is nothing
+      if (over?.id === snip.id && over.after === after) return
+      snapshotRows()
+      setOver({ id: snip.id, after })
     }
     const up = (e: PointerEvent) => {
       // The button that lifted the row is the one that drops it
@@ -567,12 +579,9 @@ export function Sidebar() {
   // A new prompt or pack can land below the fold of a long list, and a pack
   // opened from the editor's crumbs may sit there too: bring what is shown
   // into view (the popup does the same for its selection)
-  const listRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (m.activeId) listRef.current?.querySelector(`[data-id="${CSS.escape(m.activeId)}"]`)?.scrollIntoView({ block: "nearest" })
   }, [m.activeId])
-  // Rows slide into the places the preview gives them while a row is lifted
-  useSlideRows(listRef, !!drag)
   const shownPack = shown && !shown.group ? shown.pack : null
   useEffect(() => {
     if (shownPack)
