@@ -192,8 +192,8 @@ test("a pack title opens its overview, a group heading opens the group, Escape g
   await expect(overview.getByText("Loose prompt")).toBeVisible()
   const group = overview.getByRole("region", { name: "Debugging" })
   await expect(group).toBeVisible()
-  // The heading reads "Debugging 2": the name and the count
-  await group.getByRole("button", { name: /^Debugging \d/ }).click()
+  // The heading reads "Debugging, 2 prompts" to assistive tech: the name and what the count counts
+  await group.getByRole("button", { name: /^Debugging/ }).click()
   await expect(page.getByRole("region", { name: "Mock Groups › Debugging" })).toBeVisible()
   await page.keyboard.press("Escape")
   await expect(page.getByRole("region", { name: "Mock Groups", exact: true })).toBeVisible()
@@ -651,4 +651,55 @@ test("the filter's placeholder keeps to 'Filter' in a narrow sidebar", async ({ 
   await expect(filter(page)).toHaveAttribute("placeholder", "Filter  #tag @pack >group")
   await page.setViewportSize({ width: 560, height: 400 })
   await expect(filter(page)).toHaveAttribute("placeholder", "Filter")
+})
+
+test("the overview follows the filter: only the hits, and how many of the pack they are", async ({ page }) => {
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
+  const overview = page.getByRole("region", { name: "Mock Groups", exact: true })
+  await expect(overview.getByRole("button", { name: /^Loose prompt/ })).toBeVisible()
+  await filter(page).fill("bisect")
+  await expect(overview.getByText("1 of 4 match the filter")).toBeVisible()
+  await expect(overview.getByRole("button", { name: /^Bisect a regression/ })).toBeVisible()
+  await expect(overview.getByRole("button", { name: /^Loose prompt/ })).toHaveCount(0)
+  // A group with no hits is left out, its heading included
+  await expect(overview.getByRole("region", { name: "Review" })).toHaveCount(0)
+  await filter(page).fill("nothing-like-this")
+  await expect(overview.getByText("None of the 4 prompts here match the filter")).toBeVisible()
+  await page.keyboard.press("Escape")
+  await expect(overview.getByRole("button", { name: /^Loose prompt/ })).toBeVisible()
+})
+
+test("the overview's title is set at the heading size, and one New prompt is offered per overview", async ({ page }) => {
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
+  const overview = page.getByRole("region", { name: "Mock Groups", exact: true })
+  const title = overview.getByRole("button", { name: /^Mock Groups/ }).first()
+  await expect(title).toHaveCSS("font-size", "18px")
+  await expect(title).toHaveCSS("font-weight", "600")
+  await expect(overview.getByRole("button", { name: /^New prompt in/ })).toHaveCount(1)
+  // The group's own overview offers its own
+  await overview.getByRole("button", { name: /^Debugging/ }).click()
+  await expect(page.getByRole("button", { name: "New prompt in Mock Groups › Debugging" })).toBeVisible()
+})
+
+test("the editor's ⋯ is the prompt's row menu", async ({ page }) => {
+  await promptRow(page, "Loose prompt").click()
+  await page.getByRole("button", { name: "Prompt actions" }).click()
+  const menu = page.getByRole("menu").first()
+  for (const name of ["Pin", "Add tag…", "Export selection", "Delete…"]) {
+    await expect(menu.getByRole("menuitem", { name })).toBeVisible()
+  }
+  await expect(menu.getByRole("menuitem", { name: "Mock Groups" })).toBeVisible() // Move to
+  await expect(menu.getByRole("menuitem", { name: "Move up" })).toHaveCount(0)
+})
+
+test("focus returns to the row that opened a menu, even after another menu was used before", async ({ page }) => {
+  // A Display menu opened and closed earlier must not become the opener
+  await page.getByRole("button", { name: /^Display options/ }).click()
+  await page.keyboard.press("Escape")
+  const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
+  await pack.focus()
+  await page.keyboard.press("Shift+F10")
+  await page.getByRole("menuitem", { name: "Delete pack…" }).click()
+  await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click()
+  await expect(pack).toBeFocused()
 })

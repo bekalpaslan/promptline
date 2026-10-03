@@ -73,7 +73,7 @@ function Heading({
           aria-label={`Rename ${label}`}
           className={cn(
             "section-title min-w-0 flex-1 rounded-sm bg-secondary px-1 py-0.5 text-foreground focus-ring",
-            strong && "text-xl font-bold"
+            strong && "text-lg font-semibold"
           )}
           onKeyDown={(e) => {
             e.stopPropagation()
@@ -87,9 +87,12 @@ function Heading({
         <button
           type="button"
           title={`${label} — ${onOpen ? "click shows only this group, " : ""}double-click renames, right-click for actions`}
+          // The overview's title is the editor's title treatment, the
+          // heading size nothing else in the pane uses; it was 20px at 700,
+          // the largest and heaviest text in a window capped at 18/600
           className={cn(
             "flex min-w-0 items-baseline gap-1.5 rounded-sm focus-ring",
-            strong ? "text-xl font-bold" : "section-title text-(--heading)",
+            strong ? "text-lg font-semibold" : "section-title text-(--heading)",
             onOpen ? "cursor-pointer hover:text-primary" : "cursor-default"
           )}
           onClick={onOpen}
@@ -108,7 +111,11 @@ function Heading({
           <span className="truncate">
             <bdi>{label}</bdi>
           </span>
-          <Count>{count}</Count>
+          {/* To assistive tech the count says what it counts, as the tree's does */}
+          <Count>
+            <span aria-hidden>{count}</span>
+            <span className="sr-only">, {C.plural(count, "prompt")}</span>
+          </Count>
         </button>
       )}
       {/* The sidebar's three dots, resting faint rather than hidden: a
@@ -235,6 +242,12 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
   // A group that is gone (deleted, ungrouped, emptied by moves) leaves its
   // pack's overview in its place
   const group = focus.group ? pack?.groups.find((g) => g.name === focus.group) : undefined
+  // The sidebar's filter reaches the cards: while a query is set the
+  // overview shows only the hits and says how many of the pack's or
+  // group's prompts they are, so the two views never disagree in one frame
+  const filtering = m.query.trim() !== ""
+  const parsed = useMemo(() => C.parseQuery(m.query), [m.query])
+  const hit = (s: Snippet) => !filtering || C.matchesQuery({ ...s, pack: s.pack || DEFAULT_PACK }, parsed)
 
   if (!pack) {
     return (
@@ -260,11 +273,21 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
   }
   const cards = (items: Snippet[]) => (
     <div className="grid gap-2 @xl:grid-cols-2 @4xl:grid-cols-3">
-      {items.map((s) => (
+      {items.filter(hit).map((s) => (
         <PromptCard key={s.id} s={s} clipboard={clipboard} onOpen={() => open(s)} onMenu={(x, y) => cardMenu(s, x, y)} />
       ))}
     </div>
   )
+  // "2 of 12 match the filter" under the heading while a query is set
+  const matchLine = (items: Snippet[]) => {
+    if (!filtering) return null
+    const n = items.filter(hit).length
+    return (
+      <p className="text-xs text-muted-foreground" aria-live="polite">
+        {n === 0 ? `None of the ${C.plural(items.length, "prompt")} here match the filter` : `${n} of ${items.length} match the filter`}
+      </p>
+    )
+  }
   // A group's heading: the overview's title when the group is what's shown,
   // a way into it when it sits in its pack's overview
   const groupHeading = (name: string, count: number, isTitle: boolean) => {
@@ -281,7 +304,11 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
         onRename={(next) => void menus.renameGroup(pack.name, name, next)}
         onRenameCancel={() => menus.setRenamingGroup(null)}
       >
-        {!locked && (
+        {/* One New prompt per overview: the pack's at its heading, a group's
+            only when the group is what is shown. Six dashed buttons down one
+            pane made the sidebar's New wallpaper; a group heading's ⋯ and
+            right-click still offer New prompt in it. */}
+        {!locked && isTitle && (
           <AddPrompt where={`${pack.name} › ${name}`} onClick={() => void m.newPrompt({ pack: pack.name, group: name })} />
         )}
       </Heading>
@@ -294,31 +321,29 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
       role="region"
       aria-label={group ? `${pack.name} › ${group.name}` : pack.name}
     >
-      {/* Where this sits, as the editor shows a prompt's place; a group's
-          crumb goes up to its pack (Escape does the same) */}
-      <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
-        {group ? (
-          <>
-            <button
-              type="button"
-              className="flex min-w-0 cursor-pointer items-center gap-0.5 rounded-sm font-medium hover:text-foreground focus-ring"
-              title={`Show all of ${pack.name} (Esc)`}
-              onClick={() => m.openOverview({ pack: pack.name })}
-            >
-              <RiArrowLeftSLine className="size-3.5 shrink-0" />
-              <span className="truncate">{pack.name}</span>
-            </button>
-            <span aria-hidden>›</span>
-            <span>Group</span>
-          </>
-        ) : (
-          <span>Pack</span>
-        )}
-      </div>
+      {/* A group's crumb goes up to its pack (Escape does the same). A pack
+          has no crumb: the "Pack" and "Group" labels that sat here said what
+          the tree's indentation and the heading already say. */}
+      {group && (
+        <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+          <button
+            type="button"
+            className="flex min-w-0 cursor-pointer items-center gap-0.5 rounded-sm font-medium hover:text-foreground focus-ring"
+            title={`Show all of ${pack.name} (Esc)`}
+            onClick={() => m.openOverview({ pack: pack.name })}
+          >
+            <RiArrowLeftSLine className="size-3.5 shrink-0" />
+            <span className="truncate">
+              <bdi>{pack.name}</bdi>
+            </span>
+          </button>
+        </div>
+      )}
 
       {group ? (
         <>
           {groupHeading(group.name, group.items.length, true)}
+          {matchLine(group.items)}
           {cards(group.items)}
         </>
       ) : (
@@ -344,10 +369,13 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
               {!locked && <AddPrompt where={pack.name} onClick={() => void m.newPrompt({ pack: pack.name })} />}
             </div>
           )}
-          {pack.ungrouped.length > 0 && cards(pack.ungrouped)}
-          {pack.groups.map((g) => (
+          {matchLine([...pack.ungrouped, ...pack.groups.flatMap((g) => g.items)])}
+          {pack.ungrouped.some(hit) && cards(pack.ungrouped)}
+          {pack.groups.filter((g) => g.items.some(hit)).map((g) => (
             // A group is a heading over a hairline, not a panel: the pack is
-            // the one container here, so nothing repeats its title's look
+            // the one container here, so nothing repeats its title's look.
+            // While filtering, a group with no hits is left out; the match
+            // line above says how many of the pack's prompts remain.
             <section key={g.name} className="mt-2 flex flex-col gap-2" aria-label={g.name}>
               <div className="border-b border-border pb-1.5">{groupHeading(g.name, g.items.length, false)}</div>
               {cards(g.items)}

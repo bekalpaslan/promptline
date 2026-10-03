@@ -79,7 +79,8 @@ function marked(title: string, words: string[]): React.ReactNode {
 
 export function Sidebar() {
   const m = useManager()
-  const [query, setQuery] = useState("")
+  // The filter is the manager's (the overview shows only its hits)
+  const { query, setQuery } = m
   // The order is the manager's, shared with the overview (C.sortPrompts)
   const { orderBy, setOrderBy } = m
   // Group-by-pack is the default view

@@ -45,6 +45,8 @@ export function App() {
   const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", palette: "instrument", density: "comfortable", scale: "100", font: "system" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
   const [view, setView] = useState<View>({ kind: "prompt" })
+  // The sidebar's filter; the overview reads it too
+  const [query, setQuery] = useState("")
   // One list order for the sidebar and the overview, so a drag that switches
   // to "custom" in one is what the other draws too
   const [orderBy, setOrderByState] = useState<OrderBy>(() => {
@@ -548,6 +550,8 @@ export function App() {
       prefs,
       view,
       openOverview,
+      query,
+      setQuery,
       orderBy,
       setOrderBy,
       isLocked,
@@ -585,7 +589,7 @@ export function App() {
       openUpdateOffer,
       setAutoUpdateCheck,
     }),
-    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, unfold, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
+    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, query, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, unfold, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
   )
 
   // null until the config has loaded: the banner, the tooltip and the hints

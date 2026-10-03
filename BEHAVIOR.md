@@ -109,7 +109,9 @@ a hairline, not a panel, so it doesn't repeat its pack's look.
 the prompt sits (pack › group, each crumb opening that overview) and
 holds its use count, its pin and two menus: the crumb's chevron opens the
 same Move-to menu a row's right-click does, with the prompt's own place
-checked, and a ⋯ at the right holds Pin and Delete. Under it the title
+checked, and a ⋯ at the right opens the prompt's own menu, the one its
+row's right-click opens (Pin, Move to, Add tag, Export, Delete), less
+Move up and down, which only the sidebar has rows for. Under it the title
 alone, at the heading size nothing else in the pane uses, then the text,
 the tags, and the placeholders the text holds. Placement is the store's,
 never a field of the autosave: the pack select and the free-text group
@@ -143,6 +145,15 @@ scale), where it used to clip mid-word; the grammar stays in the tooltip.
 Ctrl+N outside a field starts a draft where the pane is looking (the
 shown pack or group, else the pack the last prompt went to), the popup's
 Ctrl+N being the same key; New's menu stays the way to choose a place.
+The filter is the manager's, not the sidebar's: while a query is set the
+overview shows only its hits and says "2 of 12 match the filter" (a
+group with no hits is left out), so the two views never disagree in one
+frame, which they did until 0.2.19. The overview's title is set at the
+heading size the editor's title uses, 18px at 600 (it was 20 at 700, the
+largest text in a window capped at 18), with no "Pack" or "Group" label
+above it, and one New prompt per overview: the pack's at its heading,
+and a group's only when the group is what is shown; a group heading's ⋯
+still offers New prompt in it.
 Its filter
 terms read as chips: the field is a plain input with transparent text over
 a mirror that draws the same text, the terms on a ground and a hairline

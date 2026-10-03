@@ -46,17 +46,25 @@ export function useCtxMenu() {
   const [sub, setSub] = useState<{ index: number; x: number; y: number } | null>(null)
   const ref = useRef<HTMLDivElement>(null)
   const subRef = useRef<HTMLDivElement>(null)
-  // Where focus was when the menu opened, to give it back on close
+  // Where focus was when the menu opened, to give it back on close. Taken
+  // only when no menu is open (a "keep" item re-opens the menu with other
+  // items while focus is on a menu item), and dropped on every close: it
+  // used to be taken only while empty, so a menu whose close skipped the
+  // clearing left the first opener in place, and a later menu gave focus
+  // back to a button opened minutes ago
   const opener = useRef<HTMLElement | null>(null)
+  const isOpen = useRef(false)
 
   const open = useCallback((x: number, y: number, items: CtxItem[]) => {
-    if (!opener.current) opener.current = document.activeElement as HTMLElement | null
+    if (!isOpen.current) opener.current = document.activeElement as HTMLElement | null
+    isOpen.current = true
     setSub(null)
     setState({ x, y, items })
   }, [])
   const close = useCallback(() => {
     setState(null)
     setSub(null)
+    isOpen.current = false
     const back = opener.current
     opener.current = null
     // Give focus back to whatever opened the menu (a row, a header)

@@ -64,6 +64,13 @@ export interface ManagerApi {
   view: View
   /** Show a pack's or a group's prompts in the pane; the prompt selection clears */
   openOverview(focus: LibraryFocus): void
+  /**
+   * The sidebar's filter text, owned here so the overview can show only the
+   * hits: the two used to disagree in one frame (two rows in the tree, all
+   * twelve cards in the pane)
+   */
+  query: string
+  setQuery(query: string): void
   /** How the sidebar and the overview order prompts; persisted in localStorage */
   orderBy: OrderBy
   setOrderBy(order: OrderBy): void

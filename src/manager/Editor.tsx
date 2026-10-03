@@ -5,7 +5,7 @@ import { EmptyState } from "./EmptyState"
 import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
-import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
+import { DEFAULT_PACK, useManager } from "./state"
 import { commitKey, fieldVariants } from "@/components/field"
 import { Chip, TagPill, chipVariants } from "@/components/prompt-bits"
 import { useLibraryMenus } from "./menus"
@@ -13,6 +13,8 @@ import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr } from "./status"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
+// Library names the insert menu lists before the typed name covers the rest
+const MAX_INSERT_NAMES = 6
 // The stored form of the tags field, so a save and the refresh that follows it
 // compare the same way
 // One tag rule for the editor, the menus and imports: core's normalizeTag
@@ -103,7 +105,6 @@ export function Editor() {
 function EditorInner({ snippet }: { snippet: Snippet }) {
   const m = useManager()
   const menus = useLibraryMenus({ surface: "editor" })
-  const actions = useCtxMenu()
   const insert = useCtxMenu()
   const [title, setTitle] = useState(snippet.title)
   const [tags, setTags] = useState((snippet.tags || []).join(", "))
@@ -202,15 +203,21 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   }
 
   // ---- Placeholders ----
-  // Every name the library uses, offered by the insert menu; a numbered copy
-  // of one of them ({goal_2}) is left out, since the + on {goal}'s chip
-  // makes it
+  // The names the library uses, offered by the insert menu most-used first
+  // (by how many prompts hold each) and capped at six, the typed name
+  // covering the rest; a numbered copy of one of them ({goal_2}) is left
+  // out, since the + on {goal}'s chip makes it
   const libraryParams = useMemo(() => {
-    const found = new Set<string>()
-    for (const s of m.snippets)
+    const prompts = new Map<string, number>()
+    for (const s of m.snippets) {
+      const seen = new Set<string>()
       for (const part of C.tokenize(s.text))
-        if (part.type === "field" || part.type === "config") found.add(part.name)
-    return C.dropNumberedCopies(found)
+        if ((part.type === "field" || part.type === "config") && !seen.has(part.name)) {
+          seen.add(part.name)
+          prompts.set(part.name, (prompts.get(part.name) || 0) + 1)
+        }
+    }
+    return C.dropNumberedCopies(prompts.keys()).sort((a, b) => (prompts.get(b) || 0) - (prompts.get(a) || 0) || a.localeCompare(b))
   }, [m.snippets])
 
   const { builtinsInText, fieldsInText } = useMemo(() => {
@@ -257,12 +264,12 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     const offer = (names: string[], asConfig = false): CtxItem[] =>
       names.filter((n) => !inText.has(n)).map((n) => ({ kind: "item", label: asConfig ? `{{${n}}}` : `{${n}}`, run: () => insertParam(n, asConfig) }))
     const builtins = offer(BUILTIN_PARAMS)
-    const library = offer(libraryParams)
+    const library = offer(libraryParams).slice(0, MAX_INSERT_NAMES)
     insert.open(x, y, [
       { kind: "header", text: "Insert a placeholder" },
       {
         kind: "input",
-        placeholder: "name — Enter inserts {name}; {{name}} saves a value",
+        placeholder: "name — Enter inserts it",
         onSubmit: (raw) => {
           const asConfig = /^\{\{.*\}\}$/.test(raw)
           const name = paramName(raw.replace(/^\{+|\}+$/g, ""))
@@ -274,6 +281,9 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           if (name !== raw.replace(/^\{+|\}+$/g, "").trim()) say(`Inserted ${asConfig ? `{{${name}}}` : `{${name}}`}`)
         },
       },
+      // The rule under the input, in the name-label's quiet ink, where the
+      // placeholder used to clip before it reached it
+      { kind: "header", text: "{name} asks each time; {{name}} saves a value", name: true },
       ...(builtins.length ? [{ kind: "header", text: "Filled in when pasting" } satisfies CtxItem, ...builtins] : []),
       ...(library.length ? [{ kind: "header", text: "Fields used in the library" } satisfies CtxItem, ...library] : []),
     ])
@@ -303,28 +313,10 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   // typed (allTags is by count, most first)
   const otherTags = m.allTags().filter((t) => !tagList.includes(t))
 
-  // ---- Actions: the overflow menu ----
-  const togglePin = async () => {
-    if (!snippet.pinned && m.snippets.filter((x) => x.pinned).length >= MAX_PINS) {
-      sayErr(`Max ${MAX_PINS} pins — unpin something first`)
-      return
-    }
-    await m.persist((cur) => cur.map((s) => (s.id === snippet.id ? C.withPin(s, !s.pinned) : s)))
-    say(snippet.pinned ? "Unpinned" : "Pinned")
-  }
-  const openActions = (x: number, y: number) =>
-    actions.open(x, y, [
-      { kind: "header", text: snippet.title || "(untitled)", name: true },
-      {
-        kind: "item",
-        label: snippet.pinned ? "Unpin" : "Pin",
-        hint: snippet.pinned ? "Leaves the popup's top slots" : "Always in the popup's top slots (Ctrl+1..5)",
-        run: () => void togglePin().catch(() => {}),
-      },
-      { kind: "sep" },
-      { kind: "item", label: "Delete…", danger: true, run: () => menus.askDeletePrompts([snippet.id]) },
-    ])
-
+  // ---- Actions: the prompt's own menu, the one its row's right-click
+  // opens (Pin, Move to, Add tag, Export, Delete), less Move up and down,
+  // which only the sidebar has rows for. A ⋯ that offered Pin and Delete
+  // alone was a second, smaller menu for the same prompt.
   const atButton = (e: React.MouseEvent<HTMLElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     return [r.left, r.bottom + 4] as const
@@ -385,9 +377,9 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           size="icon-xs"
           aria-label="Prompt actions"
           aria-haspopup="menu"
-          title="Pin, delete"
+          title="Pin, move, tag, export, delete"
           className="ml-auto text-muted-foreground"
-          onClick={(e) => openActions(...atButton(e))}
+          onClick={(e) => menus.openRowCtx(...atButton(e), new Set([snippet.id]))}
         >
           <RiMoreLine className="size-4" />
         </Button>
@@ -581,7 +573,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         )}
       </div>
       {menus.element}
-      {actions.element}
       {insert.element}
     </div>
   )
