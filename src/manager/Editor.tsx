@@ -274,7 +274,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           if (name !== raw.replace(/^\{+|\}+$/g, "").trim()) say(`Inserted ${asConfig ? `{{${name}}}` : `{${name}}`}`)
         },
       },
-      ...(builtins.length ? [{ kind: "header", text: "Built-ins: filled in when pasting" } satisfies CtxItem, ...builtins] : []),
+      ...(builtins.length ? [{ kind: "header", text: "Filled in when pasting" } satisfies CtxItem, ...builtins] : []),
       ...(library.length ? [{ kind: "header", text: "Fields used in the library" } satisfies CtxItem, ...library] : []),
     ])
   }
@@ -285,8 +285,18 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   // reads commas — stripping them made one "reviewplan"
   const addTags = (raw: string) => {
     const next = [...tagList]
-    for (const t of storedTags(raw)) if (!next.includes(t)) next.push(t)
-    if (next.length !== tagList.length) editTags(next.join(", "))
+    const added: string[] = []
+    for (const t of storedTags(raw))
+      if (!next.includes(t)) {
+        next.push(t)
+        added.push(t)
+      }
+    if (!added.length) return
+    editTags(next.join(", "))
+    // A tag is lowercase letters, digits, _ and - (normalizeTag): when the
+    // fold changed what was typed ("Review, PLAN"), say what landed
+    const typed = raw.split(",").map((t) => t.trim()).filter(Boolean)
+    if (added.some((t) => !typed.includes(t))) say(`Added ${added.map((t) => `#${t}`).join(", ")}`)
   }
   const removeTag = (t: string) => editTags(tagList.filter((x) => x !== t).join(", "))
   // Every other tag in the library completes in the "+ tag…" box as it is
@@ -399,8 +409,12 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           }}
           placeholder="Title"
           aria-label="Title"
+          // A title longer than the line ends in an ellipsis while the field
+          // is not focused (it used to clip mid-letter), and the tooltip
+          // carries the whole of it
+          title={title.length > 40 ? title : undefined}
           spellCheck={false}
-          className="w-full bg-transparent py-1 pr-16 text-lg font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
+          className="w-full text-ellipsis bg-transparent py-1 pr-16 text-lg font-semibold text-foreground outline-none placeholder:text-muted-foreground focus:shadow-[0_1px_0_var(--focus)]"
         />
         {/* Autosave feedback: the caption fades rather than vanishing, and the
             live region announces only the landing, never each keystroke */}

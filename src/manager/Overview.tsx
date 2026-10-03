@@ -158,9 +158,15 @@ function PromptCard({
   // a prompt that holds a pasted document is not rendered whole on every
   // card of its pack
   const excerpt = s.text.slice(0, EXCERPT_CHARS).replace(/\s+/g, " ")
+  // To assistive tech the card is its title, described by what it asks for
+  // and its pin: without a name of its own it read out the whole excerpt,
+  // the clipboard's stack trace included, once per card
+  const badgeId = `card-${s.id}-asks`
   return (
     <button
       type="button"
+      aria-label={`${s.title || "(untitled)"}${s.pinned ? ", pinned" : ""}`}
+      aria-describedby={inputs.length ? badgeId : undefined}
       title={`${s.title || "(untitled)"} — click edits, right-click for actions`}
       className="flex min-w-0 cursor-pointer flex-col gap-1.5 rounded-lg border border-border bg-background p-3 text-left text-ui text-foreground transition-colors hover:border-primary focus-ring"
       onClick={onOpen}
@@ -177,11 +183,11 @@ function PromptCard({
       }}
     >
       <span className="flex min-w-0 items-center gap-1.5">
-        {s.pinned && <RiPushpinFill className="size-3.5 shrink-0 text-(--warn)" aria-label="pinned" />}
+        {s.pinned && <RiPushpinFill className="size-3.5 shrink-0 text-(--warn)" aria-hidden />}
         <span className="min-w-0 flex-1 truncate font-semibold">
           <bdi>{s.title || "(untitled)"}</bdi>
         </span>
-        <InputsBadge inputs={inputs} />
+        <InputsBadge inputs={inputs} id={badgeId} />
         {s.uses > 0 && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{s.uses}×</span>}
       </span>
       <span className="line-clamp-3 break-words text-xs leading-relaxed text-muted-foreground">

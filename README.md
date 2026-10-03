@@ -220,8 +220,9 @@ built-in or a field name the rest of your library already uses.
 - Sort by uses, title, or **Custom** — press and hold a row to lift it, then
   drag to arrange your own order; **Alt+Up / Alt+Down** moves the selected row
   from the keyboard
-- Clicking a pack or group header folds or unfolds it and shows its prompts
-  in the pane
+- Clicking a pack or group header shows its prompts in the pane and opens it
+  in the tree; the chevron (or ←) folds it. **Ctrl+N** starts a prompt where
+  the pane is looking, **Ctrl+F** reaches the filter
 - Packs are listed A–Z until you arrange them: **Move up / Move down** in a
   pack's ⋯ menu (or **Alt+Up / Alt+Down** on its header). The popup lists
   packs in the same order. Groups move within their pack the same way
