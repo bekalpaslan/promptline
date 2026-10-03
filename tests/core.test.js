@@ -1120,6 +1120,28 @@ test('resolveTheme: system follows the OS, explicit choices win, legacy values a
   assert.equal(core.resolveTheme(null, false), 'dark');
 });
 
+test("placePrompt moves a prompt next to its target, into the target's group when asked, and never mutates", () => {
+  const list = [
+    prompt('u1', 'Work', ''), prompt('a1', 'Work', 'A'), prompt('a2', 'Work', 'A'), prompt('b1', 'Work', 'B'),
+  ];
+  const ids = (l) => l.map((s) => s.id);
+  // Before and after a target in the same group
+  assert.deepEqual(ids(core.placePrompt(list, 'a2', 'a1', false, true)), ['u1', 'a2', 'a1', 'b1']);
+  assert.deepEqual(ids(core.placePrompt(list, 'u1', 'b1', true, true)), ['a1', 'a2', 'b1', 'u1']);
+  // Dropped among another group's rows: the label follows in the grouped view
+  const moved = core.placePrompt(list, 'u1', 'a1', true, true);
+  assert.deepEqual(ids(moved), ['a1', 'u1', 'a2', 'b1']);
+  assert.equal(moved[1].group, 'A');
+  // and stays in one list (no groups drawn)
+  assert.equal(core.placePrompt(list, 'u1', 'a1', true, false)[1].group, '');
+  // A missing id, or a row dropped on itself, is no move
+  assert.equal(core.placePrompt(list, 'nope', 'a1', true, true), null);
+  assert.equal(core.placePrompt(list, 'a1', 'nope', true, true), null);
+  assert.equal(core.placePrompt(list, 'a1', 'a1', true, true), null);
+  assert.deepEqual(ids(list), ['u1', 'a1', 'a2', 'b1'], 'never mutates');
+  assert.equal(list[0].group, '', 'never mutates the item either');
+});
+
 test('moveGroup swaps a group past its neighbour in the pack and leaves every other row in its slot', () => {
   const list = [
     prompt('u1', 'Work', ''), prompt('o1', 'Other', 'X'), prompt('a1', 'Work', 'A'),

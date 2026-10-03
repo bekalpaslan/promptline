@@ -202,6 +202,8 @@ interface PromptlineCore {
   groupOrder(snippets: Pick<Snippet, "pack" | "group">[], defaultPack: string): Map<string, number>
   /** The library in the order the sidebar draws it (sorted, by pack when grouped); "custom" is the array itself */
   displayOrder<T extends Pick<Snippet, "title" | "uses" | "pinned" | "pack" | "group">>(snippets: T[], orderBy: OrderBy, grouped: boolean, packNames: string[], defaultPack: string): T[]
+  /** `list` with prompt `id` moved before `targetId` (after it when `after`), taking the target's group when `adoptGroup`; null when either id is missing */
+  placePrompt<T extends Pick<Snippet, "id" | "group">>(list: T[], id: string, targetId: string, after: boolean, adoptGroup: boolean): T[] | null
   /** Every row of the grouped sidebar in order, folds applied (a search holds them all open) */
   treeRows(tree: PackNode<Pick<Snippet, "id">>[], folds: Folds, searching: boolean): TreeRow[]
   /** `base`, then `base 2`, `base 3`, … : the first not in `taken`, case-insensitively */

@@ -511,3 +511,29 @@ test("a pack with a long name keeps the menus inside the window", async ({ page 
     expect(box.x + box.width).toBeLessThanOrEqual(1000)
   }
 })
+
+test("rows part for a lifted row as it crosses them, and the drop saves what was shown", async ({ page }) => {
+  const lifted = promptRow(page, "Bisect a regression")
+  const target = promptRow(page, "Loose prompt")
+  const a = (await lifted.boundingBox())!
+  const b = (await target.boundingBox())!
+  await page.mouse.move(a.x + 40, a.y + a.height / 2)
+  await page.mouse.down()
+  await page.waitForTimeout(250)
+  // Into the bottom half of the ungrouped row above its group
+  await page.mouse.move(b.x + 40, b.y + b.height - 2, { steps: 4 })
+  // Before release: the row sits under "Loose prompt", out of its group
+  await expect(lifted).toHaveAttribute("aria-level", "2")
+  const order = () =>
+    tree(page)
+      .locator('[data-pack="Mock Groups"] [role="treeitem"][aria-level="2"][data-snip-id]')
+      .evaluateAll((els) => els.map((el) => el.getAttribute("title")))
+  await expect.poll(order).toEqual(["Loose prompt", "Bisect a regression"])
+  expect(await calls(page, "save_snippets")).toHaveLength(0)
+  await page.mouse.up()
+  await expect.poll(() => calls(page, "save_snippets")).toHaveLength(1)
+  const lib = await library(page)
+  expect(lib.find((s) => s.title === "Bisect a regression")).toMatchObject({ pack: "Mock Groups", group: "" })
+  await expect(page.getByText('Moved "Bisect a regression" out of its group')).toBeVisible()
+  await expect(lifted).toHaveAttribute("aria-level", "2")
+})

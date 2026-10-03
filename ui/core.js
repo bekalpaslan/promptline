@@ -620,6 +620,26 @@
     return packTree(sorted, packNames, defaultPack).flatMap(p => [...p.ungrouped, ...p.groups.flatMap(g => g.items)]);
   }
 
+  // A prompt drag's result: `list` (in display order) with the prompt `id`
+  // moved next to `targetId`, after it when `after`, and taking the
+  // target's group when `adoptGroup` (the grouped view: dropping among
+  // another group's rows moves the prompt into that group). The sidebar
+  // draws this while the row is lifted and saves it on release, so what is
+  // shown and what is saved come from one rule. Null when either id is
+  // missing or they are the same; never mutates.
+  function placePrompt(list, id, targetId, after, adoptGroup) {
+    const from = list.findIndex(s => s.id === id);
+    if (from === -1 || id === targetId) return null;
+    const rest = [...list];
+    const [item] = rest.splice(from, 1);
+    let to = rest.findIndex(s => s.id === targetId);
+    if (to === -1) return null;
+    const target = rest[to];
+    const moved = adoptGroup && target.group !== item.group ? { ...item, group: target.group } : item;
+    rest.splice(to + (after ? 1 : 0), 0, moved);
+    return rest;
+  }
+
   // Every row of the grouped sidebar as drawn, in order: the keyboard's
   // tree (one tabbable row, Up/Down move through these, Right steps to the
   // row after an open pack or group, Left goes to `parent`) and the flat
@@ -1040,6 +1060,7 @@
     groupKey,
     groupOrder,
     displayOrder,
+    placePrompt,
     treeRows,
     freeName,
     groupsIn,
