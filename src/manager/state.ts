@@ -45,8 +45,16 @@ export interface Renaming {
   fresh?: boolean
 }
 
+/**
+ * Whether the library has arrived: the pane shows nothing until it has,
+ * and says so when it couldn't, rather than offering the empty-library
+ * start to someone whose prompts are on disk but unreadable
+ */
+export type LibraryState = "loading" | "ready" | "failed"
+
 export interface ManagerApi {
   snippets: Snippet[]
+  libraryState: LibraryState
   packMeta: PackMeta[]
   activeId: string | null
   selection: Set<string>

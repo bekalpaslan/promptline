@@ -171,13 +171,17 @@ export function ImportCuration({
             >
               <Checkbox checked={r.include} className="pointer-events-none" tabIndex={-1} aria-hidden />
               <span className="min-w-0 max-w-[50%] truncate font-semibold text-foreground" title={r.title}>{r.title}</span>
+              {/* Pack and group names are whatever the file says: capped
+                  so a long one leaves the row's title and text their room */}
               {multiPack && (
-                <Chip tone="primary" title="Pack">
-                  {r.packName}
+                <Chip tone="primary" title={`Pack: ${r.packName}`} className="max-w-[25%] overflow-hidden">
+                  <span className="min-w-0 truncate">{r.packName}</span>
                 </Chip>
               )}
               {r.group && (
-                <Chip>{r.group}</Chip>
+                <Chip title={`Group: ${r.group}`} className="max-w-[25%] overflow-hidden">
+                  <span className="min-w-0 truncate">{r.group}</span>
+                </Chip>
               )}
               <span className="min-w-0 flex-1 truncate">{r.text.replace(/\s+/g, " ").slice(0, 80)}</span>
               {r.dupe && (

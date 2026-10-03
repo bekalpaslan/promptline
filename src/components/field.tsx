@@ -20,6 +20,11 @@ export const fieldVariants = cva(
   }
 )
 
+// The Enter that commits a field (a rename, a new tag, a pack's name): not
+// the one that ends an IME composition (Japanese, Chinese, Korean), which
+// chooses the candidate and used to commit half a word.
+export const commitKey = (e: React.KeyboardEvent) => e.key === "Enter" && !e.nativeEvent.isComposing
+
 // Each window's search box: the one bordered field, so it reads as the place
 // to type. The caller fills it (icon, input, a scope chip). The border takes
 // the focus colour only while the box has focus: it used to stay lit while

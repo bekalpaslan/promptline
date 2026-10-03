@@ -18,6 +18,8 @@ import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 
 // Tag pills on a card before the rest fold into a "+N" pill
 const MAX_CARD_TAGS = 3
+// More than three lines of a card's excerpt could show at any width or scale
+const EXCERPT_CHARS = 800
 
 // A title with the sidebar header's affordances: double-click renames,
 // right-click, the Menu key and the hover-revealed dots open its menu, and a
@@ -103,7 +105,9 @@ function Heading({
             }
           }}
         >
-          <span className="truncate">{label}</span>
+          <span className="truncate">
+            <bdi>{label}</bdi>
+          </span>
           <Count>{count}</Count>
         </button>
       )}
@@ -147,8 +151,11 @@ function PromptCard({
   const tags = s.tags || []
   const inputs = C.requiredInputs(s)
   // The excerpt is the same token preview as the editor's and the popup's,
-  // so it too shows the clipboard, not the word "clipboard" (BEHAVIOR.md)
-  const excerpt = s.text.replace(/\s+/g, " ")
+  // so it too shows the clipboard, not the word "clipboard" (BEHAVIOR.md).
+  // Three lines show, so only the head of the text is tokenized and drawn:
+  // a prompt that holds a pasted document is not rendered whole on every
+  // card of its pack
+  const excerpt = s.text.slice(0, EXCERPT_CHARS).replace(/\s+/g, " ")
   return (
     <button
       type="button"
@@ -169,7 +176,9 @@ function PromptCard({
     >
       <span className="flex min-w-0 items-center gap-1.5">
         {s.pinned && <RiPushpinFill className="size-3.5 shrink-0 text-(--warn)" aria-label="pinned" />}
-        <span className="min-w-0 flex-1 truncate font-semibold">{s.title || "(untitled)"}</span>
+        <span className="min-w-0 flex-1 truncate font-semibold">
+          <bdi>{s.title || "(untitled)"}</bdi>
+        </span>
         <InputsBadge inputs={inputs} />
         {s.uses > 0 && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{s.uses}×</span>}
       </span>

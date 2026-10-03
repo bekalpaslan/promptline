@@ -12,7 +12,7 @@ import {
 import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
-import { SearchClear, searchBoxClass } from "@/components/field"
+import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
@@ -114,6 +114,12 @@ export function Sidebar() {
     if (holdTimer.current) clearTimeout(holdTimer.current)
     holdTimer.current = null
   }
+  // The window losing focus mid-hold (Alt+Tab) would otherwise lift the row
+  // once the delay passes, with no release ever coming to put it down
+  useEffect(() => {
+    window.addEventListener("blur", cancelHold)
+    return () => window.removeEventListener("blur", cancelHold)
+  }, [])
   // Press-and-hold on a row: `lift` runs once the hold delay passes without
   // the pointer wandering off (moving first means a click, not a drag)
   const holdToDrag = (lift: () => void) => ({
@@ -363,17 +369,42 @@ export function Sidebar() {
       const r = el!.getBoundingClientRect()
       setOver({ id: snip.id, after: e.clientY > r.top + r.height / 2 })
     }
-    const up = () => {
-      if (over && over.id !== drag.id) void commitReorder(drag.id, over.id, over.after)
+    const up = (e: PointerEvent) => {
+      // The button that lifted the row is the one that drops it
+      if (e.button !== 0) return
+      if (over && over.id !== drag.id) void commitReorder(drag.id, over.id, over.after).catch(() => {})
       if (dragMoved.current) suppressClick.current = true
       setDrag(null)
       setOver(null)
     }
+    // Broken off, not finished: the browser took the pointer (pointercancel),
+    // the window lost focus (Alt+Tab), or Escape. Nothing is committed; the
+    // release that came after the window was back used to drop the row
+    // wherever the pointer had last been. Only Escape is followed by a
+    // click to swallow: after a blur or a cancel none comes, and a flag
+    // left set would eat the next click on a row
+    const cancel = (swallowClick: boolean) => {
+      if (swallowClick && dragMoved.current) suppressClick.current = true
+      setDrag(null)
+      setOver(null)
+    }
+    const onCancel = () => cancel(false)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return
+      e.preventDefault()
+      cancel(true)
+    }
     document.addEventListener("pointermove", move)
     document.addEventListener("pointerup", up)
+    document.addEventListener("pointercancel", onCancel)
+    window.addEventListener("blur", onCancel)
+    document.addEventListener("keydown", onKey, true)
     return () => {
       document.removeEventListener("pointermove", move)
       document.removeEventListener("pointerup", up)
+      document.removeEventListener("pointercancel", onCancel)
+      window.removeEventListener("blur", onCancel)
+      document.removeEventListener("keydown", onKey, true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [drag, over, grouped, m.snippets, orderBy])
@@ -594,7 +625,7 @@ export function Sidebar() {
               // The header above toggles on Enter / Space; typing must not reach it
               e.stopPropagation()
               if (e.key === "Escape") setRenamingGroup(null)
-              if (e.key === "Enter") {
+              if (commitKey(e)) {
                 void renameGroup(pack, group, e.currentTarget.value.trim())
               }
             }}
@@ -602,7 +633,9 @@ export function Sidebar() {
             onBlur={() => setRenamingGroup(null)}
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate">{group}</span>
+          <span className="min-w-0 flex-1 truncate">
+            <bdi>{group}</bdi>
+          </span>
         )}
         {/* Hover-revealed way into the same menu right-click opens */}
         <MenuDots
@@ -654,13 +687,22 @@ export function Sidebar() {
         {/* Resting affordance for press-and-hold drag: a grip on hover */}
         <RiDraggable className="-ml-1 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
         {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-(--warn)" aria-hidden />}
+        {/* A <bdi>, as the popup's rows: the title is the user's text, so a
+            Hebrew one keeps its direction and a pasted-in direction control
+            can't reorder what sits beside it */}
         {where ? (
           <span className="flex min-w-0 flex-col">
-            <span className="truncate">{marked(title, words)}</span>
-            <span className="truncate text-xs font-normal text-muted-foreground">{where}</span>
+            <span className="truncate">
+              <bdi>{marked(title, words)}</bdi>
+            </span>
+            <span className="truncate text-xs font-normal text-muted-foreground">
+              <bdi>{where}</bdi>
+            </span>
           </span>
         ) : (
-          <span className="truncate">{marked(title, words)}</span>
+          <span className="truncate">
+            <bdi>{marked(title, words)}</bdi>
+          </span>
         )}
       </div>
     )
@@ -721,14 +763,16 @@ export function Sidebar() {
             onKeyDown={(e) => {
               e.stopPropagation()
               if (e.key === "Escape") setRenaming(null)
-              if (e.key === "Enter") {
+              if (commitKey(e)) {
                 void renamePack(name, e.currentTarget.value.trim())
               }
             }}
             onBlur={() => setRenaming(null)}
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate">{name}</span>
+          <span className="min-w-0 flex-1 truncate">
+            <bdi>{name}</bdi>
+          </span>
         )}
         <MenuDots
           label={`Actions for pack ${name}`}

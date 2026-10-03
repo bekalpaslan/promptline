@@ -6,6 +6,7 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiDeleteBinLine,
+  RiErrorWarningLine,
   RiFileTextLine,
 } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
@@ -14,7 +15,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, MAX_PINS, useManager } from "./state"
-import { ComboInput, Select, fieldVariants } from "@/components/field"
+import { ComboInput, Select, commitKey, fieldVariants } from "@/components/field"
 import { Chip, TagPill, chipVariants } from "@/components/prompt-bits"
 import { useLibraryMenus } from "./menus"
 import { useCtxMenu } from "./ctx-menu"
@@ -113,7 +114,7 @@ function ParamInput({ placeholder, onAdd }: { placeholder: string; onAdd: (name:
         className={cn(chipVariants({ tone: "neutral", size: "md" }), "w-28 focus-ring placeholder:text-muted-foreground")}
         onChange={(e) => setRaw(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key !== "Enter") return
+          if (!commitKey(e)) return
           if (!name) return
           onAdd(name)
           setRaw("")
@@ -141,6 +142,20 @@ export function Editor() {
         <EmptyState
           title={`${m.selection.size} prompts selected`}
           hint="Right-click (or press the Menu key) for actions on all of them · click a row to edit one"
+        />
+      )
+    }
+    // Nothing until the library has answered: the first paint is a few
+    // milliseconds after it, and "No prompts yet" in that gap would be a lie
+    // that a slow disk makes readable
+    if (m.libraryState === "loading") return null
+    if (m.libraryState === "failed") {
+      return (
+        <EmptyState
+          icon={RiErrorWarningLine}
+          title="The library didn't load"
+          hint="Your prompts are still in their file; nothing on disk was changed. The message at the bottom right says what went wrong, and Settings → Your library → Open folder shows the files."
+          actions={[{ label: "Open settings", onClick: () => m.showSettings(true), primary: true }]}
         />
       )
     }
@@ -651,7 +666,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
               spellCheck={false}
               className={cn(chipVariants({ tone: "neutral", size: "md" }), "w-24 focus-ring placeholder:text-muted-foreground")}
               onKeyDown={(e) => {
-                if (e.key !== "Enter") return
+                if (!commitKey(e)) return
                 addTags(e.currentTarget.value)
                 e.currentTarget.value = ""
               }}

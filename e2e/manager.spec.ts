@@ -1,7 +1,7 @@
 // The manager against the fake backend: the tree, the editor's autosave,
 // the filter, the overview and Settings. BEHAVIOR.md "Shape" is the spec.
 import { expect, test } from "@playwright/test"
-import { calls, emit, library, open, setClipboard, setUpdate } from "./mock"
+import { calls, emit, failCommand, library, open, setClipboard, setUpdate } from "./mock"
 
 type P = Parameters<typeof open>[0]
 const tree = (page: P) => page.getByRole("tree", { name: "Library" })
@@ -222,8 +222,8 @@ test("a library that won't load leaves the hotkey the install actually has, not 
   // that registered Ctrl+Shift+V
   await open(page, "manager", "library-error")
   await expect(page.getByText(/Couldn't load the library/)).toBeVisible()
-  await expect(page.getByRole("button", { name: "Settings" })).toHaveAttribute("title", "Settings — popup hotkey: Ctrl+Shift+V")
-  await page.getByRole("button", { name: "Settings" }).click()
+  await expect(page.getByRole("button", { name: "Settings", exact: true })).toHaveAttribute("title", "Settings — popup hotkey: Ctrl+Shift+V")
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
   await expect(page.getByRole("textbox", { name: "Global hotkey" })).toHaveValue("Ctrl+Shift+V")
   await expect(page.getByRole("button", { name: "Reset to Ctrl+Alt+V" })).toBeVisible()
 })
@@ -405,4 +405,109 @@ test("a store build has no update controls in Settings", async ({ page }) => {
   await page.getByRole("button", { name: "Settings" }).click()
   await expect(page.getByRole("button", { name: "Check for updates" })).toHaveCount(0)
   await expect(page.getByRole("checkbox", { name: "Check for updates automatically" })).toHaveCount(0)
+})
+
+// ---- Hardening (edge cases a real library throws at the manager) ----
+
+test("a drag the window loses mid-way is dropped, not committed", async ({ page }) => {
+  // Alt+Tab while a row is lifted: no release ever comes, and the one that
+  // came after the window was back used to drop the row wherever the
+  // pointer had last been
+  const from = promptRow(page, "Bisect a regression")
+  const to = promptRow(page, "Loose prompt")
+  const a = (await from.boundingBox())!
+  const b = (await to.boundingBox())!
+  await page.mouse.move(a.x + 40, a.y + a.height / 2)
+  await page.mouse.down()
+  await page.waitForTimeout(250) // past the 180 ms hold
+  await page.mouse.move(b.x + 40, b.y + b.height - 2, { steps: 4 })
+  await expect(from).toHaveClass(/cursor-grabbing/)
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")))
+  await expect(from).not.toHaveClass(/cursor-grabbing/)
+  await page.mouse.up()
+  await page.waitForTimeout(100)
+  expect(await calls(page, "save_snippets")).toHaveLength(0)
+  // The next click on a row is not swallowed by the abandoned drag
+  await to.click()
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("Loose prompt")
+})
+
+test("Escape cancels a lifted row where it was", async ({ page }) => {
+  const from = promptRow(page, "Bisect a regression")
+  const to = promptRow(page, "Loose prompt")
+  const a = (await from.boundingBox())!
+  const b = (await to.boundingBox())!
+  await page.mouse.move(a.x + 40, a.y + a.height / 2)
+  await page.mouse.down()
+  await page.waitForTimeout(250)
+  await page.mouse.move(b.x + 40, b.y + b.height - 2, { steps: 4 })
+  await expect(from).toHaveClass(/cursor-grabbing/)
+  await page.keyboard.press("Escape")
+  await expect(from).not.toHaveClass(/cursor-grabbing/)
+  await page.mouse.up()
+  await page.waitForTimeout(100)
+  expect(await calls(page, "save_snippets")).toHaveLength(0)
+  // Escape cancelled the drag, not the view: the pane is as it was
+  await expect(page.getByText("Select a prompt to edit it")).toBeVisible()
+})
+
+test("Ungroup on a selection spanning packs clears the label and leaves each prompt in its pack", async ({ page }) => {
+  await promptRow(page, "Bisect a regression").click()
+  await promptRow(page, "Root cause first").click({ modifiers: ["Control"] })
+  await promptRow(page, "Root cause first").click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Ungroup" }).click()
+  await expect.poll(() => calls(page, "save_snippets")).toHaveLength(1)
+  const lib = await library(page)
+  const bisect = lib.find((s) => s.title === "Bisect a regression")!
+  const root = lib.find((s) => s.title === "Root cause first")!
+  expect(bisect).toMatchObject({ pack: "Mock Groups", group: "" })
+  expect(root).toMatchObject({ pack: "Starter", group: "" })
+})
+
+test("a clipboard that can't be written says so instead of claiming a copy", async ({ page }) => {
+  await failCommand(page, "set_clipboard_text")
+  await promptRow(page, "Loose prompt").click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Export selection" }).click()
+  await expect(page.getByText(/Couldn't copy/)).toBeVisible()
+  await expect(page.getByText(/to clipboard$/)).toHaveCount(0)
+})
+
+test("the Enter that ends an IME composition doesn't commit a rename", async ({ page }) => {
+  const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
+  await pack.dblclick()
+  const field = page.getByRole("textbox", { name: "Rename pack Mock Groups" })
+  await field.fill("Mock Gruppen")
+  // What a Japanese or Chinese IME sends when Enter picks the candidate
+  await field.dispatchEvent("keydown", { key: "Enter", isComposing: true })
+  await expect(field).toBeVisible()
+  expect(await calls(page, "rename_pack")).toHaveLength(0)
+  await field.press("Enter")
+  await expect.poll(() => calls(page, "rename_pack")).toHaveLength(1)
+  expect((await calls(page, "rename_pack"))[0].args).toMatchObject({ from: "Mock Groups", to: "Mock Gruppen" })
+})
+
+test("a library that won't load is said so in the pane, not shown as empty", async ({ page }) => {
+  await open(page, "manager", "library-error")
+  await expect(page.getByText("The library didn't load")).toBeVisible()
+  await expect(page.getByText("No prompts yet")).toHaveCount(0)
+  await page.getByRole("button", { name: "Open settings" }).click()
+  await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible()
+})
+
+test("a pack with a long name keeps the menus inside the window", async ({ page }) => {
+  const name = "A pack whose name an agent wrote as a whole sentence about the project it surveyed and then some"
+  await page.getByRole("complementary", { name: "Prompts" }).getByRole("button", { name: "New" }).click()
+  await page.getByRole("menuitem", { name: "Pack", exact: true }).click()
+  const field = page.getByRole("textbox", { name: "Rename New pack" })
+  await field.fill(name)
+  await field.press("Enter")
+  await expect(page.getByRole("region", { name })).toBeVisible()
+  await promptRow(page, "Loose prompt").click({ button: "right" })
+  await page.getByRole("menuitem", { name: new RegExp(`^${name.slice(0, 20)}`) }).hover()
+  const sub = page.getByRole("menu", { name })
+  await expect(sub).toBeVisible()
+  for (const menu of [page.getByRole("menu").first(), sub]) {
+    const box = (await menu.boundingBox())!
+    expect(box.x + box.width).toBeLessThanOrEqual(1000)
+  }
 })
