@@ -29,8 +29,11 @@ export const commitKey = (e: React.KeyboardEvent) => e.key === "Enter" && !e.nat
 // the focus colour only while the box has focus: it used to stay lit while
 // a query was set, which made it a second lit thing beside the selected row
 // (DESIGN.md's One Indicator Rule); the × already says a query is set.
+// Its padding is the window's 8 px inset less its own 1 px border, so the
+// icon stands on the same line as the content of the borderless strips
+// under it (the popup's clipboard line, rows and hint bar)
 export const searchBoxClass = () =>
-  "flex h-8 shrink-0 items-center gap-1.5 rounded-(--search-radius) border border-input bg-background px-2 text-ui focus-within:border-(--focus)"
+  "flex h-8 shrink-0 items-center gap-1.5 rounded-(--search-radius) border border-input bg-background px-[calc(0.5rem-1px)] text-ui focus-within:border-(--focus)"
 
 // The × that clears a search box
 export function SearchClear({ label, title, onClick }: { label: string; title?: string; onClick: () => void }) {

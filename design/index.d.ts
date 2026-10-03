@@ -28,7 +28,7 @@ export interface RowProps {
   selected: boolean
   picked: boolean
   compact: boolean
-  derived: { inputs: string[]; Icon: ComponentType<{ className?: string }> }
+  derived: { inputs: string[]; clip: boolean }
   onPick: (s: Snippet, paste: boolean) => void
   onMove: (i: number, e: unknown) => void
   onLeave: () => void
@@ -37,6 +37,10 @@ export interface RowProps {
   activeTags: readonly string[]
   previewed: boolean
   clipEmpty: boolean
+  /** Drawn under the Pinned heading: the slot shows the kind, not the pin */
+  underPinned?: boolean
+  /** The query's free text: a row found by its body shows where it matched */
+  queryText?: string
 }
 
 export type ButtonVariant = "default" | "outline" | "secondary" | "ghost" | "destructive" | "link"

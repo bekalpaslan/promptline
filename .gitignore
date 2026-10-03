@@ -50,3 +50,6 @@ site/clip/
 .impeccable/
 DESIGN.md
 PRODUCT.md
+
+# Written by the Playwright MCP (logs, snapshots, its scratch scripts)
+.playwright-mcp/
