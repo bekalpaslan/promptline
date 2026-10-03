@@ -100,15 +100,38 @@ test("Left folds a pack and Right unfolds it", async ({ page }) => {
   await expect(promptRow(page, "Loose prompt")).toBeVisible()
 })
 
-test("a pack header's click folds it and shows its prompts; it is no drag handle", async ({ page }) => {
+test("a pack header's click shows its prompts and opens it in the tree; Left folds it; it is no drag handle", async ({ page }) => {
   const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
   await expect(pack).toHaveAttribute("aria-expanded", "true")
   expect(await pack.evaluate((el) => getComputedStyle(el).cursor)).toBe("pointer")
+  // The click never hides what the pane is about to show
   await pack.click()
-  await expect(pack).toHaveAttribute("aria-expanded", "false")
   await expect(page.getByRole("region", { name: "Mock Groups", exact: true })).toBeVisible()
+  await expect(pack).toHaveAttribute("aria-expanded", "true")
+  await expect(promptRow(page, "Loose prompt")).toBeVisible()
+  // Folding is the keyboard's (and the chevron's); a click on a folded
+  // pack opens it again along with its overview
+  await pack.focus()
+  await page.keyboard.press("ArrowLeft")
+  await expect(pack).toHaveAttribute("aria-expanded", "false")
+  await expect(promptRow(page, "Loose prompt")).toHaveCount(0)
   await pack.click()
   await expect(pack).toHaveAttribute("aria-expanded", "true")
+  await expect(promptRow(page, "Loose prompt")).toBeVisible()
+})
+
+test("an empty library says so under New, and an empty pack offers its first prompt beside the words", async ({ page }) => {
+  await open(page, "manager", "empty")
+  const sidebar = page.getByRole("complementary", { name: "Prompts" })
+  await expect(sidebar.getByText("No packs yet. New makes one.")).toBeVisible()
+  await sidebar.getByRole("button", { name: "New" }).click()
+  await page.getByRole("menuitem", { name: "Pack", exact: true }).click()
+  await page.getByRole("textbox", { name: "Rename New pack" }).press("Enter")
+  await expect(sidebar.getByText("No packs yet. New makes one.")).toHaveCount(0)
+  const overview = page.getByRole("region", { name: "New pack" })
+  await expect(overview.getByText("Empty pack. The first prompt starts it.")).toBeVisible()
+  await overview.getByRole("button", { name: "New prompt in New pack" }).click()
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("New prompt")
 })
 
 test("a pack moves from its menu and with Alt+Down, and the order is saved", async ({ page }) => {

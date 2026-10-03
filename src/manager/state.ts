@@ -121,6 +121,8 @@ export interface ManagerApi {
   togglePackFold(name: string): void
   toggleGroupFold(key: string): void
   foldAll(fold: boolean): void
+  /** Open a pack, and a group in it, in the tree: a title click shows what it holds, never hides it */
+  unfold(pack: string, group?: string): void
   carryGroupFold(pack: string, from: string, to: string): void
   /**
    * The pack, or the group (a groupKey), whose name is open for typing,

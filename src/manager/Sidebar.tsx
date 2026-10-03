@@ -351,14 +351,14 @@ export function Sidebar() {
       )
   }
 
-  // A pack or group header's click (and Enter): it unfolds or folds, like a
-  // folder in a file tree, and the pane shows what it holds. A search holds
-  // every fold open, so there it only shows.
+  // A pack or group header's click (and Enter): the pane shows what it
+  // holds, and the tree opens it so the two agree. It used to fold the pack
+  // as well, like a folder in a file tree, which took the rows the pane was
+  // about to show out of the sidebar on the most common click in the
+  // window; folding is the chevron's, Left's and Collapse all's. A search
+  // holds every fold open, so there it only shows.
   const openHeader = (pack: string, group?: string) => {
-    if (!q) {
-      if (group === undefined) toggleCollapsed(pack)
-      else toggleCollapsedGroup(groupKey(pack, group))
-    }
+    if (!q) m.unfold(pack, group)
     m.openOverview(group === undefined ? { pack } : { pack, group })
   }
 
@@ -601,7 +601,7 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         aria-selected={selected}
         aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
-        title={`${group} — click or Enter folds it and shows its prompts · ⋯ or right-click (Shift+F10) for actions`}
+        title={`${group} — click or Enter shows its prompts, the chevron or ← folds it · ⋯ or right-click (Shift+F10) for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-medium text-(--heading) hover:bg-hover focus-ring",
           selected && "bg-accent hover:bg-accent"
@@ -737,7 +737,7 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         aria-selected={selected}
         aria-label={`${name}, ${q ? `${count} of ${total}` : count} prompt${total === 1 ? "" : "s"}${m.isLocked(name) ? ", locked" : ""}`}
-        title={`${name} — click or Enter folds it and shows its prompts · ⋯ or right-click (Shift+F10) for actions, Move up/down among them`}
+        title={`${name} — click or Enter shows its prompts, the chevron or ← folds it · ⋯ or right-click (Shift+F10) for actions, Move up/down among them`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover focus-ring",
           selected && "bg-accent hover:bg-accent",
@@ -947,8 +947,11 @@ export function Sidebar() {
       <div ref={listRef} className="flex-1 overflow-y-auto px-3 pt-1 pb-3">
         {/* pt-1 (taken from the row above) is room for a drag's insertion mark
             above the first row, which the scroll box would otherwise clip */}
-        {/* An empty library says so in the pane, not here as well: the New
-            button above is the sidebar's way in */}
+        {/* An empty library: the pane says what to do; the void under New
+            says only that it is a void, not a list still loading */}
+        {rows.length === 0 && !q && m.libraryState === "ready" && (
+          <p className="px-1 pt-1 text-xs text-muted-foreground">No packs yet. New makes one.</p>
+        )}
         {/* One tree for assistive tech: packs at level 1, their prompts and
             groups at 2, a group's prompts at 3 (a flat list at 1); the
             wrappers between are presentation so each run of children is

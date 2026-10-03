@@ -326,9 +326,16 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
             onRename={(next) => void menus.renamePack(pack.name, next)}
             onRenameCancel={() => menus.setRenaming(null)}
           >
-            {!locked && <AddPrompt where={pack.name} onClick={() => void m.newPrompt({ pack: pack.name })} />}
+            {!locked && pack.count > 0 && <AddPrompt where={pack.name} onClick={() => void m.newPrompt({ pack: pack.name })} />}
           </Heading>
-          {pack.count === 0 && <div className="text-ui text-muted-foreground">Empty pack</div>}
+          {/* The one action an empty pack has sits with the words, not at
+              the heading's far right where it read as a dead end */}
+          {pack.count === 0 && (
+            <div className="flex flex-wrap items-center gap-2 text-ui text-muted-foreground">
+              {locked ? "Empty pack, and locked: unlock it from its menu to add prompts" : "Empty pack. The first prompt starts it."}
+              {!locked && <AddPrompt where={pack.name} onClick={() => void m.newPrompt({ pack: pack.name })} />}
+            </div>
+          )}
           {pack.ungrouped.length > 0 && cards(pack.ungrouped)}
           {pack.groups.map((g) => (
             // A group is a heading over a hairline, not a panel: the pack is

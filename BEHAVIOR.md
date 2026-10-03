@@ -32,11 +32,16 @@ the editor, and a pack or group title shows its **overview** — the prompts
 it holds as preview cards (a pack's ungrouped prompts, then each group under
 a heading that opens that group), with the clipboard substituted as in every
 preview. Clicking a title selects it the way clicking a row selects a
-prompt and also folds or unfolds it, like a folder in a file tree (a
-search holds every fold open, so there the click only selects); the
-chevron folds without selecting (← and → from the keyboard), and a
-double-click renames (its two clicks fold and unfold, so the fold ends as
-it was). The overview has no folds of its own and no mode to leave: a card
+prompt, and opens it in the tree if it was folded, so the sidebar never
+hides the rows the pane is showing; the chevron folds without selecting
+(← and → from the keyboard, Collapse all from Display), and a double-click
+renames. Until 0.2.19 the click folded and unfolded as well, like a folder
+in a file tree, which took a pack's rows out of the sidebar on the most
+common click in the window and cost a re-expand before the next prompt.
+A search holds every fold open, so there the click only selects. An empty
+library says so under New ("No packs yet. New makes one."), and an empty
+pack's overview puts its one action, New prompt, beside the words rather
+than at the heading's far right. The overview has no folds of its own and no mode to leave: a card
 click opens that prompt, the editor's crumbs (pack, group) open those
 overviews, and Escape goes up one level — from a prompt to its group (or
 pack), from a group to its pack. This replaced a full-window library view

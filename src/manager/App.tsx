@@ -561,6 +561,7 @@ export function App() {
       togglePackFold,
       toggleGroupFold,
       foldAll,
+      unfold,
       carryGroupFold,
       renaming,
       setRenaming,
@@ -577,7 +578,7 @@ export function App() {
       openUpdateOffer,
       setAutoUpdateCheck,
     }),
-    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
+    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, unfold, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
   )
 
   // null until the config has loaded: the banner, the tooltip and the hints
