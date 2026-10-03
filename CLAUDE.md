@@ -68,6 +68,9 @@ backlog, not from another audit, unless asked.
   files. It needs ffmpeg once (`winget install Gyan.FFmpeg`, like
   `npx playwright install chromium` for the suite); without it the command
   stops before capturing and says so.
+  A new page under `site/` is a `<url>` in `site/sitemap.xml` and the
+  head its siblings carry (canonical, Open Graph and Twitter tags, inline
+  JSON-LD); a post also joins the `Blog` list in `posts/index.html`'s JSON-LD.
   A new screen is a shot in that spec plus a chapter in `site/index.html`;
   the Download button is a plain link to
   `releases/latest/download/Promptline-setup.exe`, the stable-named copy

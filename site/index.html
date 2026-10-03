@@ -6,15 +6,22 @@
   <title>Promptline — your prompt vocabulary, one hotkey away</title>
   <meta name="description" content="A prompt library on a global hotkey for Windows: copy an error, press Ctrl+Alt+V, pick a prompt, and it pastes into Claude Code, Codex, Cursor or any window with your clipboard inside. Packs are JSON files an agent can write. No telemetry.">
   <link rel="canonical" href="https://promptline.cc/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Promptline">
+  <meta property="og:locale" content="en_US">
   <meta property="og:title" content="Promptline">
   <meta property="og:description" content="Copy the error. Hit the hotkey. Paste a real prompt.">
+  <meta property="og:url" content="https://promptline.cc/">
   <meta property="og:image" content="https://promptline.cc/og.png">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
   <meta property="og:image:alt" content="The Promptline popup over its manager window, with the tagline: Your prompts, one hotkey away.">
-  <meta property="og:url" content="https://promptline.cc/">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:site" content="@promptlinecc">
+  <meta name="twitter:title" content="Promptline">
+  <meta name="twitter:description" content="Copy the error. Hit the hotkey. Paste a real prompt.">
   <meta name="twitter:image" content="https://promptline.cc/og.png">
+  <meta name="twitter:image:alt" content="The Promptline popup over its manager window, with the tagline: Your prompts, one hotkey away.">
   <meta name="color-scheme" content="light dark">
   <!-- The app's own icon: vector, plus the app icon set's PNGs (copied in by the Pages workflow) -->
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -378,6 +385,60 @@
       .btn { height: 42px; }
     }
   </style>
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://promptline.cc/#organization",
+        "name": "Promptline",
+        "url": "https://promptline.cc/",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://promptline.cc/apple-touch-icon.png",
+          "width": 256,
+          "height": 256
+        },
+        "sameAs": [
+          "https://github.com/bekalpaslan/promptline",
+          "https://x.com/promptlinecc"
+        ]
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://promptline.cc/#website",
+        "url": "https://promptline.cc/",
+        "name": "Promptline",
+        "description": "A prompt library on a global hotkey for Windows: copy an error, press Ctrl+Alt+V, pick a prompt, and it pastes into Claude Code, Codex, Cursor or any window with your clipboard inside. Packs are JSON files an agent can write. No telemetry.",
+        "publisher": {
+          "@id": "https://promptline.cc/#organization"
+        },
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "name": "Promptline",
+        "url": "https://promptline.cc/",
+        "description": "A prompt library on a global hotkey for Windows: copy an error, press Ctrl+Alt+V, pick a prompt, and it pastes into Claude Code, Codex, Cursor or any window with your clipboard inside. Packs are JSON files an agent can write. No telemetry.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "Windows 10, Windows 11",
+        "offers": {
+          "@type": "Offer",
+          "price": "0",
+          "priceCurrency": "USD"
+        },
+        "downloadUrl": "https://github.com/bekalpaslan/promptline/releases/latest/download/Promptline-setup.exe",
+        "license": "https://opensource.org/licenses/MIT",
+        "image": "https://promptline.cc/og.png",
+        "screenshot": "https://promptline.cc/shots/popup-light.png",
+        "publisher": {
+          "@id": "https://promptline.cc/#organization"
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 <body>
   <!-- The app icon (src-tauri/icons/source/promptline.png) as vector, drawn
@@ -395,7 +456,7 @@
           <a href="#tour">Tour</a>
           <a href="#why-not">Why not…</a>
           <a href="#features">Features</a>
-          <a href="https://github.com/bekalpaslan/promptline">GitHub</a>
+          <a href="https://github.com/bekalpaslan/promptline" rel="noopener noreferrer">GitHub</a>
         </nav>
         <div class="theme" role="radiogroup" aria-label="Page theme" id="theme" hidden>
           <button type="button" role="radio" data-theme="system" aria-label="Follow the system theme" title="System">
@@ -423,13 +484,13 @@
           <li><span><b>No telemetry, no account.</b> One update check, at startup and once a day, off in a click. Your prompts are JSON files on your disk.</span></li>
         </ul>
         <div class="cta" id="install">
-          <a class="btn btn-primary" href="https://github.com/bekalpaslan/promptline/releases/latest/download/Promptline-setup.exe">
+          <a class="btn btn-primary" href="https://github.com/bekalpaslan/promptline/releases/latest/download/Promptline-setup.exe" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>Download for Windows</span>
           </a>
           <a class="btn btn-secondary" href="#tour">Take the tour</a>
         </div>
-        <p class="sub">Open source (MIT) · installs for the current user, no admin prompt · <a href="https://github.com/bekalpaslan/promptline/releases">all releases</a></p>
+        <p class="sub">Open source (MIT) · installs for the current user, no admin prompt · <a href="https://github.com/bekalpaslan/promptline/releases" rel="noopener noreferrer">all releases</a></p>
       </div>
       <div class="clip">
         <video class="light-only" width="720" height="540" muted loop playsinline preload="none" poster="clip/clip-light-poster.png" aria-label="A Windows Terminal running Claude Code: a failing test's stack trace is copied, Ctrl+Alt+V opens the Promptline popup, Root cause first is picked, and the prompt, trace inside, fills Claude Code's input">
@@ -663,12 +724,12 @@
         <h2>One hotkey. Every window.</h2>
         <p>Free, open source, and installed without an admin prompt.</p>
         <div class="cta">
-          <a class="btn btn-primary" href="https://github.com/bekalpaslan/promptline/releases/latest/download/Promptline-setup.exe">
+          <a class="btn btn-primary" href="https://github.com/bekalpaslan/promptline/releases/latest/download/Promptline-setup.exe" rel="noopener noreferrer">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v11m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             <span>Download for Windows</span>
           </a>
-          <a class="btn btn-secondary" href="https://github.com/bekalpaslan/promptline">Source on GitHub</a>
-          <a class="btn btn-secondary" href="https://buymeacoffee.com/hurryupbob">Buy me a coffee</a>
+          <a class="btn btn-secondary" href="https://github.com/bekalpaslan/promptline" rel="noopener noreferrer">Source on GitHub</a>
+          <a class="btn btn-secondary" href="https://buymeacoffee.com/hurryupbob" rel="noopener noreferrer">Buy me a coffee</a>
         </div>
       </div>
     </section>
@@ -678,19 +739,19 @@
     <div class="wrap row">
       <span>© 2026 Promptline · MIT License</span>
       <nav aria-label="Links">
-        <a href="https://github.com/bekalpaslan/promptline">Source</a>
-        <a href="https://github.com/bekalpaslan/promptline/releases">Releases</a>
-        <a href="https://github.com/bekalpaslan/promptline/discussions">Discussions</a>
+        <a href="https://github.com/bekalpaslan/promptline" rel="noopener noreferrer">Source</a>
+        <a href="https://github.com/bekalpaslan/promptline/releases" rel="noopener noreferrer">Releases</a>
+        <a href="https://github.com/bekalpaslan/promptline/discussions" rel="noopener noreferrer">Discussions</a>
         <a href="/posts/">Posts</a>
-        <a href="https://buymeacoffee.com/hurryupbob">Buy me a coffee</a>
-        <a href="https://github.com/bekalpaslan/promptline/blob/master/README.md">Docs</a>
-        <a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md">Security</a>
-        <a href="https://github.com/bekalpaslan/promptline/blob/master/THIRD-PARTY-NOTICES.md">Third-party notices</a>
+        <a href="https://buymeacoffee.com/hurryupbob" rel="noopener noreferrer">Buy me a coffee</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/README.md" rel="noopener noreferrer">Docs</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/SECURITY.md" rel="noopener noreferrer">Security</a>
+        <a href="https://github.com/bekalpaslan/promptline/blob/master/THIRD-PARTY-NOTICES.md" rel="noopener noreferrer">Third-party notices</a>
         <a href="#privacy">Privacy</a>
         <a href="/code-signing/">Code signing policy</a>
       </nav>
     </div>
-    <div class="wrap"><p class="privacy" id="privacy"><b>Privacy.</b> This site sets no cookies, stores nothing in your browser, runs no analytics and loads nothing from other sites; its one script switches the page between light and dark, plays the clip for the theme showing, and fades the screenshots in. It is hosted on GitHub Pages, which logs visitors' IP addresses for security (<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>), and the installers download from GitHub Releases. The coffee links go to Buy Me a Coffee, a separate site with its own privacy terms. Promptline itself makes one request: at startup and once a day it fetches promptline.cc/latest.json from GitHub Pages to see whether a newer version exists, sending nothing about you, and Settings → About turns it off; an update you accept downloads from GitHub Releases. The screenshots show a demo library. Questions go to the <a href="https://github.com/bekalpaslan/promptline/issues">issue tracker</a>.</p></div>
+    <div class="wrap"><p class="privacy" id="privacy"><b>Privacy.</b> This site sets no cookies, stores nothing in your browser, runs no analytics and loads nothing from other sites; its one script switches the page between light and dark, plays the clip for the theme showing, and fades the screenshots in. It is hosted on GitHub Pages, which logs visitors' IP addresses for security (<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement" rel="noopener noreferrer">GitHub's privacy statement</a>), and the installers download from GitHub Releases. The coffee links go to Buy Me a Coffee, a separate site with its own privacy terms. Promptline itself makes one request: at startup and once a day it fetches promptline.cc/latest.json from GitHub Pages to see whether a newer version exists, sending nothing about you, and Settings → About turns it off; an update you accept downloads from GitHub Releases. The screenshots show a demo library. Questions go to the <a href="https://github.com/bekalpaslan/promptline/issues" rel="noopener noreferrer">issue tracker</a>.</p></div>
   </footer>
 
   <script>
