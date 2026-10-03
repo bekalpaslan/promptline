@@ -122,8 +122,10 @@ const segmentsToText = (segs: Segment[]) =>
 
 // Live render of exactly what the AI will receive — the editor-preview idiom
 function InstructionPreview({ segments }: { segments: Segment[] }) {
+  // A scroll region with a name and a tab stop, so the keyboard can read
+  // it through and a screen reader knows what it is
   return (
-    <div className={cn(PREVIEW_BOX, "max-h-40 overflow-y-auto")}>
+    <div role="region" aria-label="What the AI gets" tabIndex={0} className={cn(PREVIEW_BOX, "max-h-40 overflow-y-auto focus-ring")}>
       {segments.map((s, i) =>
         typeof s === "string" ? (
           <span key={i}>{s}</span>

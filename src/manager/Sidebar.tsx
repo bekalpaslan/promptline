@@ -200,6 +200,23 @@ export function Sidebar() {
     setQuery("")
     setScope(null)
   }
+  // The filter's placeholder spells the grammar while there is room for it;
+  // in a narrow sidebar (the window's minimum, a large UI scale) it used
+  // to clip to "Filter #tag @pack >grou", so there it says "Filter" and the
+  // grammar stays in the tooltip
+  const asideRef = useRef<HTMLElement>(null)
+  const [narrow, setNarrow] = useState(false)
+  useEffect(() => {
+    const el = asideRef.current
+    if (!el) return
+    const ro = new ResizeObserver(([entry]) => {
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      setNarrow(entry.contentRect.width < 16 * rem)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   // Ctrl+F reaches the filter from anywhere in the manager
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -604,7 +621,7 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         aria-selected={selected}
         aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
-        title={`${group} — click or Enter shows its prompts, the chevron or ← folds it · ⋯ or right-click (Shift+F10) for actions`}
+        title={`${group} — right-click or ⋯ for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-medium text-(--heading) hover:bg-hover focus-ring",
           selected && "bg-accent hover:bg-accent"
@@ -740,7 +757,9 @@ export function Sidebar() {
         aria-expanded={!isCollapsed}
         aria-selected={selected}
         aria-label={`${name}, ${q ? `${count} of ${total}` : count} prompt${total === 1 ? "" : "s"}${m.isLocked(name) ? ", locked" : ""}`}
-        title={`${name} — click or Enter shows its prompts, the chevron or ← folds it · ⋯ or right-click (Shift+F10) for actions, Move up/down among them`}
+        // Short: a native tooltip cuts around 80 characters, and the keys
+        // are in the menu's hints and BEHAVIOR.md rather than every row
+        title={`${name} — right-click or ⋯ for actions`}
         className={cn(
           "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover focus-ring",
           selected && "bg-accent hover:bg-accent",
@@ -810,7 +829,9 @@ export function Sidebar() {
   }
 
   return (
-    <aside aria-label="Prompts" className="flex w-[clamp(15rem,28%,20rem)] flex-col border-r border-border bg-sidebar">
+    // The floor is 13rem, not 15: at the 125% UI scale and the window's
+    // minimum width the pane kept 260px beside a 300px sidebar
+    <aside ref={asideRef} aria-label="Prompts" className="flex w-[clamp(13rem,28%,20rem)] flex-col border-r border-border bg-sidebar">
       {/* No heading: the window is Promptline and the list is visibly prompts;
           the landmark keeps its name through aria-label. What is shown (the
           filter) apart from how it is shown (Display) */}
@@ -851,9 +872,9 @@ export function Sidebar() {
                 else e.currentTarget.blur()
               }
             }}
-            placeholder="Filter  #tag @pack >group"
+            placeholder={narrow ? "Filter" : "Filter  #tag @pack >group"}
             aria-label="Filter prompts"
-            title="Filter (Ctrl+F) · #tag, @pack and >group narrow it, Esc clears"
+            title="Filter (Ctrl+F): #tag, @pack and >group narrow it, Esc clears"
             spellCheck={false}
             className="relative min-w-0 flex-1 bg-transparent text-transparent caret-foreground outline-none selection:bg-(--link)/30 selection:text-transparent placeholder:text-muted-foreground"
           />

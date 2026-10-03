@@ -510,6 +510,13 @@ export function App() {
       if (!e.key || e.isComposing) return
       if (e.key.toLowerCase() === "z" && e.ctrlKey && !e.shiftKey && !e.altKey && !typing(e.target)) {
         if (undoLast()) e.preventDefault()
+      } else if (e.key.toLowerCase() === "n" && e.ctrlKey && !e.shiftKey && !e.altKey && !typing(e.target)) {
+        // Ctrl+N: a new prompt where the pane is looking (the shown pack or
+        // group, else the pack the last one went to), the popup's Ctrl+N
+        // being the same key; New's menu stays the way to choose a place
+        if (document.querySelector('[role="dialog"], [role="menu"]')) return
+        e.preventDefault()
+        void newPrompt(view.kind === "overview" ? view.focus : undefined)
       } else if (e.key === "Escape" && !typing(e.target) && !e.defaultPrevented) {
         // An armed delete takes the Escape first (capture-phase listeners);
         // a dialog or a context menu closing on it must not also switch the
@@ -527,7 +534,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [settingsOpen, view, activeId, openOverview])
+  }, [settingsOpen, view, activeId, openOverview, newPrompt])
 
   const api = useMemo<ManagerApi>(
     () => ({

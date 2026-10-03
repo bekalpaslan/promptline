@@ -136,7 +136,14 @@ save is toasted by `updateSnippet`, so the caption only clears.
 **The sidebar's filter is always there, and apart from the display.** The
 field under the title takes the popup's syntax (`#tag`, `@pack`, `>group`,
 then free-text words anywhere in the prompt: `matchesQuery` in core), with
-Ctrl+F from anywhere in the manager and Escape clearing it. Its filter
+Ctrl+F from anywhere in the manager and Escape clearing it. The
+placeholder spells the grammar while the sidebar has room for it and
+says "Filter" below 16rem (the window's minimum width, a large UI
+scale), where it used to clip mid-word; the grammar stays in the tooltip.
+Ctrl+N outside a field starts a draft where the pane is looking (the
+shown pack or group, else the pack the last prompt went to), the popup's
+Ctrl+N being the same key; New's menu stays the way to choose a place.
+Its filter
 terms read as chips: the field is a plain input with transparent text over
 a mirror that draws the same text, the terms on a ground and a hairline
 (both drawn without padding, so the mirror lays out exactly like the input

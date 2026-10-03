@@ -607,3 +607,48 @@ test("rows part for a lifted row as it crosses them, and the drop saves what was
   await expect(page.getByText('Moved "Bisect a regression" out of its group')).toBeVisible()
   await expect(lifted).toHaveAttribute("aria-level", "2")
 })
+
+test("Ctrl+N starts a draft where the pane is looking", async ({ page }) => {
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
+  await expect(page.getByRole("region", { name: "Mock Groups", exact: true })).toBeVisible()
+  await page.keyboard.press("Control+n")
+  await expect.poll(() => calls(page, "add_snippet")).toHaveLength(1)
+  expect((await calls(page, "add_snippet"))[0].args).toMatchObject({ snippet: { pack: "Mock Groups", group: "" } })
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("New prompt")
+  // Not while typing: the title field keeps its Ctrl+N
+  await page.keyboard.press("Control+n")
+  await page.waitForTimeout(100)
+  expect(await calls(page, "add_snippet")).toHaveLength(1)
+})
+
+test("a typed tag that normalises says what landed", async ({ page }) => {
+  await promptRow(page, "Loose prompt").click()
+  // A datalist makes the box a combobox to assistive tech
+  const box = page.getByRole("combobox", { name: "Add a tag" })
+  await box.fill("Review, PLAN")
+  await box.press("Enter")
+  await expect(page.getByText("Added #review, #plan")).toBeVisible()
+  await expect(page.getByRole("button", { name: "Remove #review" })).toBeVisible()
+  // A tag typed as it is stored says nothing
+  await box.fill("debug")
+  await box.press("Enter")
+  await expect(page.getByRole("button", { name: "Remove #debug" })).toBeVisible()
+  await expect(page.getByText("Added #debug")).toHaveCount(0)
+})
+
+test("an overview card is named by its title, not read out with the clipboard", async ({ page }) => {
+  await setClipboard(page, "TypeError: cannot read properties of undefined")
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
+  // Named by its title and its pin, nothing more
+  const card = page.getByRole("region", { name: "Mock Groups", exact: true }).getByRole("button", { name: "Explain this error, pinned", exact: true })
+  await expect(card).toBeVisible()
+  await expect(card).toContainText("TypeError")
+  const asks = page.getByRole("button", { name: "Bisect a regression", exact: true })
+  await expect(asks).toHaveAccessibleDescription(/Asks for 2 values/)
+})
+
+test("the filter's placeholder keeps to 'Filter' in a narrow sidebar", async ({ page }) => {
+  await expect(filter(page)).toHaveAttribute("placeholder", "Filter  #tag @pack >group")
+  await page.setViewportSize({ width: 560, height: 400 })
+  await expect(filter(page)).toHaveAttribute("placeholder", "Filter")
+})
