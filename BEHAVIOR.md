@@ -49,7 +49,11 @@ rename and the delete-group dialog it drives, so both surfaces offer the
 same menu; only "Move up/down" is sidebar-only, since the overview's grid
 has no row order to move within. Packs and groups move from that menu (and
 Alt+Up/Down) only: a header is no drag handle, since its click is the
-fold. Prompt rows still lift on press-and-hold. An overview follows a rename of its pack
+fold. Prompt rows still lift on press-and-hold; a lifted row is put back
+where it was, with nothing saved, when the gesture breaks off rather than
+ends (Escape, the browser taking the pointer, the window losing focus
+mid-drag): the release that came after an Alt+Tab used to drop the row
+wherever the pointer had last been. An overview follows a rename of its pack
 or group; one whose group is gone shows the pack. The folds and the
 inline-rename state are the manager's as well (`folds.ts`, `renaming` on
 the API), not the sidebar's: a rename from either surface carries the
@@ -74,6 +78,11 @@ actions, and a click on either keeps focus on the row. The rows used to be
 `role=button` tab stops with real buttons nested inside: about a hundred
 Tab presses to cross a library, no arrow keys, and a computed name that
 read the chevron and the dots out along with the title.
+
+Every field that commits on Enter (a rename, a new tag or field name, a
+pack or group name typed into a menu) ignores the Enter that ends an IME
+composition, which chooses the candidate (`commitKey` in `field.tsx`);
+it used to commit half a Japanese or Chinese word.
 
 **The tree tells its levels apart without colour.** A pack is a bold row
 with a box icon, a group a medium row in the secondary ink, a prompt a
@@ -472,7 +481,10 @@ label scoped to its pack, empty meaning ungrouped. It has no metadata, no lock,
 no file. Renaming a group rewrites the label on every prompt that carries it,
 and renaming onto an existing name merges the two. Deleting a group deletes its
 prompts, so it goes through a real dialog rather than an armed menu item, and
-the status bar offers Undo afterwards. Pack files carry the label as an
+the status bar offers Undo afterwards. Ungroup on a selection clears the
+label and nothing else: it used to move every selected prompt into the
+first one's pack, so a selection spanning packs (one list view, a search)
+was silently gathered into one. Pack files carry the label as an
 optional `"group"` on each prompt; older files and libraries load with it
 empty.
 
@@ -686,6 +698,17 @@ later, reverting a title typed in the editor or a use count bumped by the
 popup in between — and the revision check could not see it, because the
 manager's own reloads had kept the revision current while the closure's
 array went stale.
+
+**A library that can't be read is said so in the pane.** Until
+`get_snippets` answers, the pane shows nothing; when the call fails, it
+says the library didn't load and points at Settings → Your library → Open
+folder, beside the persistent toast carrying the error. It used to show
+the empty-library start ("No prompts yet", New), which read as an
+invitation to begin over while the prompts sat unreadable on disk.
+Clipboard and shell actions in the manager (copying a path, Show in
+folder, reading the clipboard for an import or the Generate dialog) can
+fail too, with another program holding the clipboard open or a folder
+moved, and each says so in a toast rather than doing nothing.
 
 `snippets-changed` exists because the manager used to cache at startup: a prompt
 created in the popup stayed invisible until reload, and the manager's next

@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { RiArrowDownSLine, RiArrowRightSLine, RiCloseLine, RiComputerLine, RiLock2Fill, RiMoonClearLine, RiSunLine } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
-import { SEGMENT_TRACK, Select, fieldVariants, segmentClass } from "@/components/field"
+import { SEGMENT_TRACK, Select, commitKey, fieldVariants, segmentClass } from "@/components/field"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { C } from "@/lib/core"
@@ -56,7 +56,9 @@ export function Settings() {
   const [checking, setChecking] = useState(false)
 
   useEffect(() => {
-    void invoke<boolean>("get_autostart").then(setAutostart)
+    // Unanswered (a registry read refused), the box stays off: the toggle
+    // itself says what happened when it is tried
+    void invoke<boolean>("get_autostart").then(setAutostart, () => {})
   }, [])
 
   // An armed "Really delete?" disarms on Escape or after 3 s, like the
@@ -344,6 +346,9 @@ export function Settings() {
 
       <Card title="Your library">
         <div className="flex flex-col gap-1.5">
+          {m.packNames().length === 0 && (
+            <p className="text-ui text-muted-foreground">No packs yet. New pack makes an empty one; Generate drafts one with an AI.</p>
+          )}
           {m.packNames().map((name) => {
             const meta = m.packMeta.find((p) => p.name === name)
             const count = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === name).length
@@ -381,7 +386,10 @@ export function Settings() {
                             size="compact"
                             variant="secondary"
                             onClick={() =>
-                              void invoke("set_clipboard_text", { text: meta.path }).then(() => say("Path copied"))
+                              void invoke("set_clipboard_text", { text: meta.path }).then(
+                                () => say("Path copied"),
+                                (e) => sayErr(`Couldn't copy the path: ${e}`)
+                              )
                             }
                           >
                             Copy path
@@ -389,7 +397,11 @@ export function Settings() {
                           <Button
                             size="compact"
                             variant="secondary"
-                            onClick={() => void invoke("show_in_folder", { path: meta.path })}
+                            onClick={() =>
+                              void invoke("show_in_folder", { path: meta.path }).catch((e) =>
+                                sayErr(`Couldn't open the folder: ${e}`)
+                              )
+                            }
                           >
                             Show in folder
                           </Button>
@@ -473,7 +485,7 @@ export function Settings() {
               className={cn(fieldVariants({ size: "sm" }), "min-w-40 flex-1")}
               onKeyDown={(e) => {
                 if (e.key === "Escape") setNewPackMode(false)
-                if (e.key === "Enter") {
+                if (commitKey(e)) {
                   const name = e.currentTarget.value.trim()
                   setNewPackMode(false)
                   if (name) void m.addPack(name)
@@ -515,7 +527,11 @@ export function Settings() {
           <Button
             size="compact"
             variant="secondary"
-            onClick={() => void invoke<string>("get_clipboard_text").then(setImportRaw)}
+            onClick={() =>
+              void invoke<string>("get_clipboard_text").then(setImportRaw, (e) =>
+                sayErr(`Couldn't read the clipboard: ${e}`)
+              )
+            }
           >
             Import from clipboard
           </Button>

@@ -24,6 +24,9 @@
 //   update             { supported, autoCheck, available, next } — `next` is
 //                      what the next check_for_updates finds; set it before
 //                      calling to stage a discovered version
+//   fail               a Set of command names; each of them rejects with
+//                      "mock: <cmd> refused" while it is in the set, the way
+//                      a clipboard held open or a missing folder would
 // Commands it doesn't know resolve to null and are logged to the console,
 // so a new command shows up there instead of failing silently.
 //
@@ -156,6 +159,7 @@ export function installMock(mode: string | null) {
     clipboard: showcase?.clipboard ?? "TypeError: cannot read properties of undefined (reading 'id')",
     library: lib,
     pasteResult: "pasted" as "pasted" | "copied",
+    fail: new Set<string>(),
     update: {
       supported: mode !== "store",
       autoCheck: true,
@@ -313,6 +317,7 @@ export function installMock(mode: string | null) {
       convertFileSrc: (path: string) => path,
       async invoke(cmd: string, args?: Record<string, unknown>) {
         calls.push({ cmd, args })
+        if (mock.fail.has(cmd)) throw `mock: ${cmd} refused`
         const run = commands[cmd]
         if (!run) {
           console.info(`[mock] unhandled command ${cmd}`, args)

@@ -149,7 +149,7 @@ export function useLibraryMenus(opts: {
   const deleteGroup = async (pack: string, group: string) => {
     setDeleteGroupAsk(null)
     const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group === group).map((s) => s.id)
-    await m.deleteWithUndo(ids, `Deleted group "${group}" (${ids.length} prompts)`)
+    await m.deleteWithUndo(ids, `Deleted group "${group}" (${C.plural(ids.length, "prompt")})`)
   }
 
   const openGroupCtx = (x: number, y: number, pack: string, group: string, count: number) => {
@@ -226,15 +226,24 @@ export function useLibraryMenus(opts: {
         },
       ]
     }
+    // Both can fail (another program holding the clipboard open, a folder
+    // moved from under the app) and both used to fail silently
     return [
       {
         kind: "item",
         label: "Copy file path",
         run: () => {
-          void invoke("set_clipboard_text", { text: meta.path }).then(() => say("Path copied"))
+          void invoke("set_clipboard_text", { text: meta.path }).then(
+            () => say("Path copied"),
+            (e) => sayErr(`Couldn't copy the path: ${e}`)
+          )
         },
       },
-      { kind: "item", label: "Show in folder", run: () => void invoke("show_in_folder", { path: meta.path }) },
+      {
+        kind: "item",
+        label: "Show in folder",
+        run: () => void invoke("show_in_folder", { path: meta.path }).catch((e) => sayErr(`Couldn't open the folder: ${e}`)),
+      },
     ]
   }
 
@@ -370,7 +379,6 @@ export function useLibraryMenus(opts: {
     // One submenu per pack: hovering lists its groups (a group lives in a
     // pack, so moving into one moves across packs too); clicking the pack
     // itself moves there ungrouped
-    const homePack = selected[0]?.pack || DEFAULT_PACK
     const moveTo = (pk: string, g: string) =>
       void m
         .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, pack: pk, group: g } : s)))
@@ -403,8 +411,18 @@ export function useLibraryMenus(opts: {
         ],
       })
     }
+    // Ungroup clears the label and nothing else: it used to move every
+    // selected prompt into the first one's pack, so a selection spanning
+    // packs (one list view, a search) was silently gathered into one
     if (selected.some((s) => s.group))
-      items.push({ kind: "item", label: "Ungroup", run: () => moveTo(homePack, "") })
+      items.push({
+        kind: "item",
+        label: "Ungroup",
+        run: () =>
+          void m
+            .persist((cur) => cur.map((s) => (ids.includes(s.id) ? { ...s, group: "" } : s)))
+            .then(() => say(n === 1 ? "Ungrouped" : `Ungrouped ${n}`)),
+      })
     items.push(
       { kind: "sep" },
       {
@@ -442,8 +460,9 @@ export function useLibraryMenus(opts: {
             "Selection",
             ids.map((id) => m.snippets.find((s) => s.id === id)).filter((s): s is Snippet => !!s)
           )
-          void invoke("set_clipboard_text", { text: JSON.stringify(pack, null, 2) }).then(() =>
-            say(`Copied ${n} prompts to clipboard`)
+          void invoke("set_clipboard_text", { text: JSON.stringify(pack, null, 2) }).then(
+            () => say(`Copied ${C.plural(n, "prompt")} to clipboard`),
+            (e) => sayErr(`Couldn't copy: ${e}`)
           )
         },
       },

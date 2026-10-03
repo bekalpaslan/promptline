@@ -3,7 +3,7 @@ import { createPortal } from "react-dom"
 import { RiCheckLine } from "@remixicon/react"
 import { cn } from "@/lib/utils"
 import { MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
-import { fieldVariants } from "@/components/field"
+import { commitKey, fieldVariants } from "@/components/field"
 
 // Imperative context menu, ported from the legacy openCtx(): menus are built
 // from data at open time (pack lists, selection counts), positioned at the
@@ -143,7 +143,7 @@ export function useCtxMenu() {
     if (it.kind === "header") {
       return (
         <div key={i} id={id} className={cn(it.name ? "name-label truncate" : "section-label", "px-2 pb-0.5 pt-1.5")}>
-          {it.text}
+          {it.name ? <bdi>{it.text}</bdi> : it.text}
         </div>
       )
     }
@@ -159,7 +159,7 @@ export function useCtxMenu() {
           className={cn(fieldVariants({ size: "sm" }), "w-full")}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => {
-            if (e.key === "Enter") {
+            if (commitKey(e)) {
               it.onSubmit(e.currentTarget.value.trim())
               close()
             }
@@ -196,8 +196,8 @@ export function useCtxMenu() {
             if (keep !== "keep") close()
           }}
         >
-          <span>{it.label}</span>
-          <span className="text-muted-foreground">›</span>
+          <span className="min-w-0 truncate">{it.label}</span>
+          <span className="shrink-0 text-muted-foreground">›</span>
         </button>
       )
     }
@@ -232,7 +232,7 @@ export function useCtxMenu() {
         {it.checked !== undefined && (
           <RiCheckLine className={cn("size-3.5 shrink-0", !it.checked && "invisible")} aria-hidden />
         )}
-        {it.confirm && armed === i ? it.confirm : it.label}
+        <span className="min-w-0 truncate">{it.confirm && armed === i ? it.confirm : it.label}</span>
       </button>
     )
   }
@@ -278,10 +278,13 @@ export function useCtxMenu() {
   const element = state
     ? createPortal(
         <>
+          {/* Both panels are capped at the window's width less a margin and
+              their labels truncate: a pack named in a sentence (an agent
+              wrote it) used to make the Move-to list wider than the window */}
           <div
             ref={ref}
             role="menu"
-            className={cn("fixed z-40 min-w-48", MENU_PANEL)}
+            className={cn("fixed z-40 min-w-48 max-w-[min(24rem,calc(100vw-1rem))]", MENU_PANEL)}
             style={{ left: state.x, top: state.y }}
           >
             {renderPanel(state.items, openSub)}
@@ -293,7 +296,7 @@ export function useCtxMenu() {
               aria-label={subItems.label}
               // A long library's pack and group list scrolls rather than
               // running off the window
-              className={cn("fixed z-40 max-h-[calc(100dvh-1rem)] min-w-40 overflow-y-auto", MENU_PANEL)}
+              className={cn("fixed z-40 max-h-[calc(100dvh-1rem)] min-w-40 max-w-[min(24rem,calc(100vw-1rem))] overflow-y-auto", MENU_PANEL)}
               style={{ left: sub!.x, top: sub!.y }}
             >
               {renderPanel(subItems.items)}

@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { Keys } from "@/components/prompt-bits"
 import { C, isStoreError, type Library, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
-import { ManagerCtx, groupKey, type DeleteOpts, type LibraryFocus, type ManagerApi, type Prefs, type Renaming, type View } from "./state"
+import { ManagerCtx, groupKey, type DeleteOpts, type LibraryFocus, type LibraryState, type ManagerApi, type Prefs, type Renaming, type View } from "./state"
 import { type Config, DEFAULT_PACK, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 import { useFolds } from "./folds"
 import { say, sayErr, sayPersistent, sayUndo, undoLast } from "./status"
@@ -28,6 +28,7 @@ interface Notice {
 
 export function App() {
   const [snippets, setSnippets] = useState<Snippet[]>([])
+  const [libraryState, setLibraryState] = useState<LibraryState>("loading")
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
   // A–Z until the user drags a pack; then packMeta is in their order
   const [packsArranged, setPacksArranged] = useState(false)
@@ -390,8 +391,12 @@ export function App() {
           lib.snippets = snips
         }
         applyLibrary(lib)
+        setLibraryState("ready")
       } catch (e) {
         if (cancelled) return
+        // The pane says so too (Editor): an empty list here is not an empty
+        // library, and "No prompts yet" with a New button would read as one
+        setLibraryState("failed")
         sayPersistent(`Couldn't load the library: ${e}`)
       }
       // Its own try: a library that won't load must not leave the hotkey,
@@ -527,6 +532,7 @@ export function App() {
   const api = useMemo<ManagerApi>(
     () => ({
       snippets,
+      libraryState,
       packMeta,
       activeId,
       selection,
@@ -571,7 +577,7 @@ export function App() {
       openUpdateOffer,
       setAutoUpdateCheck,
     }),
-    [snippets, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
+    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
   )
 
   // null until the config has loaded: the banner, the tooltip and the hints

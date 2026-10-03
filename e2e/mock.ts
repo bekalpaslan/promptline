@@ -48,6 +48,11 @@ export function setClipboard(page: Page, text: string) {
   return page.evaluate((text) => void ((window as unknown as { __mock: { clipboard: string } }).__mock.clipboard = text), text)
 }
 
+// Makes every call of `cmd` reject from now on (the mock's `fail` set)
+export function failCommand(page: Page, cmd: string) {
+  return page.evaluate((cmd) => void (window as unknown as { __mock: { fail: Set<string> } }).__mock.fail.add(cmd), cmd)
+}
+
 export function setPasteResult(page: Page, result: "pasted" | "copied") {
   return page.evaluate((result) => void ((window as unknown as { __mock: { pasteResult: string } }).__mock.pasteResult = result), result)
 }

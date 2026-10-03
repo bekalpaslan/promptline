@@ -235,7 +235,13 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   // ---- Step 1 actions ----
   const copyChatPrompt = async () => {
     if (!requireTopic()) return
-    await invoke("set_clipboard_text", { text: segmentsToText(chatInstruction(rules, topic.trim())) })
+    try {
+      await invoke("set_clipboard_text", { text: segmentsToText(chatInstruction(rules, topic.trim())) })
+    } catch (e) {
+      // Step 1 stays open: nothing was copied, so nothing to paste
+      sayErr(`Couldn't copy the instruction: ${e}`)
+      return
+    }
     setCopied(true)
     say("Copied — paste it into your AI chat")
   }
@@ -307,7 +313,11 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   }
 
   const importReply = async () => {
-    setImportRaw(await invoke<string>("get_clipboard_text"))
+    try {
+      setImportRaw(await invoke<string>("get_clipboard_text"))
+    } catch (e) {
+      sayErr(`Couldn't read the clipboard: ${e}`)
+    }
   }
 
   const close = (v: boolean) => {
