@@ -161,6 +161,7 @@ export function TagPill({
   tag,
   active,
   onClick,
+  onRemove,
   rowTarget,
   size = "sm",
   title,
@@ -169,10 +170,12 @@ export function TagPill({
   tag: string
   active?: boolean
   onClick?: (tag: string) => void
+  /** The editor's own tags: an inline × takes the tag off the prompt */
+  onRemove?: () => void
   rowTarget?: boolean
   size?: "sm" | "md"
   title?: string
-  /** Extra content after the name, such as the editor's delete badge */
+  /** Extra content after the name */
   children?: React.ReactNode
 }) {
   const label = active ? `Clear #${tag} filter` : `Filter by #${tag}`
@@ -187,6 +190,8 @@ export function TagPill({
       aria-label={onClick ? label : undefined}
       aria-pressed={onClick ? !!active : undefined}
       data-tag={rowTarget ? tag : undefined}
+      onRemove={onRemove}
+      removeLabel={`Remove #${tag}`}
       onClick={
         onClick &&
         ((e) => {

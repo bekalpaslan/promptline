@@ -1040,7 +1040,7 @@ export function App() {
               />
               {form.configFields.has(f) && (
                 <div id={`field-${f}-note`} className="mt-0.5 text-xs text-muted-foreground">
-                  A config parameter: set it once in the manager's Advanced options and it stops asking
+                  A config parameter: set it once in the manager's editor, under Placeholders, and it stops asking
                 </div>
               )}
             </div>

@@ -149,12 +149,13 @@ report.
 | `{clipboard}` | whatever was on the clipboard when you hit the hotkey |
 | `{date}` / `{time}` | current date / time |
 | any other `{lowercase_word}` | a runtime fill-in field — the popup asks before pasting |
-| `{{lowercase_word}}` | a config parameter — set its value once (editor → Advanced options), it pastes silently every time |
+| `{{lowercase_word}}` | a config parameter — set its value once (editor → Placeholders), it pastes silently every time |
 
 Unset config parameters downgrade to fill-in fields instead of pasting holes.
-Parameter tooling lives behind **Advanced options** in the editor — one card
-per kind (built-in / fill-in / config), each with an Edit toggle for removing
-them, plus config values. Invisible until you want it.
+The editor's **Placeholders** card shows what the prompt's text holds, each
+as a chip with an × that takes it out of the text, the config values beside
+their names, and one "insert…" chip for adding more: a typed name, or a
+built-in or a field name the rest of your library already uses.
 
 ## The popup
 

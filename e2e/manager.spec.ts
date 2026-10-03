@@ -29,7 +29,8 @@ test("clicking a prompt opens it in the editor", async ({ page }) => {
   await promptRow(page, "Loose prompt").click()
   await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("Loose prompt")
   await expect(page.getByRole("textbox", { name: "Prompt text" })).toHaveValue("A prompt in no group.")
-  await expect(page.getByRole("combobox", { name: "Pack" })).toHaveValue("Mock Groups")
+  // Its place is the crumb line, not a field
+  await expect(page.getByRole("button", { name: "Mock Groups", exact: true })).toBeVisible()
 })
 
 test("an edit autosaves through the debounce and says Saved once", async ({ page }) => {
@@ -194,18 +195,45 @@ test("the editor names a near-miss placeholder under the prompt text, and has no
   await expect(page.getByRole("note")).toHaveCount(0)
 })
 
-test("a numbered copy of a field used in the library is not offered as a chip", async ({ page }) => {
+test("the editor's placeholders are the text's own; the insert menu offers the library's names, not a numbered copy", async ({ page }) => {
   // One prompt uses {goal} with a numbered copy, and {step_2} on its own
   await promptRow(page, "Loose prompt").click()
   await page.getByRole("textbox", { name: "Prompt text" }).fill("Compare {goal} with {goal_2}, then {step_2}.")
   await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible()
-  // Another prompt's editor offers the library's names: the first and the
-  // lone numbered name, not the copy (the + on {goal}'s chip makes that)
+  // The chips are what this text holds, each with a way out of the text
+  await expect(page.getByRole("button", { name: "Remove {goal} from the text" })).toBeVisible()
+  // Both {goal} and {goal_2} offer the next free copy, counted from the stem
+  await expect(page.getByRole("button", { name: "Insert {goal_3}" }).first()).toBeVisible()
+  // Another prompt's insert menu offers the library's names: the first and
+  // the lone numbered name, not the copy (the + on {goal}'s chip makes that)
   await promptRow(page, "Bisect a regression").click()
-  await page.getByRole("button", { name: "Advanced options" }).click()
-  await expect(page.locator('[title="Insert {goal}"]')).toBeVisible()
-  await expect(page.locator('[title="Insert {step_2}"]')).toBeVisible()
-  await expect(page.locator('[title="Insert {goal_2}"]')).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Remove {good} from the text" })).toBeVisible()
+  await page.getByRole("button", { name: "Insert a placeholder" }).click()
+  const menu = page.getByRole("menu")
+  await expect(menu.getByRole("menuitem", { name: "{goal}" })).toBeVisible()
+  await expect(menu.getByRole("menuitem", { name: "{step_2}" })).toBeVisible()
+  await expect(menu.getByRole("menuitem", { name: "{goal_2}" })).toHaveCount(0)
+  await expect(menu.getByRole("menuitem", { name: "{clipboard}" })).toBeVisible()
+  // What is in the text already is not offered again
+  await expect(menu.getByRole("menuitem", { name: "{good}" })).toHaveCount(0)
+  await menu.getByRole("menuitem", { name: "{clipboard}" }).click()
+  await expect(page.getByRole("textbox", { name: "Prompt text" })).toHaveValue(/\{clipboard\}/)
+})
+
+test("the crumb's chevron moves the prompt, and the autosave keeps the move", async ({ page }) => {
+  await promptRow(page, "Loose prompt").click()
+  await page.getByRole("button", { name: "Move to another pack or group" }).click()
+  await page.getByRole("menuitem", { name: "Mock Groups" }).hover()
+  const sub = page.getByRole("menu", { name: "Mock Groups" })
+  // Where it is reads as the checked item
+  await expect(sub.getByRole("menuitemradio", { name: "No group" })).toHaveAttribute("aria-checked", "true")
+  await sub.getByRole("menuitemradio", { name: "Debugging" }).click()
+  await expect(page.getByRole("button", { name: "Debugging", exact: true })).toBeVisible()
+  // An edit that lands after the move writes the new place, not the old
+  await page.getByRole("textbox", { name: "Title" }).fill("Loose prompt, grouped")
+  await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible()
+  const lib = await library(page)
+  expect(lib.find((s) => s.title === "Loose prompt, grouped")).toMatchObject({ pack: "Mock Groups", group: "Debugging" })
 })
 
 test("Settings replaces the pane and closes again", async ({ page }) => {
@@ -280,8 +308,9 @@ test("New → Prompt in a pack starts a draft in the editor", async ({ page }) =
 
 test("deleting a prompt asks twice, writes the library, and Undo puts it back", async ({ page }) => {
   await promptRow(page, "Loose prompt").click()
-  await page.getByRole("button", { name: "Delete prompt" }).click()
-  await page.getByRole("button", { name: "Confirm delete" }).click()
+  await page.getByRole("button", { name: "Prompt actions" }).click()
+  await page.getByRole("menuitem", { name: "Delete…" }).click()
+  await page.getByRole("menuitem", { name: "Really delete?" }).click()
   await expect(promptRow(page, "Loose prompt")).toHaveCount(0)
   // The manager writes the whole list with its base revision (`persist`)
   await expect.poll(() => calls(page, "save_snippets")).toHaveLength(1)
