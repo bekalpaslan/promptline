@@ -256,8 +256,15 @@ test("Enter in a field goes to the next empty field; it pastes only when none is
   await expect(bad).toBeInViewport({ ratio: 1 })
   expect(await calls(page, "paste_snippet")).toHaveLength(0)
   await expect(page.getByText("next field", { exact: true })).toBeHidden()
-  await expect(page.getByText("paste", { exact: true })).toBeVisible()
+  // Enter would send now, with this field a hole: the bar counts it, in
+  // Warn, in the button's words
+  const holed = page.getByText("paste with 1 field empty", { exact: true })
+  await expect(holed).toBeVisible()
+  const ink = await page.getByText("back", { exact: true }).evaluate((e) => getComputedStyle(e).color)
+  expect(await holed.evaluate((e) => getComputedStyle(e).color)).not.toBe(ink)
   await page.keyboard.type("v1.1")
+  await expect(holed).toHaveCount(0)
+  await expect(page.getByText("paste", { exact: true })).toBeVisible()
   await page.keyboard.press("Enter")
   await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(1)
   const [call] = await calls(page, "paste_snippet")
@@ -325,6 +332,82 @@ test("a failed paste stays in the strip until Escape, and the prompt is not re-p
   // The pick is over: Enter picks again
   await page.keyboard.press("Enter")
   await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(2)
+})
+
+test("while a failed paste is showing, Enter only dismisses it, and the clipboard line is re-read", async ({ page }) => {
+  await search(page).fill("Loose prompt")
+  await page.keyboard.press("Enter")
+  await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(1)
+  const [sent] = await calls(page, "paste_snippet")
+  // What Rust left on the clipboard: the prompt it could not paste
+  await setClipboard(page, String(sent.args!.text))
+  const reads = (await calls(page, "get_clipboard_text")).length
+  await emit(page, "paste-failed", { message: "Couldn't paste into that window. The prompt is on your clipboard: press Ctrl+V there to paste it yourself." })
+  await expect(page.getByRole("alert")).toBeVisible()
+  await expect.poll(async () => (await calls(page, "get_clipboard_text")).length).toBeGreaterThan(reads)
+  await expect(clipLine(page)).toContainText("Last pasted prompt")
+  // The bar leads with the recovery and no longer offers paste
+  await expect(page.getByText("in the target", { exact: true })).toBeVisible()
+  await expect(page.getByText("paste", { exact: true })).toHaveCount(0)
+  // Enter clears the message and sends nothing
+  await page.keyboard.press("Enter")
+  await expect(strip(page)).toBeHidden()
+  expect(await calls(page, "paste_snippet")).toHaveLength(1)
+  expect(await calls(page, "hide_popup")).toHaveLength(0)
+  await expect(page.getByText("paste", { exact: true })).toBeVisible()
+  // The next Enter picks as usual
+  await page.keyboard.press("Enter")
+  await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(2)
+})
+
+test("Enter during the Copied pause sends nothing more", async ({ page }) => {
+  await search(page).fill("Loose prompt")
+  await page.keyboard.press("Control+Enter")
+  await expect(strip(page)).toHaveText("Copied to clipboard")
+  await page.keyboard.press("Enter")
+  await expect.poll(() => calls(page, "hide_popup")).toHaveLength(1)
+  const sent = await calls(page, "paste_snippet")
+  expect(sent).toHaveLength(1)
+  expect(sent[0].args).toMatchObject({ paste: false })
+})
+
+test("a hover card leaves the hint bar and the keys to the selected row", async ({ page }) => {
+  const first = rows(page).first()
+  const third = rows(page).nth(2)
+  const thirdTitle = (await third.locator("bdi").first().textContent())!
+  await third.hover({ position: { x: 20, y: 10 } })
+  await third.hover({ position: { x: 40, y: 12 } })
+  const card = page.getByRole("note", { name: "Preview" })
+  await expect(card).toBeVisible()
+  await expect(card).toContainText(thirdTitle)
+  // The bar still speaks for the selected row: no "back", no page keys
+  await expect(page.getByText("preview", { exact: true })).toBeVisible()
+  await expect(page.getByText("back", { exact: true })).toHaveCount(0)
+  await expect(first).toHaveAttribute("aria-selected", "true")
+  // Enter pastes the selected row, as the bar says
+  await page.keyboard.press("Enter")
+  await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(1)
+  const [call] = await calls(page, "paste_snippet")
+  expect(`row-${String(call.args!.id)}`).toBe(await first.getAttribute("id"))
+})
+
+test("a form opened to copy says copy: its heading, its button and the bar", async ({ page }) => {
+  await search(page).fill("Bisect a regression")
+  await page.keyboard.press("Control+Enter")
+  await expect(page.getByText("Will copy")).toBeVisible()
+  await expect(page.getByText("Will paste")).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Copy with 2 fields empty" })).toBeVisible()
+  await page.keyboard.press("Enter")
+  await expect(page.getByText("copy with 2 fields empty", { exact: true })).toBeVisible()
+})
+
+test("Ctrl+Enter copies from the form's button too", async ({ page }) => {
+  await search(page).fill("Bisect a regression")
+  await page.keyboard.press("Enter")
+  await page.getByRole("button", { name: "Paste with 2 fields empty" }).focus()
+  await page.keyboard.press("Control+Enter")
+  await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(1)
+  expect((await calls(page, "paste_snippet"))[0].args).toMatchObject({ paste: false })
 })
 
 test("Tab opens the row's actions; delete asks twice and U undoes", async ({ page }) => {
@@ -536,6 +619,20 @@ test("after a paste the line names the clipboard as the last pasted prompt, not 
   await setClipboard(page, sent.split("{clipboard}").join(clip))
   await emit(page, "popup-shown")
   await expect(clipLine(page)).toContainText("Last pasted prompt")
+  // Enter on a {clipboard} row would now paste that prompt inside itself:
+  // the label and the Enter hint say so in Warn, and Enter still pastes
+  await search(page).fill("Root cause first")
+  const wraps = page.getByText("paste, wraps last prompt", { exact: true })
+  await expect(wraps).toBeVisible()
+  const label = clipLine(page).getByText("Last pasted prompt")
+  const ink = await page.getByText("close", { exact: true }).evaluate((e) => getComputedStyle(e).color)
+  expect(await label.evaluate((e) => getComputedStyle(e).color)).not.toBe(ink)
+  expect(await wraps.evaluate((e) => getComputedStyle(e).color)).toBe(await label.evaluate((e) => getComputedStyle(e).color))
+  // A row that does not use the clipboard is not warned about
+  await search(page).fill("Loose prompt")
+  await expect(wraps).toHaveCount(0)
+  await expect(page.getByText("paste", { exact: true })).toBeVisible()
+  expect(await label.evaluate((e) => getComputedStyle(e).color)).toBe(ink)
   // Anything else on the clipboard is just the clipboard again
   await setClipboard(page, "something new")
   await emit(page, "popup-shown")
@@ -728,4 +825,24 @@ test("at 125% UI scale the hint bar drops hints instead of wrapping", async ({ p
   await expect(hint("actions")).toBeVisible()
   await expect(hint("preview")).toBeVisible()
   await page.evaluate(() => localStorage.removeItem("scale"))
+})
+
+test("at the 320 px minimum and 125% a Warn hint stands alone, on one line", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 280 })
+  await page.evaluate(() => localStorage.setItem("scale", "125"))
+  await setClipboard(page, "")
+  await emit(page, "popup-shown")
+  await search(page).fill("Root cause first")
+  const warn = page.getByText("paste without clipboard", { exact: true })
+  await expect(warn).toBeVisible()
+  // Esc gave way: with it the bar wrapped and took a row from a window that has one
+  await expect(page.getByText("close", { exact: true })).toBeHidden()
+  const bar = warn.locator("xpath=../..")
+  const [barBox, warnBox] = await Promise.all([bar.boundingBox(), warn.boundingBox()])
+  expect(barBox!.height).toBeLessThan(warnBox!.height * 2)
+  // At 100% the same window has room for both
+  await page.evaluate(() => localStorage.removeItem("scale"))
+  await emit(page, "popup-shown")
+  await search(page).fill("Root cause first")
+  await expect(page.getByText("close", { exact: true })).toBeVisible()
 })

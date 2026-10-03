@@ -225,7 +225,8 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    has to return to a window that is still on screen: the popup shows it in
    its feedback strip and nothing else happens. Copy-only (Ctrl+Enter) leaves
    the popup up for a moment to say "Copied to clipboard"; the popup hides
-   itself afterwards. The command answers with a tag, `"pasted"` when the
+   itself afterwards, and takes no pick in that moment (an Enter in those
+   600 ms pasted what Ctrl+Enter had only copied). The command answers with a tag, `"pasted"` when the
    paste thread was spawned and `"copied"` when it fell back to copy-only
    (`paste_mode`): when the manager was the foreground window at summon
    time there is nothing sane to paste into (Enter would land the prompt in
@@ -256,7 +257,14 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    its second half to truncation at the default width); the popup shows it
    in its feedback strip as an error that stays until Esc or the next
    summon, and the prompt is still on the clipboard to paste by hand. It
-   used to fail with nothing said. One case
+   used to fail with nothing said. While that message is up the popup
+   re-reads the clipboard, so the line under the search box says "Last
+   pasted prompt" (it kept showing what had been copied before, beside a
+   message saying the prompt is on the clipboard), and Enter only clears
+   the message, like Esc: the hint bar reads `Ctrl V in the target · ↵ Esc
+   dismiss`. Enter used to send the row again, into the window that had
+   just refused it, and a `{clipboard}` row would have wrapped the prompt
+   in itself. The Enter after that picks as usual. One case
    still passes silently: UIPI drops input aimed at an elevated window
    without reporting it, so `SendInput` returns success there.
 
@@ -397,6 +405,23 @@ Warn belongs to the one line and the one hint. The `Ctrl N` key on the
 line is drawn unavailable (half strength, `aria-disabled`) while there is
 nothing to save; it still answers with "Copy something first" in the strip.
 
+**Every hole Enter would send is said in Warn, on the Enter hint.** The
+empty clipboard was the only one. A fill-in form whose Enter sends now
+with fields still empty reads `↵ paste with 1 field empty` (the button's
+words; `copy with…` in a form opened to copy), where it read a neutral `↵
+paste` over a button that counted the hole. And while the clipboard holds
+the prompt the popup sent last, a `{clipboard}` row with no form reads `↵
+paste, wraps last prompt`, with "Last pasted prompt" on the clipboard line
+in Warn too: Enter would paste that prompt inside itself, which is rarely
+meant and looked exactly like a normal paste. Both still paste at once,
+for the reason below. A form opened to copy heads its preview "Will copy",
+not "Will paste", and opening a form clears a passing remark such as "Copy
+something first" from the strip (an Undo offer and an error stay). In
+the narrowest bar there is (320 px at a 125% UI scale) a Warn hint stands
+alone, without `Esc`, and the failed paste's bar keeps only `↵ Esc
+dismiss`: with one more hint each of them wrapped to two lines, the empty
+clipboard's included, and took a row from a window that has one.
+
 **The hint bar says so too.** While the selected row would paste a hole,
 `↵ paste` reads `↵ paste without clipboard` with the label in Warn: the bar
 is where the eye checks what Enter does, and the icon alone is a quiet
@@ -429,7 +454,12 @@ left alone, since a flag emoji is made of tags.
 
 **The pointer never moves the selection.** Hover is the grey on the row
 and, after a pause, the preview card; the keyboard selection moves on keys
-or a click, and a click pastes the row it lands on. A hover used to set the
+or a click, and a click pastes the row it lands on. A hover card is the
+pointer's: the hint bar keeps speaking for the selected row, and PgUp,
+PgDn and ← act only on a card opened with →. Any open card used to switch
+the bar to `↵ paste · ← back`, so with the pointer resting on one row (the
+popup opens at the cursor) the card showed one prompt and Enter pasted
+another. A hover used to set the
 selection too, so the pointer painted the selection tint (against
 `DESIGN.md`'s Pointer Grey Rule) and a trackpad brush after summon changed
 what Enter pasted. In the same spirit the search box's border takes the
