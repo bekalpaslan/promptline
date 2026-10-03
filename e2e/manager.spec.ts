@@ -259,12 +259,26 @@ test("the crumb's chevron moves the prompt, and the autosave keeps the move", as
   expect(lib.find((s) => s.title === "Loose prompt, grouped")).toMatchObject({ pack: "Mock Groups", group: "Debugging" })
 })
 
-test("Settings replaces the pane and closes again", async ({ page }) => {
-  await page.getByRole("button", { name: "Settings" }).click()
+test("Settings replaces the pane; the gear, pressed, closes it again", async ({ page }) => {
+  const gear = page.getByRole("button", { name: "Settings", exact: true })
+  await gear.click()
   await expect(page.getByRole("heading", { name: "Settings" })).toBeVisible()
   await expect(page.getByRole("radiogroup", { name: "Mode" })).toBeVisible()
-  await page.getByRole("button", { name: "Close settings" }).click()
+  await expect(gear).toHaveAttribute("aria-pressed", "true")
+  await gear.click()
   await expect(page.getByRole("heading", { name: "Settings" })).toHaveCount(0)
+})
+
+test("a pack's delete asks in the same dialog, names what goes, and Undo brings the pack back", async ({ page }) => {
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Delete pack…" }).click()
+  const dialog = page.getByRole("dialog", { name: 'Delete pack "Mock Groups"?' })
+  await expect(dialog.getByText(/This deletes all 4 prompts in it/)).toBeVisible()
+  await dialog.getByRole("button", { name: "Delete pack" }).click()
+  await expect(tree(page).getByRole("treeitem", { name: /^Mock Groups/ })).toHaveCount(0)
+  await expect.poll(() => calls(page, "delete_pack")).toHaveLength(1)
+  await page.getByRole("button", { name: "Undo" }).click()
+  await expect(tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })).toBeVisible()
 })
 
 test("a library that won't load leaves the hotkey the install actually has, not the new default", async ({ page }) => {
@@ -329,11 +343,13 @@ test("New → Prompt in a pack starts a draft in the editor", async ({ page }) =
   await expect(promptRow(page, "New prompt")).toBeVisible()
 })
 
-test("deleting a prompt asks twice, writes the library, and Undo puts it back", async ({ page }) => {
+test("deleting a prompt asks in the one delete dialog, writes the library, and Undo puts it back", async ({ page }) => {
   await promptRow(page, "Loose prompt").click()
   await page.getByRole("button", { name: "Prompt actions" }).click()
   await page.getByRole("menuitem", { name: "Delete…" }).click()
-  await page.getByRole("menuitem", { name: "Really delete?" }).click()
+  const dialog = page.getByRole("dialog", { name: 'Delete "Loose prompt"?' })
+  await expect(dialog.getByText("Undo stays on offer")).toBeVisible()
+  await dialog.getByRole("button", { name: "Delete", exact: true }).click()
   await expect(promptRow(page, "Loose prompt")).toHaveCount(0)
   // The manager writes the whole list with its base revision (`persist`)
   await expect.poll(() => calls(page, "save_snippets")).toHaveLength(1)
@@ -351,8 +367,9 @@ test("an import marks a prompt with hidden characters and leaves it unticked", a
     { title: "Smuggled", text: "Review this diff\u{E0068}\u{E0069}", tags: ["review"] },
   ] }
   await setClipboard(page, JSON.stringify(pack))
-  await page.getByRole("button", { name: "Settings" }).click()
-  await page.getByRole("button", { name: "Import from clipboard" }).click()
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  await page.getByRole("button", { name: "Import…" }).click()
+  await page.getByRole("menuitem", { name: "From clipboard" }).click()
   await expect(page.getByText("2 prompts (1 with hidden text)")).toBeVisible()
   await expect(page.getByRole("checkbox", { name: /^Plain/ })).toHaveAttribute("aria-checked", "true")
   const smuggled = page.getByRole("checkbox", { name: /^Smuggled/ })
@@ -376,8 +393,9 @@ test("a pack and the library export to a file, in the JSON Import reads", async 
   expect(pack.prompts.map((p) => p.group ?? "")).toEqual(["Debugging", "Debugging", "Review", ""])
 
   // Settings exports the whole library as an array of packs
-  await page.getByRole("button", { name: "Settings" }).click()
-  await page.getByRole("button", { name: "Export to file…" }).click()
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  await page.getByRole("button", { name: "Export…" }).click()
+  await page.getByRole("menuitem", { name: "To file…" }).click()
   const [, libraryCall] = await calls(page, "export_pack_file")
   expect(libraryCall.args?.name).toBe("Promptline library")
   const packs = JSON.parse(String(libraryCall.args?.text)) as Pack[]

@@ -49,7 +49,7 @@ export function Editor() {
         <EmptyState
           icon={RiErrorWarningLine}
           title="The library didn't load"
-          hint="Your prompts are still in their file; nothing on disk was changed. The message at the bottom right says what went wrong, and Settings → Your library → Open folder shows the files."
+          hint="Your prompts are still in their file; nothing on disk was changed. The message at the bottom right says what went wrong, and Settings → Backup and import → Open folder shows the files."
           actions={[{ label: "Open settings", onClick: () => m.showSettings(true), primary: true }]}
         />
       )
@@ -312,20 +312,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         run: () => void togglePin().catch(() => {}),
       },
       { kind: "sep" },
-      {
-        kind: "item",
-        label: "Delete…",
-        danger: true,
-        confirm: "Really delete?",
-        run: () => {
-          // A pending edit of a prompt being deleted has nothing to save
-          if (saveTimer.current) {
-            clearTimeout(saveTimer.current)
-            saveTimer.current = null
-          }
-          void m.deleteWithUndo([snippet.id], `Deleted "${snippet.title}"`).catch(() => {})
-        },
-      },
+      { kind: "item", label: "Delete…", danger: true, run: () => menus.askDeletePrompts([snippet.id]) },
     ])
 
   const atButton = (e: React.MouseEvent<HTMLElement>) => {

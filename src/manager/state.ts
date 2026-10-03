@@ -36,7 +36,7 @@ export type View = { kind: "prompt" } | { kind: "overview"; focus: LibraryFocus 
 export const groupKey = C.groupKey
 
 /** Which surface draws a rename field: the sidebar's row or the overview's heading */
-export type Surface = "sidebar" | "overview" | "editor"
+export type Surface = "sidebar" | "overview" | "editor" | "settings"
 /** A pack name (or a groupKey) open for typing, on one surface */
 export interface Renaming {
   name: string

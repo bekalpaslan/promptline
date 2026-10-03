@@ -324,7 +324,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     if (!v) {
       // Closing mid-watch keeps nothing running; the file stays for a manual
       // import from Settings → the pack's "Import from this file…"
-      if (watching) say("Stopped watching — the file is still there under Settings → Your library")
+      if (watching) say("Stopped watching — the file is still there under Settings → Packs")
       reset()
     }
     onOpenChange(v)

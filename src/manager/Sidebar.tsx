@@ -48,6 +48,9 @@ function QueryMirror({ query }: { query: string }) {
   )
 }
 
+// The prompt orders as the Display menu names them
+const ORDER_LABELS: Record<OrderBy, string> = { uses: "Most used", title: "A–Z", custom: "Custom" }
+
 // A title with the filter's free-text words marked: each word's first
 // occurrence, overlaps merged, case-insensitive like the match itself
 function marked(title: string, words: string[]): React.ReactNode {
@@ -868,13 +871,14 @@ export function Sidebar() {
         </label>
         <button
           type="button"
-          title="Display: packs or one list, order, folding"
-          aria-label="Display options"
+          // The dot says the display is off its defaults; the title says which way
+          title={`Display: ${grouped ? "packs" : "one list"}, ${ORDER_LABELS[orderBy]}${!grouped || orderBy !== "uses" ? " (changed from the defaults)" : ""}`}
+          aria-label={`Display options: ${grouped ? "packs" : "one list"}, ${ORDER_LABELS[orderBy]}`}
           aria-haspopup="menu"
           className="relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-hover hover:text-foreground"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect()
-            const orders: [OrderBy, string][] = [["uses", "Most used"], ["title", "A–Z"], ["custom", "Custom — drag to arrange"]]
+            const orders: [OrderBy, string][] = [["uses", ORDER_LABELS.uses], ["title", ORDER_LABELS.title], ["custom", `${ORDER_LABELS.custom} — drag to arrange`]]
             const setView = (on: boolean) => {
               setGrouped(on)
               localStorage.setItem("groupByPack", on ? "1" : "0")

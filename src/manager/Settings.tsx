@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { RiArrowDownSLine, RiArrowRightSLine, RiCloseLine, RiComputerLine, RiLock2Fill, RiMoonClearLine, RiSunLine } from "@remixicon/react"
+import { RiArrowDownSLine, RiArrowRightSLine, RiComputerLine, RiLock2Fill, RiMoonClearLine, RiSunLine } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
 import { SEGMENT_TRACK, Select, commitKey, fieldVariants, segmentClass } from "@/components/field"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -10,6 +10,8 @@ import { FONTS, PALETTES, fontStack } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
 import { ImportCuration } from "./ImportCuration"
+import { useLibraryMenus } from "./menus"
+import { useCtxMenu } from "./ctx-menu"
 import { say, sayErr } from "./status"
 import { exportToClipboard, exportToFile, libraryJson, librarySummary, packJson } from "./export"
 import { checkForUpdates } from "@/lib/update"
@@ -52,34 +54,16 @@ export function Settings() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [newPackMode, setNewPackMode] = useState(false)
   const [importRaw, setImportRaw] = useState<string | null>(null)
-  const [deleteArm, setDeleteArm] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
+  // The one delete dialog (menus.tsx), and the two-item menus behind Export and Import
+  const menus = useLibraryMenus({ surface: "settings" })
+  const files = useCtxMenu()
 
   useEffect(() => {
     // Unanswered (a registry read refused), the box stays off: the toggle
     // itself says what happened when it is tried
     void invoke<boolean>("get_autostart").then(setAutostart, () => {})
   }, [])
-
-  // An armed "Really delete?" disarms on Escape or after 3 s, like the
-  // editor's delete button (UM23)
-  useEffect(() => {
-    if (!deleteArm) return
-    const t = setTimeout(() => setDeleteArm(null), 3000)
-    // Capture phase, and preventDefault: an Escape that disarms must not
-    // also close the Settings pane (App.tsx checks defaultPrevented)
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        e.preventDefault()
-        setDeleteArm(null)
-      }
-    }
-    document.addEventListener("keydown", onKey, true)
-    return () => {
-      clearTimeout(t)
-      document.removeEventListener("keydown", onKey, true)
-    }
-  }, [deleteArm])
 
   const DEFAULT_HOTKEY = "ctrl+alt+v"
 
@@ -166,20 +150,11 @@ export function Settings() {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
-      {/* The pane replaces the editor; say so, and give it a way out */}
-      <div className="flex w-full max-w-160 items-center gap-2 self-center px-1">
-        <h1 className="flex-1 text-base font-semibold">Settings</h1>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close settings"
-          title="Close settings (Esc)"
-          className="text-muted-foreground"
-          onClick={() => m.showSettings(false)}
-        >
-          <RiCloseLine className="size-4" />
-        </Button>
-      </div>
+      {/* The pane replaces the editor; the gear above it, pressed, is the
+          way out (and Escape). A × here was a second close beside it, and
+          the pane's one heading is set at the heading size so the cards'
+          titles read as a step below it rather than beside it. */}
+      <h1 className="w-full max-w-160 self-center px-1 text-lg font-semibold">Settings</h1>
       <Card title="General">
         <Row label="Global hotkey" htmlFor="setting-hotkey">
           <input
@@ -344,7 +319,12 @@ export function Settings() {
         </p>
       </Card>
 
-      <Card title="Your library">
+      {/* Packs: what the library holds and where each one's file is; the
+          actions that make a pack sit under the list. Backup and import
+          are the library-wide jobs, in their own card, each behind one
+          button with a two-item menu: seven buttons in two rows mixed the
+          four jobs. */}
+      <Card title="Packs">
         <div className="flex flex-col gap-1.5">
           {m.packNames().length === 0 && (
             <p className="text-ui text-muted-foreground">No packs yet. New pack makes an empty one; Generate drafts one with an AI.</p>
@@ -369,12 +349,11 @@ export function Settings() {
                   }}
                 >
                   <Chev className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="size-2 shrink-0 rounded-full" style={{ background: C.tagColor(name) }} />
-                  <span className="min-w-0 flex-1 truncate" title={name}>{name}</span>
-                  {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
-                  <span className="text-xs tabular-nums text-muted-foreground">
-                    {count} prompt{count === 1 ? "" : "s"}
+                  <span className="min-w-0 flex-1 truncate" title={name}>
+                    <bdi>{name}</bdi>
                   </span>
+                  {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-label="locked" />}
+                  <span className="text-xs tabular-nums text-muted-foreground">{C.plural(count, "prompt")}</span>
                 </button>
                 {isOpen && (
                   <div className="flex flex-col gap-2 border-t border-border px-2.5 py-2 text-ui text-muted-foreground">
@@ -443,24 +422,10 @@ export function Settings() {
                         size="compact"
                         variant="destructive"
                         disabled={m.isLocked(name)}
-                        onClick={() => {
-                          if (deleteArm !== name) {
-                            setDeleteArm(name)
-                            return
-                          }
-                          setDeleteArm(null)
-                          void m.deletePack(name)
-                        }}
+                        title={m.isLocked(name) ? "Unlock the pack first (its menu in the sidebar)" : undefined}
+                        onClick={() => menus.askDeletePack(name, count)}
                       >
-                        <span aria-live="assertive">
-                          {m.isLocked(name)
-                            ? "Delete (locked)"
-                            : deleteArm === name
-                              ? count
-                                ? `Really delete ${count} prompt${count === 1 ? "" : "s"}?`
-                                : "Really delete pack?"
-                              : "Delete pack"}
-                        </span>
+                        {m.isLocked(name) ? "Delete (locked)" : "Delete pack…"}
                       </Button>
                     </div>
                   </div>
@@ -471,10 +436,7 @@ export function Settings() {
         </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <Button
-            size="compact"
-            onClick={() => m.openGenerate()}
-          >
+          <Button size="compact" onClick={() => m.openGenerate()}>
             Generate pack with AI…
           </Button>
           {newPackMode ? (
@@ -494,59 +456,65 @@ export function Settings() {
               onBlur={() => setNewPackMode(false)}
             />
           ) : (
-            <Button
-              size="compact"
-              variant="secondary"
-              onClick={() => setNewPackMode(true)}
-            >
+            <Button size="compact" variant="secondary" onClick={() => setNewPackMode(true)}>
               New pack
             </Button>
           )}
         </div>
-        <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+        {importRaw !== null && <ImportCuration raw={importRaw} onClose={() => setImportRaw(null)} />}
+        <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
+          Click a pack to see its file. Pack files under %APPDATA%\io.github.bekalpaslan.promptline\packs\ are always
+          current — copy one to share or back up, or point an agent at it. Imports are reviewed prompt-by-prompt
+          before anything is added.
+        </p>
+      </Card>
+
+      <Card title="Backup and import">
+        <div className="flex flex-wrap items-center gap-1.5">
           <Button
             size="compact"
             variant="secondary"
-            onClick={() => {
+            aria-haspopup="menu"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
               const packs = libraryJson(m.snippets, m.packNames())
-              void exportToClipboard(packs, librarySummary(packs))
+              files.open(r.left, r.bottom + 4, [
+                { kind: "header", text: "Export the library" },
+                { kind: "item", label: "To clipboard", run: () => void exportToClipboard(packs, librarySummary(packs)) },
+                { kind: "item", label: "To file…", run: () => void exportToFile(packs, "Promptline library", librarySummary(packs)) },
+              ])
             }}
           >
-            Export to clipboard
+            Export…
           </Button>
           <Button
             size="compact"
             variant="secondary"
-            onClick={() => {
-              const packs = libraryJson(m.snippets, m.packNames())
-              void exportToFile(packs, "Promptline library", librarySummary(packs))
+            aria-haspopup="menu"
+            onClick={(e) => {
+              const r = e.currentTarget.getBoundingClientRect()
+              files.open(r.left, r.bottom + 4, [
+                { kind: "header", text: "Import a pack or a library" },
+                {
+                  kind: "item",
+                  label: "From clipboard",
+                  run: () =>
+                    void invoke<string>("get_clipboard_text").then(setImportRaw, (e) => sayErr(`Couldn't read the clipboard: ${e}`)),
+                },
+                {
+                  kind: "item",
+                  label: "From file…",
+                  run: () =>
+                    void invoke<string | null>("import_pack_file")
+                      .then((raw) => {
+                        if (raw !== null) setImportRaw(raw) // null = user cancelled the picker
+                      })
+                      .catch((e) => sayErr(`Couldn't read the file: ${e}`)),
+                },
+              ])
             }}
           >
-            Export to file…
-          </Button>
-          <Button
-            size="compact"
-            variant="secondary"
-            onClick={() =>
-              void invoke<string>("get_clipboard_text").then(setImportRaw, (e) =>
-                sayErr(`Couldn't read the clipboard: ${e}`)
-              )
-            }
-          >
-            Import from clipboard
-          </Button>
-          <Button
-            size="compact"
-            variant="secondary"
-            onClick={() =>
-              void invoke<string | null>("import_pack_file")
-                .then((raw) => {
-                  if (raw !== null) setImportRaw(raw) // null = user cancelled the picker
-                })
-                .catch((e) => sayErr(`Couldn't read the file: ${e}`))
-            }
-          >
-            Import from file…
+            Import…
           </Button>
           <Button
             size="compact"
@@ -557,11 +525,9 @@ export function Settings() {
             Open folder
           </Button>
         </div>
-        {importRaw !== null && <ImportCuration raw={importRaw} onClose={() => setImportRaw(null)} />}
         <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
-          Click a pack to see its file. Pack files under %APPDATA%\io.github.bekalpaslan.promptline\packs\ are always current —
-          copy one to share or back up; Open folder shows that folder, with the library and the log file beside it.
-          Imports are reviewed prompt-by-prompt before anything is added.
+          Export writes every pack as the JSON Import reads, to the clipboard or a file. Open folder shows the
+          data folder, with the library and the log file beside the packs.
         </p>
       </Card>
 
@@ -621,6 +587,8 @@ export function Settings() {
           </p>
         )}
       </Card>
+      {menus.element}
+      {files.element}
     </div>
   )
 }

@@ -92,7 +92,16 @@ export function useLibraryMenus(opts: {
   const setRenaming = (name: string | null) => m.setRenaming(name ? { name, surface } : null)
   const renamingGroup = m.renamingGroup?.surface === surface ? m.renamingGroup.name : null // a groupKey
   const setRenamingGroup = (key: string | null) => m.setRenamingGroup(key ? { name: key, surface } : null)
-  const [deleteGroupAsk, setDeleteGroupAsk] = useState<{ pack: string; group: string; count: number } | null>(null)
+  // The one delete dialog, for prompts, a pack or a group: every delete in
+  // the manager asks the same way, says what goes and that Undo follows,
+  // then goes through deleteWithUndo. It replaced three confirmations (an
+  // armed button in the editor, armed menu items, this dialog for groups).
+  const [deleteAsk, setDeleteAsk] = useState<DeleteAsk | null>(null)
+  const askDeletePrompts = (ids: string[]) => {
+    const one = ids.length === 1 ? m.snippets.find((s) => s.id === ids[0]) : undefined
+    setDeleteAsk({ kind: "prompts", ids, title: one ? one.title || "(untitled)" : "" })
+  }
+  const askDeletePack = (name: string, count: number) => setDeleteAsk({ kind: "pack", name, count })
 
   // ---- Pack operations ----
   // One Rust step: metadata and prompts together, or the reconciler in
@@ -146,10 +155,17 @@ export function useLibraryMenus(opts: {
     return true
   }
 
-  const deleteGroup = async (pack: string, group: string) => {
-    setDeleteGroupAsk(null)
-    const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === pack && s.group === group).map((s) => s.id)
-    await m.deleteWithUndo(ids, `Deleted group "${group}" (${C.plural(ids.length, "prompt")})`)
+  const runDelete = (ask: DeleteAsk) => {
+    setDeleteAsk(null)
+    if (ask.kind === "prompts") {
+      const n = ask.ids.length
+      void m.deleteWithUndo(ask.ids, n === 1 ? `Deleted "${ask.title}"` : `Deleted ${C.plural(n, "prompt")}`).catch(() => {})
+    } else if (ask.kind === "pack") {
+      void m.deletePack(ask.name).catch(() => {})
+    } else {
+      const ids = m.snippets.filter((s) => (s.pack || DEFAULT_PACK) === ask.pack && s.group === ask.group).map((s) => s.id)
+      void m.deleteWithUndo(ids, `Deleted group "${ask.group}" (${C.plural(ids.length, "prompt")})`).catch(() => {})
+    }
   }
 
   const openGroupCtx = (x: number, y: number, pack: string, group: string, count: number) => {
@@ -203,7 +219,7 @@ export function useLibraryMenus(opts: {
         danger: true,
         disabled: locked,
         hint: locked ? "Unlock the pack first (its header menu → Unlock)" : undefined,
-        run: () => setDeleteGroupAsk({ pack, group, count }),
+        run: () => setDeleteAsk({ kind: "group", pack, group, count }),
       },
     ])
   }
@@ -308,10 +324,7 @@ export function useLibraryMenus(opts: {
         danger: true,
         disabled: locked,
         hint: locked ? "Unlock the pack first (this menu → Unlock)" : undefined,
-        confirm: count ? `Really delete ${count} prompts?` : "Really delete pack?",
-        // Undo restores the prompts and the pack's lock; the file was
-        // retired to packs/deleted/ and a fresh one is made
-        run: () => void m.deletePack(name),
+        run: () => askDeletePack(name, count),
       },
       { kind: "sep" },
       {
@@ -482,10 +495,9 @@ export function useLibraryMenus(opts: {
       { kind: "sep" },
       {
         kind: "item",
-        label: `Delete ${n} prompt${n === 1 ? "" : "s"}…`,
+        label: n === 1 ? "Delete…" : `Delete ${C.plural(n, "prompt")}…`,
         danger: true,
-        confirm: `Really delete ${n} prompt${n === 1 ? "" : "s"}?`,
-        run: () => void m.deleteWithUndo(ids, `Deleted ${n} prompt${n === 1 ? "" : "s"}`),
+        run: () => askDeletePrompts(ids),
       }
     )
     ctx.open(x, y, items)
@@ -560,26 +572,22 @@ export function useLibraryMenus(opts: {
   const element = (
     <>
       {ctx.element}
-      {/* Deleting a group deletes its prompts — a real dialog, not an armed menu item */}
-      <Dialog open={deleteGroupAsk !== null} onOpenChange={(v) => !v && setDeleteGroupAsk(null)}>
+      {/* The one delete dialog: what goes, what stays, and that Undo follows */}
+      <Dialog open={deleteAsk !== null} onOpenChange={(v) => !v && setDeleteAsk(null)}>
         <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="text-sm">Delete group "{deleteGroupAsk?.group}"?</DialogTitle>
-            <DialogDescription>
-              This deletes {deleteGroupAsk?.count === 1 ? "the 1 prompt" : `all ${deleteGroupAsk?.count ?? 0} prompts`} in
-              it from "{deleteGroupAsk?.pack}". To keep the prompts, choose Ungroup instead.
-            </DialogDescription>
-          </DialogHeader>
+          {deleteAsk && (
+            <DeleteAskBody ask={deleteAsk} />
+          )}
           <DialogFooter>
-            <Button size="sm" variant="secondary" onClick={() => setDeleteGroupAsk(null)}>
+            <Button size="sm" variant="secondary" onClick={() => setDeleteAsk(null)}>
               Cancel
             </Button>
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => deleteGroupAsk && void deleteGroup(deleteGroupAsk.pack, deleteGroupAsk.group)}
-            >
-              Delete {deleteGroupAsk?.count ?? 0} prompt{deleteGroupAsk?.count === 1 ? "" : "s"}
+            <Button size="sm" variant="destructive" onClick={() => deleteAsk && runDelete(deleteAsk)}>
+              {deleteAsk?.kind === "pack"
+                ? "Delete pack"
+                : deleteAsk?.kind === "group"
+                  ? `Delete ${C.plural(deleteAsk.count, "prompt")}`
+                  : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -601,5 +609,47 @@ export function useLibraryMenus(opts: {
     newPack,
     openRowCtx,
     openMoveTo,
+    askDeletePrompts,
+    askDeletePack,
   }
+}
+
+type DeleteAsk =
+  | { kind: "prompts"; ids: string[]; title: string }
+  | { kind: "pack"; name: string; count: number }
+  | { kind: "group"; pack: string; group: string; count: number }
+
+// The dialog's words per kind. A pack's file is kept (retired under
+// packs\deleted\) and Undo puts prompts, pack and lock back; a group's
+// prompts can be kept with Ungroup instead, so the dialog says so.
+function DeleteAskBody({ ask }: { ask: DeleteAsk }) {
+  if (ask.kind === "prompts") {
+    const n = ask.ids.length
+    return (
+      <DialogHeader>
+        <DialogTitle className="text-sm">{n === 1 ? `Delete "${ask.title}"?` : `Delete ${C.plural(n, "prompt")}?`}</DialogTitle>
+        <DialogDescription>Undo stays on offer for a moment afterwards.</DialogDescription>
+      </DialogHeader>
+    )
+  }
+  if (ask.kind === "pack") {
+    return (
+      <DialogHeader>
+        <DialogTitle className="text-sm">Delete pack "{ask.name}"?</DialogTitle>
+        <DialogDescription>
+          {ask.count ? `This deletes all ${C.plural(ask.count, "prompt")} in it. ` : "The pack is empty. "}
+          Its file is kept under packs\deleted\, and Undo puts {ask.count ? "the prompts and the pack" : "the pack"} back.
+        </DialogDescription>
+      </DialogHeader>
+    )
+  }
+  return (
+    <DialogHeader>
+      <DialogTitle className="text-sm">Delete group "{ask.group}"?</DialogTitle>
+      <DialogDescription>
+        This deletes {ask.count === 1 ? "the 1 prompt" : `all ${ask.count} prompts`} in it from "{ask.pack}". To keep the
+        prompts, choose Ungroup instead.
+      </DialogDescription>
+    </DialogHeader>
+  )
 }
