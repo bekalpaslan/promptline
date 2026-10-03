@@ -22,6 +22,25 @@ notes, so the theme and the release stay separate decisions.
 Read BEHAVIOR.md → Theming before starting; it says how the two axes work
 and why the themes differ only where they do.
 
+## Contents
+
+1. [Interview](#1-interview-one-question-at-a-time): source, name, scope,
+   the light side and the font, one question at a time.
+2. [Read the design](#2-read-the-design): the Figma MCP calls, the
+   design-to-code resource, the palette as token names.
+3. [Trial as a skin](#3-trial-as-a-skin-before-any-code): a stylesheet
+   over the mock, `shoot-skin.mjs`, the before/after page, the go.
+4. [Wire the theme](#4-wire-the-theme): the branch, `make-theme.cjs`,
+   `wire-theme.cjs`, a new structural token, docs, tests, checks, push.
+5. [Shelve and report](#5-shelve-and-report): what the release skill
+   looks for, what to tell the user.
+
+Scripts in `scripts/`: `shoot-skin.mjs` (both windows, both modes, with
+and without a skin or a saved palette), `make-theme.cjs` (a tokens file
+from a values map, translucency composited to hex), `wire-theme.cjs`
+(the four wiring points, idempotent). `assets/compare.html` is the
+before/after page; `references/indigo-trial.md` is the worked example.
+
 ## 1. Interview (one question at a time)
 
 The user prefers one decision at a time with a recommended default first.
