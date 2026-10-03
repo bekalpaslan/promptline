@@ -180,10 +180,13 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    `SendInput` that inserted fewer events than asked, brings the popup
    back where it was (`report_paste_failed`: shown and focused, without
    re-recording `prev_window`) and emits `paste-failed` to it with
-   `{ "message": "Couldn't paste into that window — the prompt is on your
-   clipboard" }`; the popup shows it in its feedback strip as an error that
-   stays until Esc or the next summon, and the prompt is still on the
-   clipboard to paste by hand. It used to fail with nothing said. One case
+   `{ "message": "Couldn't paste into that window. The prompt is on your
+   clipboard: press Ctrl+V there to paste it yourself." }` (what failed,
+   then the recovery, with the key named; the one-sentence version lost
+   its second half to truncation at the default width); the popup shows it
+   in its feedback strip as an error that stays until Esc or the next
+   summon, and the prompt is still on the clipboard to paste by hand. It
+   used to fail with nothing said. One case
    still passes silently: UIPI drops input aimed at an elevated window
    without reporting it, so `SendInput` returns success there.
 
@@ -225,6 +228,116 @@ every group at once, because a folded section's rows leave the navigable
 list and there is no row left to unfold from. It used to clear pack folds
 only, and only while one was folded, so a group folded with ← could only be
 reopened with the mouse.
+
+**The clipboard has a line of its own under the search box.** Every
+`{clipboard}` row pastes it, and the row shows only the word, so the line
+says what the clipboard holds (one line on the builtin's tint, as in every
+preview, with the *hidden text* badge and a line count when it has more
+than one), that it is empty ("Clipboard is empty — {clipboard} rows paste
+nothing", and those rows hollow their clipboard icon and are described by
+the line for a screen reader), or that it holds the last prompt the popup
+pasted or copied ("Last pasted prompt"): the prompt stays on the clipboard
+after a paste on purpose, so without this a second summon showed the first
+prompt's output as if it were something the user had copied. The popup
+keeps what it last sent, expanded the way Rust expands it, and compares.
+Before the line, an empty clipboard was a native tooltip on the row, and a
+hole was found in the terminal.
+
+**The feedback strip wraps and errors are alerts.** The strip used to
+truncate to one line with "— Esc to dismiss" appended, which at the default
+width cut the failed paste's message to "…the prompt is on your clip…", the
+half that says how to recover. It now wraps to two lines, the hint bar's
+Esc reads *dismiss* while an error is up, and an error lands in a
+`role="alert"` region (a confirmation stays a polite status): the popup
+has just reappeared when a paste fails, and a polite announcement on a
+window the user did not expect is easy to miss.
+
+**Inserted text is isolated.** The clipboard and fill-in values in every
+preview, and prompt titles, render in `<bdi>`, and bidi and control
+characters in them are shown as ⟨RLO⟩, ⟨ESC⟩ (`revealControls`, applied by
+`clipboardPreview`) rather than obeyed: a U+202E copied with a web page
+used to reverse the preview's text after it, the *hidden text* badge and
+the Copy button included, so the one warning built for that input read as
+garbage. Tag characters and zero-width ones are counted by the badge and
+left alone, since a flag emoji is made of tags.
+
+**The pointer never moves the selection.** Hover is the grey on the row
+and, after a pause, the preview card; the keyboard selection moves on keys
+or a click, and a click pastes the row it lands on. A hover used to set the
+selection too, so the pointer painted the selection tint (against
+`DESIGN.md`'s Pointer Grey Rule) and a trackpad brush after summon changed
+what Enter pasted. In the same spirit the search box's border takes the
+focus colour only while the box has focus: it used to stay lit while a
+query was set, a second lit thing beside the selected row, and the × already
+says a query is set (`searchBoxClass`, both windows). Clearing a query
+scrolls the browsing list back to the top: the offset a search left behind
+outlived its results, and with the selection already at 0 the keep-in-view
+effect had nothing to do, so the Pinned header sat under the fold.
+
+**What a screen reader hears of a row** is the option's name, its title,
+and a description: the `{N}` badge's "Asks for N values before pasting",
+the clipboard line when the row would paste a hole, the card when it is
+open. The first line, the pill and the slot key are `aria-hidden`: visible
+text an option's name doesn't contain is read as a mismatch, and the
+badge's words reach assistive tech through the description instead. The
+clipboard line's key is named "New prompt from clipboard (Ctrl N)", its
+visible text in its name for anyone who says what they see, and the
+window's content is one `main` landmark.
+
+**The list is a listbox of options and named groups, nothing else, to
+assistive tech.** A pack's or group's header row (its fold button and
+filter funnel) is `aria-hidden`: a listbox may hold only options and
+groups of them, and the buttons inside it had Lighthouse report the tree
+as malformed and a screen reader meet "Everyday 12" and "Filter by
+@Everyday" as list content. The `group` around each pack and group carries
+the name, the fold is reachable with ← and Ctrl+→ and the filter by typing
+`@pack` or `>group`, and the buttons are `tabIndex` -1, so nothing hidden
+is in the tab order (clicking one hands focus straight back to the search
+box). A tree of `treeitem`s, like the sidebar, was the other way; it would
+have made the headers keyboard rows, which they have never been here.
+
+**A row is a title, a first line and one pill.** The title line carries
+the Ctrl+n slot key at its right edge, the row's own address, and the
+second line is the prompt's first line with one tag pill, a +N for the
+rest and the `{N}` badge. It carried up to three pills and the key, which
+left the first line, the thing that tells two similar titles apart, about
+fifteen characters at the default width; one pill keeps the hue that tells
+a debug prompt from a review one at a glance. The pills are text, not
+buttons: a row is a listbox option, which may hold no interactive
+descendant, and every row's pills used to be in the tab order (a screen
+reader met fifty-odd "Filter by #…" buttons inside the list). A click at a
+pill still filters by it: the pill carries its tag as `data-tag` and the
+row's click handler looks for it before taking the click as a pick.
+The "New prompt from clipboard…" bar under the list is gone; its Ctrl+N
+key sits at the right end of the clipboard line, since the clipboard is
+its subject, and the list has the 32 px back on every summon.
+
+**The copy names the next step.** A fill-in field is labelled in sentence
+case by one rule (`fieldLabel`: "Standing instructions", "Goal 2"), not by
+a CSS `capitalize` that gave "Call To Action". A field that is really an
+unset `{{config}}` parameter says so under itself ("set it once in the
+manager's Advanced options and it stops asking"): downgrading was silent,
+so a parameter the user never set was asked for every day with nothing
+saying it needn't be. Ctrl+N with nothing on the clipboard is one line in
+the strip ("Copy something first — Ctrl+N saves the clipboard") rather
+than the whole window turning into a form whose only content was that
+sentence; a search with no match points at Ctrl+N the same way while the
+clipboard holds something. The action panel's hint counts its own items
+("1-5 pick"; it said 1-9). ← for folding was the one key with no mention
+on screen: the hint bar names it from 440 px, in a window the user has
+widened (the five resting hints fill the default 400 px, and a sixth
+wrapped the bar and ate a row), and the pack and group headers name it in
+their tooltip at every width. The `{N}` badge on a row is named "Asks for
+N values before pasting" for a screen reader, which read its braces out.
+
+**The action panel's items take focus.** Tab opens it with focus on the
+highlighted item and the arrow keys move it, so a screen reader hears the
+item change; Escape, or running an action, hands focus back to the search
+box. The items used to be marked with `aria-current` while focus stayed in
+the search box, which announced nothing as the highlight moved. The
+preview card carries the prompt's whole title above its text: the row cuts
+a long one and has no tooltip (the hover is the card), so the card is where
+it can be read.
 
 **The preview card never covers the row it describes.** → (or a hover)
 opens it below the row when it fits there, above the row otherwise, and on
@@ -919,6 +1032,24 @@ utility (`focus-ring`, keyboard focus only). Tag hues stay dark-tuned in
 `ui/core.js`; a chip sets `--tag` and the `tag-text` / `tag-tint` utilities
 darken or fade it per theme — a `var(--tag)` inside a `:root` token would
 resolve at `:root`, where `--tag` is unset.
+
+**Every size is in rem, so Settings' UI scale reaches it.** The scale sets
+the root font size; `text-ui` (13px at 100%, the body) was a literal
+`13px`, so row titles, the search box and group headers stayed put at 125%
+while the 12px first line grew to 15px and the 16px pack headers to 20px.
+It and `text-micro` (11px: chips, key caps, the popup's hint bar, the `xs`
+button) are the two named steps below Tailwind's `sm`; there is no
+`text-[11px]` or `text-[13px]` anywhere. Pack titles in the popup's list
+are the body size at 600, as in the sidebar, where they were `text-base`,
+the largest text in the popup above the prompt titles the window is for.
+The `{N}` badge on a row is on the fill-in tint (it counts fill-ins) rather
+than the warn tint, whose text read 4.1:1 on its 15% ground in light; and
+a tag's text on a dark surface is the hue lifted a fifth towards white
+(`tag-text-dark`), since the raw hues clear 4.5:1 on the page but not on
+the selected row's tint, where the first row always sits. A confirmation
+in the popup's strip (copied, saved, restored) is Success text with no
+fill, as every confirmation in `DESIGN.md`; notes (undo offered, press Esc
+again) keep the neutral fill.
 
 What a prompt looks like in a list is drawn by one module for both windows,
 `src/components/prompt-bits.tsx`: the key cap, the underline that marks a
