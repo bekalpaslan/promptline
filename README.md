@@ -40,6 +40,16 @@ Windows 10/11 only. Download an installer from the
   one to pick if in doubt
 - `Promptline_X.Y.Z_x64_en-US.msi` — the MSI, for those who prefer it
 
+Or from a terminal, with [Scoop](https://scoop.sh):
+
+```powershell
+scoop bucket add promptline https://github.com/bekalpaslan/scoop-bucket
+scoop install promptline
+```
+
+Scoop runs the same setup exe from the release, so the install is the same
+one and it updates itself the same way.
+
 Either installs for the current user only, under `%LOCALAPPDATA%\Promptline`,
 so there is no admin prompt. If Microsoft Edge WebView2 is missing (it ships
 with Windows 11 and most Windows 10 machines), the installer downloads its
