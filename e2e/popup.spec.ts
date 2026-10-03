@@ -224,7 +224,8 @@ test("Enter pastes the selected prompt and bumps its uses", async ({ page }) => 
 test("Ctrl+Enter copies only, says so, then hides the popup", async ({ page }) => {
   await search(page).fill("Loose prompt")
   await page.keyboard.press("Control+Enter")
-  await expect(strip(page)).toHaveText("Copied to clipboard")
+  // Named, so a copy can't be taken for another row's
+  await expect(strip(page)).toHaveText('Copied "Loose prompt" to clipboard')
   const [call] = await calls(page, "paste_snippet")
   expect(call.args).toMatchObject({ paste: false })
   await expect.poll(() => calls(page, "hide_popup")).toHaveLength(1)
@@ -234,7 +235,7 @@ test("a paste the backend turned into a copy says the manager was in front", asy
   await setPasteResult(page, "copied")
   await search(page).fill("Loose prompt")
   await page.keyboard.press("Enter")
-  await expect(strip(page)).toHaveText("Copied to clipboard — the manager was in front")
+  await expect(strip(page)).toHaveText('Copied "Loose prompt" to clipboard — the manager was in front')
   await expect.poll(() => calls(page, "hide_popup")).toHaveLength(1)
 })
 
@@ -391,10 +392,72 @@ test("while a failed paste is showing, Enter only dismisses it, and the clipboar
   await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(2)
 })
 
+test("a failed paste is not retried by any way of picking: a slot key, a click and the panel only clear it", async ({ page }) => {
+  await search(page).fill("Loose prompt")
+  await page.keyboard.press("Enter")
+  await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(1)
+  const fail = async () => {
+    await emit(page, "paste-failed", { message: "Couldn't paste into that window. The prompt is on your clipboard: press Ctrl+V there to paste it yourself." })
+    await expect(page.getByRole("alert")).toBeVisible()
+  }
+  await fail()
+  await page.keyboard.press("Control+1")
+  await expect(strip(page)).toBeHidden()
+  expect(await calls(page, "paste_snippet")).toHaveLength(1)
+  await fail()
+  await rows(page).first().click()
+  await expect(strip(page)).toBeHidden()
+  expect(await calls(page, "paste_snippet")).toHaveLength(1)
+  await fail()
+  await page.keyboard.press("Tab")
+  await page.keyboard.press("Enter")
+  await expect(strip(page)).toBeHidden()
+  expect(await calls(page, "paste_snippet")).toHaveLength(1)
+  // The message gone, the same key sends
+  await page.keyboard.press("Enter")
+  await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(2)
+})
+
+test("a fold keeps the selection where it was, says what is folded, and ← after closing a card does not fold", async ({ page }) => {
+  const total = await rows(page).count()
+  const first = rows(page).first()
+  await expect(first).toHaveAttribute("aria-selected", "true")
+  // A click on another section's header: the selection stays
+  await page.locator("button", { hasText: "Everyday" }).first().click()
+  await expect.poll(() => rows(page).count()).toBeLessThan(total)
+  await expect(first).toHaveAttribute("aria-selected", "true")
+  // The list says so, with the key that undoes it; a click on the line does too
+  const line = page.getByText("1 section folded", { exact: true })
+  await expect(line).toBeVisible()
+  await expect(page.getByRole("status").first()).toContainText("1 section folded")
+  await line.click()
+  await expect(rows(page)).toHaveCount(total)
+  await expect(line).toHaveCount(0)
+  await expect(first).toHaveAttribute("aria-selected", "true")
+  await expect(search(page)).toBeFocused()
+  // → opens the card, ← closes it, and a ← on its heels does nothing
+  const grouped = (await library(page)).findIndex((s) => !s.pinned && s.group)
+  expect(grouped).toBeGreaterThanOrEqual(0)
+  const pins = (await library(page)).filter((s) => s.pinned).length
+  for (let i = 0; i < pins; i++) await page.keyboard.press("ArrowDown")
+  await page.keyboard.press("ArrowRight")
+  await expect(page.getByRole("note", { name: "Preview" })).toBeVisible()
+  await page.keyboard.press("ArrowLeft")
+  await page.keyboard.press("ArrowLeft")
+  await expect(page.getByRole("note", { name: "Preview" })).toBeHidden()
+  await expect(rows(page)).toHaveCount(total)
+  // A deliberate ← later folds, as before, and Ctrl+→ brings it back
+  await page.waitForTimeout(450)
+  await page.keyboard.press("ArrowLeft")
+  await expect.poll(() => rows(page).count()).toBeLessThan(total)
+  await page.keyboard.press("Control+ArrowRight")
+  await expect(rows(page)).toHaveCount(total)
+})
+
 test("Enter during the Copied pause sends nothing more", async ({ page }) => {
   await search(page).fill("Loose prompt")
   await page.keyboard.press("Control+Enter")
-  await expect(strip(page)).toHaveText("Copied to clipboard")
+  await expect(strip(page)).toHaveText('Copied "Loose prompt" to clipboard')
   await page.keyboard.press("Enter")
   await expect.poll(() => calls(page, "hide_popup")).toHaveLength(1)
   const sent = await calls(page, "paste_snippet")
@@ -415,6 +478,11 @@ test("a hover card leaves the hint bar and the keys to the selected row", async 
   await expect(page.getByText("preview", { exact: true })).toBeVisible()
   await expect(page.getByText("back", { exact: true })).toHaveCount(0)
   await expect(first).toHaveAttribute("aria-selected", "true")
+  // Its Copy button carries no key (Ctrl+↵ copies the selected row), and
+  // the card sits clear of the row it describes
+  await expect(card.getByRole("button", { name: /^Copy/ })).toHaveText("Copy")
+  const [cardBox, rowBox] = await Promise.all([card.boundingBox(), third.boundingBox()])
+  expect(cardBox!.y >= rowBox!.y + rowBox!.height || cardBox!.y + cardBox!.height <= rowBox!.y).toBe(true)
   // Enter pastes the selected row, as the bar says
   await page.keyboard.press("Enter")
   await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(1)
@@ -659,6 +727,11 @@ test("after a paste the line names the clipboard as the last pasted prompt, not 
   const ink = await page.getByText("close", { exact: true }).evaluate((e) => getComputedStyle(e).color)
   expect(await label.evaluate((e) => getComputedStyle(e).color)).not.toBe(ink)
   expect(await wraps.evaluate((e) => getComputedStyle(e).color)).toBe(await label.evaluate((e) => getComputedStyle(e).color))
+  // The action panel says the same on its two picks
+  await page.keyboard.press("Tab")
+  await expect(page.getByRole("menuitem", { name: /^Paste, wraps last prompt/ })).toBeVisible()
+  await expect(page.getByRole("menuitem", { name: /^Copy, wraps last prompt/ })).toBeVisible()
+  await page.keyboard.press("Escape")
   // A row that does not use the clipboard is not warned about
   await search(page).fill("Loose prompt")
   await expect(wraps).toHaveCount(0)

@@ -224,7 +224,8 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    that can fail (another program holding the clipboard open), and an error
    has to return to a window that is still on screen: the popup shows it in
    its feedback strip and nothing else happens. Copy-only (Ctrl+Enter) leaves
-   the popup up for a moment to say "Copied to clipboard"; the popup hides
+   the popup up for a moment to say `Copied "<title>" to clipboard` (named,
+   so a copy can't be taken for another row's); the popup hides
    itself afterwards, and takes no pick in that moment (an Enter in those
    600 ms pasted what Ctrl+Enter had only copied). The command answers with a tag, `"pasted"` when the
    paste thread was spawned and `"copied"` when it fell back to copy-only
@@ -264,7 +265,10 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    the message, like Esc: the hint bar reads `Ctrl V in the target · ↵ Esc
    dismiss`. Enter used to send the row again, into the window that had
    just refused it, and a `{clipboard}` row would have wrapped the prompt
-   in itself. The Enter after that picks as usual. One case
+   in itself. The Enter after that picks as usual. The guard is in
+   `pick`, the one function every way of picking goes through, so a slot
+   key, a click, the action panel and the card's Copy button obey it too:
+   it was on Enter alone, and each of the others re-sent the row. One case
    still passes silently: UIPI drops input aimed at an elevated window
    without reporting it, so `SendInput` returns success there.
 
@@ -452,6 +456,17 @@ the Copy button included, so the one warning built for that input read as
 garbage. Tag characters and zero-width ones are counted by the badge and
 left alone, since a flag emoji is made of tags.
 
+**A fold moves the selection only out of the folded section.** ← folds
+the selected row's group or pack, and the selection takes the row below
+it. A click on any other header, and Ctrl+→, leave the selection on the
+row it was on: a click on "Everyday" used to carry the selection into
+another pack, so the pointer changed what Enter pasted. ← closes a card
+opened with →, and a second ← within 400 ms does nothing; it used to fold
+the row's section, and folds are saved. While anything is folded the list
+opens with a line that says so and names the key (`1 section folded ·
+Ctrl → unfold`, a button that does the same); the status region adds the
+count. Ctrl+→ was named nowhere at the default width.
+
 **One inset.** Every strip of the popup shares the search box's edges, and
 its content starts 8 px in: the search icon, the clipboard icon, a pack's
 name, a row's icon, the first key of the hint bar. The list used to carry
@@ -476,7 +491,13 @@ pointer's: the hint bar keeps speaking for the selected row, and PgUp,
 PgDn and ← act only on a card opened with →. Any open card used to switch
 the bar to `↵ paste · ← back`, so with the pointer resting on one row (the
 popup opens at the cursor) the card showed one prompt and Enter pasted
-another. A hover used to set the
+another. A hover card sits under its row (or above it), like the one →
+opens; hung from the pointer it covered the lower half of the row it
+describes. Its Copy button carries no key: `Ctrl ↵` copies the selected
+row, and the card printed that key over another row's prompt. The action
+panel words its two picks as the hint bar does ("Paste, wraps last
+prompt", "Copy, wraps last prompt") while the row would wrap the prompt
+pasted last. A hover used to set the
 selection too, so the pointer painted the selection tint (against
 `DESIGN.md`'s Pointer Grey Rule) and a trackpad brush after summon changed
 what Enter pasted. In the same spirit the search box's border takes the
