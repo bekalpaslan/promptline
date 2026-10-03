@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "5ed735ea3d42832ebf2409aef091c1ca936ec2f9"
+      "revision": "2c1c53fa5190a14c0a2d1c6845935485b27c89ed"
     },
     "viewBox": [
       1300,
@@ -143,7 +143,7 @@
         },
         {
           "path": "src/manager/App.tsx",
-          "line": 461,
+          "line": 473,
           "label": "snippets-changed"
         },
         {
@@ -191,8 +191,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 314,
-          "end_line": 336,
+          "line": 326,
+          "end_line": 348,
           "label": "TrayIconBuilder"
         },
         {
@@ -219,7 +219,7 @@
         {
           "path": "src-tauri/src/lib.rs",
           "line": 180,
-          "end_line": 397,
+          "end_line": 409,
           "label": "run()"
         },
         {
@@ -295,8 +295,8 @@
       "sources": [
         {
           "path": "src-tauri/src/store.rs",
-          "line": 337,
-          "end_line": 352,
+          "line": 347,
+          "end_line": 362,
           "label": "data_dir paths"
         },
         {
@@ -306,9 +306,9 @@
         },
         {
           "path": "src-tauri/src/store.rs",
-          "line": 310,
-          "end_line": 315,
-          "label": "updateCheck · updateNotified"
+          "line": 297,
+          "end_line": 324,
+          "label": "theme · palette · updateCheck fields"
         }
       ]
     },
