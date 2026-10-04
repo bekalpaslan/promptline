@@ -188,8 +188,35 @@
     footer .privacy { margin: 14px 0 0; max-width: 72ch; line-height: 1.55; }
 
     /* Phones: the header keeps the brand and the theme switch, like the home page */
+    /* Phones: the links and the theme switch fold into one menu under the
+       header, opened by a button. Without the script a <noscript> style wraps the
+       links under the brand instead */
+    .menu-toggle {
+      display: none; place-items: center; width: 44px; height: 44px; margin-right: -10px; padding: 0;
+      border: 0; border-radius: 8px; background: none; color: var(--ink); cursor: pointer;
+    }
+    .menu-toggle svg { width: 22px; height: 22px; }
+    .menu-toggle .x, .menu-open .menu-toggle .bars { display: none; }
+    .menu-open .menu-toggle .x { display: block; }
+    .theme[hidden] { display: none; }
+
     @media (max-width: 640px) {
-      .nav nav { display: none; }
+      .menu-toggle { display: grid; }
+      .menu-open { background: var(--surface-0); }
+      .nav-right {
+        position: absolute; inset: 100% 0 auto; display: block;
+        padding: 4px 16px 16px; max-height: calc(100dvh - 57px); overflow-y: auto;
+        background: var(--surface-0); border-bottom: 1px solid var(--line);
+        box-shadow: var(--shadow-pop); clip-path: inset(0 0 -48px);
+        visibility: hidden; opacity: 0; transform: translateY(-6px);
+        transition: opacity 160ms, transform 200ms cubic-bezier(0.22, 1, 0.36, 1), visibility 0s 200ms;
+      }
+      .menu-open .nav-right { visibility: visible; opacity: 1; transform: none; transition-delay: 0s; }
+      .nav nav { display: grid; gap: 0; font-size: 16px; }
+      .nav nav a { display: flex; align-items: center; min-height: 48px; color: var(--ink); border-bottom: 1px solid var(--line); }
+      .theme { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 14px; }
+      .theme button { display: flex; align-items: center; justify-content: center; gap: 8px; width: auto; height: 44px; font: 500 14px var(--sans); }
+      .theme button::after { content: attr(title); }
     }
 
     .doc { padding: 48px 16px 64px; max-width: 760px; }
@@ -226,7 +253,33 @@
       background: var(--surface-raised); box-shadow: var(--shadow-shot);
     }
     .panel img { display: block; width: 100%; height: auto; }
+    /* Fingers: every control in the header and footer is at least 44px tall */
+    @media (pointer: coarse), (max-width: 640px) {
+      .brand { min-height: 44px; }
+      footer nav { gap: 0 20px; }
+      footer nav a { display: flex; align-items: center; min-height: 44px; }
+    }
+    @media (pointer: coarse) and (min-width: 641px) {
+      .nav nav a { display: flex; align-items: center; min-height: 44px; }
+      .theme button { width: 44px; height: 44px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .nav-right { transition: none; transform: none; }
+    }
   </style>
+  <noscript>
+    <style>
+      /* No script, no menu button: on a phone the links wrap under the brand and the header scrolls away */
+      @media (max-width: 640px) {
+        header { position: static; }
+        .menu-toggle { display: none; }
+        .nav { flex-wrap: wrap; height: auto; }
+        .nav-right { position: static; padding: 0 0 8px; max-height: none; background: none; border: 0; box-shadow: none; clip-path: none; visibility: visible; opacity: 1; transform: none; }
+        .nav nav { display: flex; flex-wrap: wrap; gap: 0 20px; font-size: 14px; }
+        .nav nav a { min-height: 44px; color: var(--ink-2); border: 0; }
+      }
+    </style>
+  </noscript>
   <script type="application/ld+json">
   {
     "@context": "https://schema.org",
@@ -288,7 +341,11 @@
         <svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>
         Promptline
       </a>
-      <div class="nav-right">
+      <button type="button" class="menu-toggle" id="menu-toggle" aria-expanded="false" aria-controls="site-menu" aria-label="Open the menu">
+        <svg class="bars" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        <svg class="x" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <div class="nav-right" id="site-menu">
         <nav aria-label="Site">
           <a href="/">Home</a>
           <a href="/#install">Download</a>
@@ -386,8 +443,14 @@ Before writing anything, survey the project this session runs in: its agent inst
 
 <figure>
   <div class="panel">
-    <img class="light-only" src="/shots/post-pack-light.png" width="400" height="600" loading="lazy" alt="The popup showing the Promptline pack, 29 prompts: the Orientation group with Park an idea in the backlog, Pick the next backlog item, Trace a feature before touching it and Where did we leave off, then the Development group">
-    <img class="dark-only" src="/shots/post-pack-dark.png" width="400" height="600" loading="lazy" alt="The popup showing the Promptline pack, 29 prompts: the Orientation group with Park an idea in the backlog, Pick the next backlog item, Trace a feature before touching it and Where did we leave off, then the Development group">
+    <picture>
+      <source type="image/webp" srcset="/shots/post-pack-light.webp">
+      <img class="light-only" src="/shots/post-pack-light.png" width="400" height="600" loading="lazy" alt="The popup showing the Promptline pack, 29 prompts: the Orientation group with Park an idea in the backlog, Pick the next backlog item, Trace a feature before touching it and Where did we leave off, then the Development group">
+    </picture>
+    <picture>
+      <source type="image/webp" srcset="/shots/post-pack-dark.webp">
+      <img class="dark-only" src="/shots/post-pack-dark.png" width="400" height="600" loading="lazy" alt="The popup showing the Promptline pack, 29 prompts: the Orientation group with Park an idea in the backlog, Pick the next backlog item, Trace a feature before touching it and Where did we leave off, then the Development group">
+    </picture>
   </div>
   <figcaption>Rendered from the demo backend with the pack above, like the site's other screenshots.</figcaption>
 </figure>
@@ -431,6 +494,24 @@ Before writing anything, survey the project this session runs in: its agent inst
     (() => {
       const root = document.documentElement;
       root.classList.add("js");
+      // On a phone the links and the theme switch sit in a menu under the
+      // header: the button opens it; a link, Esc or a tap elsewhere closes it
+      const header = document.querySelector("header");
+      const menu = document.getElementById("menu-toggle");
+      const setMenu = (open) => {
+        header.classList.toggle("menu-open", open);
+        menu.setAttribute("aria-expanded", String(open));
+        menu.setAttribute("aria-label", open ? "Close the menu" : "Open the menu");
+      };
+      menu.addEventListener("click", () => setMenu(menu.getAttribute("aria-expanded") !== "true"));
+      header.addEventListener("click", (e) => { if (e.target.closest("nav a")) setMenu(false); });
+      document.addEventListener("click", (e) => { if (!header.contains(e.target)) setMenu(false); });
+      document.addEventListener("keydown", (e) => {
+        if (e.key !== "Escape" || !header.classList.contains("menu-open")) return;
+        setMenu(false);
+        menu.focus();
+      });
+      matchMedia("(max-width: 640px)").addEventListener("change", () => setMenu(false));
 
       const group = document.getElementById("theme");
       const radios = [...group.querySelectorAll("button")];
