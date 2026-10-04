@@ -51,7 +51,11 @@ backlog, not from another audit, unless asked.
   that touches it (the workflow runs `node scripts/site-assets.mjs`, which
   copies `docs/og.png`, `docs/screenshots/*.png` and the clip's video and
   posters from `docs/clip/` in and makes the lossless WebP the page serves,
-  one per shot and poster; `site/` holds no binaries). Plain HTML and CSS on the tokens from `design/tokens.json`:
+  one per shot and poster; `site/` holds no binaries). Plain HTML and CSS on the tokens from `design/tokens.json`;
+  `site/site.css` holds what every page shares (the tokens, the base, the
+  header with its phone menu, the footer, the document pages' column) and
+  each page links it, then keeps only its own rules in an inline `<style>`
+  after it (`tests/site-css.test.js`). The home page is
   a hero with the launch clip playing in the theme showing, then a tour
   with one chapter per screen, each shot in
   both themes (only the one showing loads; the header's switch pins one
@@ -70,8 +74,8 @@ backlog, not from another audit, unless asked.
   `npx playwright install chromium` for the suite); without it the command
   stops before capturing and says so.
   A new page under `site/` is a `<url>` in `site/sitemap.xml` and the
-  head its siblings carry (canonical, Open Graph and Twitter tags, inline
-  JSON-LD); a post also joins the `Blog` list in `posts/index.html`'s JSON-LD.
+  head its siblings carry (canonical, Open Graph and Twitter tags, the
+  `/site.css` link, the `<noscript>` style, inline JSON-LD); a post also joins the `Blog` list in `posts/index.html`'s JSON-LD.
   A new screen is a shot in that spec plus a chapter in `site/index.html`;
   the Download button is a plain link to
   `releases/latest/download/Promptline-setup.exe`, the stable-named copy
