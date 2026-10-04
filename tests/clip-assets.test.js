@@ -104,8 +104,11 @@ test('site/index.html has exactly one light and one dark clip <video>, no autopl
   const darkVideo = videos.find(([, attrs]) => attrs.includes('class="dark-only"'));
   assert.ok(lightVideo, 'expected a light-only clip <video>');
   assert.ok(darkVideo, 'expected a dark-only clip <video>');
-  assert.match(lightVideo[1], /poster="clip\/clip-light-poster\.png"/);
-  assert.match(darkVideo[1], /poster="clip\/clip-dark-poster\.png"/);
+  // The poster is a CSS background per theme, never the poster attribute: a
+  // display:none video still downloads its poster, so both themes' loaded
+  assert.equal(/\bposter=/.test(lightVideo[1] + darkVideo[1]), false, 'no poster attribute on the clip videos');
+  assert.match(html, /\.clip video\.light-only \{ background: url\(clip\/clip-light-poster\.webp\)/);
+  assert.match(html, /\.clip video\.dark-only \{ background: url\(clip\/clip-dark-poster\.webp\)/);
 });
 
 test('site/index.html script drives the clip via syncClip, and the footer names it', () => {
@@ -134,10 +137,14 @@ test('README.md leads with the clip GIF <picture>, not the popup screenshot', ()
   assert.match(readme, /<img src="docs\/clip\/clip-light\.gif"/);
 });
 
-test('.github/workflows/pages.yml copies docs/clip into site/clip, and .gitignore ignores it', () => {
+test('.github/workflows/pages.yml fills site/clip from docs/clip through scripts/site-assets.mjs, and .gitignore ignores it', () => {
   const pagesYml = readNormalized('.github/workflows/pages.yml');
   assert.equal((pagesYml.match(/"docs\/clip\/\*\*"/g) || []).length, 1, 'pages.yml paths should list docs/clip/**');
-  assert.equal((pagesYml.match(/cp docs\/clip\//g) || []).length, 1, 'pages.yml should copy docs/clip/* into site/clip');
+  assert.equal((pagesYml.match(/node scripts\/site-assets\.mjs/g) || []).length, 1, 'pages.yml should run scripts/site-assets.mjs once');
+  const assets = readNormalized('scripts/site-assets.mjs');
+  assert.match(assets, /at\('docs', 'clip'\)/, 'site-assets.mjs should read docs/clip');
+  assert.match(assets, /at\('site', 'clip', name\)/, 'site-assets.mjs should copy into site/clip');
+  assert.match(assets, /-poster\.png/, 'site-assets.mjs should make the WebP posters the page uses');
 
   const gitignore = readNormalized('.gitignore');
   assert.match(gitignore, /^site\/clip\/$/m);

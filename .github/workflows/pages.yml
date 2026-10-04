@@ -14,6 +14,7 @@ on:
       - "src-tauri/icons/**"
       - "docs/screenshots/**"
       - "docs/clip/**"
+      - "scripts/site-assets.mjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
 
@@ -35,14 +36,10 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - run: |
-          cp docs/og.png site/og.png
-          cp src-tauri/icons/32x32.png site/favicon-32.png
-          cp src-tauri/icons/128x128@2x.png site/apple-touch-icon.png
-          mkdir -p site/shots
-          cp docs/screenshots/*.png site/shots/
-          mkdir -p site/clip
-          cp docs/clip/*.mp4 docs/clip/*.webm docs/clip/*-poster.png site/clip/
+      # The copies, and the WebP the page serves, come from one script so a
+      # local preview gets the same files; it needs ffmpeg
+      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
+      - run: node scripts/site-assets.mjs
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

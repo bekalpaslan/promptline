@@ -247,9 +247,13 @@
     @media (max-width: 480px) { .cmd { font-size: 12px; } }
 
     /* The clip: copy, hotkey, paste in a terminal, 720x540 at 2x. Only the
-       theme showing loads (preload="none"); the script plays it */
+       theme showing loads (preload="none"); the script plays it. The poster
+       is a background, not the poster attribute: a hidden video still
+       fetches its poster, a hidden element's background is never fetched */
     .clip { position: relative; }
     .clip video { display: block; width: 100%; height: auto; aspect-ratio: 4 / 3; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface-sunk); box-shadow: var(--shadow-shot); }
+    .clip video.light-only { background: url(clip/clip-light-poster.webp) center / cover; }
+    .clip video.dark-only { background: url(clip/clip-dark-poster.webp) center / cover; }
     .clip-toggle {
       position: absolute; right: 12px; bottom: 12px; height: 28px; padding: 0 10px;
       border: 1px solid var(--line-strong); border-radius: 6px;
@@ -574,11 +578,11 @@
         <pre class="cmd" aria-labelledby="scoop" tabindex="0"><code>scoop bucket add promptline https://github.com/bekalpaslan/scoop-bucket</code><code>scoop install promptline</code></pre>
       </div>
       <div class="clip">
-        <video class="light-only" width="720" height="540" muted loop playsinline preload="none" poster="clip/clip-light-poster.png" aria-label="A Windows Terminal running Claude Code: a failing test's stack trace is copied, Ctrl+Alt+V opens the Promptline popup, Root cause first is picked, and the prompt, trace inside, fills Claude Code's input">
+        <video class="light-only" width="720" height="540" muted loop playsinline preload="none" aria-label="A Windows Terminal running Claude Code: a failing test's stack trace is copied, Ctrl+Alt+V opens the Promptline popup, Root cause first is picked, and the prompt, trace inside, fills Claude Code's input">
           <source src="clip/clip-light.webm" type="video/webm">
           <source src="clip/clip-light.mp4" type="video/mp4">
         </video>
-        <video class="dark-only" width="720" height="540" muted loop playsinline preload="none" poster="clip/clip-dark-poster.png" aria-label="A Windows Terminal running Claude Code: a failing test's stack trace is copied, Ctrl+Alt+V opens the Promptline popup, Root cause first is picked, and the prompt, trace inside, fills Claude Code's input">
+        <video class="dark-only" width="720" height="540" muted loop playsinline preload="none" aria-label="A Windows Terminal running Claude Code: a failing test's stack trace is copied, Ctrl+Alt+V opens the Promptline popup, Root cause first is picked, and the prompt, trace inside, fills Claude Code's input">
           <source src="clip/clip-dark.webm" type="video/webm">
           <source src="clip/clip-dark.mp4" type="video/mp4">
         </video>
@@ -618,8 +622,14 @@
         </div>
         <div class="tile reveal">
           <div class="panel">
-            <img class="light-only" src="shots/popup-light.png" width="400" height="600" loading="lazy" alt="The popup: a search box, five pinned prompts with Ctrl+1 to 5, and the Everyday pack with its Stuck group">
-            <img class="dark-only" src="shots/popup-dark.png" width="400" height="600" loading="lazy" alt="The popup: a search box, five pinned prompts with Ctrl+1 to 5, and the Everyday pack with its Stuck group">
+            <picture>
+              <source type="image/webp" srcset="shots/popup-light.webp">
+              <img class="light-only" src="shots/popup-light.png" width="400" height="600" loading="lazy" alt="The popup: a search box, five pinned prompts with Ctrl+1 to 5, and the Everyday pack with its Stuck group">
+            </picture>
+            <picture>
+              <source type="image/webp" srcset="shots/popup-dark.webp">
+              <img class="dark-only" src="shots/popup-dark.png" width="400" height="600" loading="lazy" alt="The popup: a search box, five pinned prompts with Ctrl+1 to 5, and the Everyday pack with its Stuck group">
+            </picture>
           </div>
         </div>
       </article>
@@ -636,8 +646,14 @@
         </div>
         <div class="tile reveal">
           <div class="panel">
-            <img class="light-only" src="shots/popup-preview-light.png" width="400" height="600" loading="lazy" alt="The popup previewing Root cause first, with the copied TypeError and its file and line in place of {clipboard}">
-            <img class="dark-only" src="shots/popup-preview-dark.png" width="400" height="600" loading="lazy" alt="The popup previewing Root cause first, with the copied TypeError and its file and line in place of {clipboard}">
+            <picture>
+              <source type="image/webp" srcset="shots/popup-preview-light.webp">
+              <img class="light-only" src="shots/popup-preview-light.png" width="400" height="600" loading="lazy" alt="The popup previewing Root cause first, with the copied TypeError and its file and line in place of {clipboard}">
+            </picture>
+            <picture>
+              <source type="image/webp" srcset="shots/popup-preview-dark.webp">
+              <img class="dark-only" src="shots/popup-preview-dark.png" width="400" height="600" loading="lazy" alt="The popup previewing Root cause first, with the copied TypeError and its file and line in place of {clipboard}">
+            </picture>
           </div>
         </div>
       </article>
@@ -654,8 +670,14 @@
         </div>
         <div class="tile reveal">
           <div class="panel">
-            <img class="light-only" src="shots/popup-search-light.png" width="400" height="600" loading="lazy" alt="The popup searching for rev: Review against our conventions, Diff review bugs only and three more results, the letters highlighted">
-            <img class="dark-only" src="shots/popup-search-dark.png" width="400" height="600" loading="lazy" alt="The popup searching for rev: Review against our conventions, Diff review bugs only and three more results, the letters highlighted">
+            <picture>
+              <source type="image/webp" srcset="shots/popup-search-light.webp">
+              <img class="light-only" src="shots/popup-search-light.png" width="400" height="600" loading="lazy" alt="The popup searching for rev: Review against our conventions, Diff review bugs only and three more results, the letters highlighted">
+            </picture>
+            <picture>
+              <source type="image/webp" srcset="shots/popup-search-dark.webp">
+              <img class="dark-only" src="shots/popup-search-dark.png" width="400" height="600" loading="lazy" alt="The popup searching for rev: Review against our conventions, Diff review bugs only and three more results, the letters highlighted">
+            </picture>
           </div>
         </div>
       </article>
@@ -671,8 +693,14 @@
         </div>
         <div class="tile reveal">
           <div class="panel">
-            <img class="light-only" src="shots/popup-form-light.png" width="400" height="600" loading="lazy" alt="The popup asking for Goal on Three ways, pick one, with cache the product list typed and the finished prompt shown below">
-            <img class="dark-only" src="shots/popup-form-dark.png" width="400" height="600" loading="lazy" alt="The popup asking for Goal on Three ways, pick one, with cache the product list typed and the finished prompt shown below">
+            <picture>
+              <source type="image/webp" srcset="shots/popup-form-light.webp">
+              <img class="light-only" src="shots/popup-form-light.png" width="400" height="600" loading="lazy" alt="The popup asking for Goal on Three ways, pick one, with cache the product list typed and the finished prompt shown below">
+            </picture>
+            <picture>
+              <source type="image/webp" srcset="shots/popup-form-dark.webp">
+              <img class="dark-only" src="shots/popup-form-dark.png" width="400" height="600" loading="lazy" alt="The popup asking for Goal on Three ways, pick one, with cache the product list typed and the finished prompt shown below">
+            </picture>
           </div>
         </div>
       </article>
@@ -693,8 +721,14 @@
               <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
               <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
             </div>
-            <img class="light-only" src="shots/manager-overview-light.png" width="1000" height="800" loading="lazy" alt="The manager showing the Acme Shop pack as cards in three groups, the orders API and the copied error filled in">
-            <img class="dark-only" src="shots/manager-overview-dark.png" width="1000" height="800" loading="lazy" alt="The manager showing the Acme Shop pack as cards in three groups, the orders API and the copied error filled in">
+            <picture>
+              <source type="image/webp" srcset="shots/manager-overview-light.webp">
+              <img class="light-only" src="shots/manager-overview-light.png" width="1000" height="800" loading="lazy" alt="The manager showing the Acme Shop pack as cards in three groups, the orders API and the copied error filled in">
+            </picture>
+            <picture>
+              <source type="image/webp" srcset="shots/manager-overview-dark.webp">
+              <img class="dark-only" src="shots/manager-overview-dark.png" width="1000" height="800" loading="lazy" alt="The manager showing the Acme Shop pack as cards in three groups, the orders API and the copied error filled in">
+            </picture>
           </div>
         </div>
       </article>
@@ -715,8 +749,14 @@
               <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
               <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
             </div>
-            <img class="light-only" src="shots/manager-editor-light.png" width="1000" height="800" loading="lazy" alt="The editor for Trace this checkout failure: its text, its tags, and the built-ins, fill-in fields and the saved service value">
-            <img class="dark-only" src="shots/manager-editor-dark.png" width="1000" height="800" loading="lazy" alt="The editor for Trace this checkout failure: its text, its tags, and the built-ins, fill-in fields and the saved service value">
+            <picture>
+              <source type="image/webp" srcset="shots/manager-editor-light.webp">
+              <img class="light-only" src="shots/manager-editor-light.png" width="1000" height="800" loading="lazy" alt="The editor for Trace this checkout failure: its text, its tags, and the built-ins, fill-in fields and the saved service value">
+            </picture>
+            <picture>
+              <source type="image/webp" srcset="shots/manager-editor-dark.webp">
+              <img class="dark-only" src="shots/manager-editor-dark.png" width="1000" height="800" loading="lazy" alt="The editor for Trace this checkout failure: its text, its tags, and the built-ins, fill-in fields and the saved service value">
+            </picture>
           </div>
         </div>
       </article>
@@ -738,8 +778,14 @@
               <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
               <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
             </div>
-            <img class="light-only" src="shots/manager-generate-light.png" width="1000" height="800" loading="lazy" alt="Generate pack with AI at its review step: three new prompts ticked, one marked dupe and one marked hidden text left unticked, and an Add 3 prompts button">
-            <img class="dark-only" src="shots/manager-generate-dark.png" width="1000" height="800" loading="lazy" alt="Generate pack with AI at its review step: three new prompts ticked, one marked dupe and one marked hidden text left unticked, and an Add 3 prompts button">
+            <picture>
+              <source type="image/webp" srcset="shots/manager-generate-light.webp">
+              <img class="light-only" src="shots/manager-generate-light.png" width="1000" height="800" loading="lazy" alt="Generate pack with AI at its review step: three new prompts ticked, one marked dupe and one marked hidden text left unticked, and an Add 3 prompts button">
+            </picture>
+            <picture>
+              <source type="image/webp" srcset="shots/manager-generate-dark.webp">
+              <img class="dark-only" src="shots/manager-generate-dark.png" width="1000" height="800" loading="lazy" alt="Generate pack with AI at its review step: three new prompts ticked, one marked dupe and one marked hidden text left unticked, and an Add 3 prompts button">
+            </picture>
           </div>
         </div>
       </article>
@@ -760,8 +806,14 @@
               <span class="t"><svg viewBox="0 0 1250 1250" aria-hidden="true"><use href="#logo"/></svg>Promptline</span>
               <span class="c"><span><svg viewBox="0 0 10 10"><path d="M1 5h8" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><rect x="1.5" y="1.5" width="7" height="7" fill="none" stroke="currentColor"/></svg></span><span><svg viewBox="0 0 10 10"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7" stroke="currentColor"/></svg></span></span>
             </div>
-            <img class="light-only" src="shots/manager-settings-light.png" width="1000" height="800" loading="lazy" alt="Settings: the global hotkey and startup, the theme, popup density, font and scale, and the library with its export and import buttons">
-            <img class="dark-only" src="shots/manager-settings-dark.png" width="1000" height="800" loading="lazy" alt="Settings: the global hotkey and startup, the theme, popup density, font and scale, and the library with its export and import buttons">
+            <picture>
+              <source type="image/webp" srcset="shots/manager-settings-light.webp">
+              <img class="light-only" src="shots/manager-settings-light.png" width="1000" height="800" loading="lazy" alt="Settings: the global hotkey and startup, the theme, popup density, font and scale, and the library with its export and import buttons">
+            </picture>
+            <picture>
+              <source type="image/webp" srcset="shots/manager-settings-dark.webp">
+              <img class="dark-only" src="shots/manager-settings-dark.png" width="1000" height="800" loading="lazy" alt="Settings: the global hotkey and startup, the theme, popup density, font and scale, and the library with its export and import buttons">
+            </picture>
           </div>
         </div>
       </article>
