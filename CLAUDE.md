@@ -48,9 +48,10 @@ backlog, not from another audit, unless asked.
   `/monthly-theme <figma url>` and `/release` run them.
 - `site/` — the one-page website at https://promptline.cc, published to
   GitHub Pages by `.github/workflows/pages.yml` on every push to `master`
-  that touches it (the workflow copies `docs/og.png`, `docs/screenshots/*.png`
-  and the clip's video and posters from `docs/clip/` in; `site/` holds no
-  binaries). Plain HTML and CSS on the tokens from `design/tokens.json`:
+  that touches it (the workflow runs `node scripts/site-assets.mjs`, which
+  copies `docs/og.png`, `docs/screenshots/*.png` and the clip's video and
+  posters from `docs/clip/` in and makes the lossless WebP the page serves,
+  one per shot and poster; `site/` holds no binaries). Plain HTML and CSS on the tokens from `design/tokens.json`:
   a hero with the launch clip playing in the theme showing, then a tour
   with one chapter per screen, each shot in
   both themes (only the one showing loads; the header's switch pins one
@@ -83,9 +84,9 @@ backlog, not from another audit, unless asked.
   feed that installed copies read at https://promptline.cc/latest.json;
   the release step writes it (Releasing step 6), never edit it by hand,
   and a push that touches it deploys it. Preview it with
-  `python -m http.server` in `site/` after copying `docs/og.png`,
-  `docs/screenshots/*.png` into `shots/` and `docs/clip/*` into `clip/`
-  (all gitignored there). Live with HTTPS enforced since 2026-09-23;
+  `python -m http.server` in `site/` after `node scripts/site-assets.mjs`
+  (what it writes is gitignored there). A new `<img>` of a shot goes in a
+  `<picture>` with the WebP `<source>` its siblings carry. Live with HTTPS enforced since 2026-09-23;
   DNS is at GoDaddy (four Pages A records, `www` CNAME). The bundle
   identifier stays `io.github.bekalpaslan.promptline` on purpose: it names
   the data folder, and a domain can lapse.
