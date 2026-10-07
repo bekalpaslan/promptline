@@ -1005,6 +1005,14 @@ test("← on a grouped row folds its group and stays on it; → opens it again o
   await page.keyboard.press("ArrowRight")
   const first = page.getByRole("group", { name: target.group!, exact: true }).getByRole("option").first()
   await expect(first).toHaveAttribute("aria-selected", "true")
+  // A second ← steps out: on the folded group it folds the pack, so a pack
+  // whose prompts are all grouped folds from the keyboard too
+  const pack = target.pack || "My prompts"
+  await page.keyboard.press("ArrowLeft")
+  await page.keyboard.press("ArrowLeft")
+  await expect(page.getByRole("group", { name: pack, exact: true }).getByRole("option")).toHaveText([new RegExp(`^${pack}, folded, `)])
+  await page.keyboard.press("ArrowRight")
+  await expect(page.getByRole("group", { name: pack, exact: true }).getByRole("option").first()).toHaveAttribute("aria-selected", "true")
 })
 
 test("with every pack folded, ↑↓ step through the folds and Enter opens one", async ({ page }) => {
