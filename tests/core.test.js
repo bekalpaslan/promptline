@@ -1121,6 +1121,25 @@ test('hotkeyKeyName is the vocabulary lib.rs parses: letters, digits, F1–F12, 
   for (const k of ['!', '<', 'Escape', 'Tab', 'CapsLock', 'Unidentified', '', undefined]) assert.equal(core.hotkeyKeyName(k), null);
 });
 
+// ---- sidebar width ----------------------------------------------------------------------
+
+test('sidebarWidth: nothing saved keeps the CSS default', () => {
+  for (const v of [null, undefined, '', '  ', 'wide', NaN]) assert.equal(core.sidebarWidth(v, 1000, 16).width, null);
+});
+
+test('sidebarWidth: a drag is held between 13rem and 32rem', () => {
+  assert.deepEqual(core.sidebarWidth('300', 1600, 16), { width: 300, min: 208, max: 512 });
+  assert.equal(core.sidebarWidth(100, 1600, 16).width, 208);
+  assert.equal(core.sidebarWidth(9999, 1600, 16).width, 512);
+  assert.equal(core.sidebarWidth('300.6', 1600, 16).width, 301);
+});
+
+test('sidebarWidth: the pane keeps 18rem when the window shrinks', () => {
+  assert.equal(core.sidebarWidth(500, 700, 16).width, 700 - 288);
+  // At the window's minimum and a large UI scale the floor wins
+  assert.deepEqual(core.sidebarWidth(500, 560, 20), { width: 260, min: 260, max: 260 });
+});
+
 // ---- theme ------------------------------------------------------------------------------
 
 test('resolvePalette: indigo is the one alternative, anything else is instrument', () => {

@@ -135,6 +135,17 @@ every pause in typing — and a screen reader hears "Saved" once per landing
 through a `role=status` region beside it, never the "Saving…". A failed
 save is toasted by `updateSnippet`, so the caption only clears.
 
+**The sidebar's width is the user's.** Its right edge is a handle (a
+`separator`): drag it, or focus it and press ← / → (Shift for four times
+the step, Home and End for the bounds); a double-click goes back to the
+default, `clamp(13rem, 28%, 20rem)`. The width is kept in localStorage
+(`sidebarWidth`, px) like the other view choices, written on release
+rather than on every move, and clamped by `sidebarWidth` in core on every
+render: never under the CSS floor of 13rem, never over 32rem or what
+leaves the pane 18rem. The clamp is against the window as it is now, so
+a wide sidebar dragged out in a maximised window gives the pane its room
+back when the window shrinks, without forgetting the width it was given.
+
 **The sidebar's filter is always there, and apart from the display.** The
 field under the title takes the popup's syntax (`#tag`, `@pack`, `>group`,
 then free-text words anywhere in the prompt: `matchesQuery` in core), with
