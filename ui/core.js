@@ -983,6 +983,21 @@
   // import only trimmed and lowercased, so a tag with a space could be
   // stored and then never found (`#code review` parses as the tag `code`).
   // The strictest of the three, and every shipped pack's tags pass it as is.
+  // ---- Sidebar width --------------------------------------------------------------
+  // The manager's sidebar as dragged: at least 13rem (the CSS floor), at most
+  // 32rem or whatever leaves the pane 18rem, whichever is less, so a wide
+  // drag in a big window can't crowd the editor out once the window shrinks.
+  // `saved` is the stored px; anything unusable gives width null, which
+  // keeps the CSS default.
+  function sidebarWidth(saved, windowWidth, rem) {
+    const r = rem > 0 ? rem : 16;
+    const min = 13 * r;
+    const max = Math.max(min, Math.min(32 * r, windowWidth - 18 * r));
+    const w = typeof saved === 'string' && saved.trim() !== '' ? Number(saved) : typeof saved === 'number' ? saved : NaN;
+    const width = Number.isFinite(w) ? Math.round(Math.min(max, Math.max(min, w))) : null;
+    return { width, min: Math.round(min), max: Math.round(max) };
+  }
+
   // ---- Theme ------------------------------------------------------------------------
   // The saved preference is "system", "light" or "dark"; "system" follows the
   // OS (`systemDark` is the prefers-color-scheme match). Anything else — the
@@ -1150,6 +1165,7 @@
     plural,
     resolveTheme,
     resolvePalette,
+    sidebarWidth,
     fmtHotkey,
     releaseNotesBlocks,
   };
