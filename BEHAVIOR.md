@@ -535,9 +535,22 @@ parts them) and packs 8 px apart; pack and group headers are 24 px tall.
 It was 6 and 12 with 28 px headers, a 50 px pitch for a 44 px row, which
 showed seven prompts in the default window where eight now fit (twelve in
 Compact). A group's rows are not indented: every title in the list starts
-on one edge, and the group's name sits on that same edge, so the outer
-edge holds icons and pack names and the inner one group names and titles.
-Indented, titles sat on two edges 10 px apart. `Ctrl` is printed once, on
+on one edge, and every pack and group name sits on that same edge, so the
+outer edge holds glyphs (row icons, the headers' chevrons, Pinned's pin,
+Results' magnifier) and the inner one names and titles. Indented, titles
+sat on two edges 10 px apart.
+
+**A header never reads as a prompt.** A pack header (and Pinned, and
+Results) is a band on Control grey, and no row is filled at rest; it
+sticks to the top of the list while its rows scroll, so the pack a row
+belongs to stays named, and rows keep a 28 px scroll margin so arrowing up
+never parks the selection under it. A group header is a divider: its
+chevron leads, its name in Ink 2 is followed by a hairline to its count.
+Through 0.2.20 the headers were text alone, a pack's 600 one weight step
+above a title's 500 and a group's name on the title edge with its chevron
+at the far right, so a group read as a prompt whose first line was
+missing (the manager's sidebar parts them with chevrons and guide lines;
+the popup keeps its one edge and parts them with a fill and a rule). `Ctrl` is printed once, on
 the first slot's key; the rows under it show their digit alone in the same
 column. Five `Ctrl` caps down the right edge were the loudest thing in the
 list and said one thing five times (critique popup, 2026-10-03).

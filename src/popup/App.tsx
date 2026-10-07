@@ -7,6 +7,7 @@ import {
   RiClipboardLine,
   RiFileCopyLine,
   RiFilterLine,
+  RiPushpinLine,
   RiSearchLine,
 } from "@remixicon/react"
 import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
@@ -1589,12 +1590,16 @@ export function App() {
           // (a pack is collapsible)
           const underPinned = flat && sec.name === "Pinned"
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!, underPinned))
-          const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+          // The section's glyph sits in the rows' icon column: a chevron on a
+          // pack, a pin on Pinned, a magnifier on Results
+          const Lead = sec.collapsible ? (sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine) : underPinned ? RiPushpinLine : RiSearchLine
           const filtered = sec.collapsible && packActive(sec.name)
-          // A pack title as in the sidebar: the body size at 600, one step
-          // above a group's 500 and a row's 500 in Ink 2. At 16px it was the
-          // largest text in the popup, above the titles the scene is about.
-          // 24 px tall, not 28: four headers above the fold cost a row.
+          // A pack title as in the sidebar: the body size at 600 in Graphite,
+          // a group's 500 in Ink 2 below it. Weight alone did not part it
+          // from a row's 500 title, so the header is a band on Control grey
+          // (no row is filled at rest) with its glyph leading, like the
+          // sidebar's chevrons. 24 px tall, not 28: four headers above the
+          // fold cost a row.
           const headerClass = cn(
             "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-ui font-semibold",
             sec.collapsible && "cursor-pointer",
@@ -1602,9 +1607,9 @@ export function App() {
           )
           const headerBody = (
             <>
+              <Lead className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate">{sec.name}</span>
               <Count>{sec.count}</Count>
-              {sec.collapsible && <Chev className="size-4 shrink-0 text-muted-foreground" />}
             </>
           )
           return (
@@ -1621,8 +1626,12 @@ export function App() {
                   carries the name; the fold and the filter are reachable by
                   keyboard (← / Ctrl+→, typing @pack), and the buttons are
                   tabIndex -1 so nothing hidden is in the tab order. */}
+              {/* Sticky, so the pack a row belongs to stays named while it
+                  scrolls; the Paper behind the band hides rows passing its
+                  rounded corners and the 2 px under it */}
+              <div aria-hidden className="sticky top-0 z-10 bg-background pb-0.5">
               {sec.collapsible ? (
-                <div aria-hidden className={cn("group/hdr flex items-center rounded-md pr-0.5", filtered && "bg-(--focus)/10")}>
+                <div className={cn("group/hdr flex items-center rounded-md pr-0.5", filtered ? "bg-(--focus)/10" : "bg-secondary")}>
                   <button
                     type="button"
                     tabIndex={-1}
@@ -1641,8 +1650,9 @@ export function App() {
                   {funnel("@", sec.name, filtered)}
                 </div>
               ) : (
-                <div aria-hidden className={headerClass}>{headerBody}</div>
+                <div className={cn(headerClass, "bg-secondary")}>{headerBody}</div>
               )}
+              </div>
               {!sec.isCollapsed && (
                 <div className="flex flex-col gap-0.5">
                   {rows(ungrouped)}
@@ -1653,11 +1663,12 @@ export function App() {
                     const gf = groupActive(g)
                     return (
                       // No indent on a group's rows: every title in the
-                      // list starts on one edge. The group's name sits on
-                      // that same edge (the header's pl-7 is the row's
-                      // padding, icon and gap), so the outer edge holds
-                      // icons and pack names, the inner one group names and
-                      // titles. Indented, titles sat on two edges 10 px apart.
+                      // list starts on one edge. The outer edge holds the
+                      // glyphs (row icons, the chevrons), the inner one every
+                      // name and title; indented, titles sat on two edges
+                      // 10 px apart. A hairline runs from the group's name
+                      // to its count, so the header reads as a divider and
+                      // not as a prompt whose first line is missing.
                       <div key={g} className="flex flex-col gap-0.5" role="group" aria-label={g}>
                         <div aria-hidden className={cn("group/hdr flex items-center rounded-md pr-0.5", gf && "bg-(--focus)/10")}>
                           <button
@@ -1667,7 +1678,7 @@ export function App() {
                             title={gc ? "Unfold (Ctrl+→ unfolds all)" : "Fold (← on a row folds its pack or group)"}
                             className={cn(
                               // A group name is the user's words: shown as typed, never uppercased
-                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1 rounded-md py-0.5 pl-7 pr-1 text-left text-ui font-medium",
+                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-ui font-medium",
                               gc ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
                             )}
                             onClick={() => {
@@ -1675,9 +1686,10 @@ export function App() {
                               inputRef.current?.focus()
                             }}
                           >
-                            <span className="min-w-0 flex-1 truncate">{g}</span>
+                            <GChev className="size-3.5 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 truncate">{g}</span>
+                            <span className="h-px min-w-3 flex-1 bg-border" />
                             <Count>{es.length}</Count>
-                            <GChev className="size-4 shrink-0" />
                           </button>
                           {funnel(">", g, gf)}
                         </div>

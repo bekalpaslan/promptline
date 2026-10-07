@@ -136,7 +136,7 @@ export const Row = memo(function Row({
       data-selected={selected}
       data-icon={icon}
       className={cn(
-        "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
+        "flex min-w-0 scroll-mt-7 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
         compact ? "py-0.5" : "py-1",
         selected ? "bg-accent text-foreground" : "text-foreground hover:bg-hover",
         picked && "bg-primary/20"
