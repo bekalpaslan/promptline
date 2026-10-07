@@ -357,23 +357,26 @@ the fill-in placeholder is full Ink 2 (at 70% it was 3:1); and with no
 rows the status region says the list's own message, which a listbox, read
 as options only, never voiced.
 
-**The popup's list folds from the keyboard too.** ← folds the selected
-row's group, or its pack on an ungrouped row, and the selection stays on
-the fold; → or Enter there opens it again and lands on its first row,
-and ← on a folded group steps out and folds its pack, as in the sidebar's
-tree (a pack whose prompts were all in groups had no row whose ← folded
-it). A folded pack or group is a stop in the ↑↓ order, in the place of its rows
-(open headers are not, so an open list costs no extra presses), and the
-bar reads `→ ↵ unfold · ↑ ↓ move` while one is selected. A list with
-nothing open and nothing pinned starts on its first fold. Ctrl+→ still
-unfolds every pack and every group at once. Through 0.2.20 the arrows moved
-over rows only, so a folded section could be reached from the keyboard
-only by Ctrl+→, which opened everything; with everything folded ↑↓ did
-nothing. Before that, Ctrl+→ cleared pack folds only, and only while one
-was folded, so a group folded with ← could only be reopened with the
-mouse. A selected fold is announced as an option ("Everyday, folded, 12
-prompts") in the header's place, since the header itself is hidden from
-assistive tech.
+**The popup's list folds from the keyboard too.** Every pack and group
+header is a stop in the ↑↓ order, above its rows, as in the sidebar's
+tree; Pinned and Results are not, since they don't fold. On a header,
+Enter folds or opens it, ← folds an open one, → opens a folded one and on
+an open one steps onto its first row, and ← on a folded group steps out
+and folds its pack (a pack whose prompts were all in groups had no row
+whose ← folded it). Opening keeps the selection on the header: landing on
+the first row threw it to the top of the list when a pack's groups were
+all folded, since there was no row to land on. ← on a row folds its
+group, or its pack on an ungrouped row, and moves the selection to that
+header, so → undoes it at once. The bar reads `← ↵ fold` or `→ ↵ unfold`
+with `↑ ↓ move` while a header is selected, a list with nothing open and
+nothing pinned starts on its first header, and Ctrl+→ still unfolds every
+pack and group at once. A selected header is announced as an option
+("Everyday, folded, 12 prompts") in its place, since the header itself is
+hidden from assistive tech. Through 0.2.20 the arrows moved over rows
+only: a fold could be reopened from the keyboard only by Ctrl+→, which
+opened everything, and with everything folded ↑↓ did nothing. Before
+that, Ctrl+→ cleared pack folds only, and only while one was folded, so a
+group folded with ← could only be reopened with the mouse.
 
 **The clipboard has a line of its own under the search box.** Every
 `{clipboard}` row pastes it, and the row shows only the word, so the line
@@ -468,8 +471,8 @@ garbage. Tag characters and zero-width ones are counted by the badge and
 left alone, since a flag emoji is made of tags.
 
 **A fold moves the selection only out of the folded section.** ← folds
-the selected row's group or pack, and the selection stays on the fold it
-made (above). A click on any other header, and Ctrl+→, leave the selection on the
+the selected row's group or pack, and the selection moves to its header
+(above). A click on any other header, and Ctrl+→, leave the selection on the
 row it was on: a click on "Everyday" used to carry the selection into
 another pack, so the pointer changed what Enter pasted. ← closes a card
 opened with →, and a second ← within 400 ms does nothing; it used to fold
