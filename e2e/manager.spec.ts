@@ -25,6 +25,44 @@ test("the sidebar lists every pack with its count", async ({ page }) => {
   await expect(page.getByText("Select a prompt to edit it")).toBeVisible()
 })
 
+test("the sidebar's edge drags to a width that survives a reload, and a double-click resets it", async ({ page }) => {
+  const sidebar = page.getByRole("complementary", { name: "Prompts" })
+  const handle = page.getByRole("separator", { name: "Resize sidebar" })
+  const before = (await sidebar.boundingBox())!.width
+  const box = (await handle.boundingBox())!
+  await page.mouse.move(box.x + box.width / 2, box.y + 200)
+  await page.mouse.down()
+  await page.mouse.move(box.x + box.width / 2 + 120, box.y + 200, { steps: 5 })
+  await page.mouse.up()
+  const dragged = (await sidebar.boundingBox())!.width
+  expect(Math.abs(dragged - (before + 120))).toBeLessThan(3)
+
+  await page.reload()
+  await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeCloseTo(dragged, 0)
+
+  // As far as the bounds go, then back to the default
+  await handle.dblclick()
+  await expect.poll(async () => (await sidebar.boundingBox())!.width).toBeCloseTo(before, 0)
+  await page.mouse.move(box.x + 2, box.y + 200)
+  await page.mouse.down()
+  await page.mouse.move(box.x + 900, box.y + 200, { steps: 5 })
+  await page.mouse.up()
+  await expect(handle).toHaveAttribute("aria-valuenow", await handle.getAttribute("aria-valuemax") ?? "")
+  await handle.dblclick()
+})
+
+test("the sidebar's edge resizes from the keyboard", async ({ page }) => {
+  const handle = page.getByRole("separator", { name: "Resize sidebar" })
+  await handle.focus()
+  const start = Number(await handle.getAttribute("aria-valuenow"))
+  await page.keyboard.press("ArrowRight")
+  await expect(handle).toHaveAttribute("aria-valuenow", String(start + 16))
+  await page.keyboard.press("Shift+ArrowLeft")
+  await expect(handle).toHaveAttribute("aria-valuenow", String(start + 16 - 64))
+  await page.keyboard.press("Home")
+  await expect(handle).toHaveAttribute("aria-valuenow", (await handle.getAttribute("aria-valuemin"))!)
+})
+
 test("clicking a prompt opens it in the editor", async ({ page }) => {
   await promptRow(page, "Loose prompt").click()
   await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("Loose prompt")
