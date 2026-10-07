@@ -35,12 +35,12 @@ test("one 8 px inset: the strips share the search box's edges, and their content
   // A row's fill runs edge to edge under the search box
   expect(Math.abs(rowRect!.x - boxRect!.x)).toBeLessThan(0.6)
   expect(Math.abs(rowRect!.width - boxRect!.width)).toBeLessThan(0.6)
-  // The search icon, the clipboard icon, a pack's name, a row's icon and the
-  // first key of the hint bar start 8 px in
+  // The search icon, the clipboard icon, a pack's chevron, a row's icon and
+  // the first key of the hint bar start 8 px in
   const starts = await Promise.all([
     x(box.locator("svg").first()),
     x(clipLine(page).locator("xpath=..").locator("svg").first()),
-    x(page.locator("button", { hasText: "Everyday" }).first().locator("span").first()),
+    x(page.locator("button", { hasText: "Everyday" }).first().locator("svg").first()),
     x(row.locator("svg").first()),
     x(page.getByText("paste", { exact: true }).locator("xpath=..").locator("kbd").first()),
   ])
@@ -96,6 +96,33 @@ test("the listbox holds only options and named groups; the fold and filter butto
   await expect(list.getByRole("group", { name: "Everyday", exact: true }).getByRole("option")).toHaveCount(0)
   await expect(search(page)).toBeFocused()
   expect(await page.locator('[aria-hidden="true"] [tabindex]:not([tabindex="-1"])').count()).toBe(0)
+})
+
+test("pack and group headers part from prompt rows: a filled band that sticks, a ruled divider", async ({ page }) => {
+  const pack = page.locator("button", { hasText: "Everyday" }).first()
+  const group = page.locator("button", { hasText: "Stuck" }).first()
+  const option = page.getByRole("option").nth(1)
+  const fill = (l: typeof pack) => l.evaluate((e) => getComputedStyle(e.parentElement!).backgroundColor)
+  const clear = "rgba(0, 0, 0, 0)"
+  // No row is filled at rest; the pack's band is, the group's divider is not
+  expect(await option.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(clear)
+  expect(await fill(pack)).not.toBe(clear)
+  expect(await fill(group)).toBe(clear)
+  // The group's name is followed by a hairline, so it reads as a divider
+  expect(await group.evaluate((e) => [...e.children].some((c) => c.tagName === "SPAN" && c.getBoundingClientRect().height <= 1 && c.getBoundingClientRect().width > 8))).toBe(true)
+  // Both names start on the titles' edge; the chevrons hold the icons' edge
+  const titleX = await option.locator("bdi").first().evaluate((e) => e.getBoundingClientRect().left)
+  for (const h of [pack, group]) {
+    expect(Math.abs((await h.locator("span").first().evaluate((e) => e.getBoundingClientRect().left)) - titleX)).toBeLessThan(0.6)
+  }
+  // Scrolled into its pack, the band stays at the top of the list
+  const top = await pack.evaluate((e) => {
+    let s = e.parentElement
+    while (s && getComputedStyle(s).overflowY !== "auto") s = s.parentElement
+    s!.scrollTop = e.getBoundingClientRect().top - s!.getBoundingClientRect().top + s!.scrollTop + 60
+    return s!.getBoundingClientRect().top
+  })
+  await expect.poll(() => pack.evaluate((e) => Math.round(e.getBoundingClientRect().top))).toBe(Math.round(top))
 })
 
 test("the pointer never moves the selection, the search border lights only while focused, and clearing a query scrolls to the top", async ({ page }) => {
