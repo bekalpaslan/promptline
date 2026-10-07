@@ -986,3 +986,49 @@ test("at the 320 px minimum and 125% a Warn hint stands alone, on one line", asy
   await search(page).fill("Root cause first")
   await expect(page.getByText("close", { exact: true })).toBeVisible()
 })
+
+test("← on a grouped row folds its group and stays on it; → opens it again on its first row", async ({ page }) => {
+  const lib = await library(page)
+  const target = lib.find((s) => !s.pinned && s.group)!
+  const option = page.getByRole("option", { name: target.title, exact: true })
+  // Arrow down to the row, then fold its group
+  for (let i = 0; i < 40 && (await option.getAttribute("aria-selected")) !== "true"; i++) await page.keyboard.press("ArrowDown")
+  await expect(option).toHaveAttribute("aria-selected", "true")
+  await page.waitForTimeout(450)
+  await page.keyboard.press("ArrowLeft")
+  await expect(option).toHaveCount(0)
+  // The keyboard is on the fold: no row is selected, the bar says how to open it,
+  // and a screen reader hears the group named as folded
+  await expect(page.locator('[role="option"][aria-selected="true"]')).toHaveText(new RegExp(`^${target.group}, folded, `))
+  await expect(search(page)).toHaveAttribute("aria-activedescendant", "fold-stop")
+  await expect(page.getByText("unfold", { exact: true }).last()).toBeVisible()
+  await page.keyboard.press("ArrowRight")
+  const first = page.getByRole("group", { name: target.group!, exact: true }).getByRole("option").first()
+  await expect(first).toHaveAttribute("aria-selected", "true")
+})
+
+test("with every pack folded, ↑↓ step through the folds and Enter opens one", async ({ page }) => {
+  const list = page.getByRole("listbox", { name: "Prompts" })
+  // The packs in the list's order, each folded by a click on its header
+  const packs = await list.evaluate((el) =>
+    [...el.querySelectorAll("[role=group]:not([role=group] [role=group])")]
+      .filter((g) => g.querySelector("button[aria-expanded]"))
+      .map((g) => g.getAttribute("aria-label")!)
+  )
+  expect(packs.length).toBeGreaterThan(1)
+  for (const p of packs) await list.getByRole("group", { name: p, exact: true }).locator("button[aria-expanded=true]").first().click()
+  const pins = (await library(page)).filter((s) => s.pinned).length
+  await expect(rows(page)).toHaveCount(pins)
+  const selected = page.locator('[role="option"][aria-selected="true"]')
+  // Down past any pins to the first fold, then to the second
+  for (let i = 0; i < pins; i++) await page.keyboard.press("ArrowDown")
+  await expect(selected).toHaveText(new RegExp(`^${packs[0]}, folded, `))
+  await page.keyboard.press("ArrowDown")
+  await expect(selected).toHaveText(new RegExp(`^${packs[1]}, folded, `))
+  await page.keyboard.press("ArrowUp")
+  // Enter opens it and lands on its first row; nothing was pasted
+  await page.keyboard.press("Enter")
+  const first = page.getByRole("group", { name: packs[0], exact: true }).getByRole("option").first()
+  await expect(first).toHaveAttribute("aria-selected", "true")
+  expect(await calls(page, "paste_snippet")).toHaveLength(0)
+})

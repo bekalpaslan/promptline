@@ -358,11 +358,20 @@ rows the status region says the list's own message, which a listbox, read
 as options only, never voiced.
 
 **The popup's list folds from the keyboard too.** ← folds the selected
-row's group, or its pack on an ungrouped row; Ctrl+→ unfolds every pack and
-every group at once, because a folded section's rows leave the navigable
-list and there is no row left to unfold from. It used to clear pack folds
-only, and only while one was folded, so a group folded with ← could only be
-reopened with the mouse.
+row's group, or its pack on an ungrouped row, and the selection stays on
+the fold; → or Enter there opens it again and lands on its first row. A
+folded pack or group is a stop in the ↑↓ order, in the place of its rows
+(open headers are not, so an open list costs no extra presses), and the
+bar reads `→ ↵ unfold · ↑ ↓ move` while one is selected. A list with
+nothing open and nothing pinned starts on its first fold. Ctrl+→ still
+unfolds every pack and every group at once. Through 0.2.20 the arrows moved
+over rows only, so a folded section could be reached from the keyboard
+only by Ctrl+→, which opened everything; with everything folded ↑↓ did
+nothing. Before that, Ctrl+→ cleared pack folds only, and only while one
+was folded, so a group folded with ← could only be reopened with the
+mouse. A selected fold is announced as an option ("Everyday, folded, 12
+prompts") in the header's place, since the header itself is hidden from
+assistive tech.
 
 **The clipboard has a line of its own under the search box.** Every
 `{clipboard}` row pastes it, and the row shows only the word, so the line
@@ -457,8 +466,8 @@ garbage. Tag characters and zero-width ones are counted by the badge and
 left alone, since a flag emoji is made of tags.
 
 **A fold moves the selection only out of the folded section.** ← folds
-the selected row's group or pack, and the selection takes the row below
-it. A click on any other header, and Ctrl+→, leave the selection on the
+the selected row's group or pack, and the selection stays on the fold it
+made (above). A click on any other header, and Ctrl+→, leave the selection on the
 row it was on: a click on "Everyday" used to carry the selection into
 another pack, so the pointer changed what Enter pasted. ← closes a card
 opened with →, and a second ← within 400 ms does nothing; it used to fold

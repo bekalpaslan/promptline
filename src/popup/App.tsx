@@ -15,6 +15,13 @@ import { applyPrefs, isCompact } from "@/lib/prefs"
 import { type Config, DEFAULT_PACK, MAX_PINS, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 // Same key shape as the sidebar, so a group folds independently per pack
 const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
+// A stop in the arrow order: a row (its index in `visible`), or a folded
+// pack or group
+type FoldStop = { pack: string; group?: string }
+type Stop = { row: number } | FoldStop
+const sameStop = (a: Stop, b: FoldStop) => !("row" in a) && a.pack === b.pack && a.group === b.group
+// The option a selected fold is announced as (the header itself is hidden)
+const FOLD_OPTION_ID = "fold-stop"
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
@@ -208,6 +215,12 @@ export function App() {
     | { pack: string; group?: string; expanding: true }
     | { at: number }
   const pendingAnchor = useRef<PendingSel | null>(null)
+  // A folded pack or group is a stop in the arrow order, where its rows
+  // would be: the keyboard's only way back into a fold used to be Ctrl+→,
+  // which opens everything. While one is selected, `foldSel` names it and
+  // `sel` is set aside; → or Enter unfolds it.
+  const [foldSel, setFoldSel] = useState<FoldStop | null>(null)
+  const foldSelRef = useRef<FoldStop | null>(null)
   // What the list showed when a fold was toggled, for the anchor above
   const visibleRef = useRef<Entry[]>([])
   // …and the row the keyboard was on
@@ -288,7 +301,10 @@ export function App() {
   // selection on the row it was on
   const unfoldAll = useCallback(() => {
     const cur = visibleRef.current[selRef.current]
-    if (cur) pendingAnchor.current = { follow: cur.s.id }
+    const fold = foldSelRef.current
+    if (fold) pendingAnchor.current = { pack: fold.pack, group: fold.group, expanding: true }
+    else if (cur) pendingAnchor.current = { follow: cur.s.id }
+    setFoldSel(null)
     if (filterKey) {
       setFilterFolds({ key: filterKey, packs: new Set(), groups: new Set() })
     } else {
@@ -303,13 +319,13 @@ export function App() {
   // pinned ones included, so the popup agrees with the manager's sidebar even
   // though the pins are drawn up in the Pinned section.
   type Section = { name: string; entries: Entry[]; count: number; collapsible: boolean; isCollapsed: boolean }
-  const { sections, visible } = useMemo(() => {
+  const { sections, visible, stops } = useMemo(() => {
     if (hasQuery) {
       const sections: Section[] =
         filtered.length > 0
           ? [{ name: "Results", entries: filtered, count: filtered.length, collapsible: false, isCollapsed: false }]
           : []
-      return { sections, visible: filtered }
+      return { sections, visible: filtered, stops: filtered.map((_, i): Stop => ({ row: i })) }
     }
     const pinned = filtered.filter((e) => e.s.pinned)
     const rest = filtered.filter((e) => !e.s.pinned)
@@ -352,7 +368,24 @@ export function App() {
         effCollapsed.has(n) ? [] : es.filter((e) => !e.s.group || !effCollapsedGroups.has(groupKey(n, e.s.group)))
       ),
     ]
-    return { sections, visible }
+    // The arrow order: every row, and each folded pack or group in its place
+    const stops: Stop[] = pinned.map((_, i) => ({ row: i }))
+    let at = pinned.length
+    for (const [n, es] of packs) {
+      if (effCollapsed.has(n)) {
+        stops.push({ pack: n })
+        continue
+      }
+      let last: string | undefined
+      for (const e of es) {
+        const g = e.s.group
+        if (g && effCollapsedGroups.has(groupKey(n, g))) {
+          if (g !== last) stops.push({ pack: n, group: g })
+        } else stops.push({ row: at++ })
+        last = g
+      }
+    }
+    return { sections, visible, stops }
   }, [filtered, hasQuery, effCollapsed, effCollapsedGroups, packMeta, packsArranged, groupAt])
 
   // Row index within `visible`, for selection
@@ -678,6 +711,7 @@ export function App() {
     setPicked(null)
     setQuery("")
     setSel(0)
+    setFoldSel(null)
     mouseSeeded.current = false
     lastMouse.current = { x: -1, y: -1 }
     // A summon starts at the top of the list. The scroll offset outlives
@@ -725,6 +759,7 @@ export function App() {
   useEffect(() => {
     pendingAnchor.current = null
     setSel(0)
+    setFoldSel(null)
     // Back to the browsing list: start it at the top. The offset a search
     // left behind outlived the results, and the keep-in-view effect can't
     // undo it (sel is already 0), so the Pinned header sat under the fold.
@@ -805,6 +840,26 @@ export function App() {
   useEffect(() => {
     selRef.current = sel
   }, [sel])
+  useEffect(() => {
+    foldSelRef.current = foldSel
+  }, [foldSel])
+  // The selected fold went away (a click on its header, Ctrl+→, a filter):
+  // land on its first row. And a list with no rows to land on, everything
+  // folded, starts on its first fold, so Enter has something to do.
+  useEffect(() => {
+    if (foldSel && !stops.some((t) => sameStop(t, foldSel))) {
+      setFoldSel(null)
+      const i = visible.findIndex(
+        (e) =>
+          !e.s.pinned &&
+          (e.s.pack || DEFAULT_PACK) === foldSel.pack &&
+          (foldSel.group === undefined || e.s.group === foldSel.group)
+      )
+      if (i >= 0) setSel(i)
+    } else if (!foldSel && !visible.length && stops.length && !("row" in stops[0])) {
+      setFoldSel(stops[0])
+    }
+  }, [stops, visible, foldSel])
   // Folds outlive the popup (they are saved), hide rows, and the key that
   // undoes them was named nowhere at the default width. While anything is
   // folded the list says so, with the key, as its first line.
@@ -826,7 +881,7 @@ export function App() {
   // Keep the selected row in view
   useEffect(() => {
     listRef.current?.querySelector('[data-selected="true"]')?.scrollIntoView({ block: "nearest" })
-  }, [sel, visible])
+  }, [sel, visible, foldSel])
 
   // --- Keyboard ---------------------------------------------------------------
   useEffect(() => {
@@ -908,6 +963,35 @@ export function App() {
         hidePreview()
         suppressHoverUntil.current = Date.now() + 250
       }
+      if (foldSel && (e.key === "Enter" || (e.key === "ArrowRight" && !e.ctrlKey))) {
+        // A fold is selected: → or Enter opens it and lands on its first row
+        e.preventDefault()
+        if (foldSel.group !== undefined) toggleCollapsedGroup(groupKey(foldSel.pack, foldSel.group))
+        else toggleCollapsed(foldSel.pack)
+        pendingAnchor.current = { pack: foldSel.pack, group: foldSel.group, expanding: true }
+        setFoldSel(null)
+        return
+      }
+      if (foldSel && (e.key === "Tab" || e.key === "ArrowLeft")) {
+        // Nothing to act on, nothing more to fold
+        e.preventDefault()
+        return
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        // Through the rows and the folds between them
+        e.preventDefault()
+        if (!stops.length) return
+        const here = foldSel
+          ? stops.findIndex((t) => sameStop(t, foldSel))
+          : stops.findIndex((t) => "row" in t && t.row === sel)
+        const step = e.key === "ArrowDown" ? 1 : -1
+        const next = stops[here < 0 ? (step > 0 ? 0 : stops.length - 1) : (here + step + stops.length) % stops.length]
+        if ("row" in next) {
+          setFoldSel(null)
+          setSel(next.row)
+        } else setFoldSel(next)
+        return
+      }
       if (e.key === "ArrowRight" && e.ctrlKey) {
         // Keyboard path for the pack and group headers (with ← below):
         // Ctrl+→ unfolds everything, since folded rows leave `visible` and
@@ -916,12 +1000,6 @@ export function App() {
         // no keyboard way back (audit M6).
         e.preventDefault()
         unfoldAll()
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault()
-        if (visible.length) setSel((s) => (s + 1) % visible.length)
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault()
-        if (visible.length) setSel((s) => (s - 1 + visible.length) % visible.length)
       } else if (
         e.key === "ArrowRight" &&
         inputRef.current?.selectionStart === inputRef.current?.value.length
@@ -946,9 +1024,12 @@ export function App() {
         // "fold" are one key, and the second of two quick presses folded a
         // section, which is saved
         if (Date.now() - cardClosedAt.current < 400) return
+        // The selection stays on the fold it made, so → undoes it
         const { pack, group } = visible[sel].s
-        if (group) toggleCollapsedGroup(groupKey(pack || DEFAULT_PACK, group))
-        else toggleCollapsed(pack || DEFAULT_PACK)
+        const p = pack || DEFAULT_PACK
+        if (group) toggleCollapsedGroup(groupKey(p, group))
+        else toggleCollapsed(p)
+        setFoldSel(group ? { pack: p, group } : { pack: p })
       } else if (e.key === "Tab") {
         e.preventDefault()
         if (visible[sel]) { hidePreview(); setPanelFor(visible[sel].s); setPanelSel(0) }
@@ -965,7 +1046,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, stops, foldSel, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live preview index
   // through a ref instead of closing over it. The pointer never moves the
@@ -1115,6 +1196,13 @@ export function App() {
     // The paste failed and the prompt is on the clipboard: the bar leads
     // with the recovery, and says Enter no longer pastes
     <><Hint k="Ctrl V" tiny>in the target</Hint><Hint k="↵ Esc">dismiss</Hint></>
+  ) : foldSel ? (
+    // A fold is selected: the keys that open it, and leave it
+    <>
+      <Hint k="→ ↵">unfold</Hint>
+      <Hint k="↑ ↓" minor>move</Hint>
+      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+    </>
   ) : !visible.length ? (
     // No rows: paste, copy, actions and preview have nothing to act on.
     // What can be done is save the clipboard as a prompt, or leave.
@@ -1432,7 +1520,7 @@ export function App() {
       key={entry.s.id}
       entry={entry}
       index={i}
-      selected={i === sel}
+      selected={!foldSel && i === sel}
       picked={pickedId === entry.s.id}
       compact={compact}
       derived={derived.get(entry.s.id) ?? derive(entry.s)}
@@ -1468,7 +1556,7 @@ export function App() {
           aria-autocomplete="list"
           aria-expanded={visible.length > 0}
           aria-controls="popup-list"
-          aria-activedescendant={visible[sel] ? `row-${visible[sel].s.id}` : undefined}
+          aria-activedescendant={foldSel ? FOLD_OPTION_ID : visible[sel] ? `row-${visible[sel].s.id}` : undefined}
           aria-describedby={CLIP_LINE_ID}
           className="min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground"
         />
@@ -1594,6 +1682,15 @@ export function App() {
           // pack, a pin on Pinned, a magnifier on Results
           const Lead = sec.collapsible ? (sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine) : underPinned ? RiPushpinLine : RiSearchLine
           const filtered = sec.collapsible && packActive(sec.name)
+          // The keyboard is on this folded pack (an arrow stop, → unfolds)
+          const packSel = !!foldSel && foldSel.pack === sec.name && foldSel.group === undefined && sec.isCollapsed
+          // What a screen reader hears of a selected fold: the header is
+          // hidden, so an option says it in its place
+          const foldOption = (label: string, n: number) => (
+            <div id={FOLD_OPTION_ID} role="option" aria-selected className="sr-only">
+              {`${label}, folded, ${C.plural(n, "prompt")}`}
+            </div>
+          )
           // A pack title as in the sidebar: the body size at 600 in Graphite,
           // a group's 500 in Ink 2 below it. Weight alone did not part it
           // from a row's 500 title, so the header is a band on Control grey
@@ -1631,7 +1728,13 @@ export function App() {
                   rounded corners and the 2 px under it */}
               <div aria-hidden className="sticky top-0 z-10 bg-background pb-0.5">
               {sec.collapsible ? (
-                <div className={cn("group/hdr flex items-center rounded-md pr-0.5", filtered ? "bg-(--focus)/10" : "bg-secondary")}>
+                <div
+                  data-selected={packSel || undefined}
+                  className={cn(
+                    "group/hdr flex items-center rounded-md pr-0.5",
+                    packSel ? cn("bg-accent", SELECTED_BAR) : filtered ? "bg-(--focus)/10" : "bg-secondary"
+                  )}
+                >
                   <button
                     type="button"
                     tabIndex={-1}
@@ -1653,6 +1756,7 @@ export function App() {
                 <div className={cn(headerClass, "bg-secondary")}>{headerBody}</div>
               )}
               </div>
+              {packSel && foldOption(sec.name, sec.count)}
               {!sec.isCollapsed && (
                 <div className="flex flex-col gap-0.5">
                   {rows(ungrouped)}
@@ -1661,6 +1765,7 @@ export function App() {
                     const gc = effCollapsedGroups.has(key)
                     const GChev = gc ? RiArrowRightSLine : RiArrowDownSLine
                     const gf = groupActive(g)
+                    const gSel = gc && !!foldSel && foldSel.pack === sec.name && foldSel.group === g
                     return (
                       // No indent on a group's rows: every title in the
                       // list starts on one edge. The outer edge holds the
@@ -1670,7 +1775,14 @@ export function App() {
                       // to its count, so the header reads as a divider and
                       // not as a prompt whose first line is missing.
                       <div key={g} className="flex flex-col gap-0.5" role="group" aria-label={g}>
-                        <div aria-hidden className={cn("group/hdr flex items-center rounded-md pr-0.5", gf && "bg-(--focus)/10")}>
+                        <div
+                          aria-hidden
+                          data-selected={gSel || undefined}
+                          className={cn(
+                            "group/hdr flex scroll-mt-7 items-center rounded-md pr-0.5",
+                            gSel ? cn("bg-accent", SELECTED_BAR) : gf && "bg-(--focus)/10"
+                          )}
+                        >
                           <button
                             type="button"
                             tabIndex={-1}
@@ -1693,6 +1805,7 @@ export function App() {
                           </button>
                           {funnel(">", g, gf)}
                         </div>
+                        {gSel && foldOption(g, es.length)}
                         {!gc && rows(es)}
                       </div>
                     )
