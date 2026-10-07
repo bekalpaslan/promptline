@@ -98,6 +98,15 @@ test("the listbox holds only options and named groups; the fold and filter butto
   expect(await page.locator('[aria-hidden="true"] [tabindex]:not([tabindex="-1"])').count()).toBe(0)
 })
 
+test("the selected row carries a Focus bar at its left edge; the others do not", async ({ page }) => {
+  const bar = (n: number) => rows(page).nth(n).evaluate((e) => getComputedStyle(e).boxShadow)
+  expect(await bar(0)).toMatch(/inset/)
+  expect(await bar(1)).not.toMatch(/inset/)
+  await page.keyboard.press("ArrowDown")
+  await expect.poll(() => bar(1)).toMatch(/inset/)
+  expect(await bar(0)).not.toMatch(/inset/)
+})
+
 test("pack and group headers part from prompt rows: a filled band that sticks, a ruled divider", async ({ page }) => {
   const pack = page.locator("button", { hasText: "Everyday" }).first()
   const group = page.locator("button", { hasText: "Stuck" }).first()

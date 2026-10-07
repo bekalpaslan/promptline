@@ -20,7 +20,7 @@ import { cn } from "@/lib/utils"
 import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { Button } from "@/components/ui/button"
-import { MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
+import { MENU_ITEM, MENU_PANEL, SELECTED_BAR } from "@/components/menu-styles"
 import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
 
 
@@ -1813,7 +1813,7 @@ export function App() {
                 "justify-between",
                 // Armed, the highlight is the danger's soft fill, not the
                 // accent: the item is no longer one choice among five
-                i === panelSel && (a.danger && deleteArmed ? "bg-destructive/10 font-medium dark:bg-destructive/15" : "bg-accent"),
+                i === panelSel && cn(SELECTED_BAR, a.danger && deleteArmed ? "bg-destructive/10 font-medium dark:bg-destructive/15" : "bg-accent"),
                 a.danger && "text-destructive"
               )}
               onClick={a.run}

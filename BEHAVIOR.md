@@ -540,6 +540,12 @@ outer edge holds glyphs (row icons, the headers' chevrons, Pinned's pin,
 Results' magnifier) and the inner one names and titles. Indented, titles
 sat on two edges 10 px apart.
 
+**The selected row carries a bar.** The keyboard's row, and the action
+panel's highlighted item, have a 2 px Focus bar at the left edge over the
+Selection tint (`SELECTED_BAR`). The tint alone is a dark blue-teal in
+dark mode, and on the real screen it read as a green row nobody had
+explained rather than as the cursor.
+
 **A header never reads as a prompt.** A pack header (and Pinned, and
 Results) is a band on Control grey, and no row is filled at rest; it
 sticks to the top of the list while its rows scroll, so the pack a row
