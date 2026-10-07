@@ -972,6 +972,15 @@ export function App() {
         setFoldSel(null)
         return
       }
+      if (foldSel && e.key === "ArrowLeft" && foldSel.group !== undefined) {
+        // ← steps out a level, as in the sidebar's tree: on a folded group
+        // it folds the pack, the only way to fold one whose prompts are all
+        // in groups (← on a row folds its group first)
+        e.preventDefault()
+        toggleCollapsed(foldSel.pack)
+        setFoldSel({ pack: foldSel.pack })
+        return
+      }
       if (foldSel && (e.key === "Tab" || e.key === "ArrowLeft")) {
         // Nothing to act on, nothing more to fold
         e.preventDefault()

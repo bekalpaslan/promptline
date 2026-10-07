@@ -359,8 +359,10 @@ as options only, never voiced.
 
 **The popup's list folds from the keyboard too.** ← folds the selected
 row's group, or its pack on an ungrouped row, and the selection stays on
-the fold; → or Enter there opens it again and lands on its first row. A
-folded pack or group is a stop in the ↑↓ order, in the place of its rows
+the fold; → or Enter there opens it again and lands on its first row,
+and ← on a folded group steps out and folds its pack, as in the sidebar's
+tree (a pack whose prompts were all in groups had no row whose ← folded
+it). A folded pack or group is a stop in the ↑↓ order, in the place of its rows
 (open headers are not, so an open list costs no extra presses), and the
 bar reads `→ ↵ unfold · ↑ ↓ move` while one is selected. A list with
 nothing open and nothing pinned starts on its first fold. Ctrl+→ still
