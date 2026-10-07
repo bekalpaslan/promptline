@@ -475,7 +475,10 @@ test("a fold keeps the selection where it was, says what is folded, and ← afte
   const grouped = (await library(page)).findIndex((s) => !s.pinned && s.group)
   expect(grouped).toBeGreaterThanOrEqual(0)
   const pins = (await library(page)).filter((s) => s.pinned).length
+  // Past the pins and the first pack's headers, onto its first row
   for (let i = 0; i < pins; i++) await page.keyboard.press("ArrowDown")
+  do await page.keyboard.press("ArrowDown")
+  while (!(await search(page).getAttribute("aria-activedescendant"))?.startsWith("row-"))
   await page.keyboard.press("ArrowRight")
   await expect(page.getByRole("note", { name: "Preview" })).toBeVisible()
   await page.keyboard.press("ArrowLeft")
@@ -486,8 +489,10 @@ test("a fold keeps the selection where it was, says what is folded, and ← afte
   await page.waitForTimeout(450)
   await page.keyboard.press("ArrowLeft")
   await expect.poll(() => rows(page).count()).toBeLessThan(total)
+  // Ctrl+→ opens everything; the selection stays on the header ← left it on
   await page.keyboard.press("Control+ArrowRight")
-  await expect(rows(page)).toHaveCount(total)
+  await expect(page.locator('[role="option"][id^="row-"]')).toHaveCount(total)
+  await expect(search(page)).toHaveAttribute("aria-activedescendant", "header-stop")
 })
 
 test("Enter during the Copied pause sends nothing more", async ({ page }) => {
@@ -1000,8 +1005,12 @@ test("← on a grouped row folds its group and stays on it; → opens it again o
   // The keyboard is on the fold: no row is selected, the bar says how to open it,
   // and a screen reader hears the group named as folded
   await expect(page.locator('[role="option"][aria-selected="true"]')).toHaveText(new RegExp(`^${target.group}, folded, `))
-  await expect(search(page)).toHaveAttribute("aria-activedescendant", "fold-stop")
+  await expect(search(page)).toHaveAttribute("aria-activedescendant", "header-stop")
   await expect(page.getByText("unfold", { exact: true }).last()).toBeVisible()
+  // → opens it and stays on its header; → again steps onto its first row
+  await page.keyboard.press("ArrowRight")
+  const selected = page.locator('[role="option"][aria-selected="true"]')
+  await expect(selected).toHaveText(new RegExp(`^${target.group}, open, `))
   await page.keyboard.press("ArrowRight")
   const first = page.getByRole("group", { name: target.group!, exact: true }).getByRole("option").first()
   await expect(first).toHaveAttribute("aria-selected", "true")
@@ -1013,6 +1022,25 @@ test("← on a grouped row folds its group and stays on it; → opens it again o
   await expect(page.getByRole("group", { name: pack, exact: true }).getByRole("option")).toHaveText([new RegExp(`^${pack}, folded, `)])
   await page.keyboard.press("ArrowRight")
   await expect(page.getByRole("group", { name: pack, exact: true }).getByRole("option").first()).toHaveAttribute("aria-selected", "true")
+})
+
+test("↑↓ stop on an open group's header too; ← folds it there and → opens it", async ({ page }) => {
+  const target = (await library(page)).find((s) => !s.pinned && s.group)!
+  const selected = page.locator('[role="option"][aria-selected="true"]')
+  // Down from the top until the keyboard is on the group's header, open
+  const open = new RegExp(`^${target.group}, open, `)
+  for (let i = 0; i < 60 && !open.test((await selected.textContent()) ?? ""); i++) await page.keyboard.press("ArrowDown")
+  await expect(selected).toHaveText(open)
+  await expect(page.getByText("fold", { exact: true }).last()).toBeVisible()
+  const group = page.getByRole("group", { name: target.group!, exact: true })
+  const before = await group.getByRole("option").count()
+  await page.keyboard.press("ArrowLeft")
+  await expect(selected).toHaveText(new RegExp(`^${target.group}, folded, `))
+  await expect(group.getByRole("option")).toHaveCount(1)
+  await page.keyboard.press("ArrowRight")
+  await expect(selected).toHaveText(open)
+  await expect(group.getByRole("option")).toHaveCount(before)
+  expect(await calls(page, "paste_snippet")).toHaveLength(0)
 })
 
 test("with every pack folded, ↑↓ step through the folds and Enter opens one", async ({ page }) => {
@@ -1034,9 +1062,9 @@ test("with every pack folded, ↑↓ step through the folds and Enter opens one"
   await page.keyboard.press("ArrowDown")
   await expect(selected).toHaveText(new RegExp(`^${packs[1]}, folded, `))
   await page.keyboard.press("ArrowUp")
-  // Enter opens it and lands on its first row; nothing was pasted
+  // Enter opens it and stays on it; nothing was pasted
   await page.keyboard.press("Enter")
-  const first = page.getByRole("group", { name: packs[0], exact: true }).getByRole("option").first()
-  await expect(first).toHaveAttribute("aria-selected", "true")
+  await expect(selected).toHaveText(new RegExp(`^${packs[0]}, open, `))
+  await expect.poll(() => page.getByRole("group", { name: packs[0], exact: true }).getByRole("option").count()).toBeGreaterThan(1)
   expect(await calls(page, "paste_snippet")).toHaveLength(0)
 })
