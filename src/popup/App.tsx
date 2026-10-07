@@ -7,6 +7,7 @@ import {
   RiClipboardLine,
   RiFileCopyLine,
   RiFilterLine,
+  RiPushpinLine,
   RiSearchLine,
 } from "@remixicon/react"
 import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
@@ -14,12 +15,19 @@ import { applyPrefs, isCompact } from "@/lib/prefs"
 import { type Config, DEFAULT_PACK, MAX_PINS, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 // Same key shape as the sidebar, so a group folds independently per pack
 const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
+// A stop in the arrow order: a row (its index in `visible`), or a pack's or
+// group's header
+type HeadStop = { pack: string; group?: string }
+type Stop = { row: number } | HeadStop
+const sameStop = (a: Stop, b: HeadStop) => !("row" in a) && a.pack === b.pack && a.group === b.group
+// The option a selected header is announced as (the header itself is hidden)
+const HEAD_OPTION_ID = "header-stop"
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { Button } from "@/components/ui/button"
-import { MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
+import { MENU_ITEM, MENU_PANEL, SELECTED_BAR } from "@/components/menu-styles"
 import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
 
 
@@ -207,6 +215,12 @@ export function App() {
     | { pack: string; group?: string; expanding: true }
     | { at: number }
   const pendingAnchor = useRef<PendingSel | null>(null)
+  // Every pack and group header is a stop in the arrow order, as in the
+  // sidebar's tree: the keyboard's only way back into a fold used to be
+  // Ctrl+→, which opens everything. While one is selected, `headSel` names
+  // it and `sel` is set aside; Enter folds or unfolds it, ← folds, → opens.
+  const [headSel, setHeadSel] = useState<HeadStop | null>(null)
+  const headSelRef = useRef<HeadStop | null>(null)
   // What the list showed when a fold was toggled, for the anchor above
   const visibleRef = useRef<Entry[]>([])
   // …and the row the keyboard was on
@@ -287,7 +301,8 @@ export function App() {
   // selection on the row it was on
   const unfoldAll = useCallback(() => {
     const cur = visibleRef.current[selRef.current]
-    if (cur) pendingAnchor.current = { follow: cur.s.id }
+    // A selected header stays selected; a row is followed to its new place
+    if (cur && !headSelRef.current) pendingAnchor.current = { follow: cur.s.id }
     if (filterKey) {
       setFilterFolds({ key: filterKey, packs: new Set(), groups: new Set() })
     } else {
@@ -302,13 +317,13 @@ export function App() {
   // pinned ones included, so the popup agrees with the manager's sidebar even
   // though the pins are drawn up in the Pinned section.
   type Section = { name: string; entries: Entry[]; count: number; collapsible: boolean; isCollapsed: boolean }
-  const { sections, visible } = useMemo(() => {
+  const { sections, visible, stops } = useMemo(() => {
     if (hasQuery) {
       const sections: Section[] =
         filtered.length > 0
           ? [{ name: "Results", entries: filtered, count: filtered.length, collapsible: false, isCollapsed: false }]
           : []
-      return { sections, visible: filtered }
+      return { sections, visible: filtered, stops: filtered.map((_, i): Stop => ({ row: i })) }
     }
     const pinned = filtered.filter((e) => e.s.pinned)
     const rest = filtered.filter((e) => !e.s.pinned)
@@ -351,7 +366,21 @@ export function App() {
         effCollapsed.has(n) ? [] : es.filter((e) => !e.s.group || !effCollapsedGroups.has(groupKey(n, e.s.group)))
       ),
     ]
-    return { sections, visible }
+    // The arrow order: every row, and every pack and group header above its rows
+    const stops: Stop[] = pinned.map((_, i) => ({ row: i }))
+    let at = pinned.length
+    for (const [n, es] of packs) {
+      stops.push({ pack: n })
+      if (effCollapsed.has(n)) continue
+      let last: string | undefined
+      for (const e of es) {
+        const g = e.s.group
+        if (g && g !== last) stops.push({ pack: n, group: g })
+        if (!g || !effCollapsedGroups.has(groupKey(n, g))) stops.push({ row: at++ })
+        last = g
+      }
+    }
+    return { sections, visible, stops }
   }, [filtered, hasQuery, effCollapsed, effCollapsedGroups, packMeta, packsArranged, groupAt])
 
   // Row index within `visible`, for selection
@@ -677,6 +706,7 @@ export function App() {
     setPicked(null)
     setQuery("")
     setSel(0)
+    setHeadSel(null)
     mouseSeeded.current = false
     lastMouse.current = { x: -1, y: -1 }
     // A summon starts at the top of the list. The scroll offset outlives
@@ -724,6 +754,7 @@ export function App() {
   useEffect(() => {
     pendingAnchor.current = null
     setSel(0)
+    setHeadSel(null)
     // Back to the browsing list: start it at the top. The offset a search
     // left behind outlived the results, and the keep-in-view effect can't
     // undo it (sel is already 0), so the Pinned header sat under the fold.
@@ -804,6 +835,31 @@ export function App() {
   useEffect(() => {
     selRef.current = sel
   }, [sel])
+  useEffect(() => {
+    headSelRef.current = headSel
+  }, [headSel])
+  // The selected header went away: a group's, folded inside its pack (the
+  // pack's header takes it), or one a filter left out (its first row, if
+  // any). And a list with no rows, everything folded, starts on its first
+  // header, so Enter has something to do.
+  useEffect(() => {
+    if (headSel && !stops.some((t) => sameStop(t, headSel))) {
+      if (headSel.group !== undefined && stops.some((t) => sameStop(t, { pack: headSel.pack }))) {
+        setHeadSel({ pack: headSel.pack })
+        return
+      }
+      setHeadSel(null)
+      const i = visible.findIndex(
+        (e) =>
+          !e.s.pinned &&
+          (e.s.pack || DEFAULT_PACK) === headSel.pack &&
+          (headSel.group === undefined || e.s.group === headSel.group)
+      )
+      if (i >= 0) setSel(i)
+    } else if (!headSel && !visible.length && stops.length && !("row" in stops[0])) {
+      setHeadSel(stops[0])
+    }
+  }, [stops, visible, headSel])
   // Folds outlive the popup (they are saved), hide rows, and the key that
   // undoes them was named nowhere at the default width. While anything is
   // folded the list says so, with the key, as its first line.
@@ -825,7 +881,7 @@ export function App() {
   // Keep the selected row in view
   useEffect(() => {
     listRef.current?.querySelector('[data-selected="true"]')?.scrollIntoView({ block: "nearest" })
-  }, [sel, visible])
+  }, [sel, visible, headSel])
 
   // --- Keyboard ---------------------------------------------------------------
   useEffect(() => {
@@ -907,6 +963,59 @@ export function App() {
         hidePreview()
         suppressHoverUntil.current = Date.now() + 250
       }
+      if (headSel) {
+        const isGroup = headSel.group !== undefined
+        const folded = isGroup
+          ? effCollapsedGroups.has(groupKey(headSel.pack, headSel.group!))
+          : effCollapsed.has(headSel.pack)
+        const toggle = () =>
+          isGroup ? toggleCollapsedGroup(groupKey(headSel.pack, headSel.group!)) : toggleCollapsed(headSel.pack)
+        const right = e.key === "ArrowRight" && !e.ctrlKey
+        if (folded && (e.key === "Enter" || right)) {
+          // Open it and stay on it, as in the sidebar's tree (→ again steps
+          // in). Landing on its first row threw the selection to the top of
+          // the list when a pack's groups were all folded: there was no row.
+          e.preventDefault()
+          toggle()
+          return
+        }
+        if (!folded && (e.key === "Enter" || e.key === "ArrowLeft")) {
+          // Fold it; the selection stays on the header, so → opens it again
+          e.preventDefault()
+          toggle()
+          return
+        }
+        if (folded && e.key === "ArrowLeft" && isGroup) {
+          // ← steps out a level, as in the sidebar's tree: on a folded group
+          // it folds the pack
+          e.preventDefault()
+          toggleCollapsed(headSel.pack)
+          setHeadSel({ pack: headSel.pack })
+          return
+        }
+        if (e.key === "Tab" || e.key === "ArrowLeft" || (right && folded)) {
+          // Nothing to act on, nothing more to fold
+          e.preventDefault()
+          return
+        }
+      }
+      // → on an open header steps into it, like ↓
+      const into = !!headSel && e.key === "ArrowRight" && !e.ctrlKey
+      if (e.key === "ArrowDown" || e.key === "ArrowUp" || into) {
+        // Through the rows and the headers between them
+        e.preventDefault()
+        if (!stops.length) return
+        const here = headSel
+          ? stops.findIndex((t) => sameStop(t, headSel))
+          : stops.findIndex((t) => "row" in t && t.row === sel)
+        const step = e.key === "ArrowUp" ? -1 : 1
+        const next = stops[here < 0 ? (step > 0 ? 0 : stops.length - 1) : (here + step + stops.length) % stops.length]
+        if ("row" in next) {
+          setHeadSel(null)
+          setSel(next.row)
+        } else setHeadSel(next)
+        return
+      }
       if (e.key === "ArrowRight" && e.ctrlKey) {
         // Keyboard path for the pack and group headers (with ← below):
         // Ctrl+→ unfolds everything, since folded rows leave `visible` and
@@ -915,12 +1024,6 @@ export function App() {
         // no keyboard way back (audit M6).
         e.preventDefault()
         unfoldAll()
-      } else if (e.key === "ArrowDown") {
-        e.preventDefault()
-        if (visible.length) setSel((s) => (s + 1) % visible.length)
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault()
-        if (visible.length) setSel((s) => (s - 1 + visible.length) % visible.length)
       } else if (
         e.key === "ArrowRight" &&
         inputRef.current?.selectionStart === inputRef.current?.value.length
@@ -945,9 +1048,12 @@ export function App() {
         // "fold" are one key, and the second of two quick presses folded a
         // section, which is saved
         if (Date.now() - cardClosedAt.current < 400) return
+        // The selection stays on the fold it made, so → undoes it
         const { pack, group } = visible[sel].s
-        if (group) toggleCollapsedGroup(groupKey(pack || DEFAULT_PACK, group))
-        else toggleCollapsed(pack || DEFAULT_PACK)
+        const p = pack || DEFAULT_PACK
+        if (group) toggleCollapsedGroup(groupKey(p, group))
+        else toggleCollapsed(p)
+        setHeadSel(group ? { pack: p, group } : { pack: p })
       } else if (e.key === "Tab") {
         e.preventDefault()
         if (visible[sel]) { hidePreview(); setPanelFor(visible[sel].s); setPanelSel(0) }
@@ -964,7 +1070,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, stops, headSel, effCollapsed, effCollapsedGroups, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live preview index
   // through a ref instead of closing over it. The pointer never moves the
@@ -1066,6 +1172,11 @@ export function App() {
   )
 
   // --- Hint bar (kit kbd-chip idiom) -------------------------------------------
+  const headFolded =
+    !!headSel &&
+    (headSel.group !== undefined
+      ? effCollapsedGroups.has(groupKey(headSel.pack, headSel.group))
+      : effCollapsed.has(headSel.pack))
   // The selected row wraps the clipboard, the clipboard is empty and no
   // fill-in form will show the hole first: the same test as the row's hollow
   // icon (`rowIcon`), for the row Enter is about to send
@@ -1114,6 +1225,13 @@ export function App() {
     // The paste failed and the prompt is on the clipboard: the bar leads
     // with the recovery, and says Enter no longer pastes
     <><Hint k="Ctrl V" tiny>in the target</Hint><Hint k="↵ Esc">dismiss</Hint></>
+  ) : headSel ? (
+    // A header is selected: the keys that fold or open it, and leave it
+    <>
+      {headFolded ? <Hint k="→ ↵">unfold</Hint> : <Hint k="← ↵">fold</Hint>}
+      <Hint k="↑ ↓" minor>move</Hint>
+      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+    </>
   ) : !visible.length ? (
     // No rows: paste, copy, actions and preview have nothing to act on.
     // What can be done is save the clipboard as a prompt, or leave.
@@ -1431,7 +1549,7 @@ export function App() {
       key={entry.s.id}
       entry={entry}
       index={i}
-      selected={i === sel}
+      selected={!headSel && i === sel}
       picked={pickedId === entry.s.id}
       compact={compact}
       derived={derived.get(entry.s.id) ?? derive(entry.s)}
@@ -1467,7 +1585,7 @@ export function App() {
           aria-autocomplete="list"
           aria-expanded={visible.length > 0}
           aria-controls="popup-list"
-          aria-activedescendant={visible[sel] ? `row-${visible[sel].s.id}` : undefined}
+          aria-activedescendant={headSel ? HEAD_OPTION_ID : visible[sel] ? `row-${visible[sel].s.id}` : undefined}
           aria-describedby={CLIP_LINE_ID}
           className="min-w-0 flex-1 bg-transparent text-ui text-foreground outline-none placeholder:text-muted-foreground"
         />
@@ -1589,12 +1707,25 @@ export function App() {
           // (a pack is collapsible)
           const underPinned = flat && sec.name === "Pinned"
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!, underPinned))
-          const Chev = sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
+          // The section's glyph sits in the rows' icon column: a chevron on a
+          // pack, a pin on Pinned, a magnifier on Results
+          const Lead = sec.collapsible ? (sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine) : underPinned ? RiPushpinLine : RiSearchLine
           const filtered = sec.collapsible && packActive(sec.name)
-          // A pack title as in the sidebar: the body size at 600, one step
-          // above a group's 500 and a row's 500 in Ink 2. At 16px it was the
-          // largest text in the popup, above the titles the scene is about.
-          // 24 px tall, not 28: four headers above the fold cost a row.
+          // The keyboard is on this pack's header
+          const packSel = !!headSel && headSel.pack === sec.name && headSel.group === undefined
+          // What a screen reader hears of a selected header: the header is
+          // hidden, so an option says it in its place
+          const headOption = (label: string, n: number, folded: boolean) => (
+            <div id={HEAD_OPTION_ID} role="option" aria-selected className="sr-only">
+              {`${label}, ${folded ? "folded" : "open"}, ${C.plural(n, "prompt")}`}
+            </div>
+          )
+          // A pack title as in the sidebar: the body size at 600 in Graphite,
+          // a group's 500 in Ink 2 below it. Weight alone did not part it
+          // from a row's 500 title, so the header is a band on Control grey
+          // (no row is filled at rest) with its glyph leading, like the
+          // sidebar's chevrons. 24 px tall, not 28: four headers above the
+          // fold cost a row.
           const headerClass = cn(
             "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-ui font-semibold",
             sec.collapsible && "cursor-pointer",
@@ -1602,9 +1733,9 @@ export function App() {
           )
           const headerBody = (
             <>
+              <Lead className="size-3.5 shrink-0 text-muted-foreground" />
               <span className="min-w-0 flex-1 truncate">{sec.name}</span>
               <Count>{sec.count}</Count>
-              {sec.collapsible && <Chev className="size-4 shrink-0 text-muted-foreground" />}
             </>
           )
           return (
@@ -1621,8 +1752,18 @@ export function App() {
                   carries the name; the fold and the filter are reachable by
                   keyboard (← / Ctrl+→, typing @pack), and the buttons are
                   tabIndex -1 so nothing hidden is in the tab order. */}
+              {/* Sticky, so the pack a row belongs to stays named while it
+                  scrolls; the Paper behind the band hides rows passing its
+                  rounded corners and the 2 px under it */}
+              <div aria-hidden className="sticky top-0 z-10 bg-background pb-0.5">
               {sec.collapsible ? (
-                <div aria-hidden className={cn("group/hdr flex items-center rounded-md pr-0.5", filtered && "bg-(--focus)/10")}>
+                <div
+                  data-selected={packSel || undefined}
+                  className={cn(
+                    "group/hdr flex items-center rounded-md pr-0.5",
+                    packSel ? cn("bg-accent", SELECTED_BAR) : filtered ? "bg-(--focus)/10" : "bg-secondary"
+                  )}
+                >
                   <button
                     type="button"
                     tabIndex={-1}
@@ -1641,8 +1782,10 @@ export function App() {
                   {funnel("@", sec.name, filtered)}
                 </div>
               ) : (
-                <div aria-hidden className={headerClass}>{headerBody}</div>
+                <div className={cn(headerClass, "bg-secondary")}>{headerBody}</div>
               )}
+              </div>
+              {packSel && headOption(sec.name, sec.count, sec.isCollapsed)}
               {!sec.isCollapsed && (
                 <div className="flex flex-col gap-0.5">
                   {rows(ungrouped)}
@@ -1651,15 +1794,24 @@ export function App() {
                     const gc = effCollapsedGroups.has(key)
                     const GChev = gc ? RiArrowRightSLine : RiArrowDownSLine
                     const gf = groupActive(g)
+                    const gSel = !!headSel && headSel.pack === sec.name && headSel.group === g
                     return (
                       // No indent on a group's rows: every title in the
-                      // list starts on one edge. The group's name sits on
-                      // that same edge (the header's pl-7 is the row's
-                      // padding, icon and gap), so the outer edge holds
-                      // icons and pack names, the inner one group names and
-                      // titles. Indented, titles sat on two edges 10 px apart.
+                      // list starts on one edge. The outer edge holds the
+                      // glyphs (row icons, the chevrons), the inner one every
+                      // name and title; indented, titles sat on two edges
+                      // 10 px apart. A hairline runs from the group's name
+                      // to its count, so the header reads as a divider and
+                      // not as a prompt whose first line is missing.
                       <div key={g} className="flex flex-col gap-0.5" role="group" aria-label={g}>
-                        <div aria-hidden className={cn("group/hdr flex items-center rounded-md pr-0.5", gf && "bg-(--focus)/10")}>
+                        <div
+                          aria-hidden
+                          data-selected={gSel || undefined}
+                          className={cn(
+                            "group/hdr flex scroll-mt-7 items-center rounded-md pr-0.5",
+                            gSel ? cn("bg-accent", SELECTED_BAR) : gf && "bg-(--focus)/10"
+                          )}
+                        >
                           <button
                             type="button"
                             tabIndex={-1}
@@ -1667,7 +1819,7 @@ export function App() {
                             title={gc ? "Unfold (Ctrl+→ unfolds all)" : "Fold (← on a row folds its pack or group)"}
                             className={cn(
                               // A group name is the user's words: shown as typed, never uppercased
-                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1 rounded-md py-0.5 pl-7 pr-1 text-left text-ui font-medium",
+                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-ui font-medium",
                               gc ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
                             )}
                             onClick={() => {
@@ -1675,12 +1827,14 @@ export function App() {
                               inputRef.current?.focus()
                             }}
                           >
-                            <span className="min-w-0 flex-1 truncate">{g}</span>
+                            <GChev className="size-3.5 shrink-0 text-muted-foreground" />
+                            <span className="min-w-0 truncate">{g}</span>
+                            <span className="h-px min-w-3 flex-1 bg-border" />
                             <Count>{es.length}</Count>
-                            <GChev className="size-4 shrink-0" />
                           </button>
                           {funnel(">", g, gf)}
                         </div>
+                        {gSel && headOption(g, es.length, gc)}
                         {!gc && rows(es)}
                       </div>
                     )
@@ -1801,7 +1955,7 @@ export function App() {
                 "justify-between",
                 // Armed, the highlight is the danger's soft fill, not the
                 // accent: the item is no longer one choice among five
-                i === panelSel && (a.danger && deleteArmed ? "bg-destructive/10 font-medium dark:bg-destructive/15" : "bg-accent"),
+                i === panelSel && cn(SELECTED_BAR, a.danger && deleteArmed ? "bg-destructive/10 font-medium dark:bg-destructive/15" : "bg-accent"),
                 a.danger && "text-destructive"
               )}
               onClick={a.run}

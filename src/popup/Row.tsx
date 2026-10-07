@@ -3,6 +3,7 @@ import { RiClipboardFill, RiClipboardLine, RiEdit2Line, RiFileTextLine, RiPushpi
 import { C, type RowIconName, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { HighlightedTitle, InputsBadge, Keys, MatchText, TagList } from "@/components/prompt-bits"
+import { SELECTED_BAR } from "@/components/menu-styles"
 
 // The popup's list row. Its own module so the design-system bundle
 // (design/entry.tsx) can render the real row, not a copy; the pieces it is
@@ -136,9 +137,9 @@ export const Row = memo(function Row({
       data-selected={selected}
       data-icon={icon}
       className={cn(
-        "flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
+        "flex min-w-0 scroll-mt-7 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
         compact ? "py-0.5" : "py-1",
-        selected ? "bg-accent text-foreground" : "text-foreground hover:bg-hover",
+        selected ? cn("bg-accent text-foreground", SELECTED_BAR) : "text-foreground hover:bg-hover",
         picked && "bg-primary/20"
       )}
       onClick={(e) => {

@@ -357,12 +357,26 @@ the fill-in placeholder is full Ink 2 (at 70% it was 3:1); and with no
 rows the status region says the list's own message, which a listbox, read
 as options only, never voiced.
 
-**The popup's list folds from the keyboard too.** ← folds the selected
-row's group, or its pack on an ungrouped row; Ctrl+→ unfolds every pack and
-every group at once, because a folded section's rows leave the navigable
-list and there is no row left to unfold from. It used to clear pack folds
-only, and only while one was folded, so a group folded with ← could only be
-reopened with the mouse.
+**The popup's list folds from the keyboard too.** Every pack and group
+header is a stop in the ↑↓ order, above its rows, as in the sidebar's
+tree; Pinned and Results are not, since they don't fold. On a header,
+Enter folds or opens it, ← folds an open one, → opens a folded one and on
+an open one steps onto its first row, and ← on a folded group steps out
+and folds its pack (a pack whose prompts were all in groups had no row
+whose ← folded it). Opening keeps the selection on the header: landing on
+the first row threw it to the top of the list when a pack's groups were
+all folded, since there was no row to land on. ← on a row folds its
+group, or its pack on an ungrouped row, and moves the selection to that
+header, so → undoes it at once. The bar reads `← ↵ fold` or `→ ↵ unfold`
+with `↑ ↓ move` while a header is selected, a list with nothing open and
+nothing pinned starts on its first header, and Ctrl+→ still unfolds every
+pack and group at once. A selected header is announced as an option
+("Everyday, folded, 12 prompts") in its place, since the header itself is
+hidden from assistive tech. Through 0.2.20 the arrows moved over rows
+only: a fold could be reopened from the keyboard only by Ctrl+→, which
+opened everything, and with everything folded ↑↓ did nothing. Before
+that, Ctrl+→ cleared pack folds only, and only while one was folded, so a
+group folded with ← could only be reopened with the mouse.
 
 **The clipboard has a line of its own under the search box.** Every
 `{clipboard}` row pastes it, and the row shows only the word, so the line
@@ -457,8 +471,8 @@ garbage. Tag characters and zero-width ones are counted by the badge and
 left alone, since a flag emoji is made of tags.
 
 **A fold moves the selection only out of the folded section.** ← folds
-the selected row's group or pack, and the selection takes the row below
-it. A click on any other header, and Ctrl+→, leave the selection on the
+the selected row's group or pack, and the selection moves to its header
+(above). A click on any other header, and Ctrl+→, leave the selection on the
 row it was on: a click on "Everyday" used to carry the selection into
 another pack, so the pointer changed what Enter pasted. ← closes a card
 opened with →, and a second ← within 400 ms does nothing; it used to fold
@@ -535,9 +549,28 @@ parts them) and packs 8 px apart; pack and group headers are 24 px tall.
 It was 6 and 12 with 28 px headers, a 50 px pitch for a 44 px row, which
 showed seven prompts in the default window where eight now fit (twelve in
 Compact). A group's rows are not indented: every title in the list starts
-on one edge, and the group's name sits on that same edge, so the outer
-edge holds icons and pack names and the inner one group names and titles.
-Indented, titles sat on two edges 10 px apart. `Ctrl` is printed once, on
+on one edge, and every pack and group name sits on that same edge, so the
+outer edge holds glyphs (row icons, the headers' chevrons, Pinned's pin,
+Results' magnifier) and the inner one names and titles. Indented, titles
+sat on two edges 10 px apart.
+
+**The selected row carries a bar.** The keyboard's row, and the action
+panel's highlighted item, have a 2 px Focus bar at the left edge over the
+Selection tint (`SELECTED_BAR`). The tint alone is a dark blue-teal in
+dark mode, and on the real screen it read as a green row nobody had
+explained rather than as the cursor.
+
+**A header never reads as a prompt.** A pack header (and Pinned, and
+Results) is a band on Control grey, and no row is filled at rest; it
+sticks to the top of the list while its rows scroll, so the pack a row
+belongs to stays named, and rows keep a 28 px scroll margin so arrowing up
+never parks the selection under it. A group header is a divider: its
+chevron leads, its name in Ink 2 is followed by a hairline to its count.
+Through 0.2.20 the headers were text alone, a pack's 600 one weight step
+above a title's 500 and a group's name on the title edge with its chevron
+at the far right, so a group read as a prompt whose first line was
+missing (the manager's sidebar parts them with chevrons and guide lines;
+the popup keeps its one edge and parts them with a fill and a rule). `Ctrl` is printed once, on
 the first slot's key; the rows under it show their digit alone in the same
 column. Five `Ctrl` caps down the right edge were the loudest thing in the
 list and said one thing five times (critique popup, 2026-10-03).

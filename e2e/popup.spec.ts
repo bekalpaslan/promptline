@@ -35,12 +35,12 @@ test("one 8 px inset: the strips share the search box's edges, and their content
   // A row's fill runs edge to edge under the search box
   expect(Math.abs(rowRect!.x - boxRect!.x)).toBeLessThan(0.6)
   expect(Math.abs(rowRect!.width - boxRect!.width)).toBeLessThan(0.6)
-  // The search icon, the clipboard icon, a pack's name, a row's icon and the
-  // first key of the hint bar start 8 px in
+  // The search icon, the clipboard icon, a pack's chevron, a row's icon and
+  // the first key of the hint bar start 8 px in
   const starts = await Promise.all([
     x(box.locator("svg").first()),
     x(clipLine(page).locator("xpath=..").locator("svg").first()),
-    x(page.locator("button", { hasText: "Everyday" }).first().locator("span").first()),
+    x(page.locator("button", { hasText: "Everyday" }).first().locator("svg").first()),
     x(row.locator("svg").first()),
     x(page.getByText("paste", { exact: true }).locator("xpath=..").locator("kbd").first()),
   ])
@@ -96,6 +96,42 @@ test("the listbox holds only options and named groups; the fold and filter butto
   await expect(list.getByRole("group", { name: "Everyday", exact: true }).getByRole("option")).toHaveCount(0)
   await expect(search(page)).toBeFocused()
   expect(await page.locator('[aria-hidden="true"] [tabindex]:not([tabindex="-1"])').count()).toBe(0)
+})
+
+test("the selected row carries a Focus bar at its left edge; the others do not", async ({ page }) => {
+  const bar = (n: number) => rows(page).nth(n).evaluate((e) => getComputedStyle(e).boxShadow)
+  expect(await bar(0)).toMatch(/inset/)
+  expect(await bar(1)).not.toMatch(/inset/)
+  await page.keyboard.press("ArrowDown")
+  await expect.poll(() => bar(1)).toMatch(/inset/)
+  expect(await bar(0)).not.toMatch(/inset/)
+})
+
+test("pack and group headers part from prompt rows: a filled band that sticks, a ruled divider", async ({ page }) => {
+  const pack = page.locator("button", { hasText: "Everyday" }).first()
+  const group = page.locator("button", { hasText: "Stuck" }).first()
+  const option = page.getByRole("option").nth(1)
+  const fill = (l: typeof pack) => l.evaluate((e) => getComputedStyle(e.parentElement!).backgroundColor)
+  const clear = "rgba(0, 0, 0, 0)"
+  // No row is filled at rest; the pack's band is, the group's divider is not
+  expect(await option.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(clear)
+  expect(await fill(pack)).not.toBe(clear)
+  expect(await fill(group)).toBe(clear)
+  // The group's name is followed by a hairline, so it reads as a divider
+  expect(await group.evaluate((e) => [...e.children].some((c) => c.tagName === "SPAN" && c.getBoundingClientRect().height <= 1 && c.getBoundingClientRect().width > 8))).toBe(true)
+  // Both names start on the titles' edge; the chevrons hold the icons' edge
+  const titleX = await option.locator("bdi").first().evaluate((e) => e.getBoundingClientRect().left)
+  for (const h of [pack, group]) {
+    expect(Math.abs((await h.locator("span").first().evaluate((e) => e.getBoundingClientRect().left)) - titleX)).toBeLessThan(0.6)
+  }
+  // Scrolled into its pack, the band stays at the top of the list
+  const top = await pack.evaluate((e) => {
+    let s = e.parentElement
+    while (s && getComputedStyle(s).overflowY !== "auto") s = s.parentElement
+    s!.scrollTop = e.getBoundingClientRect().top - s!.getBoundingClientRect().top + s!.scrollTop + 60
+    return s!.getBoundingClientRect().top
+  })
+  await expect.poll(() => pack.evaluate((e) => Math.round(e.getBoundingClientRect().top))).toBe(Math.round(top))
 })
 
 test("the pointer never moves the selection, the search border lights only while focused, and clearing a query scrolls to the top", async ({ page }) => {
@@ -439,7 +475,10 @@ test("a fold keeps the selection where it was, says what is folded, and ← afte
   const grouped = (await library(page)).findIndex((s) => !s.pinned && s.group)
   expect(grouped).toBeGreaterThanOrEqual(0)
   const pins = (await library(page)).filter((s) => s.pinned).length
+  // Past the pins and the first pack's headers, onto its first row
   for (let i = 0; i < pins; i++) await page.keyboard.press("ArrowDown")
+  do await page.keyboard.press("ArrowDown")
+  while (!(await search(page).getAttribute("aria-activedescendant"))?.startsWith("row-"))
   await page.keyboard.press("ArrowRight")
   await expect(page.getByRole("note", { name: "Preview" })).toBeVisible()
   await page.keyboard.press("ArrowLeft")
@@ -450,8 +489,10 @@ test("a fold keeps the selection where it was, says what is folded, and ← afte
   await page.waitForTimeout(450)
   await page.keyboard.press("ArrowLeft")
   await expect.poll(() => rows(page).count()).toBeLessThan(total)
+  // Ctrl+→ opens everything; the selection stays on the header ← left it on
   await page.keyboard.press("Control+ArrowRight")
-  await expect(rows(page)).toHaveCount(total)
+  await expect(page.locator('[role="option"][id^="row-"]')).toHaveCount(total)
+  await expect(search(page)).toHaveAttribute("aria-activedescendant", "header-stop")
 })
 
 test("Enter during the Copied pause sends nothing more", async ({ page }) => {
@@ -949,4 +990,81 @@ test("at the 320 px minimum and 125% a Warn hint stands alone, on one line", asy
   await emit(page, "popup-shown")
   await search(page).fill("Root cause first")
   await expect(page.getByText("close", { exact: true })).toBeVisible()
+})
+
+test("← on a grouped row folds its group and stays on it; → opens it again on its first row", async ({ page }) => {
+  const lib = await library(page)
+  const target = lib.find((s) => !s.pinned && s.group)!
+  const option = page.getByRole("option", { name: target.title, exact: true })
+  // Arrow down to the row, then fold its group
+  for (let i = 0; i < 40 && (await option.getAttribute("aria-selected")) !== "true"; i++) await page.keyboard.press("ArrowDown")
+  await expect(option).toHaveAttribute("aria-selected", "true")
+  await page.waitForTimeout(450)
+  await page.keyboard.press("ArrowLeft")
+  await expect(option).toHaveCount(0)
+  // The keyboard is on the fold: no row is selected, the bar says how to open it,
+  // and a screen reader hears the group named as folded
+  await expect(page.locator('[role="option"][aria-selected="true"]')).toHaveText(new RegExp(`^${target.group}, folded, `))
+  await expect(search(page)).toHaveAttribute("aria-activedescendant", "header-stop")
+  await expect(page.getByText("unfold", { exact: true }).last()).toBeVisible()
+  // → opens it and stays on its header; → again steps onto its first row
+  await page.keyboard.press("ArrowRight")
+  const selected = page.locator('[role="option"][aria-selected="true"]')
+  await expect(selected).toHaveText(new RegExp(`^${target.group}, open, `))
+  await page.keyboard.press("ArrowRight")
+  const first = page.getByRole("group", { name: target.group!, exact: true }).getByRole("option").first()
+  await expect(first).toHaveAttribute("aria-selected", "true")
+  // A second ← steps out: on the folded group it folds the pack, so a pack
+  // whose prompts are all grouped folds from the keyboard too
+  const pack = target.pack || "My prompts"
+  await page.keyboard.press("ArrowLeft")
+  await page.keyboard.press("ArrowLeft")
+  await expect(page.getByRole("group", { name: pack, exact: true }).getByRole("option")).toHaveText([new RegExp(`^${pack}, folded, `)])
+  await page.keyboard.press("ArrowRight")
+  await expect(page.getByRole("group", { name: pack, exact: true }).getByRole("option").first()).toHaveAttribute("aria-selected", "true")
+})
+
+test("↑↓ stop on an open group's header too; ← folds it there and → opens it", async ({ page }) => {
+  const target = (await library(page)).find((s) => !s.pinned && s.group)!
+  const selected = page.locator('[role="option"][aria-selected="true"]')
+  // Down from the top until the keyboard is on the group's header, open
+  const open = new RegExp(`^${target.group}, open, `)
+  for (let i = 0; i < 60 && !open.test((await selected.textContent()) ?? ""); i++) await page.keyboard.press("ArrowDown")
+  await expect(selected).toHaveText(open)
+  await expect(page.getByText("fold", { exact: true }).last()).toBeVisible()
+  const group = page.getByRole("group", { name: target.group!, exact: true })
+  const before = await group.getByRole("option").count()
+  await page.keyboard.press("ArrowLeft")
+  await expect(selected).toHaveText(new RegExp(`^${target.group}, folded, `))
+  await expect(group.getByRole("option")).toHaveCount(1)
+  await page.keyboard.press("ArrowRight")
+  await expect(selected).toHaveText(open)
+  await expect(group.getByRole("option")).toHaveCount(before)
+  expect(await calls(page, "paste_snippet")).toHaveLength(0)
+})
+
+test("with every pack folded, ↑↓ step through the folds and Enter opens one", async ({ page }) => {
+  const list = page.getByRole("listbox", { name: "Prompts" })
+  // The packs in the list's order, each folded by a click on its header
+  const packs = await list.evaluate((el) =>
+    [...el.querySelectorAll("[role=group]:not([role=group] [role=group])")]
+      .filter((g) => g.querySelector("button[aria-expanded]"))
+      .map((g) => g.getAttribute("aria-label")!)
+  )
+  expect(packs.length).toBeGreaterThan(1)
+  for (const p of packs) await list.getByRole("group", { name: p, exact: true }).locator("button[aria-expanded=true]").first().click()
+  const pins = (await library(page)).filter((s) => s.pinned).length
+  await expect(rows(page)).toHaveCount(pins)
+  const selected = page.locator('[role="option"][aria-selected="true"]')
+  // Down past any pins to the first fold, then to the second
+  for (let i = 0; i < pins; i++) await page.keyboard.press("ArrowDown")
+  await expect(selected).toHaveText(new RegExp(`^${packs[0]}, folded, `))
+  await page.keyboard.press("ArrowDown")
+  await expect(selected).toHaveText(new RegExp(`^${packs[1]}, folded, `))
+  await page.keyboard.press("ArrowUp")
+  // Enter opens it and stays on it; nothing was pasted
+  await page.keyboard.press("Enter")
+  await expect(selected).toHaveText(new RegExp(`^${packs[0]}, open, `))
+  await expect.poll(() => page.getByRole("group", { name: packs[0], exact: true }).getByRole("option").count()).toBeGreaterThan(1)
+  expect(await calls(page, "paste_snippet")).toHaveLength(0)
 })
