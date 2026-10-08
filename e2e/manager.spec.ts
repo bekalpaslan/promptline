@@ -705,6 +705,41 @@ test("an overview card's copy button copies the prompt as the popup would, witho
   expect(await clipboardNow()).toBe("A prompt in no group.")
 })
 
+test("the editor's copy button copies what is in the fields now, as a card would", async ({ page }) => {
+  await setClipboard(page, "TypeError: x is undefined")
+  await promptRow(page, "Loose prompt").click()
+  const body = page.getByRole("textbox", { name: "Prompt text", exact: true })
+  await body.fill("Fix this: {clipboard}")
+  await page.getByRole("button", { name: "Copy prompt", exact: true }).click()
+  expect(await page.evaluate(() => (window as unknown as { __mock: { clipboard: string } }).__mock.clipboard)).toBe("Fix this: TypeError: x is undefined")
+  await expect(page.getByText('Copied "Loose prompt"')).toBeVisible()
+})
+
+test("in One list the pane shows every prompt, each card saying where it lives", async ({ page }) => {
+  const total = (await library(page)).length
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
+  await page.getByRole("button", { name: /^Display options/ }).click()
+  await page.getByText("One list", { exact: true }).click()
+  // The pack's overview becomes the library's: every prompt, not that pack's four
+  const all = page.getByRole("region", { name: "All prompts", exact: true })
+  await expect(all).toBeVisible()
+  await expect(all.getByRole("button", { name: /^Copy / })).toHaveCount(total)
+  await expect(all.getByRole("button", { name: "Bisect a regression", exact: true })).toContainText("Mock Groups › Debugging")
+  // It follows the filter like a pack's overview
+  await filter(page).fill("bisect")
+  await expect(all.getByText(`1 of ${total} match the filter`)).toBeVisible()
+  await filter(page).fill("")
+  // A card opens the prompt; Escape comes back to the list's overview
+  await all.getByRole("button", { name: "Loose prompt", exact: true }).click()
+  await expect(all).toBeHidden()
+  await page.locator("body").press("Escape")
+  await expect(all).toBeVisible()
+  // Back in Packs there is no pack it belongs to: the pane goes back to the editor
+  await page.getByRole("button", { name: /^Display options/ }).click()
+  await page.getByText("Packs", { exact: true }).click()
+  await expect(all).toBeHidden()
+})
+
 test("the filter's placeholder keeps to 'Filter' in a narrow sidebar", async ({ page }) => {
   await expect(filter(page)).toHaveAttribute("placeholder", "Filter  #tag @pack >group")
   await page.setViewportSize({ width: 560, height: 400 })

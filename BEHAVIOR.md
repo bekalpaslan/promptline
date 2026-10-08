@@ -48,7 +48,15 @@ values in, {date} and {time} expanded, as the popup's copy would, and
 fill-in fields left as typed, which the toast counts ("fill in 2 fields
 where you paste it") since the manager has no form to ask for them (core's
 `expandForCopy`). The clipboard is read at the click, so copying the same
-card twice never wraps the first copy. The editor's crumbs (pack, group)
+card twice never wraps the first copy. The editor's Prompt panel has the
+same Copy at the right of its heading, copying what is in the field now,
+unsaved edits included (`src/manager/copy.ts`, one copy for both). In the
+sidebar's One list display there are no pack titles to select, so the
+overview is of every prompt ("All prompts", in the list's order, each card
+naming its pack and group, following the filter): switching to One list
+turns an open overview into it, Escape reaches it from a prompt or from an
+empty pane, and switching back to Packs returns the pane to the editor,
+since that overview belongs to no pack. The editor's crumbs (pack, group)
 open those overviews, and Escape goes up one level — from a prompt to its group (or
 pack), from a group to its pack. This replaced a full-window library view
 that hid the sidebar to draw the same tree a second time. The tree itself

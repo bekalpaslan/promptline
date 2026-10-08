@@ -7,7 +7,7 @@ import { Count, InputsBadge, PromptTokens, TagList } from "@/components/prompt-b
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { EmptyState } from "./EmptyState"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
-import { say, sayErr } from "./status"
+import { copyPrompt as copyText } from "./copy"
 
 // The overview: what a pack or group selected in the sidebar holds, in the
 // pane where the editor sits for a prompt. The sidebar stays beside it, so
@@ -154,9 +154,12 @@ function PromptCard({
   onOpen,
   onMenu,
   onCopy,
+  place,
 }: {
   s: Snippet
   clipboard: string | null
+  /** Where the prompt lives (pack › group), on a card that has no heading above it to say so */
+  place?: string
   onOpen: () => void
   onMenu: (x: number, y: number) => void
   /** Copies the prompt; resolves true once it is on the clipboard */
@@ -221,6 +224,12 @@ function PromptCard({
         <InputsBadge inputs={inputs} id={badgeId} />
         {s.uses > 0 && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{s.uses}×</span>}
       </span>
+      {/* The sidebar's one-list row says the same under its title */}
+      {place && (
+        <span className="-mt-1 truncate text-xs text-muted-foreground">
+          <bdi>{place}</bdi>
+        </span>
+      )}
       <span className="line-clamp-3 break-words text-xs leading-relaxed text-muted-foreground">
         {excerpt.trim() ? <PromptTokens text={excerpt} clipboard={clipboard} configValues={s.configValues} /> : <i>(empty)</i>}
       </span>
@@ -249,7 +258,10 @@ function PromptCard({
   )
 }
 
-export function Overview({ focus }: { focus: LibraryFocus }) {
+// `focus` null: every prompt, the overview of the sidebar's One list
+// display, in its order (pins first, then the chosen sort), each card
+// saying where it lives since no heading does
+export function Overview({ focus }: { focus: LibraryFocus | null }) {
   const m = useManager()
   const { snippets, orderBy, packNames } = m
   // The same menus as the sidebar's three dots (rename, lock, export, file,
@@ -279,29 +291,18 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
     () => C.packTree(C.sortPrompts(snippets, orderBy), packNames(), DEFAULT_PACK),
     [snippets, orderBy, packNames]
   )
-  const pack = tree.find((p) => p.name === focus.pack)
+  const pack = focus ? tree.find((p) => p.name === focus.pack) : undefined
   // A group that is gone (deleted, ungrouped, emptied by moves) leaves its
   // pack's overview in its place
-  const group = focus.group ? pack?.groups.find((g) => g.name === focus.group) : undefined
+  const group = focus?.group ? pack?.groups.find((g) => g.name === focus.group) : undefined
   // The sidebar's filter reaches the cards: while a query is set the
   // overview shows only the hits and says how many of the pack's or
   // group's prompts they are, so the two views never disagree in one frame
+  const snippetsInOrder = useMemo(() => C.sortPrompts(snippets, orderBy), [snippets, orderBy])
   const filtering = m.query.trim() !== ""
   const parsed = useMemo(() => C.parseQuery(m.query), [m.query])
   const hit = (s: Snippet) => !filtering || C.matchesQuery({ ...s, pack: s.pack || DEFAULT_PACK }, parsed)
 
-  if (!pack) {
-    return (
-      <EmptyState
-        icon={RiFolderLine}
-        title="That pack is gone"
-        hint="Select a pack or a prompt in the sidebar"
-        actions={[{ label: "New prompt", onClick: () => void m.newPrompt(), primary: true }]}
-      />
-    )
-  }
-
-  const locked = m.isLocked(pack.name)
   const open = (s: Snippet) => {
     m.setSelection(new Set([s.id]), s.id)
     m.select(s.id)
@@ -312,25 +313,11 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
     m.setSelection(new Set([s.id]), s.id)
     menus.openRowCtx(x, y, new Set([s.id]))
   }
-  // What the popup's copy would put on the clipboard, minus its fill-in
-  // form: the clipboard and saved config values in, {date} and {time}
-  // expanded, fill-in fields left as typed for the user to fill in by hand
-  // (core's expandForCopy). The clipboard is read now, not taken from the
-  // excerpts' last read, so a card copied twice doesn't wrap a stale one.
-  // The excerpts then show the new clipboard.
+  // The shared copy (./copy); the excerpts then show the new clipboard
   const copyPrompt = async (s: Snippet) => {
-    try {
-      const clip = await invoke<string>("get_clipboard_text").catch(() => "")
-      await invoke("set_clipboard_text", { text: C.expandForCopy(s.text, s.configValues || {}, clip) })
-      const asks = C.requiredInputs(s).length
-      const title = s.title.trim() ? `"${s.title.trim()}"` : "the prompt"
-      say(asks ? `Copied ${title}; fill in ${C.plural(asks, "field")} where you paste it` : `Copied ${title}`)
-      refreshClipboard()
-      return true
-    } catch (e) {
-      sayErr(`Couldn't copy: ${e}`)
-      return false
-    }
+    const ok = await copyText(s)
+    if (ok) refreshClipboard()
+    return ok
   }
   const cards = (items: Snippet[]) => (
     <div className="grid gap-2 @xl:grid-cols-2 @4xl:grid-cols-3">
@@ -356,6 +343,58 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
       </p>
     )
   }
+  // One list: every prompt, as the sidebar lists them. No pack is shown,
+  // so the title is the library's, New prompt goes where Ctrl+N would put
+  // it, and each card names its pack and group.
+  if (!focus) {
+    const shown = snippetsInOrder.filter(hit)
+    return (
+      <div className="@container flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 animate-in fade-in duration-150" role="region" aria-label="All prompts">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="flex min-w-0 items-baseline gap-1.5 text-lg font-semibold">
+            <span className="truncate">All prompts</span>
+            <Count>
+              <span aria-hidden>{snippetsInOrder.length}</span>
+              <span className="sr-only">, {C.plural(snippetsInOrder.length, "prompt")}</span>
+            </Count>
+          </h2>
+          <span className="ml-auto flex shrink-0 items-center">
+            <AddPrompt where="the library" onClick={() => void m.newPrompt()} />
+          </span>
+        </div>
+        {matchLine(snippetsInOrder)}
+        {snippetsInOrder.length === 0 && <p className="text-ui text-muted-foreground">No prompts yet. New prompt starts the library.</p>}
+        <div className="grid gap-2 @xl:grid-cols-2 @4xl:grid-cols-3">
+          {shown.map((s) => (
+            <PromptCard
+              key={s.id}
+              s={s}
+              clipboard={clipboard}
+              place={[s.pack || DEFAULT_PACK, s.group].filter(Boolean).join(" › ")}
+              onOpen={() => open(s)}
+              onMenu={(x, y) => cardMenu(s, x, y)}
+              onCopy={() => copyPrompt(s)}
+            />
+          ))}
+        </div>
+        {menus.element}
+      </div>
+    )
+  }
+
+  if (!pack) {
+    return (
+      <EmptyState
+        icon={RiFolderLine}
+        title="That pack is gone"
+        hint="Select a pack or a prompt in the sidebar"
+        actions={[{ label: "New prompt", onClick: () => void m.newPrompt(), primary: true }]}
+      />
+    )
+  }
+
+  const locked = m.isLocked(pack.name)
+
   // A group's heading: the overview's title when the group is what's shown,
   // a way into it when it sits in its pack's overview
   const groupHeading = (name: string, count: number, isTitle: boolean) => {
