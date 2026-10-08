@@ -617,6 +617,30 @@ The "New prompt from clipboard…" bar under the list is gone; its Ctrl+N
 key sits at the right end of the clipboard line, since the clipboard is
 its subject, and the list has the 32 px back on every summon.
 
+**The clipboard panel.** The clipboard line flattens what it holds to one
+cut row, and the useful part of a stack trace is usually its end. Ctrl+↓,
+or a click on the line's text (it carries a chevron), drops the whole
+clipboard down from the line as a panel over the list: the lines as they
+paste, in mono, numbered when there is more than one, indentation and
+blank lines kept, controls shown as ⟨RLO⟩ in Warn rather than obeyed
+(`clipboardLines` in core), at most 400 lines with a note that the rest
+still paste. It reaches down to the list's bottom edge and no further, so
+the hint bar under it says what the keys do: ↑ ↓ scroll and PgUp PgDn
+page (when it overflows; the page keys from 440 px), Ctrl N saves it as
+a prompt, Esc and Enter put it away. Enter closes rather than pastes
+because the row it would paste is under the panel, and Ctrl+1..5 close
+it for the same reason without pasting: both pick a row the user can't
+see. After a failed paste the bar keeps "Ctrl V in the target" first
+while the panel is up, since the panel then shows the prompt that did
+not land; Ctrl N leaves the bar to make room (its key cap is on the
+line). The resting bar names Ctrl ↓ from 560 px, where a seventh hint
+fits on its line; below that the line's chevron and tooltip carry it.
+←, Tab and Ctrl+↓ close it too, and typing closes it on the way
+into the search box, as it closes the preview card. A press outside it,
+a summon, a pick, the form, the create view and the action panel all put
+it away, and with an empty clipboard there is nothing to open. While it
+is up the rows open no hover card.
+
 **The copy names the next step.** A fill-in field is labelled in sentence
 case by one rule (`fieldLabel`: "Standing instructions", "Goal 2"), not by
 a CSS `capitalize` that gave "Call To Action". A field that is really an

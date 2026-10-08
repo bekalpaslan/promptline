@@ -706,6 +706,107 @@ test("the line under the search says what the clipboard holds, and that it is em
   await expect(page.getByRole("option", { name: "Loose prompt", exact: true })).not.toHaveAttribute("aria-describedby", /popup-clip/)
 })
 
+test("Ctrl+↓ drops the whole clipboard under its line, line by line; Esc, Enter and typing put it away", async ({ page }) => {
+  const trace = ["TypeError: x is undefined", "    at foo (a.ts:1:1)", "", "    at bar (b.ts:2:2)"]
+  await setClipboard(page, trace.join("\r\n") + "\r\n")
+  await emit(page, "popup-shown")
+  const panel = page.getByRole("region", { name: "Clipboard" })
+  const toggle = page.getByRole("button", { name: /TypeError: x is undefined/ })
+  await expect(toggle).toHaveAttribute("aria-expanded", "false")
+  await search(page).press("Control+ArrowDown")
+  await expect(panel).toBeVisible()
+  await expect(toggle).toHaveAttribute("aria-expanded", "true")
+  // The lines as they paste, indentation and the blank one kept, numbered
+  for (const line of trace.filter(Boolean)) await expect(panel).toContainText(line.trim())
+  await expect(panel).toContainText("4")
+  await expect(page.getByText("Clipboard, 4 lines")).toBeAttached()
+  await expect(page.getByText("back", { exact: true })).toBeVisible()
+  // Enter puts it away and pastes nothing: the row it would paste is under it
+  await search(page).press("Enter")
+  await expect(panel).toBeHidden()
+  expect((await calls(page)).filter((c) => c.cmd === "paste_snippet")).toHaveLength(0)
+  // The line's text is the handle too; Esc closes it without hiding the popup
+  await toggle.click()
+  await expect(panel).toBeVisible()
+  await search(page).press("Escape")
+  await expect(panel).toBeHidden()
+  expect((await calls(page)).filter((c) => c.cmd === "hide_popup")).toHaveLength(0)
+  // Typing goes on into the search box and closes it
+  await search(page).press("Control+ArrowDown")
+  await expect(panel).toBeVisible()
+  await search(page).pressSequentially("ro")
+  await expect(panel).toBeHidden()
+  await expect(search(page)).toHaveValue("ro")
+})
+
+test("a slot key with the clipboard panel open puts the panel away and pastes nothing", async ({ page }) => {
+  await search(page).press("Control+ArrowDown")
+  const panel = page.getByRole("region", { name: "Clipboard" })
+  await expect(panel).toBeVisible()
+  await search(page).press("Control+1")
+  await expect(panel).toBeHidden()
+  expect((await calls(page)).filter((c) => c.cmd === "paste_snippet")).toHaveLength(0)
+})
+
+test("the hint bar names the clipboard panel's keys, keeps a failed paste's recovery first, and stays one line", async ({ page }) => {
+  await setClipboard(page, Array.from({ length: 80 }, (_, i) => `  at frame${i} (file.ts:${i}:1)`).join("\n"))
+  await emit(page, "popup-shown")
+  const hint = (label: string) => page.getByText(label, { exact: true })
+  const oneLine = async (first: string, last: string) => {
+    const [a, b] = await Promise.all([hint(first).boundingBox(), hint(last).boundingBox()])
+    expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
+  }
+  // The key that opens it waits for a window with room for a seventh hint
+  await expect(hint("clipboard")).toBeHidden()
+  await page.setViewportSize({ width: 540, height: 600 })
+  await expect(hint("clipboard")).toBeHidden()
+  await oneLine("paste", "close")
+  await page.setViewportSize({ width: 570, height: 600 })
+  await expect(hint("clipboard")).toBeVisible()
+  await oneLine("paste", "close")
+  await search(page).press("Control+ArrowDown")
+  await expect(hint("scroll")).toBeVisible()
+  await expect(hint("page")).toBeVisible()
+  await oneLine("scroll", "back")
+  for (const width of [320, 400, 440, 500]) {
+    await page.setViewportSize({ width, height: 600 })
+    await oneLine("scroll", "back")
+  }
+  await search(page).press("Escape")
+  // After a failed paste the recovery leads, in the panel's bar too
+  await page.setViewportSize({ width: 320, height: 280 })
+  await emit(page, "paste-failed", { message: "Couldn't paste into that window. The prompt is on your clipboard: press Ctrl+V there to paste it yourself." })
+  await setClipboard(page, Array.from({ length: 80 }, (_, i) => `line ${i}`).join("\n"))
+  await search(page).press("Control+ArrowDown")
+  await expect(page.getByRole("region", { name: "Clipboard" })).toBeVisible()
+  await expect(hint("in the target")).toBeVisible()
+  await oneLine("in the target", "back")
+  for (const width of [400, 440, 500, 640]) {
+    await page.setViewportSize({ width, height: 600 })
+    await oneLine("in the target", "back")
+  }
+})
+
+test("the clipboard panel shows controls instead of obeying them, and says what it left out of a long log", async ({ page }) => {
+  await setClipboard(page, "ok\nrm -rf‮ x")
+  await emit(page, "popup-shown")
+  await search(page).press("Control+ArrowDown")
+  const panel = page.getByRole("region", { name: "Clipboard" })
+  await expect(panel).toContainText("rm -rf⟨RLO⟩ x")
+  await search(page).press("Escape")
+  await setClipboard(page, Array.from({ length: 450 }, (_, i) => `log ${i + 1}`).join("\n"))
+  await emit(page, "popup-shown")
+  await search(page).press("Control+ArrowDown")
+  await expect(panel).toContainText("First 400 of 450 lines shown; all of them paste")
+  await expect(panel).not.toContainText("log 401")
+  // An empty clipboard has nothing to show: Ctrl+↓ opens nothing
+  await search(page).press("Escape")
+  await setClipboard(page, "")
+  await emit(page, "popup-shown")
+  await search(page).press("Control+ArrowDown")
+  await expect(panel).toBeHidden()
+})
+
 test("an empty clipboard hollows a pinned {clipboard} row and the hint bar says Enter pastes without it", async ({ page }) => {
   const pinned = page.getByRole("option", { name: "Root cause first", exact: true })
   const hint = page.getByText("paste without clipboard", { exact: true })
