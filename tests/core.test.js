@@ -767,6 +767,30 @@ test('lineCount counts lines without a trailing newline, and 0 for nothing', () 
   assert.equal(core.lineCount('a\n\nb'), 3);
 });
 
+test('clipboardLines keeps the lines a paste delivers, as lineCount counts them', () => {
+  assert.deepEqual(core.clipboardLines(''), { lines: [], total: 0 });
+  assert.deepEqual(core.clipboardLines(null), { lines: [], total: 0 });
+  assert.deepEqual(core.clipboardLines('  \n\t\n'), { lines: [], total: 0 });
+  assert.deepEqual(core.clipboardLines('TypeError: x\r\n  at foo (a.ts:1)\r\n'), { lines: ['TypeError: x', '  at foo (a.ts:1)'], total: 2 });
+  // Indentation and blank lines inside the text stay: they are what pastes
+  assert.deepEqual(core.clipboardLines('a\n\n\tb'), { lines: ['a', '', '\tb'], total: 3 });
+  const text = 'x\ny\nz';
+  assert.equal(core.clipboardLines(text).total, core.lineCount(text));
+});
+
+test('clipboardLines reveals controls on every line', () => {
+  assert.deepEqual(core.clipboardLines('ok\nrm -rf‮ x').lines, ['ok', 'rm -rf⟨RLO⟩ x']);
+});
+
+test('clipboardLines stops at the cap and says how many there were', () => {
+  const log = Array.from({ length: 1000 }, (_, i) => `line ${i + 1}`).join('\n');
+  const all = core.clipboardLines(log);
+  assert.equal(all.lines.length, 400);
+  assert.equal(all.total, 1000);
+  assert.equal(all.lines[399], 'line 400');
+  assert.equal(core.clipboardLines(log, 3).lines.length, 3);
+});
+
 test('clipboardPreview cuts long text at the limit with an ellipsis', () => {
   const out = core.clipboardPreview('a'.repeat(300));
   assert.equal(out.length, 241);

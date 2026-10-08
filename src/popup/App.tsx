@@ -70,9 +70,12 @@ type Notice = { text: string; kind: "error" | "info" | "success"; undo?: "fresh"
 // `tiny`: gives way only in the narrowest bar there is, the 320 px minimum
 // at a 125% UI scale (about 15 rem), where a Warn hint and one more hint
 // wrapped the bar to two lines and took a row from the window
-function Hint({ k, tiny, minor, wide, wider, warn, children }: { k: string; tiny?: boolean; minor?: boolean; wide?: boolean; wider?: boolean; warn?: boolean; children: React.ReactNode }) {
+// `widest`: waits for 560 px, where a resting bar has room for a seventh
+// hint (the clipboard panel's key; the six before it fill about 400 px of
+// a 528 px line)
+function Hint({ k, tiny, minor, wide, wider, widest, warn, children }: { k: string; tiny?: boolean; minor?: boolean; wide?: boolean; wider?: boolean; widest?: boolean; warn?: boolean; children: React.ReactNode }) {
   return (
-    <span className={cn("flex shrink-0 items-center gap-1", tiny && "hidden @min-[17rem]:flex", minor && "hidden @min-[21.375rem]:flex", wide && "hidden @min-[26.375rem]:flex", wider && "hidden @min-[30.125rem]:flex")}>
+    <span className={cn("flex shrink-0 items-center gap-1", tiny && "hidden @min-[17rem]:flex", minor && "hidden @min-[21.375rem]:flex", wide && "hidden @min-[26.375rem]:flex", wider && "hidden @min-[30.125rem]:flex", widest && "hidden @min-[33rem]:flex")}>
       <Keys combo={k} />
       <span className={cn(warn && "text-(--warn)")}>{children}</span>
     </span>
@@ -416,6 +419,22 @@ export function App() {
   // 4, P1); the popup opens at the cursor, so the pointer is always on a row.
   const keyCard = previewIdx !== null && !!previewPos?.key
 
+  // The clipboard panel: the whole clipboard, as the lines it pastes,
+  // dropped from the clipboard line over the list (Ctrl+↓ or a click on the
+  // line). The line flattens a stack trace to one cut row, and the error's
+  // useful part is usually its end. Open, it takes ↑ ↓ PgUp PgDn to scroll;
+  // Esc, Enter, ← and Ctrl+↓ put it away, and typing closes it on the way
+  // into the search box. A ref for the row hover, which must not open a
+  // card under it.
+  const [clipOpen, setClipOpen] = useState(false)
+  const clipOpenRef = useRef(false)
+  clipOpenRef.current = clipOpen
+  const clipLineRef = useRef<HTMLDivElement>(null)
+  const clipBodyRef = useRef<HTMLDivElement>(null)
+  const [clipBox, setClipBox] = useState<{ top: number; room: number } | null>(null)
+  const [clipScrolls, setClipScrolls] = useState(false)
+  const clipLines = useMemo(() => (clipOpen ? C.clipboardLines(clip) : null), [clipOpen, clip])
+
   // The panel's items take keyboard focus while it is open (below), so
   // closing it hands focus back to the search box
   const panelRef = useRef<HTMLDivElement>(null)
@@ -703,6 +722,7 @@ export function App() {
     if (copyHideTimer.current) clearTimeout(copyHideTimer.current)
     copyHideTimer.current = null
     hidePreview()
+    setClipOpen(false)
     setPicked(null)
     setQuery("")
     setSel(0)
@@ -769,6 +789,56 @@ export function App() {
   useLayoutEffect(() => {
     hidePreview()
   }, [query, hidePreview])
+  // The clipboard panel goes the same way, and with whatever takes the
+  // window over (the form, the create view, the action panel, a paste in
+  // flight), or with the clipboard itself
+  useLayoutEffect(() => {
+    setClipOpen(false)
+  }, [query])
+  useEffect(() => {
+    if (form || create || panelFor || pickedId || clipEmpty) setClipOpen(false)
+  }, [form, create, panelFor, pickedId, clipEmpty])
+  // Hung from the clipboard line, as far down as the list goes: it covers
+  // the rows, never the strips and the hint bar under them, which say what
+  // the keys do to it. Measured before paint, and again when the window is
+  // resized under it.
+  useLayoutEffect(() => {
+    if (!clipOpen) {
+      setClipBox(null)
+      return
+    }
+    const measure = () => {
+      const line = clipLineRef.current?.getBoundingClientRect()
+      const list = listRef.current?.getBoundingClientRect()
+      if (!line || !list) return
+      const top = Math.round(line.bottom + 4)
+      setClipBox({ top, room: Math.max(48, Math.round(list.bottom) - top) })
+    }
+    measure()
+    window.addEventListener("resize", measure)
+    return () => window.removeEventListener("resize", measure)
+  }, [clipOpen])
+  useLayoutEffect(() => {
+    const body = clipBodyRef.current
+    setClipScrolls(!!body && body.scrollHeight > body.clientHeight + 1)
+  }, [clipBox, clip])
+  // A press anywhere else puts it away, as a menu does. The line's own
+  // toggle is left out: it closes the panel by its click.
+  useEffect(() => {
+    if (!clipOpen) return
+    const away = (e: PointerEvent) => {
+      const t = e.target as Node
+      if (clipBodyRef.current?.parentElement?.contains(t) || clipLineRef.current?.contains(t)) return
+      setClipOpen(false)
+    }
+    document.addEventListener("pointerdown", away)
+    return () => document.removeEventListener("pointerdown", away)
+  }, [clipOpen])
+  const toggleClip = useCallback(() => {
+    if (clipEmpty) return
+    hidePreview()
+    setClipOpen((o) => !o)
+  }, [clipEmpty, hidePreview])
   // The list can also change under an open card with the query untouched
   // (the library reloads, an Undo puts a row back, a section folds): the
   // index then points at another prompt, or at none. The card closes
@@ -905,6 +975,33 @@ export function App() {
         else if (e.key === "Enter") { e.preventDefault(); panelActions[panelSel]?.run() }
         else if (/^[1-9]$/.test(e.key)) { e.preventDefault(); panelActions[Number(e.key) - 1]?.run() }
         else if (e.key === "Tab") { e.preventDefault(); closePanel() }
+        return
+      }
+      if (clipOpen) {
+        // The panel covers the rows: Enter would paste one the user can't
+        // see, so it puts the panel away like Esc, and the next Enter pastes.
+        // A slot key is the same pick by number, so it does the same: the
+        // panel closes and the rows, key caps and all, are back. The arrows
+        // scroll it, a line at a time. Typing and Ctrl+N go on to where they
+        // always go, and typing closes the panel through the query.
+        const body = clipBodyRef.current
+        if (e.key === "Escape" || e.key === "Enter" || e.key === "Tab" || (e.key === "ArrowLeft" && !e.ctrlKey) || (e.ctrlKey && (e.key === "ArrowDown" || e.key === "ArrowUp" || /^[1-5]$/.test(e.key)))) {
+          e.preventDefault()
+          setClipOpen(false)
+          return
+        }
+        if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "PageDown" || e.key === "PageUp") {
+          e.preventDefault()
+          const page = e.key === "PageDown" || e.key === "PageUp"
+          const down = e.key === "ArrowDown" || e.key === "PageDown"
+          if (body) body.scrollTop += (down ? 1 : -1) * (page ? Math.max(32, body.clientHeight - 32) : 16)
+          return
+        }
+      } else if (e.ctrlKey && e.key === "ArrowDown" && !form && !create) {
+        // Ctrl+↓ drops the clipboard down from its line, as Alt+↓ opens a
+        // combo box (Alt is the window menu's key on Windows)
+        e.preventDefault()
+        if (!clipEmpty) toggleClip()
         return
       }
       if (e.key === "Escape") {
@@ -1070,7 +1167,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, deleteArmed, form, create, notice, visible, stops, headSel, effCollapsed, effCollapsedGroups, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, deleteArmed, clipOpen, clipEmpty, toggleClip, form, create, notice, visible, stops, headSel, effCollapsed, effCollapsedGroups, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live preview index
   // through a ref instead of closing over it. The pointer never moves the
@@ -1088,7 +1185,7 @@ export function App() {
       mouseSeeded.current = true
       return
     }
-    if (!moved || Date.now() < suppressHoverUntil.current) return
+    if (!moved || Date.now() < suppressHoverUntil.current || clipOpenRef.current) return
     if (previewRef.current !== i) {
       if (hoverTimer.current) clearTimeout(hoverTimer.current)
       if (hideTimer.current) clearTimeout(hideTimer.current)
@@ -1221,6 +1318,26 @@ export function App() {
     </>
   ) : create ? (
     <><Hint k="↵">save</Hint><Hint k="Esc">back</Hint></>
+  ) : clipOpen ? (
+    // The clipboard panel: scroll when there is more of it than fits, save
+    // it as a prompt, or put it away (Enter too: the row it would paste is
+    // under the panel). After a failed paste the recovery stays first: the
+    // panel is where the user checks what is on the clipboard, which is
+    // the prompt that did not land. The page keys only from 440 px. Beside
+    // the recovery Ctrl N leaves the bar (its key cap is on the clipboard
+    // line, above the panel), the page keys wait for 500 px and scrolling
+    // gives way below 360, so the bar is one line at every width.
+    <>
+      {notice?.recover && <Hint k="Ctrl V" tiny>in the target</Hint>}
+      {clipScrolls && (
+        <>
+          <Hint k="↑ ↓" minor={!!notice?.recover}>scroll</Hint>
+          <Hint k="PgUp PgDn" wide={!notice?.recover} wider={!!notice?.recover}>page</Hint>
+        </>
+      )}
+      {!notice?.recover && <Hint k="Ctrl N">new prompt</Hint>}
+      <Hint k="Esc ↵">back</Hint>
+    </>
   ) : notice?.recover ? (
     // The paste failed and the prompt is on the clipboard: the bar leads
     // with the recovery, and says Enter no longer pastes
@@ -1283,6 +1400,9 @@ export function App() {
           one key with no mention on screen. Room for it only in a widened
           window; the pack and group headers name it in their tooltip */}
       <Hint k="←" wide>fold</Hint>
+      {/* The clipboard panel's key; the line's chevron says it opens, this
+          says by which key, where there is room for a seventh hint */}
+      {!clipEmpty && <Hint k="Ctrl ↓" widest>clipboard</Hint>}
       {/* An error stays until Esc; the bar says so where the strip used to
           append it and get truncated (critique popup P1) */}
       <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
@@ -1339,6 +1459,8 @@ export function App() {
       ? `Fill in ${C.plural(form.fields.length, "field")} for ${form.snippet.title}`
       : create
         ? "New prompt from clipboard"
+        : clipOpen
+          ? `Clipboard, ${C.plural(C.lineCount(clip), "line")}`
         : // Any query narrows the list, a #tag as much as a word; and one
           // prompt matches, it doesn't "match"
           // With no rows it says what the list says: that message sits in
@@ -1608,7 +1730,7 @@ export function App() {
           its subject, so it lives on the clipboard's line. The describing
           span leaves the key out, so a row described by the line hears the
           clipboard, not a shortcut. */}
-      <div className="flex h-5 shrink-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
+      <div ref={clipLineRef} className="flex h-5 shrink-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
         <RiClipboardLine className="size-3.5 shrink-0 opacity-70" aria-hidden />
         <span id={CLIP_LINE_ID} className="flex min-w-0 flex-1 items-center gap-1.5">
           {/* The label keeps its width; what follows it gives way: the
@@ -1624,9 +1746,29 @@ export function App() {
                   right above the selected row, so two things glowed where
                   DESIGN.md allows one. In a preview, inside the prompt's
                   text, the tint still marks what was inserted. */}
-              <bdi className="min-w-0 flex-1 truncate rounded-sm bg-secondary px-1 text-foreground" title="The clipboard as it is now">
-                {clipLine.text}
-              </bdi>
+              {/* The text is the panel's handle: a click drops the whole
+                  clipboard down under it, and the chevron says it will */}
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-expanded={clipOpen}
+                aria-controls={clipOpen ? "popup-clipboard" : undefined}
+                title={clipOpen ? "Hide the clipboard (Esc)" : "Show the whole clipboard (Ctrl+↓)"}
+                className={cn(
+                  "focus-ring flex min-w-0 flex-1 cursor-pointer items-center rounded-sm bg-secondary text-left text-foreground hover:bg-hover",
+                  clipOpen && "bg-hover"
+                )}
+                onClick={() => {
+                  toggleClip()
+                  inputRef.current?.focus()
+                }}
+              >
+                <bdi className="min-w-0 flex-1 truncate px-1">{clipLine.text}</bdi>
+                <RiArrowDownSLine
+                  aria-hidden
+                  className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", clipOpen && "rotate-180")}
+                />
+              </button>
             </>
           )}
         </span>
@@ -1929,6 +2071,53 @@ export function App() {
           </div>
         )
       })()}
+
+      {clipOpen && clipLines && clipBox && (
+        // Floats over the list, so it has the menu's shadow (it is gone on
+        // the next Esc), on the code ground the preview card reads prompts
+        // on. Mono, because this is the text as it pastes: indentation,
+        // blank lines and line breaks are the point. The gutter numbers
+        // the lines (a trace says "line 12"); a single line needs none.
+        <div
+          id="popup-clipboard"
+          role="region"
+          aria-label="Clipboard"
+          className="fixed inset-x-2 z-20 flex flex-col overflow-hidden rounded-xl border border-border bg-(--code-ground) shadow-(--shadow-pop) duration-150 ease-out animate-in fade-in-0 slide-in-from-top-1"
+          style={{ top: clipBox.top, maxHeight: clipBox.room }}
+        >
+          <div ref={clipBodyRef} className="min-h-0 flex-1 overflow-y-auto py-1.5 font-mono text-xs leading-4 text-foreground [tab-size:4]">
+            {clipLines.lines.map((line, i) => (
+              <div key={i} className="flex min-w-0">
+                {clipLines.total > 1 && (
+                  <span
+                    aria-hidden
+                    className="w-[calc(var(--gutter)*1ch+1rem)] shrink-0 select-none pl-2 pr-2 text-right tabular-nums text-muted-foreground"
+                    style={{ "--gutter": String(clipLines.lines.length).length } as React.CSSProperties}
+                  >
+                    {i + 1}
+                  </span>
+                )}
+                {/* One isolate per line: a right-to-left line reads in its
+                    own direction and leaves the next one alone. The
+                    controls core revealed (⟨RLO⟩, ⟨ESC⟩) are in Warn, the
+                    colour the line's "hidden text" mark uses */}
+                <bdi className={cn("min-w-0 flex-1 whitespace-pre-wrap break-words pr-2", clipLines.total === 1 && "pl-2")}>
+                  {line
+                    ? line.split(/(⟨(?:[A-Z]{2,3}|U\+[0-9A-F]{4})⟩)/).map((part, j) =>
+                        j % 2 ? <span key={j} className="text-(--warn)">{part}</span> : part
+                      )
+                    : "​"}
+                </bdi>
+              </div>
+            ))}
+          </div>
+          {clipLines.total > clipLines.lines.length && (
+            <div className="shrink-0 border-t border-border px-2 py-1 text-xs text-muted-foreground">
+              {`First ${clipLines.lines.length} of ${clipLines.total} lines shown; all of them paste`}
+            </div>
+          )}
+        </div>
+      )}
 
       {panelFor && (
         <div
