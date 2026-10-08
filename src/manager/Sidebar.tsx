@@ -111,7 +111,7 @@ export function Sidebar() {
   // The order is the manager's, shared with the overview (C.sortPrompts)
   const { orderBy, setOrderBy } = m
   // Group-by-pack is the default view
-  const [grouped, setGrouped] = useState(localStorage.getItem("groupByPack") !== "0")
+  const { grouped, setGrouped } = m
   // The folds are the manager's (folds.ts): a rename or a New from the
   // overview carries and opens them too
   const { packs: collapsed, groups: collapsedGroups } = m.folds
@@ -998,14 +998,10 @@ export function Sidebar() {
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect()
             const orders: [OrderBy, string][] = [["uses", ORDER_LABELS.uses], ["title", ORDER_LABELS.title], ["custom", `${ORDER_LABELS.custom} — drag to arrange`]]
-            const setView = (on: boolean) => {
-              setGrouped(on)
-              localStorage.setItem("groupByPack", on ? "1" : "0")
-            }
             display.open(r.left, r.bottom + 4, [
               { kind: "header", text: "View" },
-              { kind: "item", label: "Packs", checked: grouped, run: () => setView(true) },
-              { kind: "item", label: "One list", checked: !grouped, run: () => setView(false) },
+              { kind: "item", label: "Packs", checked: grouped, run: () => setGrouped(true) },
+              { kind: "item", label: "One list", checked: !grouped, run: () => setGrouped(false) },
               { kind: "sep" },
               { kind: "header", text: "Order" },
               ...orders.map(([o, label]) => ({ kind: "item" as const, label, checked: orderBy === o, run: () => setOrderBy(o) })),

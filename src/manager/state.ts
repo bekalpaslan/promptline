@@ -26,10 +26,11 @@ export interface LibraryFocus {
 
 /**
  * What the pane beside the sidebar shows: a prompt in the editor (or the
- * empty state when none is open), or the overview of a pack or group that
- * was selected in the sidebar. The sidebar itself never goes away.
+ * empty state when none is open), the overview of a pack or group that
+ * was selected in the sidebar, or, in the sidebar's One list display, the
+ * overview of every prompt. The sidebar itself never goes away.
  */
-export type View = { kind: "prompt" } | { kind: "overview"; focus: LibraryFocus }
+export type View = { kind: "prompt" } | { kind: "overview"; focus: LibraryFocus } | { kind: "all" }
 
 // Groups are labels on prompts, scoped to a pack; this is their identity key
 // (core's, so the sidebar's rows and the folds agree on it)
@@ -64,6 +65,15 @@ export interface ManagerApi {
   view: View
   /** Show a pack's or a group's prompts in the pane; the prompt selection clears */
   openOverview(focus: LibraryFocus): void
+  /** Show every prompt in the pane (the One list display's overview); the prompt selection clears */
+  openAll(): void
+  /**
+   * The sidebar's Display: packs (true) or one list (false); persisted in
+   * localStorage. Owned here because the pane follows it: in one list there
+   * are no pack titles to select, so the overview is of every prompt.
+   */
+  grouped: boolean
+  setGrouped(on: boolean): void
   /**
    * The sidebar's filter text, owned here so the overview can show only the
    * hits: the two used to disagree in one frame (two rows in the tree, all

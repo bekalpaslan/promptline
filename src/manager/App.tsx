@@ -258,6 +258,22 @@ export function App() {
     setSelectionState(new Set())
     setView({ kind: "overview", focus })
   }, [])
+  const openAll = useCallback(() => {
+    setSettingsOpen(false)
+    setActiveId(null)
+    setSelectionState(new Set())
+    setView({ kind: "all" })
+  }, [])
+  // The Display menu's Packs / One list. A pane showing an overview follows
+  // the switch: one list has no pack titles, so a pack's overview becomes
+  // every prompt's, and back in packs that overview has nothing in the
+  // sidebar to belong to, so the pane goes back to the editor.
+  const [grouped, setGroupedState] = useState(() => localStorage.getItem("groupByPack") !== "0")
+  const setGrouped = useCallback((on: boolean) => {
+    setGroupedState(on)
+    localStorage.setItem("groupByPack", on ? "1" : "0")
+    setView((v) => (!on && v.kind === "overview" ? { kind: "all" } : on && v.kind === "all" ? { kind: "prompt" } : v))
+  }, [])
   const showSettings = useCallback((open: boolean) => {
     setSettingsOpen(open)
     if (open) setView({ kind: "prompt" })
@@ -528,15 +544,19 @@ export function App() {
         else if (document.querySelector('[role="dialog"], [role="menu"]')) return
         else if (view.kind === "overview") {
           if (view.focus.group) openOverview({ pack: view.focus.pack })
-        } else {
+        } else if (view.kind === "prompt") {
+          // In one list a prompt's level up is the list itself, and with no
+          // prompt open Escape still reaches it: there is no pack title to
+          // click in one list
           const s = activeId ? snippetsRef.current.find((x) => x.id === activeId) : undefined
-          if (s) openOverview({ pack: s.pack || DEFAULT_PACK, group: s.group || undefined })
+          if (!grouped) openAll()
+          else if (s) openOverview({ pack: s.pack || DEFAULT_PACK, group: s.group || undefined })
         }
       }
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [settingsOpen, view, activeId, openOverview, newPrompt])
+  }, [settingsOpen, view, activeId, openOverview, openAll, grouped, newPrompt])
 
   const api = useMemo<ManagerApi>(
     () => ({
@@ -550,6 +570,9 @@ export function App() {
       prefs,
       view,
       openOverview,
+      openAll,
+      grouped,
+      setGrouped,
       query,
       setQuery,
       orderBy,
@@ -589,7 +612,7 @@ export function App() {
       openUpdateOffer,
       setAutoUpdateCheck,
     }),
-    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, query, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, unfold, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
+    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, openAll, grouped, setGrouped, query, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, unfold, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
   )
 
   // null until the config has loaded: the banner, the tooltip and the hints
@@ -644,6 +667,8 @@ export function App() {
               <Settings />
             ) : view.kind === "overview" ? (
               <Overview focus={view.focus} />
+            ) : view.kind === "all" ? (
+              <Overview focus={null} />
             ) : (
               <Editor key={activeId ?? "none"} />
             )}

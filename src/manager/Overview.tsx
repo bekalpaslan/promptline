@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { RiAddLine, RiArrowLeftSLine, RiFolderLine, RiLock2Fill, RiPushpinFill } from "@remixicon/react"
+import { RiAddLine, RiArrowLeftSLine, RiCheckLine, RiFileCopyLine, RiFolderLine, RiLock2Fill, RiPushpinFill } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Count, InputsBadge, PromptTokens, TagList } from "@/components/prompt-bits"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { EmptyState } from "./EmptyState"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
+import { copyPrompt as copyText } from "./copy"
 
 // The overview: what a pack or group selected in the sidebar holds, in the
 // pane where the editor sits for a prompt. The sidebar stays beside it, so
@@ -145,18 +146,34 @@ function AddPrompt({ where, onClick }: { where: string; onClick: () => void }) {
 }
 
 // One prompt as a preview: title, the first lines of its body, its tags and
-// what it asks for. A click opens it in the editor.
+// what it asks for. A click opens it in the editor; the copy button in its
+// corner (or Ctrl+C on the card) copies it.
 function PromptCard({
   s,
   clipboard,
   onOpen,
   onMenu,
+  onCopy,
+  place,
 }: {
   s: Snippet
   clipboard: string | null
+  /** Where the prompt lives (pack › group), on a card that has no heading above it to say so */
+  place?: string
   onOpen: () => void
   onMenu: (x: number, y: number) => void
+  /** Copies the prompt; resolves true once it is on the clipboard */
+  onCopy: () => Promise<boolean>
 }) {
+  // The icon turns to a check for a moment where the click was, as well as
+  // the toast at the window's edge
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (!copied) return
+    const t = setTimeout(() => setCopied(false), 1200)
+    return () => clearTimeout(t)
+  }, [copied])
+  const copy = () => void onCopy().then((ok) => ok && setCopied(true))
   const tags = s.tags || []
   const inputs = C.requiredInputs(s)
   // The excerpt is the same token preview as the editor's and the popup's,
@@ -169,13 +186,18 @@ function PromptCard({
   // and its pin: without a name of its own it read out the whole excerpt,
   // the clipboard's stack trace included, once per card
   const badgeId = `card-${s.id}-asks`
+  const name = s.title || "(untitled)"
   return (
+    // The card and its copy button are siblings, not one inside the other:
+    // a button may not hold a button. The copy button sits over the card's
+    // title row, which keeps its right edge clear for it.
+    <div className="group/card relative flex min-w-0">
     <button
       type="button"
-      aria-label={`${s.title || "(untitled)"}${s.pinned ? ", pinned" : ""}`}
+      aria-label={`${name}${s.pinned ? ", pinned" : ""}`}
       aria-describedby={inputs.length ? badgeId : undefined}
-      title={`${s.title || "(untitled)"} — click edits, right-click for actions`}
-      className="flex min-w-0 cursor-pointer flex-col gap-1.5 rounded-lg border border-border bg-background p-3 text-left text-ui text-foreground transition-colors hover:border-primary focus-ring"
+      title={`${name} — click edits, Ctrl+C copies, right-click for actions`}
+      className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5 rounded-lg border border-border bg-background p-3 text-left text-ui text-foreground transition-colors group-hover/card:border-primary focus-ring"
       onClick={onOpen}
       onContextMenu={(e) => {
         e.preventDefault()
@@ -187,9 +209,14 @@ function PromptCard({
           const r = e.currentTarget.getBoundingClientRect()
           onMenu(r.left + 24, r.bottom)
         }
+        // A focused card copies the way selected text would
+        if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "c") {
+          e.preventDefault()
+          copy()
+        }
       }}
     >
-      <span className="flex min-w-0 items-center gap-1.5">
+      <span className="flex min-w-0 items-center gap-1.5 pr-7">
         {s.pinned && <RiPushpinFill className="size-3.5 shrink-0 text-(--warn)" aria-hidden />}
         <span className="min-w-0 flex-1 truncate font-semibold">
           <bdi>{s.title || "(untitled)"}</bdi>
@@ -197,6 +224,12 @@ function PromptCard({
         <InputsBadge inputs={inputs} id={badgeId} />
         {s.uses > 0 && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{s.uses}×</span>}
       </span>
+      {/* The sidebar's one-list row says the same under its title */}
+      {place && (
+        <span className="-mt-1 truncate text-xs text-muted-foreground">
+          <bdi>{place}</bdi>
+        </span>
+      )}
       <span className="line-clamp-3 break-words text-xs leading-relaxed text-muted-foreground">
         {excerpt.trim() ? <PromptTokens text={excerpt} clipboard={clipboard} configValues={s.configValues} /> : <i>(empty)</i>}
       </span>
@@ -206,10 +239,29 @@ function PromptCard({
         </span>
       )}
     </button>
+    {/* Faint at rest rather than hidden, like the headings' dots: there is
+        no hover on a touch screen, and a copy found only by hovering is a
+        copy most people never find. Centred on the title line. */}
+    <button
+      type="button"
+      aria-label={`Copy ${name}`}
+      title={inputs.length ? "Copy (fill-in fields stay as typed, for you to fill in)" : "Copy"}
+      className={cn(
+        "absolute right-2 top-2.5 flex size-6 cursor-pointer items-center justify-center rounded-md transition-[opacity,color] hover:bg-hover hover:text-foreground focus-ring",
+        copied ? "text-(--success) opacity-100" : "text-muted-foreground opacity-60 group-hover/card:opacity-100 focus-visible:opacity-100"
+      )}
+      onClick={copy}
+    >
+      {copied ? <RiCheckLine className="size-3.5" aria-hidden /> : <RiFileCopyLine className="size-3.5" aria-hidden />}
+    </button>
+    </div>
   )
 }
 
-export function Overview({ focus }: { focus: LibraryFocus }) {
+// `focus` null: every prompt, the overview of the sidebar's One list
+// display, in its order (pins first, then the chosen sort), each card
+// saying where it lives since no heading does
+export function Overview({ focus }: { focus: LibraryFocus | null }) {
   const m = useManager()
   const { snippets, orderBy, packNames } = m
   // The same menus as the sidebar's three dots (rename, lock, export, file,
@@ -219,8 +271,9 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
   // The clipboard for the card excerpts, read the way the editor reads it:
   // on open, when the window comes back, and after a copy or cut here
   const [clipboard, setClipboard] = useState<string | null>(null)
+  const refreshClipboard = useCallback(() => void invoke<string>("get_clipboard_text").then(setClipboard).catch(() => {}), [])
   useEffect(() => {
-    const refresh = () => void invoke<string>("get_clipboard_text").then(setClipboard).catch(() => {})
+    const refresh = refreshClipboard
     const onCopy = () => setTimeout(refresh, 50)
     refresh()
     window.addEventListener("focus", refresh)
@@ -231,36 +284,25 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
       document.removeEventListener("copy", onCopy)
       document.removeEventListener("cut", onCopy)
     }
-  }, [])
+  }, [refreshClipboard])
 
   // The tree is pure core (tested); rows follow the sidebar's order
   const tree = useMemo(
     () => C.packTree(C.sortPrompts(snippets, orderBy), packNames(), DEFAULT_PACK),
     [snippets, orderBy, packNames]
   )
-  const pack = tree.find((p) => p.name === focus.pack)
+  const pack = focus ? tree.find((p) => p.name === focus.pack) : undefined
   // A group that is gone (deleted, ungrouped, emptied by moves) leaves its
   // pack's overview in its place
-  const group = focus.group ? pack?.groups.find((g) => g.name === focus.group) : undefined
+  const group = focus?.group ? pack?.groups.find((g) => g.name === focus.group) : undefined
   // The sidebar's filter reaches the cards: while a query is set the
   // overview shows only the hits and says how many of the pack's or
   // group's prompts they are, so the two views never disagree in one frame
+  const snippetsInOrder = useMemo(() => C.sortPrompts(snippets, orderBy), [snippets, orderBy])
   const filtering = m.query.trim() !== ""
   const parsed = useMemo(() => C.parseQuery(m.query), [m.query])
   const hit = (s: Snippet) => !filtering || C.matchesQuery({ ...s, pack: s.pack || DEFAULT_PACK }, parsed)
 
-  if (!pack) {
-    return (
-      <EmptyState
-        icon={RiFolderLine}
-        title="That pack is gone"
-        hint="Select a pack or a prompt in the sidebar"
-        actions={[{ label: "New prompt", onClick: () => void m.newPrompt(), primary: true }]}
-      />
-    )
-  }
-
-  const locked = m.isLocked(pack.name)
   const open = (s: Snippet) => {
     m.setSelection(new Set([s.id]), s.id)
     m.select(s.id)
@@ -271,10 +313,23 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
     m.setSelection(new Set([s.id]), s.id)
     menus.openRowCtx(x, y, new Set([s.id]))
   }
+  // The shared copy (./copy); the excerpts then show the new clipboard
+  const copyPrompt = async (s: Snippet) => {
+    const ok = await copyText(s)
+    if (ok) refreshClipboard()
+    return ok
+  }
   const cards = (items: Snippet[]) => (
     <div className="grid gap-2 @xl:grid-cols-2 @4xl:grid-cols-3">
       {items.filter(hit).map((s) => (
-        <PromptCard key={s.id} s={s} clipboard={clipboard} onOpen={() => open(s)} onMenu={(x, y) => cardMenu(s, x, y)} />
+        <PromptCard
+          key={s.id}
+          s={s}
+          clipboard={clipboard}
+          onOpen={() => open(s)}
+          onMenu={(x, y) => cardMenu(s, x, y)}
+          onCopy={() => copyPrompt(s)}
+        />
       ))}
     </div>
   )
@@ -288,6 +343,58 @@ export function Overview({ focus }: { focus: LibraryFocus }) {
       </p>
     )
   }
+  // One list: every prompt, as the sidebar lists them. No pack is shown,
+  // so the title is the library's, New prompt goes where Ctrl+N would put
+  // it, and each card names its pack and group.
+  if (!focus) {
+    const shown = snippetsInOrder.filter(hit)
+    return (
+      <div className="@container flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 animate-in fade-in duration-150" role="region" aria-label="All prompts">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="flex min-w-0 items-baseline gap-1.5 text-lg font-semibold">
+            <span className="truncate">All prompts</span>
+            <Count>
+              <span aria-hidden>{snippetsInOrder.length}</span>
+              <span className="sr-only">, {C.plural(snippetsInOrder.length, "prompt")}</span>
+            </Count>
+          </h2>
+          <span className="ml-auto flex shrink-0 items-center">
+            <AddPrompt where="the library" onClick={() => void m.newPrompt()} />
+          </span>
+        </div>
+        {matchLine(snippetsInOrder)}
+        {snippetsInOrder.length === 0 && <p className="text-ui text-muted-foreground">No prompts yet. New prompt starts the library.</p>}
+        <div className="grid gap-2 @xl:grid-cols-2 @4xl:grid-cols-3">
+          {shown.map((s) => (
+            <PromptCard
+              key={s.id}
+              s={s}
+              clipboard={clipboard}
+              place={[s.pack || DEFAULT_PACK, s.group].filter(Boolean).join(" › ")}
+              onOpen={() => open(s)}
+              onMenu={(x, y) => cardMenu(s, x, y)}
+              onCopy={() => copyPrompt(s)}
+            />
+          ))}
+        </div>
+        {menus.element}
+      </div>
+    )
+  }
+
+  if (!pack) {
+    return (
+      <EmptyState
+        icon={RiFolderLine}
+        title="That pack is gone"
+        hint="Select a pack or a prompt in the sidebar"
+        actions={[{ label: "New prompt", onClick: () => void m.newPrompt(), primary: true }]}
+      />
+    )
+  }
+
+  const locked = m.isLocked(pack.name)
+
   // A group's heading: the overview's title when the group is what's shown,
   // a way into it when it sits in its pack's overview
   const groupHeading = (name: string, count: number, isTitle: boolean) => {
