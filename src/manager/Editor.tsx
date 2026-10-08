@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { RiAddLine, RiArrowDownSLine, RiCheckLine, RiErrorWarningLine, RiFileTextLine, RiMoreLine, RiPushpinFill } from "@remixicon/react"
+import { RiAddLine, RiArrowDownSLine, RiCheckLine, RiErrorWarningLine, RiFileCopyLine, RiFileTextLine, RiMoreLine, RiPushpinFill } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "./EmptyState"
 import { Textarea } from "@/components/ui/textarea"
@@ -11,6 +11,7 @@ import { Chip, TagPill, chipVariants } from "@/components/prompt-bits"
 import { useLibraryMenus } from "./menus"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr } from "./status"
+import { copyPrompt } from "./copy"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
 // Library names the insert menu lists before the typed name covers the rest
@@ -130,6 +131,13 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
   // nothing. A failed write is toasted by updateSnippet, so it only clears
   // the caption rather than saying anything twice.
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle")
+  // The copy button's check, for a moment after a copy
+  const [copied, setCopied] = useState(false)
+  useEffect(() => {
+    if (!copied) return
+    const t = setTimeout(() => setCopied(false), 1200)
+    return () => clearTimeout(t)
+  }, [copied])
   useEffect(() => {
     if (saveState !== "saved") return
     const t = setTimeout(() => setSaveState("idle"), 2000)
@@ -438,7 +446,23 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
           still says about the text is a near-miss placeholder, which
           nothing else would point out. */}
       <div className="module flex flex-col gap-3">
-        <span className="section-title">Prompt</span>
+        {/* Copy sits on the text it copies: what is in the field now,
+            unsaved edits and all, the way an overview card copies (./copy) */}
+        <div className="flex min-w-0 items-center">
+          <span className="section-title">Prompt</span>
+          <Button
+            variant="ghost"
+            size="xs"
+            aria-label="Copy prompt"
+            title={C.requiredInputs({ text, configValues }).length ? "Copy, with the clipboard filled in (fill-in fields stay as typed)" : "Copy, with the clipboard filled in"}
+            className={cn("-my-1 ml-auto", copied ? "text-(--success)" : "text-muted-foreground")}
+            disabled={!text.trim()}
+            onClick={() => void copyPrompt({ title, text, configValues }).then((ok) => ok && setCopied(true))}
+          >
+            {copied ? <RiCheckLine aria-hidden /> : <RiFileCopyLine aria-hidden />}
+            {copied ? "Copied" : "Copy"}
+          </Button>
+        </div>
         <div className={cn("-mx-3 flex flex-col overflow-hidden border border-transparent bg-secondary focus-within:border-(--focus)", badNames.length ? "" : "-mb-3 rounded-b-xl")}>
           <Textarea
             ref={textRef}
