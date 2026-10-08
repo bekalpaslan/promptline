@@ -236,6 +236,8 @@ interface PromptlineCore {
   fieldLabel(name: string | null | undefined): string
   /** How many lines `text` has, a trailing newline not counted; 0 when empty */
   lineCount(text: string | null | undefined): number
+  /** The clipboard as the popup's panel shows it: its lines (as `lineCount` counts them) with controls revealed, at most `max` (400); `total` is how many there are */
+  clipboardLines(clip: string | null | undefined, max?: number): { lines: string[]; total: number }
   /** What a preview shows for {clipboard}: one line, controls revealed, cut at `max` (240), or "(clipboard is empty)" */
   clipboardPreview(clip: string | null | undefined, max?: number): string
   /** The one icon a popup row shows: a hole first, then the pin (not under the Pinned heading), then the kind */

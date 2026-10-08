@@ -922,6 +922,22 @@
     return t.split('\n').length;
   }
 
+  // The popup's clipboard panel: the clipboard as the lines it pastes, so
+  // a stack trace reads as one, where the line under the search box
+  // flattens it. The lines `lineCount` counts (a trailing newline is not
+  // one), each with its controls revealed like every preview, and no more
+  // than `max` (400) of them: a log copied whole would build thousands of
+  // rows for a glance. `total` says how many there are, so the panel can
+  // say what it left out.
+  const CLIP_PANEL_MAX = 400;
+  function clipboardLines(clip, max) {
+    const limit = max || CLIP_PANEL_MAX;
+    const t = (clip || '').replace(/\r\n?/g, '\n').replace(/\n+$/, '');
+    if (!t.trim()) return { lines: [], total: 0 };
+    const all = t.split('\n');
+    return { lines: all.slice(0, limit).map(revealControls), total: all.length };
+  }
+
   // The one icon a popup row shows, by what the user most needs to know
   // before Enter. `row` is { pinned, asks, clip }: pinned, asks for values
   // before pasting, wraps {clipboard}.
@@ -1157,6 +1173,7 @@
     revealControls,
     fieldLabel,
     lineCount,
+    clipboardLines,
     clipboardPreview,
     rowIcon,
     expandForCopy,
