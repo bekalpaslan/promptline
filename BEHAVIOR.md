@@ -42,8 +42,14 @@ A search holds every fold open, so there the click only selects. An empty
 library says so under New ("No packs yet. New makes one."), and an empty
 pack's overview puts its one action, New prompt, beside the words rather
 than at the heading's far right. The overview has no folds of its own and no mode to leave: a card
-click opens that prompt, the editor's crumbs (pack, group) open those
-overviews, and Escape goes up one level — from a prompt to its group (or
+click opens that prompt, and the copy button in its corner (or Ctrl+C on a
+focused card) copies it without opening it: the clipboard and saved config
+values in, {date} and {time} expanded, as the popup's copy would, and
+fill-in fields left as typed, which the toast counts ("fill in 2 fields
+where you paste it") since the manager has no form to ask for them (core's
+`expandForCopy`). The clipboard is read at the click, so copying the same
+card twice never wraps the first copy. The editor's crumbs (pack, group)
+open those overviews, and Escape goes up one level — from a prompt to its group (or
 pack), from a group to its pack. This replaced a full-window library view
 that hid the sidebar to draw the same tree a second time. The tree itself
 (`packTree`) and the row order (`sortPrompts`) come from `ui/core.js`, one
