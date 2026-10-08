@@ -685,6 +685,61 @@ test("an overview card is named by its title, not read out with the clipboard", 
   await expect(asks).toHaveAccessibleDescription(/Asks for 2 values/)
 })
 
+test("an overview card's copy button copies the prompt as the popup would, without opening it", async ({ page }) => {
+  await setClipboard(page, "TypeError: x is undefined")
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
+  const overview = page.getByRole("region", { name: "Mock Groups", exact: true })
+  const clipboardNow = () => page.evaluate(() => (window as unknown as { __mock: { clipboard: string } }).__mock.clipboard)
+  // The clipboard goes into {clipboard}; the editor does not open
+  await overview.getByRole("button", { name: "Copy Explain this error", exact: true }).click()
+  expect(await clipboardNow()).toBe("Explain this error:\n\nTypeError: x is undefined")
+  await expect(page.getByText('Copied "Explain this error"')).toBeVisible()
+  await expect(overview).toBeVisible()
+  // Fill-in fields stay as typed, and the toast says so
+  await overview.getByRole("button", { name: "Copy Bisect a regression", exact: true }).click()
+  expect(await clipboardNow()).toBe("Help me bisect: it broke between {good} and {bad}.")
+  await expect(page.getByText('Copied "Bisect a regression"; fill in 2 fields where you paste it')).toBeVisible()
+  // Ctrl+C on a focused card does the same
+  await overview.getByRole("button", { name: "Loose prompt", exact: true }).focus()
+  await page.keyboard.press("Control+c")
+  expect(await clipboardNow()).toBe("A prompt in no group.")
+})
+
+test("the editor's copy button copies what is in the fields now, as a card would", async ({ page }) => {
+  await setClipboard(page, "TypeError: x is undefined")
+  await promptRow(page, "Loose prompt").click()
+  const body = page.getByRole("textbox", { name: "Prompt text", exact: true })
+  await body.fill("Fix this: {clipboard}")
+  await page.getByRole("button", { name: "Copy prompt", exact: true }).click()
+  expect(await page.evaluate(() => (window as unknown as { __mock: { clipboard: string } }).__mock.clipboard)).toBe("Fix this: TypeError: x is undefined")
+  await expect(page.getByText('Copied "Loose prompt"')).toBeVisible()
+})
+
+test("in One list the pane shows every prompt, each card saying where it lives", async ({ page }) => {
+  const total = (await library(page)).length
+  await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
+  await page.getByRole("button", { name: /^Display options/ }).click()
+  await page.getByText("One list", { exact: true }).click()
+  // The pack's overview becomes the library's: every prompt, not that pack's four
+  const all = page.getByRole("region", { name: "All prompts", exact: true })
+  await expect(all).toBeVisible()
+  await expect(all.getByRole("button", { name: /^Copy / })).toHaveCount(total)
+  await expect(all.getByRole("button", { name: "Bisect a regression", exact: true })).toContainText("Mock Groups › Debugging")
+  // It follows the filter like a pack's overview
+  await filter(page).fill("bisect")
+  await expect(all.getByText(`1 of ${total} match the filter`)).toBeVisible()
+  await filter(page).fill("")
+  // A card opens the prompt; Escape comes back to the list's overview
+  await all.getByRole("button", { name: "Loose prompt", exact: true }).click()
+  await expect(all).toBeHidden()
+  await page.locator("body").press("Escape")
+  await expect(all).toBeVisible()
+  // Back in Packs there is no pack it belongs to: the pane goes back to the editor
+  await page.getByRole("button", { name: /^Display options/ }).click()
+  await page.getByText("Packs", { exact: true }).click()
+  await expect(all).toBeHidden()
+})
+
 test("the filter's placeholder keeps to 'Filter' in a narrow sidebar", async ({ page }) => {
   await expect(filter(page)).toHaveAttribute("placeholder", "Filter  #tag @pack >group")
   await page.setViewportSize({ width: 560, height: 400 })
