@@ -3,5 +3,5 @@
   "identifier": "default",
   "description": "Default capability for the Promptline windows",
   "windows": ["main", "popup"],
-  "permissions": ["core:default"]
+  "permissions": ["core:default", "core:window:allow-start-dragging"]
 }

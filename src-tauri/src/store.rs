@@ -235,6 +235,16 @@ pub(crate) struct Snippet {
     // 0 = not pinned, or a pin made before this was recorded.
     #[serde(default, rename = "pinnedAt")]
     pub(crate) pinned_at: u64,
+    // Auto enter: press Enter after pasting it, for quick replies to an
+    // agent. Personal state like `pinned`: never in a pack file, an export
+    // or an import, so a shared pack can't arrive set to run a command.
+    // Left out of snippets.json while false.
+    #[serde(
+        default,
+        rename = "autoEnter",
+        skip_serializing_if = "std::ops::Not::not"
+    )]
+    pub(crate) auto_enter: bool,
 }
 
 // A fresh install follows Windows; a config written before the theme field
@@ -380,6 +390,7 @@ pub(crate) fn snip(title: &str, tag: &str, text: &str) -> Snippet {
         uses: 0,
         pinned: false,
         pinned_at: 0,
+        auto_enter: false,
     }
 }
 
@@ -815,6 +826,19 @@ mod tests {
         assert_eq!(a.uses, 7);
         assert!(a.pinned);
         assert_eq!(list[1].title, sample("b").title);
+    }
+
+    #[test]
+    fn auto_enter_is_read_when_missing_and_written_only_when_on() {
+        let old: Snippet = serde_json::from_str(r#"{"id":"a","title":"T","text":"x"}"#).unwrap();
+        assert!(!old.auto_enter);
+        let mut s = sample("a");
+        assert!(!serde_json::to_string(&s).unwrap().contains("autoEnter"));
+        s.auto_enter = true;
+        let json = serde_json::to_string(&s).unwrap();
+        assert!(json.contains("\"autoEnter\":true"));
+        let back: Snippet = serde_json::from_str(&json).unwrap();
+        assert!(back.auto_enter);
     }
 
     #[test]

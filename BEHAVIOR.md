@@ -633,7 +633,7 @@ it for the same reason without pasting: both pick a row the user can't
 see. After a failed paste the bar keeps "Ctrl V in the target" first
 while the panel is up, since the panel then shows the prompt that did
 not land; Ctrl N leaves the bar to make room (its key cap is on the
-line). The resting bar names Ctrl ↓ from 560 px, where a seventh hint
+line). The resting bar names Ctrl ↓ from about 580 px, where a seventh hint
 fits on its line; below that the line's chevron and tooltip carry it.
 ←, Tab and Ctrl+↓ close it too, and typing closes it on the way
 into the search box, as it closes the preview card. A press outside it,
@@ -716,6 +716,74 @@ the clipboard's first line cut at a word boundary within 40 characters
 (`titleFromClipboard`), not mid-word. Title ties everywhere — the popup's
 ranking and the manager's orders — compare numerically, so "Bulk prompt
 2" comes before "Bulk prompt 10".
+
+**Keep open** (Ctrl+K, or the toggle at the right of the search box) turns
+the popup from a one-shot into a palette beside the work, for runs of short
+replies to an agent. While it is on (`AppState.keep_open`):
+
+- The popup no longer hides when it loses focus, nor after a paste or a
+  copy: the paste thread hands the focus to the target and the popup waits
+  beside it, saying "Pasted …" in the strip. The next pick waits about
+  300 ms, for the paste thread's Ctrl+V.
+- A paste goes to the **last window outside Promptline** the user was in,
+  not the one the popup was summoned over (`paste_window`). Rust follows
+  the foreground window for the life of the process with an out-of-context
+  `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` on the main thread
+  (`platform::track_foreground`), skipping its own process's windows and
+  the shell's (the taskbar, the desktop, the Alt+Tab and Task View
+  switchers: `is_shell_class`), so a click on the taskbar to reach the
+  popup doesn't become the target. Until another window has come to the
+  front, the summon's window is used. A target that refuses (elevated)
+  fails as any paste does.
+- The hotkey only focuses the popup (it is already visible), so no
+  `popup-shown` refreshes it; the clipboard is read again whenever the
+  window gets the focus instead, and typing lands in the search box.
+- The **hint bar** is the window's handle: a press anywhere on it moves the
+  popup (`startDragging`, started in code because Tauri's
+  `data-tauri-drag-region` answers only a press on the element itself and
+  the hints are spans inside it), with the grab cursor. Its mark is an open
+  hand in the bar's right corner on the hints' line, half in the bar's
+  right padding and half in the frame's, so it takes no width from the
+  hints (a gutter of its own wrapped the default 400 px bar; a tab on the
+  divider line cut the line): faint at rest, full ink under the
+  pointer and while kept open, and for 260 ms on a press it closes, smaller
+  and tilted, with the grabbing cursor, as the drag starts (Windows runs
+  the move itself, so the release never reaches the page and a timer lets
+  go). The
+  frame (the shell's padding and the gaps between strips) drags too, but at
+  8 px it was too thin to find. The popup stays where it is dragged until
+  Keep open ends, and a later summon opens at the cursor again.
+- The hint bar shows `Ctrl K kept open` where `Esc close` was.
+
+**Auto enter** is a switch on a prompt (the editor's footer under the
+prompt field, the switch leading: quiet like the "Prompt" header while
+off, lit in Warn while on, the unset-config strip's tint, since Warn is
+the colour that means "this changes what happens" in every theme; the
+primary it first used is the accent in Indigo and the ink in Instrument,
+so the band meant two things) for quick replies to an agent: LGTM, `/clear`, a "go on". `paste_snippet` takes `autoEnter`, and
+after a Ctrl+V that was delivered the paste thread waits 120 ms (the input
+queue keeps the keys in order; the pause is for an app that takes a large
+paste slowly, a terminal collapsing it) and presses Enter. Only a paste
+enters: a copy, Ctrl+Enter, the manager-in-front fallback and a refused
+target never do. The popup says it before Enter does it: a ↵ mark beside
+the row's title, the row's accessible name ("…, auto enter"), the hint
+bar's `↵ paste and enter` (`enter without clipboard` and `enter, wraps
+last prompt` in Warn, where the paste would carry a hole or wrap itself),
+the action panel's "Paste and enter", the form's "paste and enter", and
+"Pasted and entered …" in a kept-open popup. The longer Enter label, like
+Keep open's `Ctrl K kept open`, crowds the bar: while either shows, actions
+wait for 500 px, preview for about 580, fold and the clipboard key leave it, and
+with both, copy goes below 360.
+It is **personal state**, like `pinned`: `snippet.autoEnter` lives in
+`snippets.json` only (left out while false), never in a pack file, an
+export or an import, so a shared or agent-written pack can't arrive set to
+run a command in a shell. The editor writes it at once through `persist`,
+not through the text's autosave, whose `SnippetEdit` doesn't carry it, so
+an edit never switches it off.
+
+Every `hide_popup` ends it, so **Esc** closes and turns it off at once, and
+it is never saved: a summon or a restart always starts without it. Ctrl+K
+turns it off and leaves the popup up until the next blur.
 
 ## Placeholders
 

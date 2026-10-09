@@ -1,12 +1,15 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
+import { getCurrentWindow } from "@tauri-apps/api/window"
 import {
   RiArrowDownSLine,
   RiArrowRightSLine,
   RiClipboardLine,
   RiFileCopyLine,
   RiFilterLine,
+  RiHand,
+  RiPictureInPicture2Line,
   RiPushpinLine,
   RiSearchLine,
 } from "@remixicon/react"
@@ -109,6 +112,17 @@ export function App() {
   const setPicked = useCallback((id: string | null) => {
     pickedRef.current = id
     setPickedId(id)
+  }, [])
+  // Keep open (Ctrl+K, or the button at the right of the search box): the
+  // popup stays up when it loses focus and after a paste, and pastes into
+  // the last window outside Promptline. Rust holds the state; every hide
+  // ends it, so a summon always starts without it. Mirrored in a ref for
+  // the paste's callbacks.
+  const [keepOpen, setKeepOpenState] = useState(false)
+  const keepOpenRef = useRef(false)
+  const setKeepOpen = useCallback((on: boolean) => {
+    keepOpenRef.current = on
+    setKeepOpenState(on)
   }, [])
   const [form, setForm] = useState<FormState | null>(null)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
@@ -462,10 +476,18 @@ export function App() {
   // popup is hidden), "copied" (the manager was the foreground window when
   // the popup was summoned, so Rust copied only and left the popup up), or
   // null from an older Rust, which means pasted.
+  // `{clipboard}` expands at paste time (BEHAVIOR.md), so the "Will paste"
+  // preview must show the clipboard as it is now, not as it was when the
+  // popup opened: a Ctrl+C inside a fill-in field changes it.
+  const refreshClip = useCallback(() => {
+    void invoke<string>("get_clipboard_text").then(setClip).catch(() => {})
+  }, [])
   const send = useCallback(async (snippet: Snippet, text: string, paste: boolean) => {
     let result: string | null
     try {
-      result = await invoke<string | null>("paste_snippet", { text, paste, id: snippet.id })
+      // A prompt set to Auto enter has Rust press Enter after the Ctrl+V; a
+      // copy never does
+      result = await invoke<string | null>("paste_snippet", { text, paste, id: snippet.id, autoEnter: paste && !!snippet.autoEnter })
     } catch (e) {
       // Rust writes the clipboard before hiding, so on failure the popup is
       // still on screen to show this; the pick is over, so a retry is allowed
@@ -477,6 +499,22 @@ export function App() {
     lastSent.current = {
       text: text.split("{clipboard}").join(clip),
       verb: !paste || result === "copied" ? "copied" : "pasted",
+    }
+    if (keepOpenRef.current) {
+      // Kept open: Rust left the popup up and handed the focus to the
+      // target. Say what landed, let the next pick through once the paste
+      // thread has sent its Ctrl+V (it waits about 160 ms), and read the
+      // clipboard again: it holds this prompt now.
+      const name = snippet.title.trim() ? `"${snippet.title.trim()}"` : "the prompt"
+      setNotice({
+        text: !paste || result === "copied" ? `Copied ${name} to clipboard` : snippet.autoEnter ? `Pasted and entered ${name}` : `Pasted ${name}`,
+        kind: "success",
+      })
+      setTimeout(() => {
+        setPicked(null)
+        refreshClip()
+      }, 300)
+      return
     }
     if (!paste || result === "copied") {
       // Copy-only: Rust leaves the popup up; confirm, then hide
@@ -495,7 +533,26 @@ export function App() {
         void invoke("hide_popup")
       }, 600)
     }
-  }, [fail, setPicked, clip])
+  }, [fail, setPicked, clip, refreshClip])
+
+  const toggleKeepOpen = useCallback(() => {
+    void invoke<boolean>("set_keep_open", { on: !keepOpenRef.current })
+      .then((on) => setKeepOpen(on === true))
+      .catch((e) => fail("keep the popup open", e))
+  }, [setKeepOpen, fail])
+  // Kept open, the popup comes back by a click or the hotkey (which only
+  // focuses it), never through a summon, so `popup-shown` doesn't refresh
+  // it: the clipboard is read again whenever the window gets the focus,
+  // and typing lands in the search box as after a summon.
+  useEffect(() => {
+    const onFocus = () => {
+      if (!keepOpenRef.current) return
+      refreshClip()
+      inputRef.current?.focus()
+    }
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+  }, [refreshClip])
 
   // --- Create prompt from clipboard -------------------------------------------
   const openCreate = useCallback(() => {
@@ -559,12 +616,6 @@ export function App() {
     }
   }, [fail])
 
-  // `{clipboard}` expands at paste time (BEHAVIOR.md), so the "Will paste"
-  // preview must show the clipboard as it is now, not as it was when the
-  // popup opened: a Ctrl+C inside a fill-in field changes it.
-  const refreshClip = useCallback(() => {
-    void invoke<string>("get_clipboard_text").then(setClip).catch(() => {})
-  }, [])
   useEffect(() => {
     // The clipboard is written after the event fires, hence the tick
     const on = () => setTimeout(refreshClip, 50)
@@ -680,7 +731,7 @@ export function App() {
     // The same warning as the hint bar's, for the same rows
     const wraps = !!d && !clipEmpty && lastSent.current?.text === clip && rowIcon(panelFor, d, true, false) === "clipboard-empty"
     return [
-      { label: hole ? "Paste without clipboard" : wraps ? "Paste, wraps last prompt" : "Paste", run: () => pick(panelFor, true) },
+      { label: (panelFor.autoEnter ? (hole ? "Enter without clipboard" : wraps ? "Enter, wraps last prompt" : "Paste and enter") : hole ? "Paste without clipboard" : wraps ? "Paste, wraps last prompt" : "Paste"), run: () => pick(panelFor, true) },
       { label: hole ? "Copy without clipboard" : wraps ? "Copy, wraps last prompt" : "Copy only", run: () => pick(panelFor, false) },
       { label: panelFor.pinned ? "Unpin" : "Pin", run: () => void togglePin(panelFor) },
       { label: "Edit in manager", run: () => void invoke("edit_in_manager", { id: panelFor.id }) },
@@ -723,6 +774,7 @@ export function App() {
     copyHideTimer.current = null
     hidePreview()
     setClipOpen(false)
+    setKeepOpen(false)
     setPicked(null)
     setQuery("")
     setSel(0)
@@ -748,7 +800,7 @@ export function App() {
     } catch (e) {
       fail("load the library", e)
     }
-  }, [closePanel, hidePreview, fail, setPicked])
+  }, [closePanel, hidePreview, fail, setPicked, setKeepOpen])
 
   useEffect(() => {
     const un = listen("popup-shown", () => void reload())
@@ -1046,6 +1098,11 @@ export function App() {
         openCreate()
         return
       }
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k") {
+        e.preventDefault()
+        toggleKeepOpen()
+        return
+      }
       // The open card scrolls from the keyboard. → is the only way a
       // keyboard has of reading what will be pasted, and a long prompt or a
       // short window used to leave the rest of it out of reach (critique
@@ -1167,7 +1224,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, deleteArmed, clipOpen, clipEmpty, toggleClip, form, create, notice, visible, stops, headSel, effCollapsed, effCollapsedGroups, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, deleteArmed, clipOpen, clipEmpty, toggleClip, form, create, notice, visible, stops, headSel, effCollapsed, effCollapsedGroups, slotEntries, sel, keyCard, pick, openCreate, toggleKeepOpen, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live preview index
   // through a ref instead of closing over it. The pointer never moves the
@@ -1291,7 +1348,10 @@ export function App() {
   // …and a form whose Enter sends now, with fields still empty
   const formEmpty = form ? form.fields.filter((f) => !(formValues[f] ?? "").trim()).length : 0
   const formSends = !!form && C.nextEmptyField(form.fields, formValues, formFocus) === -1
-  const formVerb = form?.paste ? "paste" : "copy"
+  const formVerb = form?.paste ? (form.snippet.autoEnter ? "paste and enter" : "paste") : "copy"
+  // The selected row is set to Auto enter: the bar's Enter says so
+  const selSends = !!selEntry?.s.autoEnter
+  const crowded = selSends || keepOpen
   const hint = panelFor && deleteArmed ? (
     // The question on screen, answered in the bar: what Enter does now
     <><Hint k="↵">delete</Hint><Hint k="Esc">cancel</Hint></>
@@ -1362,7 +1422,7 @@ export function App() {
     // room of the hints it pushes out: copy goes below 360 px, actions and
     // preview below 500 px, so the bar stays one line at every width.
     <>
-      <Hint k="↵" warn>paste without clipboard</Hint>
+      <Hint k="↵" warn>{selSends ? "enter without clipboard" : "paste without clipboard"}</Hint>
       <Hint k="Ctrl ↵" minor>copy</Hint>
       <Hint k="Tab" wider>actions</Hint>
       <Hint k="→" wider>preview</Hint>
@@ -1373,7 +1433,7 @@ export function App() {
     // it again inside itself. Rarely meant; said, not blocked, like the
     // empty clipboard, and with the same room rules.
     <>
-      <Hint k="↵" warn>paste, wraps last prompt</Hint>
+      <Hint k="↵" warn>{selSends ? "enter, wraps last prompt" : "paste, wraps last prompt"}</Hint>
       <Hint k="Ctrl ↵" minor>copy</Hint>
       <Hint k="Tab" wider>actions</Hint>
       <Hint k="→" wider>preview</Hint>
@@ -1392,20 +1452,29 @@ export function App() {
     </>
   ) : (
     <>
-      <Hint k="↵">paste</Hint>
-      <Hint k="Ctrl ↵">copy</Hint>
-      <Hint k="Tab" minor>actions</Hint>
-      <Hint k="→" minor>preview</Hint>
+      {/* "paste and enter" and "Ctrl K kept open" are the long labels: while
+          either shows, the bar is crowded and the optional hints wait for
+          more room (actions 500 px, preview 560, fold and clipboard leave
+          it), and with both, copy goes below 360, so it stays one line */}
+      <Hint k="↵">{selSends ? "paste and enter" : "paste"}</Hint>
+      <Hint k="Ctrl ↵" minor={selSends && keepOpen}>copy</Hint>
+      <Hint k="Tab" minor={!crowded} wider={crowded}>actions</Hint>
+      <Hint k="→" minor={!crowded} widest={crowded}>preview</Hint>
       {/* ← folds the row's pack or group (Ctrl+→ unfolds all); it was the
           one key with no mention on screen. Room for it only in a widened
           window; the pack and group headers name it in their tooltip */}
-      <Hint k="←" wide>fold</Hint>
+      {!crowded && <Hint k="←" wide>fold</Hint>}
       {/* The clipboard panel's key; the line's chevron says it opens, this
           says by which key, where there is room for a seventh hint */}
-      {!clipEmpty && <Hint k="Ctrl ↓" widest>clipboard</Hint>}
+      {!clipEmpty && !crowded && <Hint k="Ctrl ↓" widest>clipboard</Hint>}
       {/* An error stays until Esc; the bar says so where the strip used to
-          append it and get truncated (critique popup P1) */}
-      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+          append it and get truncated (critique popup P1). Kept open, Esc
+          closes and ends it, so the bar names the key that keeps it instead */}
+      {keepOpen && notice?.kind !== "error" ? (
+        <Hint k="Ctrl K">kept open</Hint>
+      ) : (
+        <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+      )}
     </>
   )
 
@@ -1461,6 +1530,8 @@ export function App() {
         ? "New prompt from clipboard"
         : clipOpen
           ? `Clipboard, ${C.plural(C.lineCount(clip), "line")}`
+        : keepOpen && !query.trim() && visible.length
+          ? `Kept open, ${C.plural(visible.length, "prompt")}`
         : // Any query narrows the list, a #tag as much as a word; and one
           // prompt matches, it doesn't "match"
           // With no rows it says what the list says: that message sits in
@@ -1689,7 +1760,7 @@ export function App() {
   )
 
   return (
-    <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys}>
+    <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys} movable={keepOpen}>
       {/* Search: the same box as the manager's filter */}
       <div role="search" className={searchBoxClass()}>
         <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -1720,6 +1791,26 @@ export function App() {
             }}
           />
         )}
+        {/* Keep open: pressed, it reads as a control that is on (the
+            Settings gear's treatment), not as the accent, which is the
+            selected row's. The window then moves by its frame. */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-pressed={keepOpen}
+          aria-label="Keep open (Ctrl K)"
+          title={keepOpen ? "Kept open: pastes go to the last window you used. Drag the frame to move it; Ctrl+K or Esc ends it" : "Keep open: stays up beside your work and pastes into the last window you used (Ctrl+K)"}
+          className={cn(
+            "focus-ring -mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-hover hover:text-foreground",
+            keepOpen ? "bg-secondary text-foreground" : "text-muted-foreground"
+          )}
+          onClick={() => {
+            toggleKeepOpen()
+            inputRef.current?.focus()
+          }}
+        >
+          <RiPictureInPicture2Line className="size-3.5" aria-hidden />
+        </button>
       </div>
 
       {/* The clipboard, one line: the text on the builtin's tint as in every
@@ -2164,6 +2255,16 @@ export function App() {
   )
 }
 
+// A press with the main button moves the window (the hint bar's handle).
+// Never from a control inside, should one be added there. Says whether it
+// started, so the handle can show its grip.
+function startWindowDrag(e: React.PointerEvent) {
+  if (e.button !== 0 || (e.target as HTMLElement).closest("button, a, input, textarea")) return false
+  e.preventDefault()
+  void getCurrentWindow().startDragging().catch(() => {})
+  return true
+}
+
 // Window chrome: 8px radius, 8px padding, a line-strong edge and the one shadow
 function Shell({
   children,
@@ -2172,10 +2273,13 @@ function Shell({
   announce,
   onUndo,
   undoKeys,
+  movable,
 }: {
   children: React.ReactNode
   hint: React.ReactNode
   notice: Notice | null
+  /** Kept open: the hint bar shows the move cursor, as the handle it is */
+  movable?: boolean
   /** Puts the last deleted prompt back; the strip's Undo button */
   onUndo?: () => void
   /** The keys that undo right now, drawn on the button; none while a view has the keyboard */
@@ -2183,8 +2287,21 @@ function Shell({
   /** What a screen reader should hear about the current state (results, mode) */
   announce: string
 }) {
+  // The hand's grip, for a moment on a press: Windows runs the move itself,
+  // so the release never reaches the page, and a timer lets go instead
+  const [gripping, setGripping] = useState(false)
+  const gripTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const grip = () => {
+    setGripping(true)
+    if (gripTimer.current) clearTimeout(gripTimer.current)
+    gripTimer.current = setTimeout(() => setGripping(false), 260)
+  }
   return (
-    <div className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-background p-2 text-foreground shadow-(--shadow-shell)">
+    // The frame (the padding and the gaps between strips) drags the window:
+    // Tauri moves it only when the press lands on this element itself, so
+    // the search box, the rows and every control keep their own clicks.
+    // A kept-open popup is moved there, beside the work.
+    <div data-tauri-drag-region className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-background p-2 text-foreground shadow-(--shadow-shell)">
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
       {/* The one landmark: the window's content, whichever mode it is in.
           `contents`, so the shell's column layout is unchanged */}
@@ -2238,9 +2355,42 @@ function Shell({
       </div>
       {/* Wraps rather than clips: at 125% scale, or with the mono font, the
           list's five hints are wider than the window and the shell's
-          overflow-hidden used to eat the last of them */}
-      <div className="@container flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-2 pt-2 font-mono text-micro text-muted-foreground">
+          overflow-hidden used to eat the last of them.
+          The bar is also the window's handle: a press anywhere on it drags
+          the popup. The frame alone (8 px of padding, the gaps between
+          strips) was too thin to find, and a kept-open popup is moved
+          often. The drag is started here rather than by Tauri's
+          data-tauri-drag-region, which answers only a press on the element
+          itself, and the hints are spans inside it. It holds no control. */}
+      <div
+        className={cn(
+          "group/bar relative @container flex shrink-0 select-none flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-2 pt-2 font-mono text-micro text-muted-foreground",
+          gripping ? "cursor-grabbing" : "cursor-grab"
+        )}
+        onPointerDown={(e) => {
+          if (startWindowDrag(e)) grip()
+        }}
+      >
         {hint}
+        {/* The handle's own mark: an open hand in the bar's right corner,
+            on the hints' line, half in the bar's right padding and half in
+            the frame's, so it never covers a hint and takes no width from
+            them: a gutter of its own wrapped the bar at the default 400 px.
+            Faint at rest, in full ink under the pointer and while
+            kept open (when the popup is moved), and for a moment on a press
+            it closes, smaller and tilted, the hand taking hold of the window
+            as the drag starts. Decoration: the bar itself is the handle. */}
+        <span
+          aria-hidden
+          title="Drag here to move the popup"
+          className={cn(
+            "absolute bottom-0 -right-[0.4375rem] flex size-3.5 items-center justify-center transition-[transform,color,opacity] duration-150 ease-out group-hover/bar:text-foreground group-hover/bar:opacity-100",
+            movable ? "text-foreground opacity-100" : "opacity-70",
+            gripping && "-rotate-12 scale-75 text-foreground opacity-100"
+          )}
+        >
+          <RiHand className="size-3.5" />
+        </span>
       </div>
     </div>
   )

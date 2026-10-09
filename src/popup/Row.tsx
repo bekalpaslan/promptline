@@ -1,5 +1,5 @@
 import { memo } from "react"
-import { RiClipboardFill, RiClipboardLine, RiEdit2Line, RiFileTextLine, RiPushpinFill } from "@remixicon/react"
+import { RiClipboardFill, RiClipboardLine, RiCornerDownLeftLine, RiEdit2Line, RiFileTextLine, RiPushpinFill } from "@remixicon/react"
 import { C, type RowIconName, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { HighlightedTitle, InputsBadge, Keys, MatchText, TagList } from "@/components/prompt-bits"
@@ -129,7 +129,8 @@ export const Row = memo(function Row({
       role="option"
       aria-selected={selected}
       aria-describedby={describedBy}
-      aria-label={s.title}
+      // A prompt set to Auto enter says so: Enter here also presses Enter there
+      aria-label={s.autoEnter ? `${s.title}, auto enter` : s.title}
       // No name tooltip: it would sit on top of the preview card the same
       // hover opens (the card carries the full title). Only the
       // empty-clipboard warning is worth a title.
@@ -156,6 +157,12 @@ export const Row = memo(function Row({
             address, read with the title, not with the tags */}
         <span className="flex min-w-0 items-center gap-1.5">
           <HighlightedTitle title={s.title} indices={indices} />
+          {/* Auto enter: the Enter it will press, beside the title */}
+          {s.autoEnter && (
+            <span aria-hidden title="Auto enter: Enter is pressed for you after pasting" className="flex shrink-0 text-muted-foreground">
+              <RiCornerDownLeftLine className="size-3.5" />
+            </span>
+          )}
           {!compact && slotKey && <span aria-hidden className="ml-auto flex shrink-0">{slotKey}</span>}
         </span>
         {!compact && (

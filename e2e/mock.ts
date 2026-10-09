@@ -18,6 +18,7 @@ export interface MockSnippet {
   group: string
   uses: number
   pinned: boolean
+  autoEnter?: boolean
 }
 
 type Surface = "popup" | "manager"
