@@ -741,15 +741,17 @@ replies to an agent. While it is on (`AppState.keep_open`):
 - The **hint bar** is the window's handle: a press anywhere on it moves the
   popup (`startDragging`, started in code because Tauri's
   `data-tauri-drag-region` answers only a press on the element itself and
-  the hints are spans inside it), with the grab cursor. Its mark is an open
-  hand in the bar's right corner on the hints' line, half in the bar's
-  right padding and half in the frame's, so it takes no width from the
-  hints (a gutter of its own wrapped the default 400 px bar; a tab on the
-  divider line cut the line): faint at rest, full ink under the
-  pointer and while kept open, and for 260 ms on a press it closes, smaller
-  and tilted, with the grabbing cursor, as the drag starts (Windows runs
-  the move itself, so the release never reaches the page and a timer lets
-  go). The
+  the hints are spans inside it), with the grab cursor. While kept open,
+  the mode in which the popup is moved, its mark is an open hand in the
+  bar's right corner on the hints' line, its right edge on the content edge
+  every strip keeps (17 px from the window, as the first hint is on the
+  left, the search box's toggle and the clipboard line's key above it), in
+  a gutter of its own so it covers no hint. The resting bar's hints fill
+  their line at 400 px, so there the hand is left out (it sat in the frame
+  2 px from the window first, then cut the divider; both broke the insets).
+  Under the pointer it darkens, and for 260 ms on a press it closes, smaller
+  and tilted, with the grabbing cursor, as the drag starts (Windows runs the
+  move itself, so the release never reaches the page and a timer lets go). The
   frame (the shell's padding and the gaps between strips) drags too, but at
   8 px it was too thin to find. The popup stays where it is dragged until
   Keep open ends, and a later summon opens at the cursor again.
