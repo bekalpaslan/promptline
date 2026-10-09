@@ -15,6 +15,7 @@
     /* Everything a person types or presses: kbd, placeholder tokens, previews */
     --font-mono: 'Cascadia Code', 'JetBrains Mono', Consolas, ui-monospace, monospace;
     --color-hover: var(--hover);
+    --color-band: var(--band);
     /* The UI's body size sits between Tailwind's xs and sm; one name, not
        text-[13px]. In rem, like every other size: Settings' UI scale sets
        the root font size, and a literal 13px left row titles, the search
@@ -74,6 +75,7 @@
     --card: #ffffff;
     --popover: #ffffff;
     --segment-active: #ffffff;
+    --band: #e9ecf0;
     --hover: #eef0f3;
     --accent: #e3f2fb;
     --foreground: #1a1d21;
@@ -123,7 +125,8 @@
     --card: #1c2024;
     --popover: #1c2024;
     --segment-active: #22272c;
-    --hover: #22272c;
+    --band: #22272c;
+    --hover: #1d2125;
     --accent: #1c2f3b;
     --foreground: #e8ebee;
     --card-foreground: #e8ebee;
@@ -174,6 +177,7 @@
     --card: #ffffff;
     --popover: #ffffff;
     --segment-active: #ffffff;
+    --band: #e4e7f1;
     --hover: #eceef6;
     --accent: #e9ebff;
     --foreground: #0f1118;
@@ -222,6 +226,7 @@
     --card: #12141b;
     --popover: #12141b;
     --segment-active: #25272d;
+    --band: #1f2129;
     --hover: #1a1c23;
     --accent: #1e213c;
     --foreground: #e6e7e7;
