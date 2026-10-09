@@ -475,17 +475,23 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 py-3 leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
           />
         </div>
-        {/* Auto enter: the field's footer, a band under it in the primary,
-            the New button's fill (indigo in Indigo; the ink in Instrument,
-            which never fills a surface with its accent), so the one setting
-            that changes what Enter does stands out. The toggle leads; the
-            title and what it does follow, in the band's own ink. The popup
+        {/* Auto enter: the field's footer. Off, it is the "Prompt" header's
+            quiet twin under the field. On, it lights up in Warn, the colour
+            that says "this changes what happens" in every theme (pins,
+            locks, "paste without clipboard"): the unset-config strip's tint,
+            Warn at 15%, with Warn text. It was the primary, which is the
+            accent in Indigo and the ink in Instrument, so the same band meant
+            two different things. The toggle leads; the title and what it
+            does follow. The popup
             presses Enter after pasting the prompt, for quick replies to an
             agent. Saved at once (not by the text's autosave, which doesn't
             carry it), and kept out of pack files and exports, so a shared
             pack can't arrive set to run a command. */}
         <label
-          className="-mx-3 -mb-3 -mt-3 flex min-w-0 cursor-pointer items-center gap-2 rounded-b-xl bg-primary px-3 py-2.5 text-primary-foreground"
+          className={cn(
+            "-mx-3 -mb-3 -mt-3 flex min-w-0 cursor-pointer items-center gap-2 rounded-b-xl px-3 py-2.5 transition-colors duration-150",
+            snippet.autoEnter ? "bg-(--warn)/15 text-(--warn)" : "text-muted-foreground"
+          )}
           title="The popup presses Enter after pasting this prompt, so it is sent at once. For quick replies; never for commands you want to read first"
         >
           <Switch
@@ -495,11 +501,13 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
               const id = snippet.id
               void m.persist((cur) => cur.map((s) => (s.id === id ? { ...s, autoEnter: on || undefined } : s)))
             }}
-            className="bg-primary-foreground/30 focus-visible:ring-primary-foreground/60 data-checked:bg-primary-foreground"
-            thumbClassName="bg-primary-foreground data-checked:bg-primary"
+            // On, the track is Warn, like the band; off, the shared switch's
+            // own colours
+            className="data-checked:bg-(--warn) data-checked:focus-visible:ring-(--warn)/50"
+            thumbClassName="data-checked:bg-background"
           />
-          <span className="text-ui font-semibold">Auto enter</span>
-          <span className="min-w-0 truncate text-xs">· presses Enter after the popup pastes it</span>
+          <span className={cn("text-ui font-semibold", !snippet.autoEnter && "section-title")}>Auto enter</span>
+          <span className={cn("min-w-0 truncate text-xs", snippet.autoEnter && "text-foreground")}>· presses Enter after the popup pastes it</span>
         </label>
         {badNames.length > 0 && (
           <p role="note" className="text-xs text-muted-foreground">
