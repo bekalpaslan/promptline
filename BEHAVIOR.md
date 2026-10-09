@@ -67,8 +67,8 @@ are one hook too (`useLibraryMenus` in `menus.tsx`), with the inline
 rename and the delete-group dialog it drives, so both surfaces offer the
 same menu; only "Move up/down" is sidebar-only, since the overview's grid
 has no row order to move within. Packs and groups move from that menu (and
-Alt+Up/Down) only: a header is no drag handle, since its click is the
-fold. Prompt rows still lift on press-and-hold, and the rows part for a
+Alt+Up/Down) only: a header is no drag handle, since a press on it
+selects it. Prompt rows still lift on press-and-hold, and the rows part for a
 lifted row as it crosses them: the tree is drawn with the row where the
 pointer would drop it, taking a group's label when it is among that
 group's rows (`C.placePrompt`, the one rule the release saves with, so
@@ -95,8 +95,8 @@ selected; one row is the tab stop (the last one focused, else the open
 prompt, the shown pack or group, or the first row), and Up/Down and
 Home/End move between rows, Right unfolds a pack or group or steps to its
 first child, Left folds or steps out to the parent, Enter or Space is the
-click (with Ctrl and Shift for the selection, and the fold on a pack or
-group), Alt+Up/Down moves a prompt, a pack or a group, and the Menu key or Shift+F10 opens the row's menu at it. While a search
+click (with Ctrl and Shift for the selection; on a pack or group it shows
+its overview and opens it in the tree), Alt+Up/Down moves a prompt, a pack or a group, and the Menu key or Shift+F10 opens the row's menu at it. While a search
 holds every fold open, Left and Right only move. The chevron and the three
 dots are hidden from assistive tech, since those keys reach the same
 actions, and a click on either keeps focus on the row. The rows used to be
@@ -257,8 +257,8 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    (`paste_mode`): when the manager was the foreground window at summon
    time there is nothing sane to paste into (Enter would land the prompt in
    whatever editor field had focus), so Rust copies only and leaves the
-   popup up, and the popup says "Copied to clipboard — the manager was in
-   front" and hides itself the way Ctrl+Enter does. That self-hide is a
+   popup up, and the popup says `Copied "<title>" to clipboard — the
+   manager was in front` and hides itself the way Ctrl+Enter does. That self-hide is a
    600 ms timer the next summon cancels: a hotkey press inside the pause
    used to have the freshly shown popup hidden under the user. One pick at
    a time: the popup ignores a second Enter while a paste is in flight (the
@@ -411,7 +411,8 @@ it": the fact in Warn while any prompt wraps the clipboard, and never
 truncated; the consequence after it gives way at the 320 px minimum; those
 rows hollow their clipboard icon and are described by the line for a
 screen reader), or that it holds the last prompt the popup
-pasted or copied ("Last pasted prompt"): the prompt stays on the clipboard
+pasted or copied ("Last pasted prompt", or "Last copied prompt" after a
+copy): the prompt stays on the clipboard
 after a paste on purpose, so without this a second summon showed the first
 prompt's output as if it were something the user had copied. The popup
 keeps what it last sent, expanded the way Rust expands it, and compares.
@@ -454,8 +455,8 @@ with fields still empty reads `↵ paste with 1 field empty` (the button's
 words; `copy with…` in a form opened to copy), where it read a neutral `↵
 paste` over a button that counted the hole. And while the clipboard holds
 the prompt the popup sent last, a `{clipboard}` row with no form reads `↵
-paste, wraps last prompt`, with "Last pasted prompt" on the clipboard line
-in Warn too: Enter would paste that prompt inside itself, which is rarely
+paste, wraps last prompt`, with that "Last pasted prompt" (or "Last copied
+prompt") line in Warn too: Enter would paste that prompt inside itself, which is rarely
 meant and looked exactly like a normal paste. Both still paste at once,
 for the reason below. A form opened to copy heads its preview "Will copy",
 not "Will paste", and opening a form clears a passing remark such as "Copy
@@ -846,7 +847,7 @@ a pack on a prompt conjures it. Imports and moves create packs this way.
 windows.** A pack moves one place at a time from its ⋯ menu (Move up,
 Move down) or with Alt+Up/Down on its header, in the sidebar only; 0.2.13
 also let a header be dragged, and that went in the next release because
-the header's click is the fold. A move sends the whole list as drawn to
+the header's click was then the fold. A move sends the whole list as drawn to
 `arrange_packs`, which reorders
 `config.packs` to match and sets `packsArranged`: an order, not a registry,
 so locks and files stay as they are on disk, a pack the list doesn't name
@@ -999,8 +1000,9 @@ Two guards follow from that:
   it keep their old file names until they are renamed again.
 
 **An export goes to the clipboard or to a file, in the JSON an import
-reads.** A pack's menu and Settings → Backup and import each offer *Export to
-clipboard* and *Export to file…*: a pack as one pack document
+reads.** A pack's menu offers *Export to clipboard* and *Export to file…*, and
+Settings → Backup and import's *Export…* the same two, *To clipboard* and
+*To file…*: a pack as one pack document
 (`C.packToJson`: title, text, tags and group, none of the personal state),
 the library as an array of every pack that holds a prompt. The file goes
 through `export_pack_file`, whose Save dialog is Rust's and suggests the
@@ -1072,7 +1074,7 @@ cannot touch stays where it is and raises a notice):
 | File | Holds |
 |---|---|
 | `snippets.json` | `Vec<Snippet>` — the library |
-| `config.json` | Hotkey, pack metadata, prefs, popup size, first-run flag |
+| `config.json` | Hotkey, pack metadata and order, prefs, popup size, first-run flag, the update check and the last version notified |
 | `packs/*.json` | Per-pack shareable content, derived from the library |
 | `packs/deleted/*.json` | Files of deleted packs, retired rather than unlinked (numbered on repeats) |
 | `packs/generated/*.json` | Scratch files the Generate dialog's survey mode hands to an agent |
@@ -1126,6 +1128,9 @@ re-fetches:
 | `popup-shown` / `first-popup` | Popup opened; the second only ever fires once |
 | `paste-failed` | The paste thread could not focus the target or send Ctrl+V; the popup is re-shown and shows the payload's `message` |
 | `notice` | Rust hit something the user must see (quarantined file, refused hotkey); shown until dismissed |
+| `quit-requested` | Quit or a Windows shutdown asks the manager to flush its autosave; it answers `quit_now` |
+| `update-available` | A check found a newer version; payload `{ version, notes }` |
+| `update-offer` | The toast or the tray's *Update to X.Y.Z* was clicked; the manager opens the offer |
 
 Every delete in the manager goes through one `deleteWithUndo`, and both the
 delete and the Undo read the *live* library, never the array captured by the
@@ -1168,7 +1173,7 @@ pack, group, `configValues` are the editor's). The manager's bulk operations
 `save_snippets` carries the revision the manager loaded and Rust refuses it as
 `stale` if the file has moved on; the manager then reloads, tells the user,
 and the change has to be redone. Every snippet command returns the library
-with its revision, every pack command (lock, delete, add, file) returns the
+with its revision (`save_snippets` the new revision alone), every pack command (lock, delete, add, file) returns the
 pack registry, and the store lock serialises every read-modify-write.
 
 **A pin remembers when it was pinned.** `pinnedAt` (ms since epoch, personal
@@ -1544,7 +1549,10 @@ marks what is selected and nothing else.
 ## Windows-specific code
 
 Confined to `platform.rs`: `foreground_window`, `focus_window`,
-`send_ctrl_v`, `left_button_down`, `open_url`. Everything else is portable.
+`send_ctrl_v`, `send_enter`, `left_button_down`, `open_url`, the foreground
+hook Keep open follows (`track_foreground`, `last_foreign_window`), the
+session-end subclass (`on_session_end`), and the AUMID and toast
+(`claim_app_id`, `show_toast`). Everything else is portable.
 A macOS port reimplements that file (CGEventPost, plus the Accessibility
 permission) and nothing else.
 
@@ -1554,8 +1562,10 @@ revision, the intent-level merges, notices), `packs.rs` (pack metadata and
 paths, the reconciler, the file sync, adoption, retirement, the pack
 commands' pure halves), `commands.rs` (what the webviews invoke, the
 hotkey parser included), `paste.rs` (`show_popup`, `paste_snippet`, the
-clamp, the popup's hide paths), `migrations.rs` (the v1 folder, the
-pre-0.2.9 data folder, the v2 snippet shape), and `lib.rs` (`AppState`,
+clamp, the popup's hide paths), `update.rs` (the update check, its loop,
+toast and offer, and the store build's stubs), `migrations.rs` (the v1
+folder, the pre-0.2.9 data folder, the v2 snippet shape, the
+default-hotkey pin), and `lib.rs` (`AppState`,
 the tray, the window events, `run`). One `first_free` numbers every file
 series (retired, quarantined, generated and pack files) and one
 `since_epoch` stamps every time; both used to be written out per call
@@ -1585,12 +1595,13 @@ cursor on or just outside the frame — and reclaims focus instead of hiding.
 
 ```sh
 npm test           # tests/*.test.js under node --test (see below)
-npm run test:e2e   # e2e/*.spec.ts, both windows in Chromium on the fake backend
+npm run test:e2e   # e2e/popup.spec.ts and e2e/manager.spec.ts, both windows in Chromium on the fake backend
 npm run test:rust  # the storage layer and its policies (see below)
-npm run typecheck  # tsc over both windows
+npm run typecheck  # tsc over both windows, the Vite config and e2e/
 ```
 
-`npm test` runs two files. `tests/core.test.js` covers `ui/core.js`:
+`npm test` runs every `tests/*.test.js`; two of them guard the seams.
+`tests/core.test.js` covers `ui/core.js`:
 placeholders, fuzzy search and ranking, pack parsing, the rules the two
 windows share (`defaultPackFor`, `removeParamToken`, pins). `tests/mock.test.js`
 checks command parity: it scans `src/**` for every `invoke("…")`, `lib.rs`
@@ -1599,9 +1610,14 @@ for the `generate_handler![…]` list (each entry named by its module,
 commands the fake backend answers, and fails when the three disagree — a
 command the UI calls but the mock ignores hides a whole flow from the
 browser walk, and one Rust never registered fails at runtime.
+`tests/interface.test.js` checks that `ui/core.js`'s exports equal
+`PromptlineCore` in `src/lib/core.ts`; `tests/tokens.test.js` covers the
+token pipeline; the rest pin the README, the site and the release and clip
+scripts.
 
-`npm run test:rust` is around 46 tests, each beside the module it covers
-(`store.rs`, `packs.rs`, `commands.rs`, `paste.rs`, `migrations.rs`, with
+`npm run test:rust` is around 75 tests, each beside the module it covers
+(`store.rs`, `packs.rs`, `commands.rs`, `paste.rs`, `migrations.rs`,
+`update.rs`, `platform.rs`, with
 the scratch folder and sample snippet they share in `lib.rs`), covering the
 storage layer end to end: `write_atomic` (temp file, rename, nothing left behind),
 loading with the missing / unparseable / I/O-error split and the byte-exact
@@ -1633,7 +1649,7 @@ the overview and Escape going up, Settings and the theme preference, New →
 Pack and New → Prompt, delete-with-Undo through `save_snippets`, the
 update offer (its title, notes and buttons, Install asking `install_update`,
 Later silencing through `dismiss_update`, and the About card still
-offering it afterward), the manual check's three outcomes and the
+offering it afterward), the manual check finding a version and finding none, and the
 automatic-check switch through `set_update_check`, and a store build
 showing no update controls anywhere in the manager. What
 the backend was asked is read from `window.__mock.calls`, so a case can

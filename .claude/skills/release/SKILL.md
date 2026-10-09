@@ -1,7 +1,7 @@
 ---
 name: release
 description: Push master and ship a Promptline release end to end, the maintainer's way. Use this whenever the user says release, ship, cut a version, tag, publish, "push and release", or asks to get the month's theme out, even without the word release. It checks the shelf for a monthly theme first, then follows CLAUDE.md → Releasing with the standing decisions below, hands the two human-only steps (signed build, X post) over as exact commands, and reports the release URL, assets and every workflow outcome.
-argument-hint: [version or "patch"]
+argument-hint: '[version or "patch"]'
 ---
 
 # Release
