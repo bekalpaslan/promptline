@@ -915,7 +915,18 @@ Two guards follow from that:
   output, not an agent's, and it is emptied so the draft doesn't linger.
 - **Deleting a pack moves its file to `packs/deleted/`** instead of unlinking
   it, for the same reason (`delete_pack` retires the named pack's file;
-  renaming keeps the file, so nothing is ever retired by a rename).
+  a rename moves or keeps the file, below, so nothing is ever retired by
+  a rename).
+- **A rename takes the file along when the app named it.** A file directly
+  in `packs/` in the old name's series (`new-pack.json`, `new-pack-3.json`
+  for "New pack") becomes the new name's (`workflow-prompts.json`, or the
+  next free number) in the same `rename_pack` call, so a pack doesn't live
+  on in `new-pack-3.json` forever. A file with any other name, one outside
+  `packs/`, or one in `generated/` keeps its path: someone chose it, and a
+  colleague or an agent may be writing into it. A case-only rename names
+  the same file. If the registry then fails to save, the file is moved
+  back. Until 0.2.22 every rename kept the file, so packs renamed before
+  it keep their old file names until they are renamed again.
 
 **An export goes to the clipboard or to a file, in the JSON an import
 reads.** A pack's menu and Settings → Backup and import each offer *Export to
