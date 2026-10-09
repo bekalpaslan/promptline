@@ -54,6 +54,14 @@
         "usage": "The raised tile of the active segment in the theme switch; the track is surface-sunk."
       },
       {
+        "name": "band",
+        "value": {
+          "light": "#e4e7f1",
+          "dark": "#1f2129"
+        },
+        "usage": "The popup's pack and Pinned header bands. One step heavier than hover in both modes, so a row under the pointer never reads as a header."
+      },
+      {
         "name": "hover",
         "value": {
           "light": "#eceef6",
