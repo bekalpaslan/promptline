@@ -844,6 +844,32 @@ test("the hint bar is the window's handle: a press on it moves the popup", async
   await expect(page.getByText("preview", { exact: true })).toBeVisible()
 })
 
+test("the hint bar keeps the strips' insets: kept open, the hand mirrors the first hint, on one line", async ({ page }) => {
+  const W = 400
+  const edge = async (sel: string, side: "left" | "right") => {
+    const box = (await page.locator(sel).first().boundingBox())!
+    return side === "left" ? box.x : W - (box.x + box.width)
+  }
+  // At rest there is no hand, and the hints start on the strips' content edge
+  // The search box's edge; every strip's content starts 8 px inside it
+  const left = await edge('[role="search"]', "left")
+  await expect(page.locator('[title="Drag here to move the popup"]')).toHaveCount(0)
+  // The search box's own toggle ends on that edge too
+  const toggleRight = await edge('[aria-label="Keep open (Ctrl K)"]', "right")
+  const firstHint = await page.getByText("paste", { exact: true }).evaluate((el) => el.parentElement!.getBoundingClientRect().left)
+  // Kept open, the hand's right edge mirrors the first hint's left edge
+  await search(page).press("Control+k")
+  const hand = page.locator('[title="Drag here to move the popup"]')
+  await expect(hand).toBeVisible()
+  const handRight = await edge('[title="Drag here to move the popup"]', "right")
+  expect(Math.abs(handRight - firstHint)).toBeLessThanOrEqual(1)
+  expect(Math.abs(toggleRight - firstHint)).toBeLessThanOrEqual(1)
+  expect(Math.abs(firstHint - (left + 8))).toBeLessThanOrEqual(1)
+  // …and the hints stay on one line beside it
+  const [a, b] = await Promise.all([page.getByText("paste", { exact: true }).boundingBox(), page.getByText("kept open", { exact: true }).boundingBox()])
+  expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
+})
+
 test("a slot key with the clipboard panel open puts the panel away and pastes nothing", async ({ page }) => {
   await search(page).press("Control+ArrowDown")
   const panel = page.getByRole("region", { name: "Clipboard" })
