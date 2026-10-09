@@ -745,9 +745,11 @@ replies to an agent. While it is on (`AppState.keep_open`):
 - The hint bar shows `Ctrl K kept open` where `Esc close` was.
 
 **Auto enter** is a switch on a prompt (the editor's footer under the
-prompt field: a band in the primary, the New button's fill, with the switch
-leading, so the one setting that changes what Enter does stands out) for
-quick replies to an agent: LGTM, `/clear`, a "go on". `paste_snippet` takes `autoEnter`, and
+prompt field, the switch leading: quiet like the "Prompt" header while
+off, lit in Warn while on, the unset-config strip's tint, since Warn is
+the colour that means "this changes what happens" in every theme; the
+primary it first used is the accent in Indigo and the ink in Instrument,
+so the band meant two things) for quick replies to an agent: LGTM, `/clear`, a "go on". `paste_snippet` takes `autoEnter`, and
 after a Ctrl+V that was delivered the paste thread waits 120 ms (the input
 queue keeps the keys in order; the pause is for an app that takes a large
 paste slowly, a terminal collapsing it) and presses Enter. Only a paste
