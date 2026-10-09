@@ -1,6 +1,6 @@
 The one button, in six variants and five sizes.
 
-`default` is the primary action and there is at most one per surface: Paste, Apply, Import. It fills with `btn-primary` and sets `on-btn-primary` text, ink on paper, never a hue. `outline` and `secondary` are the ordinary actions; `ghost` is for toolbars and icon buttons; `destructive` rests as `danger` text on `danger-soft` and only fills on hover; `link` is inline text in `accent`.
+`default` is the primary action and there is at most one per surface: Paste, Apply, Import. It fills with `btn-primary` and sets `on-btn-primary` text, ink on paper, never a hue. `outline` and `secondary` are the ordinary actions; `ghost` is for toolbars and icon buttons; `destructive` rests as `danger` text on a faint `danger` tint and deepens it on hover; `link` is inline text in `btn-primary` ink, underlined on hover.
 
 Sizes: `default` is 28px (`control-h`), `sm` 24px, `xs` 20px, `lg` 32px; `compact` is the manager's text-button idiom with auto height. Icon-only buttons use `icon`, `icon-sm`, `icon-xs`, `icon-lg`.
 
