@@ -744,6 +744,29 @@ replies to an agent. While it is on (`AppState.keep_open`):
   Keep open ends, and a later summon opens at the cursor again.
 - The hint bar shows `Ctrl K kept open` where `Esc close` was.
 
+**Auto enter** is a toggle on a prompt (the editor's footer under the
+prompt field, the twin of its "Prompt" header) for quick replies to an
+agent: LGTM, `/clear`, a "go on". `paste_snippet` takes `autoEnter`, and
+after a Ctrl+V that was delivered the paste thread waits 120 ms (the input
+queue keeps the keys in order; the pause is for an app that takes a large
+paste slowly, a terminal collapsing it) and presses Enter. Only a paste
+enters: a copy, Ctrl+Enter, the manager-in-front fallback and a refused
+target never do. The popup says it before Enter does it: a ↵ mark beside
+the row's title, the row's accessible name ("…, auto enter"), the hint
+bar's `↵ paste and enter` (`enter without clipboard` and `enter, wraps
+last prompt` in Warn, where the paste would carry a hole or wrap itself),
+the action panel's "Paste and enter", the form's "paste and enter", and
+"Pasted and entered …" in a kept-open popup. The longer Enter label, like
+Keep open's `Ctrl K kept open`, crowds the bar: while either shows, actions
+wait for 500 px, preview for 560, fold and the clipboard key leave it, and
+with both, copy goes below 360.
+It is **personal state**, like `pinned`: `snippet.autoEnter` lives in
+`snippets.json` only (left out while false), never in a pack file, an
+export or an import, so a shared or agent-written pack can't arrive set to
+run a command in a shell. The editor writes it at once through `persist`,
+not through the text's autosave, whose `SnippetEdit` doesn't carry it, so
+an edit never switches it off.
+
 Every `hide_popup` ends it, so **Esc** closes and turns it off at once, and
 it is never saved: a summon or a restart always starts without it. Ctrl+K
 turns it off and leaves the popup up until the next blur.

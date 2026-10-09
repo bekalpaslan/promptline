@@ -34,7 +34,7 @@ mod imp {
     use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
-        KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_MENU, VK_SHIFT, VK_V,
+        KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_MENU, VK_RETURN, VK_SHIFT, VK_V,
     };
     use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass, ShellExecuteW};
     use windows::Win32::UI::WindowsAndMessaging::{
@@ -191,6 +191,14 @@ mod imp {
         sent as usize == inputs.len()
     }
 
+    /// Press Enter: a prompt set to Auto enter. False when SendInput
+    /// inserted fewer events than asked, as for Ctrl+V.
+    pub(crate) fn send_enter() -> bool {
+        let inputs = [key(VK_RETURN, false), key(VK_RETURN, true)];
+        let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+        sent as usize == inputs.len()
+    }
+
     /// What to do when Windows asks whether the session may end: `ask`
     /// starts the work and says whether there is anything to wait for,
     /// `done` says when it has finished.
@@ -337,6 +345,9 @@ mod imp {
     pub(crate) fn send_ctrl_v() -> bool {
         false
     }
+    pub(crate) fn send_enter() -> bool {
+        false
+    }
     pub(crate) fn left_button_down() -> bool {
         false
     }
@@ -369,7 +380,7 @@ pub(crate) use imp::open_url;
 pub(crate) use imp::{claim_app_id, show_toast};
 pub(crate) use imp::{
     focus_window, foreground_window, last_foreign_window, left_button_down, note_foreign,
-    on_session_end, send_ctrl_v, track_foreground, SessionEnd,
+    on_session_end, send_ctrl_v, send_enter, track_foreground, SessionEnd,
 };
 
 #[cfg(test)]
