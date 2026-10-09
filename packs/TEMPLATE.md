@@ -1,16 +1,16 @@
 # Promptline prompt packs
 
 A pack is a set of prompts that travel together. Import one from
-**Settings → Your library**: **Import from clipboard** (copy the JSON first)
-or **Import from file…**; every import is reviewed prompt by prompt in a
+**Settings → Backup and import**: **Import… → From clipboard** (copy the JSON
+first) or **From file…**; every import is reviewed prompt by prompt in a
 checklist before anything is added. Export a single pack from its header's
 menu in the sidebar (hover the pack, or right-click it), or from its row under
-**Your library** (**Export to clipboard**); **Export library** there exports
-everything.
+**Packs** (**Export to clipboard**); **Export…** under **Backup and import**
+exports everything, to the clipboard or a file.
 
 Every pack also owns a file under
 `%APPDATA%\io.github.bekalpaslan.promptline\packs\` that the app keeps
-current: click a pack's row under **Your library** to see its path, copy it,
+current: click a pack's row under **Packs** to see its path, copy it,
 show it in the folder, or **Import from this file…** after something else
 wrote to it. That file is the simplest way to share a pack or hand it to an
 agent.
@@ -48,8 +48,8 @@ the legacy flat array format `[{title, text, category}]` (category becomes a tag
 |---|---|
 | `{clipboard}` | user's clipboard at paste time |
 | `{date}` / `{time}` | current date / time |
-| any other `{lowercase_word}` | runtime fill-in field — asked before pasting (pre-filled with the last value) |
-| `{{lowercase_word}}` | config parameter — user saves a value once (editor → Advanced options), pastes silently |
+| any other `{lowercase_word}` | runtime fill-in field — asked before pasting, starting empty each time |
+| `{{lowercase_word}}` | config parameter — user saves a value once (editor → Placeholders), pastes silently |
 
 Config parameters are personal: exports ship the template with values empty, so
 each user sets their own (e.g. `{{standing_instructions}}`) after importing.
@@ -57,7 +57,7 @@ each user sets their own (e.g. `{{standing_instructions}}`) after importing.
 ## Generating packs with AI
 
 Don't write packs by hand — open **New → Generate pack with AI** in the
-manager (the same dialog is a button under **Settings → Your library**). It
+manager (the same dialog is a button under **Settings → Packs**). It
 has two paths:
 
 - **Chat — copy & paste**: type a topic, then follow the three steps —
