@@ -775,6 +775,18 @@ test("Keep open: Ctrl+K or the button keeps the popup up after a paste, and Esc 
   await expect(toggle).toHaveAttribute("aria-pressed", "false")
 })
 
+test("the hint bar is the window's handle: a press on it moves the popup", async ({ page }) => {
+  const bar = page.getByText("close", { exact: true })
+  await bar.dispatchEvent("pointerdown", { button: 0 })
+  await expect.poll(async () => (await calls(page, "plugin:window|start_dragging")).length).toBe(1)
+  // Not with the other button, and it shows the move cursor while kept open
+  await bar.dispatchEvent("pointerdown", { button: 2 })
+  expect(await calls(page, "plugin:window|start_dragging")).toHaveLength(1)
+  await search(page).press("Control+k")
+  const cursor = await page.getByText("kept open", { exact: true }).evaluate((el) => getComputedStyle(el).cursor)
+  expect(cursor).toBe("move")
+})
+
 test("a slot key with the clipboard panel open puts the panel away and pastes nothing", async ({ page }) => {
   await search(page).press("Control+ArrowDown")
   const panel = page.getByRole("region", { name: "Clipboard" })

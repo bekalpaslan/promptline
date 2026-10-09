@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
+import { getCurrentWindow } from "@tauri-apps/api/window"
 import {
   RiArrowDownSLine,
   RiArrowRightSLine,
@@ -1746,7 +1747,7 @@ export function App() {
   )
 
   return (
-    <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys}>
+    <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys} movable={keepOpen}>
       {/* Search: the same box as the manager's filter */}
       <div role="search" className={searchBoxClass()}>
         <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -2241,6 +2242,14 @@ export function App() {
   )
 }
 
+// A press with the main button moves the window (the hint bar's handle).
+// Never from a control inside, should one be added there.
+function startWindowDrag(e: React.PointerEvent) {
+  if (e.button !== 0 || (e.target as HTMLElement).closest("button, a, input, textarea")) return
+  e.preventDefault()
+  void getCurrentWindow().startDragging().catch(() => {})
+}
+
 // Window chrome: 8px radius, 8px padding, a line-strong edge and the one shadow
 function Shell({
   children,
@@ -2249,10 +2258,13 @@ function Shell({
   announce,
   onUndo,
   undoKeys,
+  movable,
 }: {
   children: React.ReactNode
   hint: React.ReactNode
   notice: Notice | null
+  /** Kept open: the hint bar shows the move cursor, as the handle it is */
+  movable?: boolean
   /** Puts the last deleted prompt back; the strip's Undo button */
   onUndo?: () => void
   /** The keys that undo right now, drawn on the button; none while a view has the keyboard */
@@ -2319,8 +2331,20 @@ function Shell({
       </div>
       {/* Wraps rather than clips: at 125% scale, or with the mono font, the
           list's five hints are wider than the window and the shell's
-          overflow-hidden used to eat the last of them */}
-      <div className="@container flex shrink-0 flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-2 pt-2 font-mono text-micro text-muted-foreground">
+          overflow-hidden used to eat the last of them.
+          The bar is also the window's handle: a press anywhere on it drags
+          the popup. The frame alone (8 px of padding, the gaps between
+          strips) was too thin to find, and a kept-open popup is moved
+          often. The drag is started here rather than by Tauri's
+          data-tauri-drag-region, which answers only a press on the element
+          itself, and the hints are spans inside it. It holds no control. */}
+      <div
+        className={cn(
+          "@container flex shrink-0 select-none flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-2 pt-2 font-mono text-micro text-muted-foreground",
+          movable && "cursor-move"
+        )}
+        onPointerDown={startWindowDrag}
+      >
         {hint}
       </div>
     </div>
