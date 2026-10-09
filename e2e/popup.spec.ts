@@ -826,6 +826,19 @@ test("the resting hint bar stays one line with Keep open, an Auto enter row, or 
   }
 })
 
+test("the hint bar is the window's handle: a press on it moves the popup", async ({ page }) => {
+  const bar = page.getByText("close", { exact: true })
+  // The bar shows the grab cursor, and grabbing for a moment on a press
+  expect(await bar.evaluate((el) => getComputedStyle(el).cursor)).toBe("grab")
+  await bar.dispatchEvent("pointerdown", { button: 0 })
+  await expect.poll(async () => (await calls(page, "plugin:window|start_dragging")).length).toBe(1)
+  expect(await bar.evaluate((el) => getComputedStyle(el).cursor)).toBe("grabbing")
+  await expect.poll(() => bar.evaluate((el) => getComputedStyle(el).cursor)).toBe("grab")
+  // Not with the other button
+  await bar.dispatchEvent("pointerdown", { button: 2 })
+  expect(await calls(page, "plugin:window|start_dragging")).toHaveLength(1)
+})
+
 test("a slot key with the clipboard panel open puts the panel away and pastes nothing", async ({ page }) => {
   await search(page).press("Control+ArrowDown")
   const panel = page.getByRole("region", { name: "Clipboard" })
