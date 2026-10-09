@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "2c1c53fa5190a14c0a2d1c6845935485b27c89ed"
+      "revision": "df80e174122eb389c7be17594936bd2e63e646fa"
     },
     "viewBox": [
       1300,
@@ -79,12 +79,12 @@
       "sources": [
         {
           "path": "src/popup/App.tsx",
-          "line": 57,
+          "line": 98,
           "label": "Popup App"
         },
         {
           "path": "src/popup/App.tsx",
-          "line": 320,
+          "line": 490,
           "label": "invoke paste_snippet"
         }
       ]
@@ -106,12 +106,12 @@
       "sources": [
         {
           "path": "ui/core.js",
-          "line": 228,
+          "line": 277,
           "label": "rankSnippets"
         },
         {
           "path": "ui/core.js",
-          "line": 573,
+          "line": 622,
           "label": "packTree"
         },
         {
@@ -143,7 +143,7 @@
         },
         {
           "path": "src/manager/App.tsx",
-          "line": 473,
+          "line": 496,
           "label": "snippets-changed"
         },
         {
@@ -169,8 +169,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 208,
-          "end_line": 212,
+          "line": 214,
+          "end_line": 218,
           "label": "shortcut handler"
         }
       ]
@@ -191,13 +191,13 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 326,
-          "end_line": 348,
+          "line": 333,
+          "end_line": 355,
           "label": "TrayIconBuilder"
         },
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 147,
+          "line": 153,
           "label": "Update to X.Y.Z item"
         }
       ]
@@ -218,20 +218,20 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 180,
-          "end_line": 409,
+          "line": 186,
+          "end_line": 430,
           "label": "run()"
         },
         {
           "path": "src-tauri/src/paste.rs",
-          "line": 260,
-          "end_line": 332,
+          "line": 301,
+          "end_line": 375,
           "label": "show_popup"
         },
         {
           "path": "src-tauri/src/paste.rs",
-          "line": 84,
-          "end_line": 168,
+          "line": 108,
+          "end_line": 209,
           "label": "paste_snippet"
         }
       ]
@@ -252,8 +252,8 @@
       "sources": [
         {
           "path": "src-tauri/src/paste.rs",
-          "line": 84,
-          "end_line": 168,
+          "line": 108,
+          "end_line": 209,
           "label": "paste_snippet"
         }
       ]
@@ -274,7 +274,7 @@
       "sources": [
         {
           "path": "src-tauri/src/platform.rs",
-          "line": 89,
+          "line": 178,
           "label": "send_ctrl_v"
         }
       ]
@@ -295,8 +295,8 @@
       "sources": [
         {
           "path": "src-tauri/src/store.rs",
-          "line": 347,
-          "end_line": 362,
+          "line": 357,
+          "end_line": 372,
           "label": "data_dir paths"
         },
         {
@@ -306,8 +306,8 @@
         },
         {
           "path": "src-tauri/src/store.rs",
-          "line": 297,
-          "end_line": 324,
+          "line": 307,
+          "end_line": 334,
           "label": "theme · palette · updateCheck fields"
         }
       ]
