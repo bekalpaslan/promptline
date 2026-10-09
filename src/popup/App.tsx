@@ -445,9 +445,10 @@ export function App() {
   clipOpenRef.current = clipOpen
   const clipLineRef = useRef<HTMLDivElement>(null)
   const clipBodyRef = useRef<HTMLDivElement>(null)
-  const [clipBox, setClipBox] = useState<{ top: number; room: number } | null>(null)
+  const [clipBox, setClipBox] = useState<{ top: number; room: number; left: number; right: number } | null>(null)
   const [clipScrolls, setClipScrolls] = useState(false)
   const clipLines = useMemo(() => (clipOpen ? C.clipboardLines(clip) : null), [clipOpen, clip])
+  const clipEnds = useMemo(() => C.clipboardEnds(clip), [clip])
 
   // The panel's items take keyboard focus while it is open (below), so
   // closing it hands focus back to the search box
@@ -864,7 +865,9 @@ export function App() {
       const list = listRef.current?.getBoundingClientRect()
       if (!line || !list) return
       const top = Math.round(line.bottom + 4)
-      setClipBox({ top, room: Math.max(48, Math.round(list.bottom) - top) })
+      // On the strips' edges, not the window's 8 px: the shell's border put
+      // them 1 px further in than the panel
+      setClipBox({ top, room: Math.max(48, Math.round(list.bottom) - top), left: line.left, right: window.innerWidth - line.right })
     }
     measure()
     window.addEventListener("resize", measure)
@@ -1313,11 +1316,15 @@ export function App() {
       aria-pressed={active}
       title={active ? `Clear ${prefix}${name} filter` : `Filter by ${prefix}${name}`}
       aria-label={active ? `Clear ${prefix}${name} filter` : `Filter by ${prefix}${name}`}
+      // Off, it waits over the count (shown on the header's hover) instead
+      // of holding a 24 px slot: the slot put every header count 26 px in
+      // from the rows' keys and chips, two right edges where one should be
+      // (critique popup, 2026-10-09). On, it is a state and takes the slot.
       className={cn(
         "flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md",
         active
           ? "bg-(--focus)/20 text-(--focus)"
-          : "text-muted-foreground opacity-0 hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-hover/hdr:opacity-100"
+          : "absolute right-0 top-0 bg-inherit text-muted-foreground opacity-0 hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-hover/hdr:opacity-100"
       )}
       onClick={() => toggleFilter(prefix, name)}
     >
@@ -1466,7 +1473,8 @@ export function App() {
       {!crowded && <Hint k="←" wide>fold</Hint>}
       {/* The clipboard panel's key; the line's chevron says it opens, this
           says by which key, where there is room for a seventh hint */}
-      {!clipEmpty && !crowded && <Hint k="Ctrl ↓" widest>clipboard</Hint>}
+      {/* A clipboard of two lines or more prints the key on its own strip */}
+      {!clipEmpty && !clipEnds && !crowded && <Hint k="Ctrl ↓" widest>clipboard</Hint>}
       {/* An error stays until Esc; the bar says so where the strip used to
           append it and get truncated (critique popup P1). Kept open, Esc
           closes and ends it, so the bar names the key that keeps it instead */}
@@ -1484,6 +1492,26 @@ export function App() {
   // still holds the last pick is named as that prompt, not shown as if it
   // were an error the user copied.
   const anyUsesClip = useMemo(() => [...derived.values()].some((d) => d.clip), [derived])
+  // The key that saves the clipboard as a prompt, at the right of the
+  // clipboard's line or the first line of its strip
+  const newFromClip = (
+    <button
+      type="button"
+      tabIndex={-1}
+      // The visible text (the key caps) is part of the name, for anyone
+      // who says what they see (WCAG 2.5.3)
+      aria-label="New prompt from clipboard (Ctrl N)"
+      // Nothing to save from an empty clipboard: the key is drawn
+      // unavailable. It still answers, with the strip's "Copy something
+      // first", so pressing it is never silent.
+      aria-disabled={clipEmpty || undefined}
+      title={clipEmpty ? "Copy something first — Ctrl+N saves the clipboard as a new prompt" : "New prompt from clipboard (Ctrl+N)"}
+      className={cn("focus-ring flex shrink-0 cursor-pointer items-center rounded-sm hover:bg-hover", clipEmpty && "opacity-50")}
+      onClick={openCreate}
+    >
+      <Keys combo="Ctrl+N" />
+    </button>
+  )
   const clipLine = (() => {
     // Empty: the fact first, in Warn while it costs something, then what it
     // costs, in the words the hint bar and the action panel use ("paste
@@ -1821,6 +1849,60 @@ export function App() {
           its subject, so it lives on the clipboard's line. The describing
           span leaves the key out, so a row described by the line hears the
           clipboard, not a shortcut. */}
+      {clipEnds && clipLine.text ? (
+        // Two lines or more: the clipboard's ends, on a strip shaped like a
+        // row (icon in the rows' glyph column, text on their title edge),
+        // in mono because this is the text as it pastes. Flattened onto one
+        // line, a trace showed two dozen characters and never the line that
+        // says what broke (critique popup, 2026-10-09). The first line keeps
+        // Ctrl N at its right, the last the key that opens the whole thing,
+        // so the panel is found at every width, not only from 560 px. The
+        // whole strip is the panel's handle (the toggle's ::after covers
+        // it); the word "Clipboard" goes to the screen reader, a "Last
+        // pasted prompt" label stays in sight.
+        <div
+          ref={clipLineRef}
+          className={cn(
+            "relative grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[1rem_1rem] items-center gap-x-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-hover",
+            clipOpen ? "bg-hover" : "bg-secondary"
+          )}
+        >
+          <RiClipboardLine className="size-3.5 shrink-0 opacity-70" aria-hidden />
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-expanded={clipOpen}
+            aria-controls={clipOpen ? "popup-clipboard" : undefined}
+            title={clipOpen ? "Hide the clipboard (Esc)" : "Show the whole clipboard (Ctrl+↓)"}
+            className="focus-ring flex min-w-0 cursor-pointer items-center text-left after:absolute after:inset-0 after:rounded-md"
+            onClick={() => {
+              toggleClip()
+              inputRef.current?.focus()
+            }}
+          >
+            <span id={CLIP_LINE_ID} className="flex min-w-0 flex-1 items-center gap-1.5">
+              <span className={cn(clipLine.label === "Clipboard" ? "sr-only" : "shrink-0", clipLine.warn && "text-(--warn)")}>
+                {clipLine.label}
+              </span>
+              <span className="sr-only">{`, ${C.plural(clipEnds.total, "line")}: `}</span>
+              <ClipboardMarks clipboard={clip} lines={false} />
+              <bdi className="min-w-0 flex-1 truncate font-mono text-foreground">{clipEnds.head}</bdi>
+              <span className="sr-only">
+                {clipEnds.between ? `, ${C.plural(clipEnds.between, "line")} more, then: ` : ", then: "}
+                {clipEnds.tail}
+              </span>
+            </span>
+          </button>
+          <span className="relative z-10 flex justify-end">{newFromClip}</span>
+          <span aria-hidden className="col-start-2 flex min-w-0 items-center gap-1.5 font-mono">
+            {clipEnds.between > 0 && <span className="shrink-0 tabular-nums">{`⋯ ${clipEnds.between} ⋯`}</span>}
+            <bdi className="min-w-0 flex-1 truncate text-foreground">{clipEnds.tail}</bdi>
+          </span>
+          <span aria-hidden className="flex justify-end">
+            <Keys combo={clipOpen ? "Esc" : "Ctrl+↓"} />
+          </span>
+        </div>
+      ) : (
       <div ref={clipLineRef} className="flex h-5 shrink-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
         <RiClipboardLine className="size-3.5 shrink-0 opacity-70" aria-hidden />
         <span id={CLIP_LINE_ID} className="flex min-w-0 flex-1 items-center gap-1.5">
@@ -1846,7 +1928,7 @@ export function App() {
                 aria-controls={clipOpen ? "popup-clipboard" : undefined}
                 title={clipOpen ? "Hide the clipboard (Esc)" : "Show the whole clipboard (Ctrl+↓)"}
                 className={cn(
-                  "focus-ring flex min-w-0 flex-1 cursor-pointer items-center rounded-sm bg-secondary text-left text-foreground hover:bg-hover",
+                  "focus-ring flex min-w-0 flex-1 cursor-pointer items-center rounded-md bg-secondary text-left text-foreground hover:bg-hover",
                   clipOpen && "bg-hover"
                 )}
                 onClick={() => {
@@ -1863,23 +1945,9 @@ export function App() {
             </>
           )}
         </span>
-        <button
-          type="button"
-          tabIndex={-1}
-          // The visible text (the key caps) is part of the name, for anyone
-          // who says what they see (WCAG 2.5.3)
-          aria-label="New prompt from clipboard (Ctrl N)"
-          // Nothing to save from an empty clipboard: the key is drawn
-          // unavailable. It still answers, with the strip's "Copy something
-          // first", so pressing it is never silent.
-          aria-disabled={clipEmpty || undefined}
-          title={clipEmpty ? "Copy something first — Ctrl+N saves the clipboard as a new prompt" : "New prompt from clipboard (Ctrl+N)"}
-          className={cn("focus-ring flex shrink-0 cursor-pointer items-center rounded-sm hover:bg-hover", clipEmpty && "opacity-50")}
-          onClick={openCreate}
-        >
-          <Keys combo="Ctrl+N" />
-        </button>
+        {newFromClip}
       </div>
+      )}
 
       <div
         ref={listRef}
@@ -1953,14 +2021,16 @@ export function App() {
               {`${label}, ${folded ? "folded" : "open"}, ${C.plural(n, "prompt")}`}
             </div>
           )
-          // A pack title as in the sidebar: the body size at 600 in Graphite,
-          // a group's 500 in Ink 2 below it. Weight alone did not part it
-          // from a row's 500 title, so the header is a band on Control grey
-          // (no row is filled at rest) with its glyph leading, like the
-          // sidebar's chevrons. 24 px tall, not 28: four headers above the
-          // fold cost a row.
+          // Three levels, three treatments, nothing above the body size: a
+          // pack title at 13/700 in Graphite on its band, a group's name at
+          // 12/600 in Ink 2, a prompt's title at 13/500 in Ink. Pack at 600
+          // and group at 500 sat one weight step from a title, and a group
+          // header read as a grey prompt (critique popup, 2026-10-09). The
+          // band is its own colour, a step heavier than hover in both modes:
+          // on Control grey, a row under the pointer looked like a header.
+          // 24 px tall, not 28: four headers above the fold cost a row.
           const headerClass = cn(
-            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-ui font-semibold",
+            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-ui font-bold",
             sec.collapsible && "cursor-pointer",
             sec.isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
           )
@@ -1993,8 +2063,8 @@ export function App() {
                 <div
                   data-selected={packSel || undefined}
                   className={cn(
-                    "group/hdr flex items-center rounded-md pr-0.5",
-                    packSel ? cn("bg-accent", SELECTED_BAR) : filtered ? "bg-(--focus)/10" : "bg-secondary"
+                    "group/hdr relative flex items-center rounded-md",
+                    packSel ? cn("bg-accent", SELECTED_BAR) : filtered ? "bg-(--focus)/10" : "bg-band"
                   )}
                 >
                   <button
@@ -2015,7 +2085,7 @@ export function App() {
                   {funnel("@", sec.name, filtered)}
                 </div>
               ) : (
-                <div className={cn(headerClass, "bg-secondary")}>{headerBody}</div>
+                <div className={cn(headerClass, "bg-band")}>{headerBody}</div>
               )}
               </div>
               {packSel && headOption(sec.name, sec.count, sec.isCollapsed)}
@@ -2036,12 +2106,15 @@ export function App() {
                       // 10 px apart. A hairline runs from the group's name
                       // to its count, so the header reads as a divider and
                       // not as a prompt whose first line is missing.
-                      <div key={g} className="flex flex-col gap-0.5" role="group" aria-label={g}>
+                      // 8 px above a group that follows rows or another
+                      // group, the packs' own gap: at the rows' 2 px, where
+                      // one group ended and the next began did not show.
+                      <div key={g} className="flex flex-col gap-0.5 not-first:mt-1.5" role="group" aria-label={g}>
                         <div
                           aria-hidden
                           data-selected={gSel || undefined}
                           className={cn(
-                            "group/hdr flex scroll-mt-7 items-center rounded-md pr-0.5",
+                            "group/hdr relative flex scroll-mt-7 items-center rounded-md",
                             gSel ? cn("bg-accent", SELECTED_BAR) : gf && "bg-(--focus)/10"
                           )}
                         >
@@ -2052,7 +2125,7 @@ export function App() {
                             title={gc ? "Unfold (Ctrl+→ unfolds all)" : "Fold (← on a row folds its pack or group)"}
                             className={cn(
                               // A group name is the user's words: shown as typed, never uppercased
-                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-ui font-medium",
+                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs font-semibold",
                               gc ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
                             )}
                             onClick={() => {
@@ -2173,8 +2246,8 @@ export function App() {
           id="popup-clipboard"
           role="region"
           aria-label="Clipboard"
-          className="fixed inset-x-2 z-20 flex flex-col overflow-hidden rounded-xl border border-border bg-(--code-ground) shadow-(--shadow-pop) duration-150 ease-out animate-in fade-in-0 slide-in-from-top-1"
-          style={{ top: clipBox.top, maxHeight: clipBox.room }}
+          className="fixed z-20 flex flex-col overflow-hidden rounded-xl border border-border bg-(--code-ground) shadow-(--shadow-pop) duration-150 ease-out animate-in fade-in-0 slide-in-from-top-1"
+          style={{ top: clipBox.top, maxHeight: clipBox.room, left: clipBox.left, right: clipBox.right }}
         >
           <div ref={clipBodyRef} className="min-h-0 flex-1 overflow-y-auto py-1.5 font-mono text-xs leading-4 text-foreground [tab-size:4]">
             {clipLines.lines.map((line, i) => (
@@ -2192,7 +2265,17 @@ export function App() {
                     own direction and leaves the next one alone. The
                     controls core revealed (⟨RLO⟩, ⟨ESC⟩) are in Warn, the
                     colour the line's "hidden text" mark uses */}
-                <bdi className={cn("min-w-0 flex-1 whitespace-pre-wrap break-words pr-2", clipLines.total === 1 && "pl-2")}>
+                {/* A wrapped line hangs under its own first character:
+                    padding the width of its indent, the first line pulled
+                    back by as much, so a long `at …` frame continues under
+                    "at" and not at the margin */}
+                <bdi
+                  className={cn("min-w-0 flex-1 whitespace-pre-wrap break-words pr-2", clipLines.total === 1 && "pl-2")}
+                  style={(() => {
+                    const n = C.indentColumns(line)
+                    return n ? { paddingLeft: `calc(${clipLines.total === 1 ? "0.5rem + " : ""}${n}ch)`, textIndent: `-${n}ch` } : undefined
+                  })()}
+                >
                   {line
                     ? line.split(/(⟨(?:[A-Z]{2,3}|U\+[0-9A-F]{4})⟩)/).map((part, j) =>
                         j % 2 ? <span key={j} className="text-(--warn)">{part}</span> : part

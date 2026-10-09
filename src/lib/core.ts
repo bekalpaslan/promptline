@@ -246,6 +246,10 @@ interface PromptlineCore {
   clipboardLines(clip: string | null | undefined, max?: number): { lines: string[]; total: number }
   /** What a preview shows for {clipboard}: one line, controls revealed, cut at `max` (240), or "(clipboard is empty)" */
   clipboardPreview(clip: string | null | undefined, max?: number): string
+  /** A clipboard of two or more lines with text: its first and last such lines, each as `clipboardPreview` shows text, the number of lines between them, and `lineCount`; null otherwise */
+  clipboardEnds(clip: string | null | undefined, max?: number): { head: string; tail: string; between: number; total: number } | null
+  /** Columns a line's leading spaces and tabs take, tabs at `tabSize` (4) */
+  indentColumns(line: string | null | undefined, tabSize?: number): number
   /** The one icon a popup row shows: a hole first, then the pin (not under the Pinned heading), then the kind */
   rowIcon(row: { pinned: boolean; asks: boolean; clip: boolean }, clipEmpty: boolean, underPinned: boolean): RowIconName
   /** What a paste would produce, minus the fill-in form: config and built-ins expanded, the clipboard substituted, {field}s kept */
