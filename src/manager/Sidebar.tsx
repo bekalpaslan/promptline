@@ -1085,7 +1085,7 @@ export function Sidebar() {
                 <div key={p.name} data-pack={p.name} role="presentation" className="mb-2">
                   {sectionTitle(p.name, p.count, isCollapsed, faded)}
                   {!isCollapsed && (
-                    <div role="group" className="mt-0.5 flex flex-col gap-0.5 pl-4">
+                    <div role="group" className="mt-0.5 flex flex-col gap-0.5 pl-3">
                       {p.ungrouped.map((s) => snipRow(s))}
                       {p.groups.map((g) => {
                         const gc = !q && collapsedGroups.has(groupKey(p.name, g.name))
@@ -1094,7 +1094,7 @@ export function Sidebar() {
                             {groupTitle(p.name, g.name, g.items.length, gc)}
                             {/* The guide line ties a group's prompts to its header */}
                             {!gc && (
-                              <div role="group" className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-2">
+                              <div role="group" className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-1">
                                 {g.items.map((s) => snipRow(s))}
                               </div>
                             )}
