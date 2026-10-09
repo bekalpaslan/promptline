@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
 import { commitKey, fieldVariants } from "@/components/field"
 import { Chip, TagPill, chipVariants } from "@/components/prompt-bits"
+import { Checkbox } from "@/components/ui/checkbox"
 import { useLibraryMenus } from "./menus"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr } from "./status"
@@ -448,7 +449,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       <div className="module flex flex-col gap-3">
         {/* Copy sits on the text it copies: what is in the field now,
             unsaved edits and all, the way an overview card copies (./copy) */}
-        <div className="flex min-w-0 items-center">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="section-title">Prompt</span>
           <Button
             variant="ghost"
@@ -463,7 +464,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             {copied ? "Copied" : "Copy"}
           </Button>
         </div>
-        <div className={cn("-mx-3 flex flex-col overflow-hidden border border-transparent bg-secondary focus-within:border-(--focus)", badNames.length ? "" : "-mb-3 rounded-b-xl")}>
+        <div className="-mx-3 flex flex-col overflow-hidden border border-transparent bg-secondary focus-within:border-(--focus)">
           <Textarea
             ref={textRef}
             value={text}
@@ -474,6 +475,28 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 py-3 leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
           />
         </div>
+        {/* Auto enter: the field's footer, the header's twin under it (its
+            title on the left, its control on the right). The popup presses
+            Enter after pasting the prompt, for quick replies to an agent.
+            Saved at once (not by the text's autosave, which doesn't carry
+            it), and kept out of pack files and exports, so a shared pack
+            can't arrive set to run a command. */}
+        <label
+          className="flex min-w-0 cursor-pointer items-center gap-2"
+          title="The popup presses Enter after pasting this prompt, so it is sent at once. For quick replies; never for commands you want to read first"
+        >
+          <span className="section-title">Auto enter</span>
+          <span className="min-w-0 truncate text-xs text-muted-foreground">· presses Enter after the popup pastes it</span>
+          <Checkbox
+            className="ml-auto"
+            aria-label="Auto enter"
+            checked={!!snippet.autoEnter}
+            onCheckedChange={(on) => {
+              const id = snippet.id
+              void m.persist((cur) => cur.map((s) => (s.id === id ? { ...s, autoEnter: on === true || undefined } : s)))
+            }}
+          />
+        </label>
         {badNames.length > 0 && (
           <p role="note" className="text-xs text-muted-foreground">
             {badNames.map((n) => `{${n}}`).join(", ")} {badNames.length === 1 ? "is" : "are"} plain text: a field name is lowercase letters, digits and _, not

@@ -102,6 +102,8 @@ fn paste_window(keep_open: bool, summoned_over: isize, last_foreign: isize) -> i
 /// note in the body and BEHAVIOR.md). Bumps the snippet's use count. Returns
 /// `"pasted"` when the paste thread was spawned and `"copied"` when it fell
 /// back to copy-only (asked for, or no target), so the popup can say so.
+/// `auto_enter`: press Enter after the Ctrl+V landed (a prompt set to Auto
+/// enter); never on a copy.
 #[tauri::command]
 pub(crate) fn paste_snippet(
     app: AppHandle,
@@ -109,7 +111,9 @@ pub(crate) fn paste_snippet(
     text: String,
     paste: bool,
     id: Option<String>,
+    auto_enter: Option<bool>,
 ) -> Result<String, String> {
+    let auto_enter = auto_enter.unwrap_or(false);
     let guard = state.store.lock().unwrap();
     let keep_open = state.keep_open.load(Ordering::SeqCst);
     let prev_window = paste_window(
@@ -186,6 +190,15 @@ pub(crate) fn paste_snippet(
             };
             if focused && !sent {
                 log::warn!("SendInput did not deliver Ctrl+V to window {prev_window:#x}");
+            }
+            // Enter only after a Ctrl+V that was delivered: the input queue
+            // keeps them in order, and the pause lets an app that takes a
+            // large paste slowly (a terminal collapsing it) finish first
+            if sent && auto_enter {
+                std::thread::sleep(Duration::from_millis(120));
+                if !platform::send_enter() {
+                    log::warn!("SendInput did not deliver Enter to window {prev_window:#x}");
+                }
             }
             if !sent {
                 report_paste_failed(&app);

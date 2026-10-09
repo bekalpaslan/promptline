@@ -483,7 +483,9 @@ export function App() {
   const send = useCallback(async (snippet: Snippet, text: string, paste: boolean) => {
     let result: string | null
     try {
-      result = await invoke<string | null>("paste_snippet", { text, paste, id: snippet.id })
+      // A prompt set to Auto enter has Rust press Enter after the Ctrl+V; a
+      // copy never does
+      result = await invoke<string | null>("paste_snippet", { text, paste, id: snippet.id, autoEnter: paste && !!snippet.autoEnter })
     } catch (e) {
       // Rust writes the clipboard before hiding, so on failure the popup is
       // still on screen to show this; the pick is over, so a retry is allowed
@@ -502,7 +504,10 @@ export function App() {
       // thread has sent its Ctrl+V (it waits about 160 ms), and read the
       // clipboard again: it holds this prompt now.
       const name = snippet.title.trim() ? `"${snippet.title.trim()}"` : "the prompt"
-      setNotice({ text: !paste || result === "copied" ? `Copied ${name} to clipboard` : `Pasted ${name}`, kind: "success" })
+      setNotice({
+        text: !paste || result === "copied" ? `Copied ${name} to clipboard` : snippet.autoEnter ? `Pasted and entered ${name}` : `Pasted ${name}`,
+        kind: "success",
+      })
       setTimeout(() => {
         setPicked(null)
         refreshClip()
@@ -724,7 +729,7 @@ export function App() {
     // The same warning as the hint bar's, for the same rows
     const wraps = !!d && !clipEmpty && lastSent.current?.text === clip && rowIcon(panelFor, d, true, false) === "clipboard-empty"
     return [
-      { label: hole ? "Paste without clipboard" : wraps ? "Paste, wraps last prompt" : "Paste", run: () => pick(panelFor, true) },
+      { label: (panelFor.autoEnter ? (hole ? "Enter without clipboard" : wraps ? "Enter, wraps last prompt" : "Paste and enter") : hole ? "Paste without clipboard" : wraps ? "Paste, wraps last prompt" : "Paste"), run: () => pick(panelFor, true) },
       { label: hole ? "Copy without clipboard" : wraps ? "Copy, wraps last prompt" : "Copy only", run: () => pick(panelFor, false) },
       { label: panelFor.pinned ? "Unpin" : "Pin", run: () => void togglePin(panelFor) },
       { label: "Edit in manager", run: () => void invoke("edit_in_manager", { id: panelFor.id }) },
@@ -1341,7 +1346,10 @@ export function App() {
   // …and a form whose Enter sends now, with fields still empty
   const formEmpty = form ? form.fields.filter((f) => !(formValues[f] ?? "").trim()).length : 0
   const formSends = !!form && C.nextEmptyField(form.fields, formValues, formFocus) === -1
-  const formVerb = form?.paste ? "paste" : "copy"
+  const formVerb = form?.paste ? (form.snippet.autoEnter ? "paste and enter" : "paste") : "copy"
+  // The selected row is set to Auto enter: the bar's Enter says so
+  const selSends = !!selEntry?.s.autoEnter
+  const crowded = selSends || keepOpen
   const hint = panelFor && deleteArmed ? (
     // The question on screen, answered in the bar: what Enter does now
     <><Hint k="↵">delete</Hint><Hint k="Esc">cancel</Hint></>
@@ -1412,7 +1420,7 @@ export function App() {
     // room of the hints it pushes out: copy goes below 360 px, actions and
     // preview below 500 px, so the bar stays one line at every width.
     <>
-      <Hint k="↵" warn>paste without clipboard</Hint>
+      <Hint k="↵" warn>{selSends ? "enter without clipboard" : "paste without clipboard"}</Hint>
       <Hint k="Ctrl ↵" minor>copy</Hint>
       <Hint k="Tab" wider>actions</Hint>
       <Hint k="→" wider>preview</Hint>
@@ -1423,7 +1431,7 @@ export function App() {
     // it again inside itself. Rarely meant; said, not blocked, like the
     // empty clipboard, and with the same room rules.
     <>
-      <Hint k="↵" warn>paste, wraps last prompt</Hint>
+      <Hint k="↵" warn>{selSends ? "enter, wraps last prompt" : "paste, wraps last prompt"}</Hint>
       <Hint k="Ctrl ↵" minor>copy</Hint>
       <Hint k="Tab" wider>actions</Hint>
       <Hint k="→" wider>preview</Hint>
@@ -1442,17 +1450,21 @@ export function App() {
     </>
   ) : (
     <>
-      <Hint k="↵">paste</Hint>
-      <Hint k="Ctrl ↵">copy</Hint>
-      <Hint k="Tab" minor>actions</Hint>
-      <Hint k="→" minor>preview</Hint>
+      {/* "paste and enter" and "Ctrl K kept open" are the long labels: while
+          either shows, the bar is crowded and the optional hints wait for
+          more room (actions 500 px, preview 560, fold and clipboard leave
+          it), and with both, copy goes below 360, so it stays one line */}
+      <Hint k="↵">{selSends ? "paste and enter" : "paste"}</Hint>
+      <Hint k="Ctrl ↵" minor={selSends && keepOpen}>copy</Hint>
+      <Hint k="Tab" minor={!crowded} wider={crowded}>actions</Hint>
+      <Hint k="→" minor={!crowded} widest={crowded}>preview</Hint>
       {/* ← folds the row's pack or group (Ctrl+→ unfolds all); it was the
           one key with no mention on screen. Room for it only in a widened
           window; the pack and group headers name it in their tooltip */}
-      <Hint k="←" wide>fold</Hint>
+      {!crowded && <Hint k="←" wide>fold</Hint>}
       {/* The clipboard panel's key; the line's chevron says it opens, this
           says by which key, where there is room for a seventh hint */}
-      {!clipEmpty && <Hint k="Ctrl ↓" widest>clipboard</Hint>}
+      {!clipEmpty && !crowded && <Hint k="Ctrl ↓" widest>clipboard</Hint>}
       {/* An error stays until Esc; the bar says so where the strip used to
           append it and get truncated (critique popup P1). Kept open, Esc
           closes and ends it, so the bar names the key that keeps it instead */}

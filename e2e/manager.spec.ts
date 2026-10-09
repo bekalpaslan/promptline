@@ -715,6 +715,24 @@ test("the editor's copy button copies what is in the fields now, as a card would
   await expect(page.getByText('Copied "Loose prompt"')).toBeVisible()
 })
 
+test("Auto enter is a toggle under the prompt, saved at once and kept out of exports", async ({ page }) => {
+  await promptRow(page, "Loose prompt").click()
+  const box = page.getByRole("checkbox", { name: "Auto enter" })
+  await expect(box).not.toBeChecked()
+  await box.click()
+  await expect(box).toBeChecked()
+  await expect.poll(async () => (await library(page)).find((s) => s.title === "Loose prompt")?.autoEnter).toBe(true)
+  // Personal state: the pack's export carries no trace of it
+  const exported = await page.evaluate(() => {
+    const core = (window as unknown as { PromptlineCore: { packToJson(n: string, p: unknown[]): unknown } }).PromptlineCore
+    const lib = (window as unknown as { __mock: { library: { snippets: { title: string }[] } } }).__mock.library
+    return JSON.stringify(core.packToJson("Mock Groups", lib.snippets.filter((s) => s.title === "Loose prompt")))
+  })
+  expect(exported).not.toContain("autoEnter")
+  await box.click()
+  await expect.poll(async () => (await library(page)).find((s) => s.title === "Loose prompt")?.autoEnter).toBeFalsy()
+})
+
 test("in One list the pane shows every prompt, each card saying where it lives", async ({ page }) => {
   const total = (await library(page)).length
   await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
