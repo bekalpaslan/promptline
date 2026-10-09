@@ -304,6 +304,8 @@ export function installMock(mode: string | null) {
       return a.handler
     },
     "plugin:event|unlisten": () => null,
+    // @tauri-apps/api/window: the hint bar moves the window; nothing to move here
+    "plugin:window|start_dragging": () => null,
   }
 
   Object.assign(window, {
