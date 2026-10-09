@@ -51,6 +51,7 @@ export const MAP = {
   control: ["secondary", "muted"],
   "segment-active": ["segment-active"],
   hover: ["hover"],
+  band: ["band"],
   selection: ["accent"],
   ink: ["foreground", "card-foreground", "popover-foreground", "secondary-foreground", "accent-foreground"],
   "ink-2": ["muted-foreground"],
@@ -86,7 +87,7 @@ export const MAP = {
 /** Text on ground, with the WCAG floor each pair must clear in every theme.
  *  4.5 is body text; 3 is large text, icons and rings. */
 export const CONTRAST = [
-  ["ink", "surface-0", 4.5], ["ink", "surface-sunk", 4.5], ["ink", "surface-raised", 4.5], ["ink", "selection", 4.5], ["ink", "hover", 4.5],
+  ["ink", "surface-0", 4.5], ["ink", "surface-sunk", 4.5], ["ink", "surface-raised", 4.5], ["ink", "selection", 4.5], ["ink", "hover", 4.5], ["ink", "band", 4.5], ["ink-2", "band", 4.5],
   ["ink-2", "surface-0", 4.5], ["ink-2", "surface-sunk", 4.5], ["ink-2", "surface-raised", 4.5], ["ink-2", "selection", 4.5],
   ["ink-3", "surface-0", 4.5], ["ink-3", "surface-sunk", 4.5],
   ["ink-2", "code-ground", 4.5],

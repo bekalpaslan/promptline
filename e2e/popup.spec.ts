@@ -693,7 +693,7 @@ test("the line under the search says what the clipboard holds, and that it is em
   await expect(clipLine(page)).toContainText("Clipboard")
   await expect(clipLine(page)).toContainText("TypeError: cannot read properties of undefined")
   await expect(search(page)).toHaveAttribute("aria-describedby", "popup-clip")
-  // A ten-line trace is one line here, and says so
+  // A ten-line trace shows its ends, and says how many lines it has
   await setClipboard(page, Array.from({ length: 10 }, (_, i) => `  at frame${i} (file.ts:${i}:1)`).join("\n"))
   await emit(page, "popup-shown")
   await expect(clipLine(page)).toContainText("10 lines")
@@ -719,7 +719,7 @@ test("Ctrl+↓ drops the whole clipboard under its line, line by line; Esc, Ente
   // The lines as they paste, indentation and the blank one kept, numbered
   for (const line of trace.filter(Boolean)) await expect(panel).toContainText(line.trim())
   await expect(panel).toContainText("4")
-  await expect(page.getByText("Clipboard, 4 lines")).toBeAttached()
+  await expect(page.getByText("Clipboard, 4 lines", { exact: true })).toBeAttached()
   await expect(page.getByText("back", { exact: true })).toBeVisible()
   // Enter puts it away and pastes nothing: the row it would paste is under it
   await search(page).press("Enter")
@@ -880,14 +880,23 @@ test("a slot key with the clipboard panel open puts the panel away and pastes no
 })
 
 test("the hint bar names the clipboard panel's keys, keeps a failed paste's recovery first, and stays one line", async ({ page }) => {
-  await setClipboard(page, Array.from({ length: 80 }, (_, i) => `  at frame${i} (file.ts:${i}:1)`).join("\n"))
-  await emit(page, "popup-shown")
   const hint = (label: string) => page.getByText(label, { exact: true })
   const oneLine = async (first: string, last: string) => {
     const [a, b] = await Promise.all([hint(first).boundingBox(), hint(last).boundingBox()])
     expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
   }
-  // The key that opens it waits for a window with room for a seventh hint
+  // A clipboard of several lines prints the key on its own strip, at any
+  // width, and the bar leaves it out
+  await setClipboard(page, Array.from({ length: 80 }, (_, i) => `  at frame${i} (file.ts:${i}:1)`).join("\n"))
+  await emit(page, "popup-shown")
+  await expect(page.locator("kbd").filter({ hasText: /^↓$/ })).toBeVisible()
+  await page.setViewportSize({ width: 590, height: 600 })
+  await expect(hint("clipboard")).toBeHidden()
+  await page.setViewportSize({ width: 400, height: 600 })
+  // One long line: the key that opens it waits for a window with room for
+  // a seventh hint
+  await setClipboard(page, "x".repeat(400))
+  await emit(page, "popup-shown")
   await expect(hint("clipboard")).toBeHidden()
   await page.setViewportSize({ width: 540, height: 600 })
   await expect(hint("clipboard")).toBeHidden()
@@ -895,6 +904,8 @@ test("the hint bar names the clipboard panel's keys, keeps a failed paste's reco
   await page.setViewportSize({ width: 590, height: 600 })
   await expect(hint("clipboard")).toBeVisible()
   await oneLine("paste", "close")
+  await setClipboard(page, Array.from({ length: 80 }, (_, i) => `  at frame${i} (file.ts:${i}:1)`).join("\n"))
+  await emit(page, "popup-shown")
   await search(page).press("Control+ArrowDown")
   await expect(hint("scroll")).toBeVisible()
   await expect(hint("page")).toBeVisible()
@@ -1071,11 +1082,11 @@ test("UI scale reaches every text role: titles, chips, key caps and the hint bar
   expect(await sizeOf('[role="option"] kbd')).toBeCloseTo(13.75, 1)
   expect(await sizeOf('[data-tag]')).toBeCloseTo(13.75, 1)
   expect(await sizeOf("#popup-search")).toBeCloseTo(16.25, 1)
-  // A pack title is the body size at 600, not a larger step (the header is
+  // A pack title is the body size at 700, not a larger step (the header is
   // hidden from assistive tech, so it is found by its text)
   const header = page.locator("button", { hasText: "Everyday" }).first()
   expect(await header.evaluate((e) => getComputedStyle(e).fontSize)).toBe(await page.locator('[role="option"] bdi').first().evaluate((e) => getComputedStyle(e).fontSize))
-  expect(await header.evaluate((e) => getComputedStyle(e).fontWeight)).toBe("600")
+  expect(await header.evaluate((e) => getComputedStyle(e).fontWeight)).toBe("700")
   await page.evaluate(() => localStorage.removeItem("scale"))
 })
 
@@ -1299,4 +1310,85 @@ test("with every pack folded, ↑↓ step through the folds and Enter opens one"
   await expect(selected).toHaveText(new RegExp(`^${packs[0]}, open, `))
   await expect.poll(() => page.getByRole("group", { name: packs[0], exact: true }).getByRole("option").count()).toBeGreaterThan(1)
   expect(await calls(page, "paste_snippet")).toHaveLength(0)
+})
+
+test("a clipboard of several lines shows its first and last lines, mono, with the count between (critique 2026-10-09)", async ({ page }) => {
+  // Two lines: the second is the line a flat preview never reached
+  await setClipboard(page, "const user = await getUser(id)\nTypeError: x is undefined")
+  await emit(page, "popup-shown")
+  const strip = clipLine(page).locator("xpath=../..")
+  await expect(strip).toContainText("const user = await getUser(id)")
+  await expect(strip).toContainText("TypeError: x is undefined")
+  // A trace: first line, the lines between, last line
+  const trace = ["Traceback (most recent call last):", '  File "app.py", line 12', "    main()", "KeyError: 'id'"]
+  await setClipboard(page, trace.join("\r\n") + "\r\n")
+  await emit(page, "popup-shown")
+  await expect(strip).toContainText(trace[0])
+  await expect(strip).toContainText("⋯ 2 ⋯")
+  await expect(strip).toContainText(trace[3])
+  const head = clipLine(page).getByText(trace[0], { exact: true })
+  expect(await head.evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(/Cascadia|Consolas|mono/i)
+  // Two lines of 16 px with the row's 4 px above and below
+  expect((await strip.boundingBox())!.height).toBeCloseTo(40, 0)
+  // A screen reader hears both ends and the count, not a flattened trace
+  await expect(search(page)).toHaveAccessibleDescription(/Clipboard ?, 4 lines: Traceback \(most recent call last\): ?, 2 lines more, then: KeyError: 'id'/)
+  // The whole strip is the panel's handle, its last line included
+  await strip.click({ position: { x: 120, y: 30 } })
+  await expect(page.getByRole("region", { name: "Clipboard" })).toBeVisible()
+  await search(page).press("Escape")
+  // The preview card shows the same ends on lines of their own
+  await search(page).fill("Root cause first")
+  await search(page).press("ArrowRight")
+  const card = page.getByRole("note", { name: "Preview" })
+  await expect(card).toContainText(trace[0])
+  await expect(card).toContainText("⋯ 2 lines ⋯")
+  await expect(card).toContainText(trace[3])
+  // One line keeps the one-line display
+  await setClipboard(page, "npm ERR! missing script: build")
+  await emit(page, "popup-shown")
+  expect((await clipLine(page).locator("xpath=..").boundingBox())!.height).toBeLessThanOrEqual(20)
+})
+
+test("the clipboard panel hangs a wrapped line under its own first character", async ({ page }) => {
+  await setClipboard(page, "TypeError: x\n    at " + "veryLongFunctionName.".repeat(12) + "call (a.ts:1:1)")
+  await emit(page, "popup-shown")
+  await search(page).press("Control+ArrowDown")
+  const line = page.getByRole("region", { name: "Clipboard" }).locator("bdi").nth(1)
+  const [pad, indent] = await line.evaluate((e) => [parseFloat(getComputedStyle(e).paddingLeft), parseFloat(getComputedStyle(e).textIndent)])
+  expect(pad).toBeGreaterThan(0)
+  expect(indent).toBeCloseTo(-pad, 1)
+})
+
+test("headers: pack 13/700 on its band, group 12/600, title 13/500; a hovered row never matches the band", async ({ page }) => {
+  const style = (l: ReturnType<typeof rows>) => l.evaluate((e) => ({ size: getComputedStyle(e).fontSize, weight: getComputedStyle(e).fontWeight }))
+  const pack = page.locator("button", { hasText: "Everyday" }).first()
+  const group = page.locator("button[aria-expanded]", { hasText: "Stuck" }).first()
+  const title = rows(page).first().locator("bdi").first()
+  expect(await style(pack)).toEqual({ size: "13px", weight: "700" })
+  expect(await style(group)).toEqual({ size: "12px", weight: "600" })
+  expect(await style(title)).toEqual({ size: "13px", weight: "500" })
+  for (const theme of ["light", "dark"]) {
+    await page.evaluate((t) => document.documentElement.classList.toggle("dark", t === "dark"), theme)
+    const band = await pack.locator("xpath=..").evaluate((e) => getComputedStyle(e).backgroundColor)
+    const row = rows(page).nth(3)
+    await row.hover()
+    await expect.poll(() => row.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)")
+    expect(await row.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(band)
+    await page.mouse.move(1, 1)
+  }
+})
+
+test("counts end on the rows' right edge, and a group after rows or a group starts 8 px down", async ({ page }) => {
+  const right = async (l: ReturnType<typeof rows>) => { const b = (await l.boundingBox())!; return b.x + b.width }
+  const slot = rows(page).first().locator("kbd").last()
+  const packCount = page.locator("button", { hasText: "Everyday" }).first().locator("span").last()
+  const groupCount = page.locator("button[aria-expanded]", { hasText: "Stuck" }).first().locator("span").last()
+  const edge = await right(slot)
+  expect(Math.abs((await right(packCount)) - edge)).toBeLessThan(1)
+  expect(Math.abs((await right(groupCount)) - edge)).toBeLessThan(1)
+  // Two groups in a row: the second sits 8 px below the first's last row
+  const stuck = page.getByRole("group", { name: "Stuck", exact: true })
+  const starting = page.getByRole("group", { name: "Starting", exact: true })
+  const [a, b] = await Promise.all([stuck.boundingBox(), starting.boundingBox()])
+  expect(b!.y - (a!.y + a!.height)).toBeCloseTo(8, 0)
 })

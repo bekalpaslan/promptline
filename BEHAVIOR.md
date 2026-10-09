@@ -405,8 +405,8 @@ group folded with ← could only be reopened with the mouse.
 
 **The clipboard has a line of its own under the search box.** Every
 `{clipboard}` row pastes it, and the row shows only the word, so the line
-says what the clipboard holds (one line on Control grey, with the *hidden text* badge and a line count when it has more
-than one), that it is empty ("Clipboard is empty — prompts paste without
+says what the clipboard holds (one line on Control grey, with the *hidden text* badge; two lines or more get the
+strip below), that it is empty ("Clipboard is empty — prompts paste without
 it": the fact in Warn while any prompt wraps the clipboard, and never
 truncated; the consequence after it gives way at the 320 px minimum; those
 rows hollow their clipboard icon and are described by the line for a
@@ -586,12 +586,40 @@ Selection tint (`SELECTED_BAR`). The tint alone is a dark blue-teal in
 dark mode, and on the real screen it read as a green row nobody had
 explained rather than as the cursor.
 
+**A clipboard of several lines shows its two ends.** When two or more
+lines hold text, the line becomes a strip shaped like a row: 40 px on
+Control grey, the icon in the rows' glyph column and the text on their
+title edge, in mono. The first line holding text sits at the top with
+`Ctrl N` at its right; under it, `⋯ 28 ⋯` (the lines between, when there
+are any) and the last line holding text, with `Ctrl ↓` at its right (`Esc`
+while the panel is open). The whole strip is the panel's handle. The word
+"Clipboard" goes to the screen reader, which hears "Clipboard, 30 lines:
+first line, 28 lines more, then: last line"; a "Last pasted prompt" label
+stays in sight, in Warn when the selected row would wrap it. Flattened onto
+one line, a trace showed about 24 characters at the default width and 11
+at the minimum, and never the line that says what broke: a Python trace
+and a two-line "command, then error" copy both put it last (critique
+popup, 2026-10-09). The cost is 20 px of list, under half a row. A single
+line keeps the one-line display (`clipboardEnds` in core).
+
 **A header never reads as a prompt.** A pack header (and Pinned, and
-Results) is a band on Control grey, and no row is filled at rest; it
+Results) is a band in its own colour (`band`), and no row is filled at
+rest. The band is a step heavier than hover in both modes: on Control
+grey it was the same colour as a row under the pointer in dark and
+lighter than one in light, so the pointer read as a header (critique
+popup, 2026-10-09). It
 sticks to the top of the list while its rows scroll, so the pack a row
 belongs to stays named, and rows keep a 28 px scroll margin so arrowing up
 never parks the selection under it. A group header is a divider: its
-chevron leads, its name in Ink 2 is followed by a hairline to its count.
+chevron leads, its name in Ink 2 at 12/600 is followed by a hairline to
+its count, and a group that follows rows or another group starts 8 px
+down, the packs' own gap, where at the rows' 2 px the end of one group
+did not show. Three levels, three treatments, none above the body size:
+pack 13/700, group 12/600, title 13/500. At 600, 500 and 500 a group
+header read as a grey prompt. Every count ends on the rows' right edge:
+the header's filter button waits over the count (shown on hover) and
+takes a slot of its own only while its filter is on; holding the slot
+put the counts 26 px in from the keys and chips below them.
 Through 0.2.20 the headers were text alone, a pack's 600 one weight step
 above a title's 500 and a group's name on the title edge with its chevron
 at the far right, so a group read as a prompt whose first line was
@@ -634,8 +662,13 @@ it for the same reason without pasting: both pick a row the user can't
 see. After a failed paste the bar keeps "Ctrl V in the target" first
 while the panel is up, since the panel then shows the prompt that did
 not land; Ctrl N leaves the bar to make room (its key cap is on the
-line). The resting bar names Ctrl ↓ from about 580 px, where a seventh hint
-fits on its line; below that the line's chevron and tooltip carry it.
+line). A clipboard of two lines or more prints `Ctrl ↓` on its strip at
+every width, and the bar leaves it out; for a single line the resting bar
+names Ctrl ↓ from about 580 px, where a seventh hint fits on its line, and
+below that the line's chevron and tooltip carry it. A wrapped line hangs
+under its own first character (`indentColumns`), so a long `at …` frame
+continues under "at" and not at the margin, and the panel sits on the
+strips' edges, not 1 px outside them.
 ←, Tab and Ctrl+↓ close it too, and typing closes it on the way
 into the search box, as it closes the preview card. A press outside it,
 a summon, a pick, the form, the create view and the action panel all put
@@ -803,7 +836,10 @@ the manager's overview cards can never disagree.
 expands at paste time, so every preview — the popup's card, the fill-in
 form's "Will paste", the overview's cards — substitutes the clipboard as it
 is now, one line and cut at 240 characters (`clipboardPreview`), on the
-builtin's tint so it still reads as a placeholder. An empty clipboard shows
+builtin's tint so it still reads as a placeholder. A clipboard of two
+lines or more shows as the popup's strip does: its first and last lines
+holding text, on lines of their own in mono, with `⋯ N lines ⋯` between
+when there are any, as one block on the tint (`clipboardEnds`). An empty clipboard shows
 "(clipboard is empty)": that is what would paste, and hiding it is how a
 hole gets pasted. A clipboard holding hidden characters (the import rule
 under *Packs and their files*) gets a *hidden text* badge after it, with the
@@ -1510,7 +1546,7 @@ while the 12px first line grew to 15px and the 16px pack headers to 20px.
 It and `text-micro` (11px: chips, key caps, the popup's hint bar, the `xs`
 button) are the two named steps below Tailwind's `sm`; there is no
 `text-[11px]` or `text-[13px]` anywhere. Pack titles in the popup's list
-are the body size at 600, as in the sidebar, where they were `text-base`,
+are the body size at 700 (600 until 0.2.22, as in the sidebar), where they were `text-base`,
 the largest text in the popup above the prompt titles the window is for.
 The `{N}` badge on a row is on the fill-in tint (it counts fill-ins) rather
 than the warn tint, whose text read 4.1:1 on its 15% ground in light; and
