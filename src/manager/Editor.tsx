@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
 import { commitKey, fieldVariants } from "@/components/field"
 import { Chip, TagPill, chipVariants } from "@/components/prompt-bits"
-import { Checkbox } from "@/components/ui/checkbox"
+import { Switch } from "@/components/ui/switch"
 import { useLibraryMenus } from "./menus"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr } from "./status"
@@ -475,27 +475,31 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 py-3 leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
           />
         </div>
-        {/* Auto enter: the field's footer, the header's twin under it (its
-            title on the left, its control on the right). The popup presses
-            Enter after pasting the prompt, for quick replies to an agent.
-            Saved at once (not by the text's autosave, which doesn't carry
-            it), and kept out of pack files and exports, so a shared pack
-            can't arrive set to run a command. */}
+        {/* Auto enter: the field's footer, a band under it in the primary,
+            the New button's fill (indigo in Indigo; the ink in Instrument,
+            which never fills a surface with its accent), so the one setting
+            that changes what Enter does stands out. The toggle leads; the
+            title and what it does follow, in the band's own ink. The popup
+            presses Enter after pasting the prompt, for quick replies to an
+            agent. Saved at once (not by the text's autosave, which doesn't
+            carry it), and kept out of pack files and exports, so a shared
+            pack can't arrive set to run a command. */}
         <label
-          className="flex min-w-0 cursor-pointer items-center gap-2"
+          className="-mx-3 -mb-3 -mt-3 flex min-w-0 cursor-pointer items-center gap-2 rounded-b-xl bg-primary px-3 py-2.5 text-primary-foreground"
           title="The popup presses Enter after pasting this prompt, so it is sent at once. For quick replies; never for commands you want to read first"
         >
-          <span className="section-title">Auto enter</span>
-          <span className="min-w-0 truncate text-xs text-muted-foreground">· presses Enter after the popup pastes it</span>
-          <Checkbox
-            className="ml-auto"
+          <Switch
             aria-label="Auto enter"
             checked={!!snippet.autoEnter}
             onCheckedChange={(on) => {
               const id = snippet.id
-              void m.persist((cur) => cur.map((s) => (s.id === id ? { ...s, autoEnter: on === true || undefined } : s)))
+              void m.persist((cur) => cur.map((s) => (s.id === id ? { ...s, autoEnter: on || undefined } : s)))
             }}
+            className="bg-primary-foreground/30 focus-visible:ring-primary-foreground/60 data-checked:bg-primary-foreground"
+            thumbClassName="bg-primary-foreground data-checked:bg-primary"
           />
+          <span className="text-ui font-semibold">Auto enter</span>
+          <span className="min-w-0 truncate text-xs">· presses Enter after the popup pastes it</span>
         </label>
         {badNames.length > 0 && (
           <p role="note" className="text-xs text-muted-foreground">
