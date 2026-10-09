@@ -738,9 +738,12 @@ replies to an agent. While it is on (`AppState.keep_open`):
 - The hotkey only focuses the popup (it is already visible), so no
   `popup-shown` refreshes it; the clipboard is read again whenever the
   window gets the focus instead, and typing lands in the search box.
-- The frame (the shell's padding and the gaps between strips) drags the
-  window (`data-tauri-drag-region`, which Tauri honours only on the element
-  itself, so no control loses its click); it stays where it is dragged until
+- The **hint bar** is the window's handle: a press anywhere on it moves the
+  popup (`startDragging`, started in code because Tauri's
+  `data-tauri-drag-region` answers only a press on the element itself and
+  the hints are spans inside it), with the move cursor while kept open. The
+  frame (the shell's padding and the gaps between strips) drags too, but at
+  8 px it was too thin to find. The popup stays where it is dragged until
   Keep open ends, and a later summon opens at the cursor again.
 - The hint bar shows `Ctrl K kept open` where `Esc close` was.
 
