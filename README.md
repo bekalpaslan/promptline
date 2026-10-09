@@ -50,8 +50,9 @@ scoop install promptline
 Scoop runs the same setup exe from the release, so the install is the same
 one and it updates itself the same way.
 
-Either installs for the current user only, under `%LOCALAPPDATA%\Promptline`,
-so there is no admin prompt. If Microsoft Edge WebView2 is missing (it ships
+The setup exe installs for the current user only, under
+`%LOCALAPPDATA%\Promptline`, so there is no admin prompt; the MSI installs
+for all users under Program Files and asks for admin. If Microsoft Edge WebView2 is missing (it ships
 with Windows 11 and most Windows 10 machines), the installer downloads its
 bootstrapper, which is the one moment installation needs the network.
 
@@ -106,10 +107,12 @@ with your clipboard already inside.
 ## Uninstall
 
 **Settings → Apps → Installed apps** (Apps & Features), like any other
-program. The uninstaller offers a **Delete the application data**
-checkbox: leave it off to keep your library for a reinstall, tick it to
-remove the data folder too. Either way it removes the autostart entry it
-made, so nothing of Promptline runs at the next login.
+program. The setup exe's uninstaller offers a **Delete the application
+data** checkbox: leave it off to keep your library for a reinstall, tick
+it to remove the data folder too. Either way it removes the autostart
+entry it made, so nothing of Promptline runs at the next login. The MSI's
+uninstaller removes the program only; turn autostart off in **Settings**
+first.
 
 ## Back up / sync
 
@@ -123,8 +126,8 @@ Backup and import** (see [Data](#data)).
 
 ## Known limitations
 
-- **Windows only, for now.** A macOS version is on the way; it needs one
-  module rewritten (see [Stack](#stack)).
+- **Windows only, for now.** A macOS version is on the way; it needs the
+  Windows-specific parts rewritten (see [Stack](#stack)).
 - **Unsigned installers**, so SmartScreen warns once (above).
 - **Elevated windows don't accept the paste.** Windows blocks keystrokes
   from a normal process into a window running as administrator (an elevated
@@ -254,12 +257,13 @@ built-in or a field name the rest of your library already uses.
   manager opens from the tray icon); theme (Instrument, the default, or
   Indigo, each with a light and a dark side); mode (System / Light / Dark,
   System follows Windows); popup density; UI font (system / Outfit / Inter /
-  serif / mono); UI scale (90–125%); **Packs** — each pack and its file, Generate and New pack;
-  and **Backup and import** — export the whole library to the clipboard or a file, import from
-  the clipboard or a file, or **Open folder** to see the data folder
-  (library, packs and the log file) in Explorer, plus per-pack rows to
-  import from, export, or create that pack's file; and **About**, with the
-  version you're running
+  serif / mono); UI scale (90–125%); **Packs** — each pack and its file,
+  with rows to copy its path, show it in Explorer, import from it, export
+  it, or create its file, plus Generate and New pack; **Backup and import**
+  — export the whole library to the clipboard or a file, import from the
+  clipboard or a file, or **Open folder** to see the data folder (library,
+  packs and the log file) in Explorer; and **About**, with the version
+  you're running
 
 ## Data
 
@@ -283,7 +287,8 @@ Requires Rust and Node 22 (`.nvmrc`).
 ```sh
 npm install
 npm run dev        # run in dev mode (starts Vite + Tauri; UI hot-reloads)
-npm run build      # produce installer (src-tauri/target/release/bundle)
+npm run build:unsigned  # produce the installers (src-tauri/target/release/bundle)
+npm run build      # the same, signed for the updater (needs the release key)
 npm run ui:build   # typecheck + build the frontend only
 npm test           # JS core tests (node --test)
 npm run tokens     # render design/tokens.json into src/index.css (tokens:check verifies)
@@ -295,7 +300,7 @@ npm run lint       # ESLint over the whole tree (`npx eslint src` for the app al
 ```
 
 CI (`.github/workflows/ci.yml`) runs lint, typecheck, the frontend build,
-`cargo fmt`/`clippy` and both test suites on every push and pull request; a
+`cargo fmt`/`clippy` and the three test suites (node, Playwright, Rust) on every push and pull request; a
 `v*` tag also builds both installers and keeps them as workflow artefacts
 (the release itself is still made by hand). See [Install](#install) for the
 unsigned-installer caveat.
@@ -314,10 +319,11 @@ problem.
 ## Stack
 
 Tauri 2 (Rust) + React 19 + Vite + Tailwind v4 + [shadcn/ui](https://ui.shadcn.com)
-(Base UI primitives, Outfit font, Remix Icon). Windows-specific parts (focus
-restore via `SetForegroundWindow`, paste via `SendInput`) are isolated in the
-`src-tauri/src/platform.rs`; a macOS port only needs that file
-reimplemented (CGEventPost + Accessibility permission).
+(Base UI primitives, Segoe UI by default with Outfit and Inter bundled, Remix
+Icon). Windows-specific parts (focus restore via `SetForegroundWindow`, paste
+via `SendInput`) are isolated in `src-tauri/src/platform.rs`; a macOS port
+needs that file reimplemented (CGEventPost + Accessibility permission), plus
+the Explorer call in `commands.rs`.
 
 ## Support
 
@@ -332,7 +338,7 @@ go to the [issue tracker](https://github.com/bekalpaslan/promptline/issues).
 
 ## Credits
 
-- [Outfit](https://github.com/Outfitio/Outfit-Fonts), the UI font, by the
+- [Outfit](https://github.com/Outfitio/Outfit-Fonts), one of the UI fonts, by the
   Outfit Project Authors under the SIL Open Font License 1.1
 - [Remix Icon](https://remixicon.com), the icons, by Remix Design under the
   Remix Icon License 1.0
