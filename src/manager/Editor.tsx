@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
 import { commitKey, fieldVariants } from "@/components/field"
 import { Chip, TagPill, chipVariants } from "@/components/prompt-bits"
+import { Switch } from "@/components/ui/switch"
 import { useLibraryMenus } from "./menus"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr } from "./status"
@@ -448,7 +449,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
       <div className="module flex flex-col gap-3">
         {/* Copy sits on the text it copies: what is in the field now,
             unsaved edits and all, the way an overview card copies (./copy) */}
-        <div className="flex min-w-0 items-center">
+        <div className="flex min-w-0 items-center gap-2">
           <span className="section-title">Prompt</span>
           <Button
             variant="ghost"
@@ -463,7 +464,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             {copied ? "Copied" : "Copy"}
           </Button>
         </div>
-        <div className={cn("-mx-3 flex flex-col overflow-hidden border border-transparent bg-secondary focus-within:border-(--focus)", badNames.length ? "" : "-mb-3 rounded-b-xl")}>
+        <div className="-mx-3 flex flex-col overflow-hidden border border-transparent bg-secondary focus-within:border-(--focus)">
           <Textarea
             ref={textRef}
             value={text}
@@ -474,6 +475,40 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 py-3 leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
           />
         </div>
+        {/* Auto enter: the field's footer. Off, it is the "Prompt" header's
+            quiet twin under the field. On, it lights up in Warn, the colour
+            that says "this changes what happens" in every theme (pins,
+            locks, "paste without clipboard"): the unset-config strip's tint,
+            Warn at 15%, with Warn text. It was the primary, which is the
+            accent in Indigo and the ink in Instrument, so the same band meant
+            two different things. The toggle leads; the title and what it
+            does follow. The popup
+            presses Enter after pasting the prompt, for quick replies to an
+            agent. Saved at once (not by the text's autosave, which doesn't
+            carry it), and kept out of pack files and exports, so a shared
+            pack can't arrive set to run a command. */}
+        <label
+          className={cn(
+            "-mx-3 -mb-3 -mt-3 flex min-w-0 cursor-pointer items-center gap-2 rounded-b-xl px-3 py-2.5 transition-colors duration-150",
+            snippet.autoEnter ? "bg-(--warn)/15 text-(--warn)" : "text-muted-foreground"
+          )}
+          title="The popup presses Enter after pasting this prompt, so it is sent at once. For quick replies; never for commands you want to read first"
+        >
+          <Switch
+            aria-label="Auto enter"
+            checked={!!snippet.autoEnter}
+            onCheckedChange={(on) => {
+              const id = snippet.id
+              void m.persist((cur) => cur.map((s) => (s.id === id ? { ...s, autoEnter: on || undefined } : s)))
+            }}
+            // On, the track is Warn, like the band; off, the shared switch's
+            // own colours
+            className="data-checked:bg-(--warn) data-checked:focus-visible:ring-(--warn)/50"
+            thumbClassName="data-checked:bg-background"
+          />
+          <span className={cn("text-ui font-semibold", !snippet.autoEnter && "section-title")}>Auto enter</span>
+          <span className={cn("min-w-0 truncate text-xs", snippet.autoEnter && "text-foreground")}>· presses Enter after the popup pastes it</span>
+        </label>
         {badNames.length > 0 && (
           <p role="note" className="text-xs text-muted-foreground">
             {badNames.map((n) => `{${n}}`).join(", ")} {badNames.length === 1 ? "is" : "are"} plain text: a field name is lowercase letters, digits and _, not

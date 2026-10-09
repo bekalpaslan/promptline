@@ -16,6 +16,12 @@ export interface Snippet {
   /** When this prompt was pinned (ms since epoch); 0 = not pinned, or a legacy pin */
   pinnedAt: number
   configValues: Record<string, string>
+  /**
+   * Auto enter: press Enter after pasting it (the editor's toggle under the
+   * prompt). Personal state like `pinned`: never in a pack file, export or
+   * import. Absent while off (Rust leaves it out of snippets.json).
+   */
+  autoEnter?: boolean
 }
 
 /** What every snippet command returns: the library and the revision it was read at */

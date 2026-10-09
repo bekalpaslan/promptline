@@ -739,6 +739,111 @@ test("Ctrl+↓ drops the whole clipboard under its line, line by line; Esc, Ente
   await expect(search(page)).toHaveValue("ro")
 })
 
+test("Keep open: Ctrl+K or the button keeps the popup up after a paste, and Esc ends it", async ({ page }) => {
+  const toggle = page.getByRole("button", { name: "Keep open (Ctrl K)" })
+  await expect(toggle).toHaveAttribute("aria-pressed", "false")
+  await search(page).press("Control+k")
+  await expect(toggle).toHaveAttribute("aria-pressed", "true")
+  expect((await calls(page)).filter((c) => c.cmd === "set_keep_open").map((c) => c.args?.on)).toEqual([true])
+  // The bar names the key that keeps it, where Esc close was
+  await expect(page.getByText("kept open", { exact: true })).toBeVisible()
+  // A paste says what landed and leaves the popup up, ready for the next one
+  const first = (await rows(page).first().getAttribute("aria-label")) ?? ""
+  await search(page).press("Enter")
+  await expect(strip(page)).toContainText("Pasted")
+  // The next pick waits for the paste thread's Ctrl+V (one paste at a time)
+  await page.waitForTimeout(400)
+  await search(page).press("Enter")
+  await expect.poll(async () => (await calls(page)).filter((c) => c.cmd === "paste_snippet").length).toBe(2)
+  expect((await calls(page)).filter((c) => c.cmd === "hide_popup")).toHaveLength(0)
+  expect(first).not.toBe("")
+  // A copy stays up too
+  await page.waitForTimeout(400)
+  await search(page).press("Control+Enter")
+  await expect(strip(page)).toContainText("Copied")
+  await page.waitForTimeout(800)
+  expect((await calls(page)).filter((c) => c.cmd === "hide_popup")).toHaveLength(0)
+  // Esc closes, which ends it; the next summon starts without it
+  await search(page).press("Escape")
+  expect((await calls(page)).filter((c) => c.cmd === "hide_popup")).toHaveLength(1)
+  await emit(page, "popup-shown")
+  await expect(toggle).toHaveAttribute("aria-pressed", "false")
+  // The button does the same as the key
+  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-pressed", "true")
+  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-pressed", "false")
+})
+
+test("a prompt set to Auto enter says so, and only a paste asks Rust to press Enter", async ({ page }) => {
+  // The top row is set to Auto enter (the editor's toggle)
+  const title = await page.evaluate(() => {
+    const lib = (window as unknown as { __mock: { library: { snippets: { title: string; pinned: boolean; autoEnter?: boolean }[] } } }).__mock.library
+    const s = lib.snippets.find((x) => x.pinned)!
+    s.autoEnter = true
+    return s.title
+  })
+  await emit(page, "popup-shown")
+  const row = page.getByRole("option", { name: `${title}, auto enter`, exact: true })
+  await expect(row.first()).toBeVisible()
+  await expect(row.first()).toHaveAttribute("aria-selected", "true")
+  // The bar's Enter says what it will do, and stays one line
+  await expect(page.getByText("paste and enter", { exact: true })).toBeVisible()
+  const [a, b] = await Promise.all([page.getByText("paste and enter", { exact: true }).boundingBox(), page.getByText("close", { exact: true }).boundingBox()])
+  expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
+  // A copy never sends
+  await search(page).press("Control+Enter")
+  await expect.poll(async () => (await calls(page, "paste_snippet")).length).toBe(1)
+  expect((await calls(page, "paste_snippet"))[0].args?.autoEnter).toBe(false)
+  await emit(page, "popup-shown")
+  await search(page).press("Enter")
+  await expect.poll(async () => (await calls(page, "paste_snippet")).length).toBe(2)
+  expect((await calls(page, "paste_snippet"))[1].args?.autoEnter).toBe(true)
+})
+
+test("the resting hint bar stays one line with Keep open, an Auto enter row, or both, at every width", async ({ page }) => {
+  const hint = (label: string) => page.getByText(label, { exact: true })
+  const oneLine = async (first: string, last: string, what: string) => {
+    const [a, b] = await Promise.all([hint(first).boundingBox(), hint(last).boundingBox()])
+    expect(Math.abs(a!.y - b!.y), what).toBeLessThan(2)
+  }
+  const setSend = (on: boolean) =>
+    page.evaluate((on) => {
+      const lib = (window as unknown as { __mock: { library: { snippets: { pinned: boolean; autoEnter?: boolean }[] } } }).__mock.library
+      lib.snippets.find((x) => x.pinned)!.autoEnter = on
+    }, on)
+  for (const [keep, send] of [[true, false], [false, true], [true, true]] as const) {
+    await setSend(send)
+    await emit(page, "popup-shown")
+    if (keep) await search(page).press("Control+k")
+    const first = send ? "paste and enter" : "paste"
+    const last = keep ? "kept open" : "close"
+    for (const width of [320, 360, 400, 440, 500, 560, 640]) {
+      await page.setViewportSize({ width, height: 600 })
+      await oneLine(first, last, `keep ${keep}, send ${send}, ${width} px`)
+    }
+    await page.setViewportSize({ width: 400, height: 600 })
+  }
+})
+
+test("the hint bar is the window's handle: a press on it moves the popup", async ({ page }) => {
+  const bar = page.getByText("close", { exact: true })
+  // The bar shows the grab cursor, and grabbing for a moment on a press
+  expect(await bar.evaluate((el) => getComputedStyle(el).cursor)).toBe("grab")
+  await bar.dispatchEvent("pointerdown", { button: 0 })
+  await expect.poll(async () => (await calls(page, "plugin:window|start_dragging")).length).toBe(1)
+  expect(await bar.evaluate((el) => getComputedStyle(el).cursor)).toBe("grabbing")
+  await expect.poll(() => bar.evaluate((el) => getComputedStyle(el).cursor)).toBe("grab")
+  // Not with the other button
+  await bar.dispatchEvent("pointerdown", { button: 2 })
+  expect(await calls(page, "plugin:window|start_dragging")).toHaveLength(1)
+  // The hand sits in the corner without taking the hints' width: the
+  // resting bar stays one line at the default size, five hints and all
+  const [first, last] = await Promise.all([page.getByText("paste", { exact: true }).boundingBox(), bar.boundingBox()])
+  expect(Math.abs(first!.y - last!.y)).toBeLessThan(2)
+  await expect(page.getByText("preview", { exact: true })).toBeVisible()
+})
+
 test("a slot key with the clipboard panel open puts the panel away and pastes nothing", async ({ page }) => {
   await search(page).press("Control+ArrowDown")
   const panel = page.getByRole("region", { name: "Clipboard" })
@@ -761,7 +866,7 @@ test("the hint bar names the clipboard panel's keys, keeps a failed paste's reco
   await page.setViewportSize({ width: 540, height: 600 })
   await expect(hint("clipboard")).toBeHidden()
   await oneLine("paste", "close")
-  await page.setViewportSize({ width: 570, height: 600 })
+  await page.setViewportSize({ width: 590, height: 600 })
   await expect(hint("clipboard")).toBeVisible()
   await oneLine("paste", "close")
   await search(page).press("Control+ArrowDown")

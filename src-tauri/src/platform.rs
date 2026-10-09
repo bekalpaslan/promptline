@@ -1,30 +1,119 @@
-//! The Windows-specific code: which window is in front, bringing one to
-//! the front, sending Ctrl+V, the mouse button for the resize-drag check,
-//! handing a URL to the shell, and hearing that Windows is ending the
-//! session. Everything else in the crate is
+//! The Windows-specific code: which window is in front (and which one
+//! outside Promptline was last), bringing one to the front, sending Ctrl+V,
+//! the mouse button for the resize-drag check, handing a URL to the shell,
+//! and hearing that Windows is ending the session. Everything else in the crate is
 //! portable; a macOS port reimplements this file (CGEventPost, plus the
 //! Accessibility permission) and nothing else.
 
+/// Windows that come to the front without being somewhere a paste could go:
+/// the taskbar (primary and secondary), the desktop, and the Alt+Tab and
+/// Task View switchers. Clicking the taskbar to reach the kept-open popup
+/// must not make the taskbar its paste target.
+#[cfg(any(windows, test))]
+fn is_shell_class(class: &str) -> bool {
+    matches!(
+        class,
+        "Shell_TrayWnd"
+            | "Shell_SecondaryTrayWnd"
+            | "Progman"
+            | "WorkerW"
+            | "ForegroundStaging"
+            | "MultitaskingViewFrame"
+            | "XamlExplorerHostIslandWindow"
+            | "TaskSwitcherWnd"
+    )
+}
+
 #[cfg(windows)]
 mod imp {
-    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
     use std::time::{Duration, Instant};
 
     use windows::core::{w, HSTRING, PCWSTR};
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
-        KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_MENU, VK_SHIFT, VK_V,
+        KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_MENU, VK_RETURN, VK_SHIFT, VK_V,
     };
     use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass, ShellExecuteW};
     use windows::Win32::UI::WindowsAndMessaging::{
-        DispatchMessageW, GetForegroundWindow, MsgWaitForMultipleObjects, PeekMessageW,
-        PostQuitMessage, SetForegroundWindow, TranslateMessage, MSG, PM_REMOVE, QS_ALLINPUT,
-        SW_SHOWNORMAL, WM_QUERYENDSESSION, WM_QUIT,
+        DispatchMessageW, GetClassNameW, GetForegroundWindow, GetWindowThreadProcessId,
+        MsgWaitForMultipleObjects, PeekMessageW, PostQuitMessage, SetForegroundWindow,
+        TranslateMessage, EVENT_SYSTEM_FOREGROUND, MSG, OBJID_WINDOW, PM_REMOVE, QS_ALLINPUT,
+        SW_SHOWNORMAL, WINEVENT_OUTOFCONTEXT, WINEVENT_SKIPOWNPROCESS, WM_QUERYENDSESSION, WM_QUIT,
     };
 
     pub(crate) fn foreground_window() -> isize {
         unsafe { GetForegroundWindow().0 as isize }
+    }
+
+    // The last window outside Promptline that came to the front: where a
+    // kept-open popup pastes. Written by the foreground hook below.
+    static LAST_FOREIGN: AtomicIsize = AtomicIsize::new(0);
+
+    /// The window a kept-open popup pastes into: the last one outside
+    /// Promptline the user was in. 0 until one has come to the front since
+    /// `track_foreground` started.
+    pub(crate) fn last_foreign_window() -> isize {
+        LAST_FOREIGN.load(Ordering::Relaxed)
+    }
+
+    /// Remember `hwnd` as the last foreign window, unless it is one of ours
+    /// or the shell's. `show_popup` records the window it was summoned over
+    /// the same way, so a hook that missed it (it started late) still has one.
+    pub(crate) fn note_foreign(hwnd: isize) {
+        if hwnd == 0 || is_ours_or_shell(HWND(hwnd as *mut core::ffi::c_void)) {
+            return;
+        }
+        LAST_FOREIGN.store(hwnd, Ordering::Relaxed);
+    }
+
+    fn is_ours_or_shell(hwnd: HWND) -> bool {
+        let mut pid = 0u32;
+        unsafe { GetWindowThreadProcessId(hwnd, Some(&mut pid)) };
+        if pid == std::process::id() {
+            return true;
+        }
+        let mut buf = [0u16; 64];
+        let n = unsafe { GetClassNameW(hwnd, &mut buf) };
+        n > 0 && super::is_shell_class(&String::from_utf16_lossy(&buf[..n as usize]))
+    }
+
+    /// Follow the foreground window for the life of the process. Out of
+    /// context, so the callback runs on this thread (the main one, whose
+    /// event loop pumps its messages) and nothing is injected anywhere; our
+    /// own process's windows are skipped by the flag as well as by the check.
+    /// False when Windows refused the hook: a kept-open popup then pastes
+    /// into the window it was summoned over.
+    pub(crate) fn track_foreground() -> bool {
+        note_foreign(foreground_window());
+        let hook = unsafe {
+            SetWinEventHook(
+                EVENT_SYSTEM_FOREGROUND,
+                EVENT_SYSTEM_FOREGROUND,
+                None,
+                Some(on_foreground),
+                0,
+                0,
+                WINEVENT_OUTOFCONTEXT | WINEVENT_SKIPOWNPROCESS,
+            )
+        };
+        !hook.is_invalid()
+    }
+
+    unsafe extern "system" fn on_foreground(
+        _hook: HWINEVENTHOOK,
+        _event: u32,
+        hwnd: HWND,
+        id_object: i32,
+        _id_child: i32,
+        _thread: u32,
+        _time: u32,
+    ) {
+        if id_object == OBJID_WINDOW.0 {
+            note_foreign(hwnd.0 as isize);
+        }
     }
 
     /// Hand a URL to whatever the shell has registered for it (the default
@@ -98,6 +187,14 @@ mod imp {
             key(VK_V, true),
             key(VK_CONTROL, true),
         ];
+        let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
+        sent as usize == inputs.len()
+    }
+
+    /// Press Enter: a prompt set to Auto enter. False when SendInput
+    /// inserted fewer events than asked, as for Ctrl+V.
+    pub(crate) fn send_enter() -> bool {
+        let inputs = [key(VK_RETURN, false), key(VK_RETURN, true)];
         let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
         sent as usize == inputs.len()
     }
@@ -235,10 +332,20 @@ mod imp {
     pub(crate) fn foreground_window() -> isize {
         0
     }
+    pub(crate) fn last_foreign_window() -> isize {
+        0
+    }
+    pub(crate) fn note_foreign(_hwnd: isize) {}
+    pub(crate) fn track_foreground() -> bool {
+        false
+    }
     pub(crate) fn focus_window(_hwnd: isize) -> bool {
         false
     }
     pub(crate) fn send_ctrl_v() -> bool {
+        false
+    }
+    pub(crate) fn send_enter() -> bool {
         false
     }
     pub(crate) fn left_button_down() -> bool {
@@ -272,5 +379,32 @@ pub(crate) use imp::open_url;
 #[cfg(feature = "updater")]
 pub(crate) use imp::{claim_app_id, show_toast};
 pub(crate) use imp::{
-    focus_window, foreground_window, left_button_down, on_session_end, send_ctrl_v, SessionEnd,
+    focus_window, foreground_window, last_foreign_window, left_button_down, note_foreign,
+    on_session_end, send_ctrl_v, send_enter, track_foreground, SessionEnd,
 };
+
+#[cfg(test)]
+mod tests {
+    use super::is_shell_class;
+
+    #[test]
+    fn the_taskbar_desktop_and_switchers_are_never_a_paste_target() {
+        for class in [
+            "Shell_TrayWnd",
+            "Shell_SecondaryTrayWnd",
+            "Progman",
+            "WorkerW",
+            "XamlExplorerHostIslandWindow",
+        ] {
+            assert!(is_shell_class(class), "{class}");
+        }
+        // An app's window is
+        for class in [
+            "CASCADIA_HOSTING_WINDOW_CLASS",
+            "Chrome_WidgetWin_1",
+            "Notepad",
+        ] {
+            assert!(!is_shell_class(class), "{class}");
+        }
+    }
+}

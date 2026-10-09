@@ -195,6 +195,15 @@ built-in or a field name the rest of your library already uses.
 - The whole popup is keyboard-operable and screen-reader labelled (a real
   listbox, announced results, collapsible pack sections from the keyboard)
 - **Drag the window edge** to resize; the size is remembered
+- **Ctrl+K** (or the toggle beside the search box) keeps the popup open
+  beside your work: it stays up after a paste and pastes into the last
+  window you used, so a run of short replies to an agent is one click each.
+  Drag its frame to move it; **Esc** closes it and ends Keep open
+- **Auto enter** (a toggle under a prompt's text in the editor) presses
+  Enter for you after the paste, for quick replies like "LGTM" or `/clear`.
+  The popup marks those rows with ↵ and its hint bar says "paste and
+  enter"; a copy never enters. It stays in your library and never travels
+  in a pack file or an export
 - The prompt stays on your clipboard after pasting — if the app you came from
   had no text field focused, the keystroke lands nowhere, so click into one and
   paste it yourself
