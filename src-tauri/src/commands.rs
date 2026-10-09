@@ -12,8 +12,9 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 use crate::packs::{
     arrange_packs_in, back_pack_in, export_file_name, new_pack_file, packs_after_sync,
-    relativize_pack_path, remove_pack_in, rename_pack_in, resolve_pack_path, retire_pack_file,
-    set_pack_locked_in, sync_pack_files, validate_pack_name, with_resolved_pack_paths, PackMeta,
+    relativize_pack_path, remove_pack_in, rename_pack_file, rename_pack_in, resolve_pack_path,
+    retire_pack_file, set_pack_locked_in, sync_pack_files, validate_pack_name,
+    with_resolved_pack_paths, PackMeta,
 };
 use crate::store::{
     check_revision, current_revision, data_dir, first_free, library, load_config_from_disk,
@@ -329,7 +330,16 @@ pub(crate) fn rename_pack(
     let mut config = load_config_from_disk(&app)?;
     let mut snippets = load_snippets_from_disk(&app)?;
     rename_pack_in(&mut config, &mut snippets, &from, &to)?;
-    save_config(&app, &config)?;
+    // The file follows the name when the app named it (see the function);
+    // a registry that then fails to save puts the file back, or it would
+    // point at a file that is gone
+    let moved = rename_pack_file(&packs_dir(&app), &mut config, &from, &to);
+    if let Err(e) = save_config(&app, &config) {
+        if let Some((src, dst)) = moved {
+            let _ = fs::rename(dst, src);
+        }
+        return Err(e);
+    }
     write_snippets(&app, &snippets)?;
     sync_pack_files(&app, &snippets);
     notify_other_window(&app, &window);
