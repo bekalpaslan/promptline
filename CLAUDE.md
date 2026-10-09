@@ -2,9 +2,10 @@
 
 A Tauri 2 tray app for Windows: Rust in `src-tauri/src/` (`lib.rs` holds
 `AppState`, the tray and `run()`; `store.rs` files and atomic writes,
-`packs.rs` pack metadata and files, `commands.rs` the Tauri commands,
-`paste.rs` the popup and paste pipeline, `platform.rs` the Win32 calls,
-`update.rs` the update check, `migrations.rs` old data), two React windows
+`packs.rs` pack metadata and files, `commands.rs` the Tauri commands
+(the paste and update ones live in `paste.rs` and `update.rs`), `paste.rs`
+the popup and paste pipeline, `platform.rs` the Win32 calls, `update.rs`
+the update check, `migrations.rs` old data), two React windows
 (`index.html` = manager, `popup.html` = popup) built by one Vite config,
 pure logic in `ui/core.js` (plain UMD, tested with bare `node --test`) with
 its TypeScript face in `src/lib/core.ts`. The updater is a default-on Cargo
@@ -49,10 +50,12 @@ backlog, not from another audit, unless asked.
   code and the doc fixed, one commit per doc, on a `chore/doc-audit-…`
   branch). `/monthly-theme <figma url>`, `/release` and
   `/doc-audit [doc, area or "since vX.Y.Z"]` run them.
-- `site/` — the one-page website at https://promptline.cc, published to
+- `site/` — the website at https://promptline.cc (the home page, `posts/`
+  and `code-signing/`), published to
   GitHub Pages by `.github/workflows/pages.yml` on every push to `master`
   that touches it (the workflow runs `node scripts/site-assets.mjs`, which
-  copies `docs/og.png`, `docs/screenshots/*.png` and the clip's video and
+  copies `docs/og.png`, the two icons from `src-tauri/icons/`,
+  `docs/screenshots/*.png` and the clip's video and
   posters from `docs/clip/` in and makes the lossless WebP the page serves,
   one per shot and poster; `site/` holds no binaries). Plain HTML and CSS on the tokens from `design/tokens.json`;
   `site/site.css` holds what every page shares (the tokens, the base, the
@@ -159,7 +162,8 @@ Seven, and CI runs all of them on every push and PR (`.github/workflows/ci.yml`)
 
 - `npx tsc -b --noEmit` (the app, the Vite config and `e2e/`)
 - `npm run lint` (`eslint . --max-warnings 0`: a warning fails)
-- `npm test` (node: core, tokens, and two parity tests, below)
+- `npm test` (node, `tests/*.test.js`: core, tokens, the two parity tests
+  below, and the site, README, clip and release-script tests)
 - `npm run test:e2e` (Playwright: both windows in Chromium against the
   fake backend, `e2e/*.spec.ts`; `npx playwright install chromium` once.
   It starts its own Vite on 5179, or reuses one already there; a first
@@ -175,6 +179,9 @@ Seven, and CI runs all of them on every push and PR (`.github/workflows/ci.yml`)
   them so with fixes, not `#[allow]`). CI also runs clippy with
   `--no-default-features` (the store build's feature set) and it must stay
   clean too.
+
+CI also runs `npm run ui:build` (`tsc -b && vite build`), where Tailwind
+and CSS errors surface.
 
 Two tests enforce the seams, so read their failure text before anything else:
 
@@ -227,7 +234,10 @@ Open `http://localhost:5175/?mock` (manager) or `/popup.html?mock` (popup);
 `window.__TAURI_INTERNALS__` before the app renders, seeded from
 `packs/*.json` plus a small grouped pack, and exposes `window.__mock`:
 `calls` (every invoke with its args), `clipboard` (settable), `emit(event,
-payload)` for backend events such as `edit-prompt`, and `library`. Each page
+payload)` for backend events such as `edit-prompt`, `library`, and
+`pasteResult`, `update` and `fail` (a set of command names that reject).
+`?mock=library-error` is an upgraded install whose library can't be read;
+`?mock=store` is the store build (no updater). Each page
 has its own in-memory store; a reload starts over. Unknown commands resolve
 to null and log `[mock] unhandled command …`. When you add a Tauri command
 the UI depends on, add it to the mock too.
@@ -287,7 +297,7 @@ it work:
   orchestrator pastes them in.
 - **Finish the tree.** After merging, `git worktree remove --force` every
   agent worktree (unlock first if the harness left a lock), delete the
-  branches, then run the six checks from the main checkout. Lint walks
+  branches, then run the seven checks from the main checkout. Lint walks
   worktrees, so it can't pass before they're gone.
 - **Sequential when files collide.** A wave that touches `lib.rs` and one
   that splits it cannot run together; the split ran last, alone.
