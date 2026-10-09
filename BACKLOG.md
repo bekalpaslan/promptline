@@ -60,7 +60,7 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 
 - **Split the three largest components** — `Editor.tsx` (params panel + tag
   strip), `GenerateDialog.tsx` (pure `generate-instructions.ts` + dialog),
-  `Settings.tsx` (hotkey recorder + library card). Pure moves, no behaviour
+  `Settings.tsx` (hotkey recorder + the Packs card). Pure moves, no behaviour
   change; deferred from the 2026-09 review (D6) to keep that diff readable.
 
 ## Search
@@ -91,10 +91,10 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 - ~~**Three config re-reads per write**~~ — **shipped 0.2.15**: a write
   hands `sync_pack_files` the library it just wrote, and config.json is
   read once.
-- **Popup options contain buttons** — the tag pills and pack headers inside
-  `role=listbox` options are invalid ARIA, though they work with
-  `aria-activedescendant`; move tag filtering to the action panel (release
-  audit L20 leftover).
+- ~~**Popup options contain buttons**~~ — **shipped 0.2.19** differently:
+  a row's pills are text carrying `data-tag`, which the row's click reads,
+  and pack and group headers are `aria-hidden` inside named groups
+  (BEHAVIOR.md, "The list is a listbox"; release audit L20 leftover).
 - ~~**Real-library screenshot**~~ — **done 2026-09-25** differently: every
   screen is staged against a demo library (`npm run shots`), in both
   themes, for the site's tour and the README.
@@ -119,13 +119,14 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   times that; check the pricing page before building it.
 
 - **Code signing** — unsigned installers trip Windows SmartScreen.
-- ~~**Auto-update**~~ — **built for the release after 0.2.16**: the Tauri
+- ~~**Auto-update**~~ — **shipped 0.2.17**: the Tauri
   updater reads `site/latest.json` on promptline.cc, written by the release
   step (CLAUDE.md, Releasing).
 - ~~**Stable-named installer**~~ — **shipped 2026-09-24**: each release
   carries a `Promptline-setup.exe` copy, and the website links to it
   instead of asking the GitHub API from the visitor's browser.
-- **security@promptline.cc** — GoDaddy forwarding to the mailbox, then
-  SECURITY.md stops naming a personal address.
+- ~~**security@promptline.cc**~~ — **shipped 0.2.17**: GoDaddy forwards
+  it to the mailbox, and SECURITY.md names it instead of a personal
+  address.
 - **macOS port** — reimplement the `platform` module (CGEventPost + Accessibility
   permission); everything else is portable.
