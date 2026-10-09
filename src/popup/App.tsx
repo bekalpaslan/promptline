@@ -1801,7 +1801,7 @@ export function App() {
           aria-label="Keep open (Ctrl K)"
           title={keepOpen ? "Kept open: pastes go to the last window you used. Drag the frame to move it; Ctrl+K or Esc ends it" : "Keep open: stays up beside your work and pastes into the last window you used (Ctrl+K)"}
           className={cn(
-            "focus-ring -mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-hover hover:text-foreground",
+            "focus-ring flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-hover hover:text-foreground",
             keepOpen ? "bg-secondary text-foreground" : "text-muted-foreground"
           )}
           onClick={() => {
@@ -2364,7 +2364,8 @@ function Shell({
           itself, and the hints are spans inside it. It holds no control. */}
       <div
         className={cn(
-          "group/bar relative @container flex shrink-0 select-none flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border px-2 pt-2 font-mono text-micro text-muted-foreground",
+          "group/bar relative @container flex shrink-0 select-none flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border pl-2 pt-2 font-mono text-micro text-muted-foreground",
+          movable ? "pr-7" : "pr-2",
           gripping ? "cursor-grabbing" : "cursor-grab"
         )}
         onPointerDown={(e) => {
@@ -2372,25 +2373,30 @@ function Shell({
         }}
       >
         {hint}
-        {/* The handle's own mark: an open hand in the bar's right corner,
-            on the hints' line, half in the bar's right padding and half in
-            the frame's, so it never covers a hint and takes no width from
-            them: a gutter of its own wrapped the bar at the default 400 px.
-            Faint at rest, in full ink under the pointer and while
-            kept open (when the popup is moved), and for a moment on a press
-            it closes, smaller and tilted, the hand taking hold of the window
-            as the drag starts. Decoration: the bar itself is the handle. */}
-        <span
-          aria-hidden
-          title="Drag here to move the popup"
-          className={cn(
-            "absolute bottom-0 -right-[0.4375rem] flex size-3.5 items-center justify-center transition-[transform,color,opacity] duration-150 ease-out group-hover/bar:text-foreground group-hover/bar:opacity-100",
-            movable ? "text-foreground opacity-100" : "opacity-70",
-            gripping && "-rotate-12 scale-75 text-foreground opacity-100"
-          )}
-        >
-          <RiHand className="size-3.5" />
-        </span>
+        {/* The handle's own mark while kept open, the mode in which the
+            popup is moved: an open hand in the bar's right corner on the
+            hints' line, its right edge on the content edge every strip
+            keeps (17 px from the window, as the first hint is on the left),
+            in a gutter of its own (the bar's 28 px of right padding: the
+            inset, the hand, a hint gap) so it never covers a hint. The
+            kept-open bar's hints are fewer and leave the room; the resting
+            bar's fill its line at 400 px, so there the hand is left out
+            (the bar drags either way). Under the pointer it darkens, and
+            for a moment on a press it closes, smaller and tilted, the hand
+            taking hold of the window as the drag starts. Decoration: the
+            bar itself is the handle. */}
+        {movable && (
+          <span
+            aria-hidden
+            title="Drag here to move the popup"
+            className={cn(
+              "absolute bottom-px right-2 flex size-3.5 items-center justify-center opacity-80 transition-[transform,color,opacity] duration-150 ease-out group-hover/bar:text-foreground group-hover/bar:opacity-100",
+              gripping && "-rotate-12 scale-75 text-foreground opacity-100"
+            )}
+          >
+            <RiHand className="size-3.5" />
+          </span>
+        )}
       </div>
     </div>
   )
