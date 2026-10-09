@@ -19,8 +19,10 @@ machine:
   prompt stays on the clipboard afterwards on purpose (see `BEHAVIOR.md`,
   "The paste pipeline").
 - **Keystrokes into the previous window.** After you pick a prompt it
-  refocuses the window you came from and sends one Ctrl+V with `SendInput`.
-  It never sends anything else and never reads what other windows type; the
+  refocuses the window you came from and sends one Ctrl+V with `SendInput`,
+  first releasing any Shift, Alt or Ctrl still held from the hotkey, and
+  one Enter after it only for a prompt set to Auto enter. It never sends
+  anything else and never reads what other windows type; the
   global hotkey is a `RegisterHotKey` registration, not a keyboard hook.
 - **Local JSON files** under `%APPDATA%\io.github.bekalpaslan.promptline\`:
   your prompts, packs and settings, plus `promptline.log`. Pack files are meant to
