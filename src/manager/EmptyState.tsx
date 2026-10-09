@@ -27,7 +27,7 @@ export function EmptyState({
           {actions.map((a) => (
             <Button
               key={a.label}
-              size="sm"
+              size="xl"
               variant={a.primary ? "default" : "secondary"}
               aria-haspopup={a.menu ? "menu" : undefined}
               onClick={a.onClick}
