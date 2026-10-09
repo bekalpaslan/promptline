@@ -633,7 +633,7 @@ it for the same reason without pasting: both pick a row the user can't
 see. After a failed paste the bar keeps "Ctrl V in the target" first
 while the panel is up, since the panel then shows the prompt that did
 not land; Ctrl N leaves the bar to make room (its key cap is on the
-line). The resting bar names Ctrl ↓ from 560 px, where a seventh hint
+line). The resting bar names Ctrl ↓ from about 580 px, where a seventh hint
 fits on its line; below that the line's chevron and tooltip carry it.
 ←, Tab and Ctrl+↓ close it too, and typing closes it on the way
 into the search box, as it closes the preview card. A press outside it,
@@ -742,9 +742,10 @@ replies to an agent. While it is on (`AppState.keep_open`):
   popup (`startDragging`, started in code because Tauri's
   `data-tauri-drag-region` answers only a press on the element itself and
   the hints are spans inside it), with the grab cursor. Its mark is an open
-  hand sitting on the divider line in the bar's right corner, a grip tab
-  that takes no room from the hints (a hand in the row cost 20 px and
-  wrapped the bar at narrow widths): faint at rest, full ink under the
+  hand in the bar's right corner on the hints' line, half in the bar's
+  right padding and half in the frame's, so it takes no width from the
+  hints (a gutter of its own wrapped the default 400 px bar; a tab on the
+  divider line cut the line): faint at rest, full ink under the
   pointer and while kept open, and for 260 ms on a press it closes, smaller
   and tilted, with the grabbing cursor, as the drag starts (Windows runs
   the move itself, so the release never reaches the page and a timer lets
@@ -771,7 +772,7 @@ last prompt` in Warn, where the paste would carry a hole or wrap itself),
 the action panel's "Paste and enter", the form's "paste and enter", and
 "Pasted and entered …" in a kept-open popup. The longer Enter label, like
 Keep open's `Ctrl K kept open`, crowds the bar: while either shows, actions
-wait for 500 px, preview for 560, fold and the clipboard key leave it, and
+wait for 500 px, preview for about 580, fold and the clipboard key leave it, and
 with both, copy goes below 360.
 It is **personal state**, like `pinned`: `snippet.autoEnter` lives in
 `snippets.json` only (left out while false), never in a pack file, an

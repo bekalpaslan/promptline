@@ -837,6 +837,11 @@ test("the hint bar is the window's handle: a press on it moves the popup", async
   // Not with the other button
   await bar.dispatchEvent("pointerdown", { button: 2 })
   expect(await calls(page, "plugin:window|start_dragging")).toHaveLength(1)
+  // The hand sits in the corner without taking the hints' width: the
+  // resting bar stays one line at the default size, five hints and all
+  const [first, last] = await Promise.all([page.getByText("paste", { exact: true }).boundingBox(), bar.boundingBox()])
+  expect(Math.abs(first!.y - last!.y)).toBeLessThan(2)
+  await expect(page.getByText("preview", { exact: true })).toBeVisible()
 })
 
 test("a slot key with the clipboard panel open puts the panel away and pastes nothing", async ({ page }) => {
@@ -861,7 +866,7 @@ test("the hint bar names the clipboard panel's keys, keeps a failed paste's reco
   await page.setViewportSize({ width: 540, height: 600 })
   await expect(hint("clipboard")).toBeHidden()
   await oneLine("paste", "close")
-  await page.setViewportSize({ width: 570, height: 600 })
+  await page.setViewportSize({ width: 590, height: 600 })
   await expect(hint("clipboard")).toBeVisible()
   await oneLine("paste", "close")
   await search(page).press("Control+ArrowDown")
