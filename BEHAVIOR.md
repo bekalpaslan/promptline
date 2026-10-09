@@ -502,10 +502,11 @@ the selected row's group or pack, and the selection moves to its header
 row it was on: a click on "Everyday" used to carry the selection into
 another pack, so the pointer changed what Enter pasted. ← closes a card
 opened with →, and a second ← within 400 ms does nothing; it used to fold
-the row's section, and folds are saved. While anything is folded the list
-opens with a line that says so and names the key (`1 section folded ·
-Ctrl → unfold`, a button that does the same); the status region adds the
-count. Ctrl+→ was named nowhere at the default width.
+the row's section, and folds are saved. While anything is folded the
+status region adds the count. A line at the top of the list said it too
+(`1 section folded · Ctrl → unfold`) until 2026-10-09, when the user took
+it out: the folded headers show it, and the line was one more strip between
+the clipboard and the prompts.
 
 **One inset.** Every strip of the popup shares the search box's edges, and
 its content starts 8 px in: the search icon, the clipboard icon, a pack's
