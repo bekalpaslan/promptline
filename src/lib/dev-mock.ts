@@ -266,6 +266,8 @@ export function installMock(mode: string | null) {
     // not read as unhandled (an unhandled `hide_popup` would be a real bug)
     edit_in_manager: () => null,
     hide_popup: () => null,
+    // Keep open answers the state it set, as Rust does
+    set_keep_open: (a) => a.on === true,
     quit_now: () => null,
     open_url: () => null,
     show_in_folder: () => null,

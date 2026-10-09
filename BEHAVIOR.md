@@ -717,6 +717,37 @@ the clipboard's first line cut at a word boundary within 40 characters
 ranking and the manager's orders — compare numerically, so "Bulk prompt
 2" comes before "Bulk prompt 10".
 
+**Keep open** (Ctrl+K, or the toggle at the right of the search box) turns
+the popup from a one-shot into a palette beside the work, for runs of short
+replies to an agent. While it is on (`AppState.keep_open`):
+
+- The popup no longer hides when it loses focus, nor after a paste or a
+  copy: the paste thread hands the focus to the target and the popup waits
+  beside it, saying "Pasted …" in the strip. The next pick waits about
+  300 ms, for the paste thread's Ctrl+V.
+- A paste goes to the **last window outside Promptline** the user was in,
+  not the one the popup was summoned over (`paste_window`). Rust follows
+  the foreground window for the life of the process with an out-of-context
+  `SetWinEventHook(EVENT_SYSTEM_FOREGROUND)` on the main thread
+  (`platform::track_foreground`), skipping its own process's windows and
+  the shell's (the taskbar, the desktop, the Alt+Tab and Task View
+  switchers: `is_shell_class`), so a click on the taskbar to reach the
+  popup doesn't become the target. Until another window has come to the
+  front, the summon's window is used. A target that refuses (elevated)
+  fails as any paste does.
+- The hotkey only focuses the popup (it is already visible), so no
+  `popup-shown` refreshes it; the clipboard is read again whenever the
+  window gets the focus instead, and typing lands in the search box.
+- The frame (the shell's padding and the gaps between strips) drags the
+  window (`data-tauri-drag-region`, which Tauri honours only on the element
+  itself, so no control loses its click); it stays where it is dragged until
+  Keep open ends, and a later summon opens at the cursor again.
+- The hint bar shows `Ctrl K kept open` where `Esc close` was.
+
+Every `hide_popup` ends it, so **Esc** closes and turns it off at once, and
+it is never saved: a summon or a restart always starts without it. Ctrl+K
+turns it off and leaves the popup up until the next blur.
+
 ## Placeholders
 
 Handled in `ui/core.js`, shared by both windows so the popup's previews and
