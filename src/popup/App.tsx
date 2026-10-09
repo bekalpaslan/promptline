@@ -2372,10 +2372,11 @@ function Shell({
         }}
       >
         {hint}
-        {/* The handle's own mark: an open hand sitting on the divider line
-            in the bar's right corner, a grip tab on the hairline, so it
-            takes no room from the hints (which fill the line at every
-            width). Faint at rest, in full ink under the pointer and while
+        {/* The handle's own mark: an open hand in the bar's right corner,
+            on the hints' line, half in the bar's right padding and half in
+            the frame's, so it never covers a hint and takes no width from
+            them: a gutter of its own wrapped the bar at the default 400 px.
+            Faint at rest, in full ink under the pointer and while
             kept open (when the popup is moved), and for a moment on a press
             it closes, smaller and tilted, the hand taking hold of the window
             as the drag starts. Decoration: the bar itself is the handle. */}
@@ -2383,12 +2384,12 @@ function Shell({
           aria-hidden
           title="Drag here to move the popup"
           className={cn(
-            "absolute -top-2 right-1.5 flex size-4 items-center justify-center rounded-full bg-background transition-[transform,color,opacity] duration-150 ease-out group-hover/bar:text-foreground group-hover/bar:opacity-100",
+            "absolute bottom-0 -right-[0.4375rem] flex size-3.5 items-center justify-center transition-[transform,color,opacity] duration-150 ease-out group-hover/bar:text-foreground group-hover/bar:opacity-100",
             movable ? "text-foreground opacity-100" : "opacity-70",
             gripping && "-rotate-12 scale-75 text-foreground opacity-100"
           )}
         >
-          <RiHand className="size-3" />
+          <RiHand className="size-3.5" />
         </span>
       </div>
     </div>
