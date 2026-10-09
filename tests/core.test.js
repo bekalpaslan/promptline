@@ -791,6 +791,49 @@ test('clipboardLines stops at the cap and says how many there were', () => {
   assert.equal(core.clipboardLines(log, 3).lines.length, 3);
 });
 
+test('clipboardEnds shows a trace by its first and last lines (critique popup 2026-10-09)', () => {
+  const trace = 'Traceback (most recent call last):\n  File "app.py", line 12\n    main()\nKeyError: \'user\'\n';
+  assert.deepEqual(core.clipboardEnds(trace), {
+    head: 'Traceback (most recent call last):',
+    tail: "KeyError: 'user'",
+    between: 2,
+    total: 4,
+  });
+  // Two lines: the second is the one a flat preview never reached
+  assert.deepEqual(core.clipboardEnds('const user = await getUser(id)\r\nTypeError: x is undefined'), {
+    head: 'const user = await getUser(id)',
+    tail: 'TypeError: x is undefined',
+    between: 0,
+    total: 2,
+  });
+});
+
+test('clipboardEnds skips blank edges and is null for a single line of text', () => {
+  assert.equal(core.clipboardEnds(''), null);
+  assert.equal(core.clipboardEnds(null), null);
+  assert.equal(core.clipboardEnds('one line\n'), null);
+  assert.equal(core.clipboardEnds('\n\n  only this\n\t\n'), null);
+  const ends = core.clipboardEnds('\n  a\n\n\tb  \n\n');
+  assert.equal(ends.head, 'a');
+  assert.equal(ends.tail, 'b');
+  assert.equal(ends.between, 1);
+});
+
+test('clipboardEnds cuts and reveals each end like clipboardPreview', () => {
+  assert.equal(core.clipboardEnds('a'.repeat(300) + '\nok', 10).head, 'a'.repeat(10) + '\u2026');
+  assert.equal(core.clipboardEnds('ok\nrm -rf\u202e x').tail, 'rm -rf\u27e8RLO\u27e9 x');
+});
+
+test('indentColumns counts spaces and tabs to the first character', () => {
+  assert.equal(core.indentColumns('    at foo (a.ts:1)'), 4);
+  assert.equal(core.indentColumns('\tat foo'), 4);
+  assert.equal(core.indentColumns('  \tx'), 4);
+  assert.equal(core.indentColumns('\t\tx', 2), 4);
+  assert.equal(core.indentColumns('x  '), 0);
+  assert.equal(core.indentColumns(''), 0);
+  assert.equal(core.indentColumns(null), 0);
+});
+
 test('clipboardPreview cuts long text at the limit with an ellipsis', () => {
   const out = core.clipboardPreview('a'.repeat(300));
   assert.equal(out.length, 241);

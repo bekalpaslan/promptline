@@ -938,6 +938,21 @@
     return { lines: all.slice(0, limit).map(revealControls), total: all.length };
   }
 
+  // How many columns a line's indentation takes, tabs at `tabSize` (4,
+  // the panel's tab-size): the clipboard panel hangs a wrapped line under
+  // its own first character, so a long `at …` frame of a trace continues
+  // under "at" instead of at the margin.
+  function indentColumns(line, tabSize) {
+    const size = tabSize || 4;
+    let cols = 0;
+    for (const ch of line || '') {
+      if (ch === ' ') cols += 1;
+      else if (ch === '\t') cols += size - (cols % size);
+      else break;
+    }
+    return cols;
+  }
+
   // The one icon a popup row shows, by what the user most needs to know
   // before Enter. `row` is { pinned, asks, clip }: pinned, asks for values
   // before pasting, wraps {clipboard}.
@@ -955,16 +970,45 @@
     return row.asks ? 'asks' : row.clip ? 'clipboard' : 'plain';
   }
 
-  function clipboardPreview(clip, max) {
-    const limit = max || CLIP_PREVIEW_MAX;
-    const flat = revealControls((clip || '').replace(/\s+/g, ' ').trim());
-    if (!flat) return '(clipboard is empty)';
+  // `text` as one line, controls revealed, cut at `limit` with an ellipsis
+  function flatLine(text, limit) {
+    const flat = revealControls((text || '').replace(/\s+/g, ' ').trim());
     if (flat.length <= limit) return flat;
     // Never cut between the halves of a surrogate pair: an emoji at the
     // limit would leave a lone high surrogate in the preview
     let cut = flat.slice(0, limit);
     if (/[\uD800-\uDBFF]$/.test(cut)) cut = cut.slice(0, -1);
     return cut.trimEnd() + '\u2026';
+  }
+
+  function clipboardPreview(clip, max) {
+    return flatLine(clip, max || CLIP_PREVIEW_MAX) || '(clipboard is empty)';
+  }
+
+  // A clipboard of several lines, as the popup shows it at a glance: its
+  // first and last lines that hold text, each flattened and cut like
+  // `clipboardPreview`, and how many lines lie between them. Flattened
+  // whole, a trace showed its first two dozen characters and never the
+  // line that says what broke, which a Python trace and a two-line
+  // "command / error" copy both put last (critique popup, 2026-10-09).
+  // Null when fewer than two lines hold text: one line shows as it is.
+  function clipboardEnds(clip, max) {
+    const limit = max || CLIP_PREVIEW_MAX;
+    const all = (clip || '').replace(/\r\n?/g, '\n').split('\n');
+    let first = -1;
+    let last = -1;
+    all.forEach((line, i) => {
+      if (!line.trim()) return;
+      if (first < 0) first = i;
+      last = i;
+    });
+    if (first === last) return null;
+    return {
+      head: flatLine(all[first], limit),
+      tail: flatLine(all[last], limit),
+      between: last - first - 1,
+      total: lineCount(clip),
+    };
   }
 
   // What the editor's Copy button puts on the clipboard: config values in,
@@ -1175,6 +1219,8 @@
     lineCount,
     clipboardLines,
     clipboardPreview,
+    clipboardEnds,
+    indentColumns,
     rowIcon,
     expandForCopy,
     titleFromClipboard,

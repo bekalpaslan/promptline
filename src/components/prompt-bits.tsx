@@ -314,9 +314,10 @@ export const PREVIEW_BOX =
 // them), and the line count when it has more than one, since the preview
 // shows it as one line and a ten-line trace would otherwise read as a
 // sentence. Inline chips, so they follow the text wherever it wraps.
-export function ClipboardMarks({ clipboard }: { clipboard: string | null }) {
+// `lines={false}` leaves the count to a caller that shows the lines.
+export function ClipboardMarks({ clipboard, lines: showLines = true }: { clipboard: string | null; lines?: boolean }) {
   const hidden = useMemo(() => (clipboard ? C.hiddenChars(clipboard) : []), [clipboard])
-  const lines = clipboard ? C.lineCount(clipboard) : 0
+  const lines = clipboard && showLines ? C.lineCount(clipboard) : 0
   if (!hidden.length && lines < 2) return null
   return (
     <>
@@ -367,6 +368,29 @@ export function PromptTokens({
       {C.tokenize(text).map((part, i) => {
         if (part.type === "text") return <span key={i}>{part.value}</span>
         const isClip = part.type === "builtin" && part.name === "clipboard"
+        // A clipboard of several lines shows its first and last, on lines
+        // of their own and in mono, as the popup's clipboard strip does:
+        // flattened into the prompt it read as a sentence and ended
+        // mid-trace, before the line that says what broke
+        const ends = isClip && clipboard !== null ? C.clipboardEnds(clipboard) : null
+        if (ends) {
+          return (
+            <Fragment key={i}>
+              <bdi
+                className="inline-block max-w-full rounded-sm bg-(--param-builtin-bg) px-1 py-0.5 align-top font-mono text-xs leading-4 text-foreground"
+                title="The clipboard as it is now"
+                data-clip
+              >
+                {ends.head + "\n"}
+                {ends.between > 0 && (
+                  <span className="text-muted-foreground">{`⋯ ${C.plural(ends.between, "line")} ⋯\n`}</span>
+                )}
+                {ends.tail}
+              </bdi>
+              <ClipboardMarks clipboard={clipboard} lines={false} />
+            </Fragment>
+          )
+        }
         const filled =
           isClip && clipboard !== null
             ? C.clipboardPreview(clipboard)
