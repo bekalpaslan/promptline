@@ -454,7 +454,7 @@ test("a failed paste is not retried by any way of picking: a slot key, a click a
   await expect.poll(() => calls(page, "paste_snippet")).toHaveLength(2)
 })
 
-test("a fold keeps the selection where it was, says what is folded, and ← after closing a card does not fold", async ({ page }) => {
+test("a fold keeps the selection where it was, tells a screen reader what is folded, and ← after closing a card does not fold", async ({ page }) => {
   const total = await rows(page).count()
   const first = rows(page).first()
   await expect(first).toHaveAttribute("aria-selected", "true")
@@ -462,13 +462,12 @@ test("a fold keeps the selection where it was, says what is folded, and ← afte
   await page.locator("button", { hasText: "Everyday" }).first().click()
   await expect.poll(() => rows(page).count()).toBeLessThan(total)
   await expect(first).toHaveAttribute("aria-selected", "true")
-  // The list says so, with the key that undoes it; a click on the line does too
-  const line = page.getByText("1 section folded", { exact: true })
-  await expect(line).toBeVisible()
+  // The status region says so; the list carries no line about it
   await expect(page.getByRole("status").first()).toContainText("1 section folded")
-  await line.click()
+  await expect(page.getByText("1 section folded", { exact: true })).toHaveCount(0)
+  // Ctrl+→ undoes it
+  await search(page).press("Control+ArrowRight")
   await expect(rows(page)).toHaveCount(total)
-  await expect(line).toHaveCount(0)
   await expect(first).toHaveAttribute("aria-selected", "true")
   await expect(search(page)).toBeFocused()
   // → opens the card, ← closes it, and a ← on its heels does nothing

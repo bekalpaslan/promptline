@@ -314,7 +314,7 @@ export function App() {
       pendingAnchor.current = { at: first < 0 ? 0 : first }
     }
   }, [collapsedGroups, filterKey, folds])
-  // Ctrl+→, and the "N folded" line: every pack and group open again, the
+  // Ctrl+→: every pack and group open again, the
   // selection on the row it was on
   const unfoldAll = useCallback(() => {
     const cur = visibleRef.current[selRef.current]
@@ -985,9 +985,9 @@ export function App() {
       setHeadSel(stops[0])
     }
   }, [stops, visible, headSel])
-  // Folds outlive the popup (they are saved), hide rows, and the key that
-  // undoes them was named nowhere at the default width. While anything is
-  // folded the list says so, with the key, as its first line.
+  // How many packs and groups are folded, for the status region. A line
+  // at the top of the list said it too, with Ctrl → unfold; the folded
+  // headers already show it, and the line was taken out (2026-10-09).
   const foldedCount = useMemo(() => {
     let n = 0
     for (const sec of sections) {
@@ -1965,27 +1965,6 @@ export function App() {
         className="-mr-2 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
         onScroll={hidePreview}
       >
-        {/* Hidden from assistive tech here (a listbox holds only options);
-            the status region says the same words */}
-        {foldedCount > 0 && (
-          // Hidden from assistive tech like the headers (a listbox holds
-          // only options); the status region says the count
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-hidden
-            title="Unfold every pack and group"
-            className="mb-1 flex h-5 w-full cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-left text-xs text-muted-foreground hover:bg-hover hover:text-foreground"
-            onClick={() => {
-              unfoldAll()
-              inputRef.current?.focus()
-            }}
-          >
-            <span>{C.plural(foldedCount, "section")} folded</span>
-            <Keys combo="Ctrl →" />
-            <span>unfold</span>
-          </button>
-        )}
         {filtered.length === 0 && (
           <div aria-hidden className="px-4 py-4 text-center text-ui text-muted-foreground">{emptyText}</div>
         )}
