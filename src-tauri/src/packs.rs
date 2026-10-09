@@ -582,6 +582,69 @@ pub(crate) fn rename_pack_in(
     Ok(())
 }
 
+/// A rename takes the pack's file along when the app named that file: it
+/// sits directly in `packs/` and is in the old name's series
+/// (`new-pack.json`, `new-pack-3.json` for "New pack"), so after renaming
+/// it to "Workflow prompts" it becomes `workflow-prompts.json` (or the next
+/// free name in that series). A file with any other name was named by
+/// someone (a colleague, the user, an agent told where to write), and a
+/// file outside `packs/` or in `generated/` was put there on purpose: both
+/// keep their path, as every file did before 0.2.22, when a renamed pack
+/// went on living in `new-pack-3.json`. A case-only rename names the same
+/// file. Returns the move (from, to), so the caller can undo it if the
+/// registry then fails to save; `config` already points at the new file.
+pub(crate) fn rename_pack_file(
+    packs_dir: &Path,
+    config: &mut Config,
+    from: &str,
+    to: &str,
+) -> Option<(PathBuf, PathBuf)> {
+    let old_base = sanitize_pack_filename(from);
+    let new_base = sanitize_pack_filename(to);
+    if old_base == new_base {
+        return None;
+    }
+    let pm = config.packs.iter_mut().find(|p| p.name == to)?;
+    let stored = Path::new(&pm.path);
+    if pm.path.is_empty() || stored.is_absolute() || stored.components().count() != 1 {
+        return None;
+    }
+    if stored.extension().and_then(|e| e.to_str()) != Some("json") {
+        return None;
+    }
+    let stem = stored.file_stem()?.to_str()?;
+    let numbered = |rest: &str| !rest.is_empty() && rest.bytes().all(|b| b.is_ascii_digit());
+    let in_series = stem == old_base
+        || stem
+            .strip_prefix(old_base.as_str())
+            .and_then(|r| r.strip_prefix('-'))
+            .is_some_and(numbered);
+    if !in_series {
+        return None;
+    }
+    let src = packs_dir.join(stored);
+    if !src.is_file() {
+        return None;
+    }
+    let dst = first_free(
+        |i| match i {
+            1 => packs_dir.join(format!("{new_base}.json")),
+            i => packs_dir.join(format!("{new_base}-{i}.json")),
+        },
+        |p| p.exists(),
+    );
+    match fs::rename(&src, &dst) {
+        Ok(()) => {
+            pm.path = relativize_pack_path(packs_dir, &dst);
+            Some((src, dst))
+        }
+        Err(e) => {
+            log::warn!("couldn't rename {} for pack \"{to}\": {e}", src.display());
+            None
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1128,5 +1191,65 @@ mod tests {
         assert!(config.packs_arranged);
         assert!(config.packs[2].locked, "the lock moves with its pack");
         assert_eq!(config.packs[0].path, "c.json", "and so does the file");
+    }
+    fn file_pack(name: &str, path: &str) -> Config {
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: name.into(),
+            locked: false,
+            path: path.into(),
+        });
+        config
+    }
+
+    #[test]
+    fn rename_takes_an_app_named_file_along() {
+        let dir = temp_dir("rename-file-moves");
+        fs::write(dir.join("new-pack-3.json"), "{}").unwrap();
+        let mut config = file_pack("Workflow Prompts", "new-pack-3.json");
+        let moved = rename_pack_file(&dir, &mut config, "New pack", "Workflow Prompts");
+        assert!(moved.is_some());
+        assert_eq!(config.packs[0].path, "workflow-prompts.json");
+        assert!(dir.join("workflow-prompts.json").is_file());
+        assert!(!dir.join("new-pack-3.json").exists());
+    }
+
+    #[test]
+    fn rename_file_takes_the_next_free_name() {
+        let dir = temp_dir("rename-file-next-free");
+        fs::write(dir.join("work.json"), "{}").unwrap();
+        fs::write(dir.join("other.json"), "{}").unwrap();
+        let mut config = file_pack("Other", "work.json");
+        // "work.json" is in the series of "Work"; "other.json" is taken
+        rename_pack_file(&dir, &mut config, "Work", "Other").unwrap();
+        assert_eq!(config.packs[0].path, "other-2.json");
+        assert!(dir.join("other.json").is_file());
+    }
+
+    #[test]
+    fn rename_leaves_files_someone_named_or_placed() {
+        let dir = temp_dir("rename-file-stays");
+        fs::create_dir_all(dir.join("generated")).unwrap();
+        fs::write(dir.join("team.json"), "{}").unwrap();
+        fs::write(dir.join("generated").join("work.json"), "{}").unwrap();
+        fs::write(dir.join("work-final.json"), "{}").unwrap();
+        // Another name, a subfolder, a name past the series' numbers
+        for path in ["team.json", "generated/work.json", "work-final.json"] {
+            let mut config = file_pack("Renamed", path);
+            assert!(
+                rename_pack_file(&dir, &mut config, "Work", "Renamed").is_none(),
+                "{path}"
+            );
+            assert_eq!(config.packs[0].path, path);
+        }
+        // Outside packs/
+        let outside = dir.join("..").join("elsewhere.json");
+        let mut config = file_pack("Renamed", &outside.to_string_lossy());
+        assert!(rename_pack_file(&dir, &mut config, "Elsewhere", "Renamed").is_none());
+        // A case-only rename is the same file
+        fs::write(dir.join("work.json"), "{}").unwrap();
+        let mut config = file_pack("WORK", "work.json");
+        assert!(rename_pack_file(&dir, &mut config, "Work", "WORK").is_none());
+        assert!(dir.join("work.json").is_file());
     }
 }
