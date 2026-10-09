@@ -739,6 +739,42 @@ test("Ctrl+↓ drops the whole clipboard under its line, line by line; Esc, Ente
   await expect(search(page)).toHaveValue("ro")
 })
 
+test("Keep open: Ctrl+K or the button keeps the popup up after a paste, and Esc ends it", async ({ page }) => {
+  const toggle = page.getByRole("button", { name: "Keep open (Ctrl K)" })
+  await expect(toggle).toHaveAttribute("aria-pressed", "false")
+  await search(page).press("Control+k")
+  await expect(toggle).toHaveAttribute("aria-pressed", "true")
+  expect((await calls(page)).filter((c) => c.cmd === "set_keep_open").map((c) => c.args?.on)).toEqual([true])
+  // The bar names the key that keeps it, where Esc close was
+  await expect(page.getByText("kept open", { exact: true })).toBeVisible()
+  // A paste says what landed and leaves the popup up, ready for the next one
+  const first = (await rows(page).first().getAttribute("aria-label")) ?? ""
+  await search(page).press("Enter")
+  await expect(strip(page)).toContainText("Pasted")
+  // The next pick waits for the paste thread's Ctrl+V (one paste at a time)
+  await page.waitForTimeout(400)
+  await search(page).press("Enter")
+  await expect.poll(async () => (await calls(page)).filter((c) => c.cmd === "paste_snippet").length).toBe(2)
+  expect((await calls(page)).filter((c) => c.cmd === "hide_popup")).toHaveLength(0)
+  expect(first).not.toBe("")
+  // A copy stays up too
+  await page.waitForTimeout(400)
+  await search(page).press("Control+Enter")
+  await expect(strip(page)).toContainText("Copied")
+  await page.waitForTimeout(800)
+  expect((await calls(page)).filter((c) => c.cmd === "hide_popup")).toHaveLength(0)
+  // Esc closes, which ends it; the next summon starts without it
+  await search(page).press("Escape")
+  expect((await calls(page)).filter((c) => c.cmd === "hide_popup")).toHaveLength(1)
+  await emit(page, "popup-shown")
+  await expect(toggle).toHaveAttribute("aria-pressed", "false")
+  // The button does the same as the key
+  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-pressed", "true")
+  await toggle.click()
+  await expect(toggle).toHaveAttribute("aria-pressed", "false")
+})
+
 test("a slot key with the clipboard panel open puts the panel away and pastes nothing", async ({ page }) => {
   await search(page).press("Control+ArrowDown")
   const panel = page.getByRole("region", { name: "Clipboard" })

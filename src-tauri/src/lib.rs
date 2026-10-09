@@ -60,6 +60,12 @@ pub(crate) struct AppState {
     // exiting. Tray Quit clears it, so a late answer can't strand a Quit.
     pub(crate) session_ending: AtomicBool,
     pub(crate) flushed: AtomicBool,
+    // The popup's Keep open: it stays up when it loses focus and after a
+    // paste, and pastes into the last window outside Promptline
+    // (`platform::last_foreign_window`) rather than the one it was summoned
+    // over. Cleared by every `hide_popup`, so Esc both closes and ends it,
+    // and never saved: a restart starts without it.
+    pub(crate) keep_open: AtomicBool,
 }
 
 /// Ask the manager to run a pending autosave, the editor's 600 ms debounce;
@@ -245,6 +251,7 @@ pub fn run() {
             commands::set_clipboard_text,
             paste::hide_popup,
             paste::paste_snippet,
+            paste::set_keep_open,
             update::get_update_state,
             update::set_update_check,
             update::check_for_updates,
@@ -347,6 +354,12 @@ pub fn run() {
                 })
                 .build(app)?;
 
+            // Keep open pastes into the last window outside Promptline; the
+            // hook that follows it runs on this thread for the process's life
+            if !platform::track_foreground() {
+                log::warn!("couldn't follow the foreground window; a kept-open popup pastes where it was summoned");
+            }
+
             // The GitHub build's update check: startup + daily, wired up
             // once the tray exists so it has somewhere to offer a find. A
             // store build's `start` is a no-op — no plugin, no request.
@@ -375,7 +388,15 @@ pub fn run() {
         })
         .on_window_event(|window, event| match event {
             WindowEvent::Focused(false) if window.label() == "popup" => {
-                if is_resize_drag(window) {
+                let app = window.app_handle();
+                if app.state::<AppState>().keep_open.load(Ordering::SeqCst) {
+                    // Kept open: losing focus is the point (a paste hands it
+                    // to the target), so nothing hides; the size is kept as
+                    // on any other way out
+                    let state = app.state::<AppState>();
+                    let _guard = state.store.lock().unwrap();
+                    persist_popup_size(app);
+                } else if is_resize_drag(window) {
                     // Reclaim focus so the next real blur still hides the popup
                     let _ = window.set_focus();
                 } else {

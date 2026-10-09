@@ -62,6 +62,8 @@ pub(crate) fn persist_popup_size(app: &AppHandle) {
 
 #[tauri::command]
 pub(crate) fn hide_popup(app: AppHandle, state: State<AppState>) {
+    // Every way the popup is closed on purpose ends Keep open
+    state.keep_open.store(false, Ordering::SeqCst);
     {
         let _guard = state.store.lock().unwrap();
         persist_popup_size(&app);
@@ -71,6 +73,26 @@ pub(crate) fn hide_popup(app: AppHandle, state: State<AppState>) {
     // what kept this from deadlocking; it is not something to rely on.
     if let Some(w) = app.get_webview_window("popup") {
         let _ = w.hide();
+    }
+}
+
+/// The popup's Keep open toggle (Ctrl+K, or its button): while on, the popup
+/// stays up when it loses focus and after a paste, and pastes into the last
+/// window outside Promptline. Answers the state it set.
+#[tauri::command]
+pub(crate) fn set_keep_open(state: State<AppState>, on: bool) -> bool {
+    state.keep_open.store(on, Ordering::SeqCst);
+    on
+}
+
+/// The window a paste goes to: the one the popup was summoned over, or,
+/// kept open, the last one outside Promptline the user was in (falling back
+/// to the summon's when none has come to the front since).
+fn paste_window(keep_open: bool, summoned_over: isize, last_foreign: isize) -> isize {
+    if keep_open && last_foreign != 0 {
+        last_foreign
+    } else {
+        summoned_over
     }
 }
 
@@ -89,7 +111,12 @@ pub(crate) fn paste_snippet(
     id: Option<String>,
 ) -> Result<String, String> {
     let guard = state.store.lock().unwrap();
-    let prev_window = *state.prev_window.lock().unwrap();
+    let keep_open = state.keep_open.load(Ordering::SeqCst);
+    let prev_window = paste_window(
+        keep_open,
+        *state.prev_window.lock().unwrap(),
+        platform::last_foreign_window(),
+    );
     let mode = paste_mode(paste, prev_window);
     let prev_clipboard = arboard::Clipboard::new()
         .ok()
@@ -112,8 +139,9 @@ pub(crate) fn paste_snippet(
     // again; the command is still the only place that locks.
     drop(guard);
     // Copy-only leaves the popup up for a moment so it can confirm the copy;
-    // the popup hides itself afterwards
-    if mode == PasteMode::Pasted {
+    // the popup hides itself afterwards. Kept open, it stays: the paste
+    // thread hands the focus to the target and the popup waits beside it.
+    if mode == PasteMode::Pasted && !keep_open {
         if let Some(w) = app.get_webview_window("popup") {
             let _ = w.hide();
         }
@@ -281,7 +309,9 @@ pub(crate) fn show_popup(app: &AppHandle) {
         .map(|h| h.0 as isize)
         .collect();
     let state = app.state::<AppState>();
-    *state.prev_window.lock().unwrap() = paste_target(platform::foreground_window(), &ours);
+    let foreground = platform::foreground_window();
+    *state.prev_window.lock().unwrap() = paste_target(foreground, &ours);
+    platform::note_foreign(foreground);
 
     // First-run: record that the user found the hotkey, tell the manager.
     // The flag is cached in AppState (read once at startup), so config.json
@@ -394,6 +424,16 @@ mod tests {
         assert_eq!(paste_target(0x10, &ours), 0);
         assert_eq!(paste_target(0x20, &ours), 0);
         assert_eq!(paste_target(0, &ours), 0);
+    }
+
+    #[test]
+    fn kept_open_pastes_into_the_last_window_used() {
+        // Not kept open: the window the popup was summoned over
+        assert_eq!(paste_window(false, 0x30, 0x40), 0x30);
+        // Kept open: the last one outside Promptline the user was in…
+        assert_eq!(paste_window(true, 0x30, 0x40), 0x40);
+        // …or the summon's while none has come to the front since
+        assert_eq!(paste_window(true, 0x30, 0), 0x30);
     }
 
     #[test]

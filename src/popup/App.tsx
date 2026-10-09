@@ -7,6 +7,7 @@ import {
   RiClipboardLine,
   RiFileCopyLine,
   RiFilterLine,
+  RiPictureInPicture2Line,
   RiPushpinLine,
   RiSearchLine,
 } from "@remixicon/react"
@@ -109,6 +110,17 @@ export function App() {
   const setPicked = useCallback((id: string | null) => {
     pickedRef.current = id
     setPickedId(id)
+  }, [])
+  // Keep open (Ctrl+K, or the button at the right of the search box): the
+  // popup stays up when it loses focus and after a paste, and pastes into
+  // the last window outside Promptline. Rust holds the state; every hide
+  // ends it, so a summon always starts without it. Mirrored in a ref for
+  // the paste's callbacks.
+  const [keepOpen, setKeepOpenState] = useState(false)
+  const keepOpenRef = useRef(false)
+  const setKeepOpen = useCallback((on: boolean) => {
+    keepOpenRef.current = on
+    setKeepOpenState(on)
   }, [])
   const [form, setForm] = useState<FormState | null>(null)
   const [formValues, setFormValues] = useState<Record<string, string>>({})
@@ -462,6 +474,12 @@ export function App() {
   // popup is hidden), "copied" (the manager was the foreground window when
   // the popup was summoned, so Rust copied only and left the popup up), or
   // null from an older Rust, which means pasted.
+  // `{clipboard}` expands at paste time (BEHAVIOR.md), so the "Will paste"
+  // preview must show the clipboard as it is now, not as it was when the
+  // popup opened: a Ctrl+C inside a fill-in field changes it.
+  const refreshClip = useCallback(() => {
+    void invoke<string>("get_clipboard_text").then(setClip).catch(() => {})
+  }, [])
   const send = useCallback(async (snippet: Snippet, text: string, paste: boolean) => {
     let result: string | null
     try {
@@ -477,6 +495,19 @@ export function App() {
     lastSent.current = {
       text: text.split("{clipboard}").join(clip),
       verb: !paste || result === "copied" ? "copied" : "pasted",
+    }
+    if (keepOpenRef.current) {
+      // Kept open: Rust left the popup up and handed the focus to the
+      // target. Say what landed, let the next pick through once the paste
+      // thread has sent its Ctrl+V (it waits about 160 ms), and read the
+      // clipboard again: it holds this prompt now.
+      const name = snippet.title.trim() ? `"${snippet.title.trim()}"` : "the prompt"
+      setNotice({ text: !paste || result === "copied" ? `Copied ${name} to clipboard` : `Pasted ${name}`, kind: "success" })
+      setTimeout(() => {
+        setPicked(null)
+        refreshClip()
+      }, 300)
+      return
     }
     if (!paste || result === "copied") {
       // Copy-only: Rust leaves the popup up; confirm, then hide
@@ -495,7 +526,26 @@ export function App() {
         void invoke("hide_popup")
       }, 600)
     }
-  }, [fail, setPicked, clip])
+  }, [fail, setPicked, clip, refreshClip])
+
+  const toggleKeepOpen = useCallback(() => {
+    void invoke<boolean>("set_keep_open", { on: !keepOpenRef.current })
+      .then((on) => setKeepOpen(on === true))
+      .catch((e) => fail("keep the popup open", e))
+  }, [setKeepOpen, fail])
+  // Kept open, the popup comes back by a click or the hotkey (which only
+  // focuses it), never through a summon, so `popup-shown` doesn't refresh
+  // it: the clipboard is read again whenever the window gets the focus,
+  // and typing lands in the search box as after a summon.
+  useEffect(() => {
+    const onFocus = () => {
+      if (!keepOpenRef.current) return
+      refreshClip()
+      inputRef.current?.focus()
+    }
+    window.addEventListener("focus", onFocus)
+    return () => window.removeEventListener("focus", onFocus)
+  }, [refreshClip])
 
   // --- Create prompt from clipboard -------------------------------------------
   const openCreate = useCallback(() => {
@@ -559,12 +609,6 @@ export function App() {
     }
   }, [fail])
 
-  // `{clipboard}` expands at paste time (BEHAVIOR.md), so the "Will paste"
-  // preview must show the clipboard as it is now, not as it was when the
-  // popup opened: a Ctrl+C inside a fill-in field changes it.
-  const refreshClip = useCallback(() => {
-    void invoke<string>("get_clipboard_text").then(setClip).catch(() => {})
-  }, [])
   useEffect(() => {
     // The clipboard is written after the event fires, hence the tick
     const on = () => setTimeout(refreshClip, 50)
@@ -723,6 +767,7 @@ export function App() {
     copyHideTimer.current = null
     hidePreview()
     setClipOpen(false)
+    setKeepOpen(false)
     setPicked(null)
     setQuery("")
     setSel(0)
@@ -748,7 +793,7 @@ export function App() {
     } catch (e) {
       fail("load the library", e)
     }
-  }, [closePanel, hidePreview, fail, setPicked])
+  }, [closePanel, hidePreview, fail, setPicked, setKeepOpen])
 
   useEffect(() => {
     const un = listen("popup-shown", () => void reload())
@@ -1046,6 +1091,11 @@ export function App() {
         openCreate()
         return
       }
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && e.key.toLowerCase() === "k") {
+        e.preventDefault()
+        toggleKeepOpen()
+        return
+      }
       // The open card scrolls from the keyboard. → is the only way a
       // keyboard has of reading what will be pasted, and a long prompt or a
       // short window used to leave the rest of it out of reach (critique
@@ -1167,7 +1217,7 @@ export function App() {
     }
     document.addEventListener("keydown", onKey)
     return () => document.removeEventListener("keydown", onKey)
-  }, [panelFor, panelActions, panelSel, deleteArmed, clipOpen, clipEmpty, toggleClip, form, create, notice, visible, stops, headSel, effCollapsed, effCollapsedGroups, slotEntries, sel, keyCard, pick, openCreate, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
+  }, [panelFor, panelActions, panelSel, deleteArmed, clipOpen, clipEmpty, toggleClip, form, create, notice, visible, stops, headSel, effCollapsed, effCollapsedGroups, slotEntries, sel, keyCard, pick, openCreate, toggleKeepOpen, closePanel, hidePreview, undoDelete, query, hasQuery, unfoldAll, toggleCollapsed, toggleCollapsedGroup])
 
   // Stable handlers for the memoized rows: they read the live preview index
   // through a ref instead of closing over it. The pointer never moves the
@@ -1404,8 +1454,13 @@ export function App() {
           says by which key, where there is room for a seventh hint */}
       {!clipEmpty && <Hint k="Ctrl ↓" widest>clipboard</Hint>}
       {/* An error stays until Esc; the bar says so where the strip used to
-          append it and get truncated (critique popup P1) */}
-      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+          append it and get truncated (critique popup P1). Kept open, Esc
+          closes and ends it, so the bar names the key that keeps it instead */}
+      {keepOpen && notice?.kind !== "error" ? (
+        <Hint k="Ctrl K">kept open</Hint>
+      ) : (
+        <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+      )}
     </>
   )
 
@@ -1461,6 +1516,8 @@ export function App() {
         ? "New prompt from clipboard"
         : clipOpen
           ? `Clipboard, ${C.plural(C.lineCount(clip), "line")}`
+        : keepOpen && !query.trim() && visible.length
+          ? `Kept open, ${C.plural(visible.length, "prompt")}`
         : // Any query narrows the list, a #tag as much as a word; and one
           // prompt matches, it doesn't "match"
           // With no rows it says what the list says: that message sits in
@@ -1720,6 +1777,26 @@ export function App() {
             }}
           />
         )}
+        {/* Keep open: pressed, it reads as a control that is on (the
+            Settings gear's treatment), not as the accent, which is the
+            selected row's. The window then moves by its frame. */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-pressed={keepOpen}
+          aria-label="Keep open (Ctrl K)"
+          title={keepOpen ? "Kept open: pastes go to the last window you used. Drag the frame to move it; Ctrl+K or Esc ends it" : "Keep open: stays up beside your work and pastes into the last window you used (Ctrl+K)"}
+          className={cn(
+            "focus-ring -mr-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-hover hover:text-foreground",
+            keepOpen ? "bg-secondary text-foreground" : "text-muted-foreground"
+          )}
+          onClick={() => {
+            toggleKeepOpen()
+            inputRef.current?.focus()
+          }}
+        >
+          <RiPictureInPicture2Line className="size-3.5" aria-hidden />
+        </button>
       </div>
 
       {/* The clipboard, one line: the text on the builtin's tint as in every
@@ -2184,7 +2261,11 @@ function Shell({
   announce: string
 }) {
   return (
-    <div className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-background p-2 text-foreground shadow-(--shadow-shell)">
+    // The frame (the padding and the gaps between strips) drags the window:
+    // Tauri moves it only when the press lands on this element itself, so
+    // the search box, the rows and every control keep their own clicks.
+    // A kept-open popup is moved there, beside the work.
+    <div data-tauri-drag-region className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-background p-2 text-foreground shadow-(--shadow-shell)">
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
       {/* The one landmark: the window's content, whichever mode it is in.
           `contents`, so the shell's column layout is unchanged */}
