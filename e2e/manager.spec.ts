@@ -715,9 +715,9 @@ test("the editor's copy button copies what is in the fields now, as a card would
   await expect(page.getByText('Copied "Loose prompt"')).toBeVisible()
 })
 
-test("Auto enter is a toggle under the prompt, saved at once and kept out of exports", async ({ page }) => {
+test("Auto enter is a switch under the prompt, saved at once and kept out of exports", async ({ page }) => {
   await promptRow(page, "Loose prompt").click()
-  const box = page.getByRole("checkbox", { name: "Auto enter" })
+  const box = page.getByRole("switch", { name: "Auto enter" })
   await expect(box).not.toBeChecked()
   await box.click()
   await expect(box).toBeChecked()
