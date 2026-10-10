@@ -56,8 +56,11 @@ function Heading({
   children?: React.ReactNode
 }) {
   return (
+    // Inset 13 px, a card's border and padding, so the heading's text
+    // starts over the cards' text and its add action ends over their
+    // controls (2026-10-10); a group's hairline still runs the pane's width
     <div
-      className="group/hdr flex min-w-0 items-center gap-2"
+      className="group/hdr flex min-w-0 items-center gap-2 px-[13px]"
       onContextMenu={(e) => {
         e.preventDefault()
         e.stopPropagation()
@@ -342,7 +345,7 @@ export function Overview({ focus }: { focus: LibraryFocus | null }) {
     if (!filtering) return null
     const n = items.filter(hit).length
     return (
-      <p className="text-xs text-muted-foreground" aria-live="polite">
+      <p className="px-[13px] text-xs text-muted-foreground" aria-live="polite">
         {n === 0 ? `None of the ${C.plural(items.length, "prompt")} here match the filter` : `${n} of ${items.length} match the filter`}
       </p>
     )
@@ -354,7 +357,7 @@ export function Overview({ focus }: { focus: LibraryFocus | null }) {
     const shown = snippetsInOrder.filter(hit)
     return (
       <div className="@container flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3 animate-in fade-in duration-150" role="region" aria-label="All prompts">
-        <div className="flex min-w-0 items-center gap-2">
+        <div className="flex min-w-0 items-center gap-2 px-[13px]">
           <h2 className="flex min-w-0 items-baseline gap-1.5 text-lg font-semibold">
             <span className="truncate">All prompts</span>
             <Count>
@@ -436,7 +439,7 @@ export function Overview({ focus }: { focus: LibraryFocus | null }) {
           has no crumb: the "Pack" and "Group" labels that sat here said what
           the tree's indentation and the heading already say. */}
       {group && (
-        <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-1 px-[13px] text-xs text-muted-foreground">
           <button
             type="button"
             className="flex min-w-0 cursor-pointer items-center gap-0.5 rounded-sm font-medium hover:text-foreground focus-ring"
