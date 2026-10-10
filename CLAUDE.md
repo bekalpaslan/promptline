@@ -475,9 +475,9 @@ Settings → About.
 - Names the user wrote (packs, groups, prompt titles) are shown as typed;
   uppercase is for the app's own section labels (`name-label` vs
   `section-label`).
-- The sidebar is the library only (search, Display, New, the tree);
-  app-level controls sit above the pane; appearance choices live in
-  Settings.
+- The sidebar is the library (search, Display, New, the tree) plus its
+  foot (the bar legend and the Settings gear); the bar above the pane is
+  the open prompt's crumb line; appearance choices live in Settings.
 - Every Tauri command the webview can call takes no path it hasn't been
   given by Rust (`read_pack_file`, `show_in_folder` refuse paths outside
   the data folder; `open_data_dir` takes none).

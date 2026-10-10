@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { listen } from "@tauri-apps/api/event"
-import { RiCloseLine, RiSettings3Line } from "@remixicon/react"
+import { RiCloseLine } from "@remixicon/react"
 import { Toaster } from "@/components/ui/sonner"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
 import { Keys } from "@/components/prompt-bits"
 import { C, isStoreError, type Library, type OrderBy, type PackMeta, type Snippet, type SnippetEdit } from "@/lib/core"
 import { applyPrefs } from "@/lib/prefs"
@@ -13,7 +12,7 @@ import { type Config, DEFAULT_PACK, defaultPackFor, isLockedIn, packNames as pac
 import { useFolds } from "./folds"
 import { say, sayErr, sayPersistent, sayUndo, undoLast } from "./status"
 import { Sidebar } from "./Sidebar"
-import { Editor } from "./Editor"
+import { Editor, EditorCrumbs } from "./Editor"
 import { Overview } from "./Overview"
 import { Settings } from "./Settings"
 import { GenerateDialog } from "./GenerateDialog"
@@ -648,20 +647,14 @@ export function App() {
         <main className="flex min-h-0 flex-1 overflow-hidden">
           <Sidebar />
           <div className="flex min-w-0 flex-1 flex-col">
-            {/* App-level controls live above the pane, not in the library's
-                sidebar: today that is the Settings gear alone */}
-            <div className="flex h-9 shrink-0 items-center justify-end border-b border-border px-2">
-              <Button
-                variant="ghost"
-                size="icon-xs"
-                aria-label="Settings"
-                aria-pressed={settingsOpen}
-                title={fmtHotkey ? `Settings — popup hotkey: ${fmtHotkey}` : "Settings"}
-                className={cn("text-muted-foreground", settingsOpen && "bg-secondary text-foreground")}
-                onClick={() => showSettings(!settingsOpen)}
-              >
-                <RiSettings3Line className="size-4" />
-              </Button>
+            {/* The bar above the pane is the open prompt's crumb line (where
+                it sits, its use count, Pin, its menu); the Settings gear
+                that stood here alone lives in the sidebar's foot since
+                2026-10-10. Its side padding is the pane's 12 px plus the
+                13 px a card's border and padding take, so the crumbs,
+                the title and a card's header text start on one line. */}
+            <div className="flex h-9 shrink-0 items-center border-b border-border px-[25px]">
+              <EditorCrumbs />
             </div>
             {settingsOpen ? (
               <Settings />
