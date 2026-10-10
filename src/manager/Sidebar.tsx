@@ -14,7 +14,6 @@ import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { SELECTED_BAR } from "@/components/menu-styles"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
-import { useSlideRows } from "./flip"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
 import { say, sayUndo } from "./status"
 
@@ -49,6 +48,9 @@ function QueryMirror({ query }: { query: string }) {
 
 // The prompt orders as the Display menu names them
 const ORDER_LABELS: Record<OrderBy, string> = { uses: "Most used", title: "A–Z", custom: "Custom" }
+// The pack or group header a lifted row would drop into: the hover fill
+// and a 1 px Focus ring, nothing animated
+const DROP_TARGET = "bg-hover ring-1 ring-inset ring-(--focus)"
 
 // A title with the filter's free-text words marked: each word's first
 // occurrence, overlaps merged, case-insensitive like the match itself
@@ -130,18 +132,22 @@ export function Sidebar() {
   // the prompt. The sidebar stays, so a double-click still reaches the rename.
   const shown = m.view.kind === "overview" ? m.view.focus : null
 
-  // Drag-to-reorder: a short press-and-hold lifts the row (so the gesture is
-  // discoverable), then the rows part for it as it crosses them: the tree
-  // is drawn with the lifted row where the pointer would drop it (`over`,
-  // through C.placePrompt below), and the release saves that same order.
-  const [drag, setDrag] = useState<{ id: string; pack: string } | null>(null)
-  // The scrolling list; the rows in it slide into the places the preview
-  // gives them while a row is lifted (snapshotRows before each reorder)
+  // Drag-to-move: a short press-and-hold lifts the row as a ghost under the
+  // pointer (so the gesture is discoverable), the pack or group under the
+  // pointer is highlighted, and the release moves the prompt there, the
+  // write the row's "Move to" menu makes. Nothing animates: the ghost is
+  // drawn where the pointer is and the target header takes a fill and a
+  // ring. It used to arrange instead: the rows parted and slid for the
+  // lifted row and the drop saved an order. The user wanted a move, not an
+  // arrangement (2026-10-10); ordering stays on Alt+Up/Down and the
+  // menu's Move up/down. The ghost is the row's title at the row's width.
+  const [drag, setDrag] = useState<{ id: string; pack: string; group: string; title: string; width: number } | null>(null)
+  const [dropAt, setDropAt] = useState<{ pack: string; group: string } | null>(null)
+  const [ghost, setGhost] = useState<{ x: number; y: number } | null>(null)
+  // The scrolling list
   const listRef = useRef<HTMLDivElement>(null)
-  const snapshotRows = useSlideRows(listRef)
   // What a screen reader hears after a keyboard move
   const [announce, setAnnounce] = useState("")
-  const [over, setOver] = useState<{ id: string; after: boolean } | null>(null)
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const downPos = useRef<{ x: number; y: number } | null>(null)
   const dragMoved = useRef(false)
@@ -159,15 +165,16 @@ export function Sidebar() {
   }, [])
   // Press-and-hold on a row: `lift` runs once the hold delay passes without
   // the pointer wandering off (moving first means a click, not a drag)
-  const holdToDrag = (lift: () => void) => ({
+  const holdToDrag = (lift: (row: HTMLElement) => void) => ({
     onPointerDown: (e: React.PointerEvent<HTMLElement>) => {
       if (e.button !== 0) return
+      const row = e.currentTarget
       downPos.current = { x: e.clientX, y: e.clientY }
       dragMoved.current = false
       cancelHold()
       holdTimer.current = setTimeout(() => {
         holdTimer.current = null
-        lift()
+        lift(row)
       }, 180)
     },
     onPointerMove: (e: React.PointerEvent<HTMLElement>) => {
@@ -203,13 +210,7 @@ export function Sidebar() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [hits, q, orderBy, scope]
   )
-  // While a row is lifted, the list is drawn with it placed at the pointer:
-  // the same rule the release saves (commitReorder), so what is on screen
-  // mid-drag is what the drop does, group label included
-  const shownList = useMemo(
-    () => (drag && over ? C.placePrompt(visible, drag.id, over.id, over.after, grouped) : null) ?? visible,
-    [visible, drag, over, grouped]
-  )
+  const shownList = visible
   // Pack sizes, for the "hits / all" count a pack shows while searching
   const packTotals = useMemo(() => {
     const t = new Map<string, number>()
@@ -356,16 +357,16 @@ export function Sidebar() {
     rows[0]?.key ||
     null
 
-  // Move the dragged snippet next to the drop target in the master array and
-  // persist; relative order within every pack follows from the array order.
-  // The drop was aimed in the displayed order, so under "Most used" or
-  // "A–Z" the array is first rebased to that order (C.displayOrder): the
-  // switch to "Custom" that follows would otherwise reveal the array's own
-  // order, with every row but the dragged one reshuffled.
+  // Move a snippet next to another in the master array and persist (the
+  // keyboard's Alt+Up/Down and the menu's Move up/down); relative order
+  // within every pack follows from the array order. The move is aimed in
+  // the displayed order, so under "Most used" or "A–Z" the array is first
+  // rebased to that order (C.displayOrder): the switch to "Custom" that
+  // follows would otherwise reveal the array's own order, with every row
+  // but the moved one reshuffled.
   const commitReorder = async (dragId: string, targetId: string, after: boolean) => {
     const before = C.displayOrder(m.snippets, orderBy, grouped, packNames(), DEFAULT_PACK)
-    // The one rule the preview drew with (shownList): dropping among another
-    // group's rows moves the prompt into that group
+    // Stepping past another group's rows moves the prompt into that group
     const all = C.placePrompt(before, dragId, targetId, after, grouped)
     if (!all) return
     const from = before.findIndex((s) => s.id === dragId)
@@ -473,46 +474,52 @@ export function Sidebar() {
     m.openOverview(group === undefined ? { pack } : { pack, group })
   }
 
-  // While a drag is live, track the row under the pointer and commit on release
+  // The drop's write is the row's "Move to" menu's: one updater on the
+  // current library, since the drag outlives its render
+  const moveTo = (id: string, pack: string, group: string) => {
+    const title = m.snippets.find((s) => s.id === id)?.title ?? ""
+    return m
+      .persist((cur) => cur.map((s) => (s.id === id ? { ...s, pack, group } : s)))
+      .then(
+        () => say(group ? `Moved "${title}" to "${pack}" › "${group}"` : `Moved "${title}" to "${pack}"`),
+        () => {} // already toasted
+      )
+  }
+  // While a drag is live: the ghost follows the pointer, the pack or group
+  // under it is the target, and the release moves the prompt there
   useEffect(() => {
     if (!drag) return
+    // What the pointer is over resolves to a pack or a group: a header, or
+    // any row under it (a row inside a group means the group, an ungrouped
+    // row its pack). The prompt's own place and a locked pack are no target.
+    const targetAt = (x: number, y: number) => {
+      const el = document.elementFromPoint(x, y) as HTMLElement | null
+      const section = el?.closest<HTMLElement>("[data-pack]")
+      if (!section || !listRef.current?.contains(section)) return null
+      const pack = section.dataset.pack!
+      const group = el!.closest<HTMLElement>("[data-group]")?.dataset.group ?? ""
+      if (m.isLocked(pack) || (pack === drag.pack && group === drag.group)) return null
+      return { pack, group }
+    }
     const move = (e: PointerEvent) => {
       dragMoved.current = true
-      const el = (document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null)?.closest(
-        "[data-snip-id]"
-      ) as HTMLElement | null
-      const id = el?.dataset.snipId
-      const snip = id ? m.snippets.find((s) => s.id === id) : undefined
-      // Between rows, or over the lifted row itself (it sits where the
-      // pointer last placed it): the place holds. Grouped view: a row of
-      // another pack is no target, and the preview falls back to the order
-      // as it was, which says so
-      if (!snip || snip.id === drag.id) return
-      if (grouped && (snip.pack || DEFAULT_PACK) !== drag.pack) {
-        if (over) {
-          snapshotRows()
-          setOver(null)
-        }
-        return
-      }
-      const r = el!.getBoundingClientRect()
-      const after = e.clientY > r.top + r.height / 2
-      // Only a change re-renders the list, and only then do the rows slide:
-      // a pointer move inside the same half of the same row is nothing
-      if (over?.id === snip.id && over.after === after) return
-      snapshotRows()
-      setOver({ id: snip.id, after })
+      setGhost({ x: e.clientX, y: e.clientY })
+      const t = targetAt(e.clientX, e.clientY)
+      // Only a change re-renders the tree
+      setDropAt((cur) => (cur?.pack === t?.pack && cur?.group === t?.group ? cur : t))
     }
     const up = (e: PointerEvent) => {
       // The button that lifted the row is the one that drops it
       if (e.button !== 0) return
-      if (over && over.id !== drag.id) void commitReorder(drag.id, over.id, over.after).catch(() => {})
+      const t = targetAt(e.clientX, e.clientY)
+      if (t) void moveTo(drag.id, t.pack, t.group)
       if (dragMoved.current) suppressClick.current = true
       setDrag(null)
-      setOver(null)
+      setDropAt(null)
+      setGhost(null)
     }
     // Broken off, not finished: the browser took the pointer (pointercancel),
-    // the window lost focus (Alt+Tab), or Escape. Nothing is committed; the
+    // the window lost focus (Alt+Tab), or Escape. Nothing is written; the
     // release that came after the window was back used to drop the row
     // wherever the pointer had last been. Only Escape is followed by a
     // click to swallow: after a blur or a cancel none comes, and a flag
@@ -520,7 +527,8 @@ export function Sidebar() {
     const cancel = (swallowClick: boolean) => {
       if (swallowClick && dragMoved.current) suppressClick.current = true
       setDrag(null)
-      setOver(null)
+      setDropAt(null)
+      setGhost(null)
     }
     const onCancel = () => cancel(false)
     const onKey = (e: KeyboardEvent) => {
@@ -541,7 +549,7 @@ export function Sidebar() {
       document.removeEventListener("keydown", onKey, true)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [drag, over, grouped, m.snippets, orderBy])
+  }, [drag, m.snippets])
 
   // Mouse and keyboard events both carry the modifier flags this reads
   const handleRowClick = (e: { ctrlKey: boolean; metaKey: boolean; shiftKey: boolean }, id: string) => {
@@ -705,14 +713,16 @@ export function Sidebar() {
   const groupTitle = (pack: string, group: string, count: number, isCollapsed: boolean) => {
     const key = groupKey(pack, group)
     const selected = shown?.pack === pack && shown.group === group
+    const dropHere = dropAt?.pack === pack && dropAt.group === group
     return (
       <div
         {...treeitemProps(rowByKey.get(`group:${key}`)!)}
+        data-drop-target={dropHere || undefined}
         aria-expanded={!isCollapsed}
         aria-selected={selected}
         aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
         title={`${group} — right-click or ⋯ for actions`}
-        className={cn(treeHeaderClass("group"), treeFillClass(selected), "group focus-ring")}
+        className={cn(treeHeaderClass("group"), treeFillClass(selected), "group focus-ring", dropHere && DROP_TARGET)}
         onClick={() => openHeader(pack, group)}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -792,14 +802,20 @@ export function Sidebar() {
         title={title}
         data-snip-id={s.id}
         className={cn(
-          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui transition-[transform,box-shadow] duration-150 focus-ring",
+          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui focus-ring",
           active
             ? cn("text-foreground", SELECTED_BAR)
             : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),
           multi && "outline outline-1 -outline-offset-1 outline-primary",
-          lifted ? "z-10 scale-[1.02] cursor-grabbing shadow-lg ring-1 ring-ring/40" : "hover:cursor-grab"
+          // Lifted: the row stays in place, dimmed, while its ghost travels
+          lifted ? "opacity-40" : grouped && "hover:cursor-grab"
         )}
-        {...holdToDrag(() => setDrag({ id: s.id, pack: s.pack || DEFAULT_PACK }))}
+        {...(grouped
+          ? holdToDrag((row) => {
+              setGhost(downPos.current)
+              setDrag({ id: s.id, pack: s.pack || DEFAULT_PACK, group: s.group || "", title, width: row.getBoundingClientRect().width })
+            })
+          : {})}
         onClick={(e) => handleRowClick(e, s.id)}
         onContextMenu={(e) => {
           e.preventDefault()
@@ -834,16 +850,18 @@ export function Sidebar() {
   const sectionTitle = (name: string, count: number, isCollapsed: boolean, faded = false) => {
     const selected = shown?.pack === name && !shown.group
     const total = packTotals.get(name) ?? count
+    const dropHere = dropAt?.pack === name && dropAt.group === ""
     return (
       <div
         {...treeitemProps(rowByKey.get(`pack:${name}`)!)}
+        data-drop-target={dropHere || undefined}
         aria-expanded={!isCollapsed}
         aria-selected={selected}
         aria-label={`${name}, ${q ? `${count} of ${total}` : count} prompt${total === 1 ? "" : "s"}${m.isLocked(name) ? ", locked" : ""}`}
         // Short: a native tooltip cuts around 80 characters, and the keys
         // are in the menu's hints and BEHAVIOR.md rather than every row
         title={`${name} — right-click or ⋯ for actions`}
-        className={cn(treeHeaderClass("pack"), treeFillClass(selected), "group focus-ring", faded && "opacity-45")}
+        className={cn(treeHeaderClass("pack"), treeFillClass(selected), "group focus-ring", faded && "opacity-45", dropHere && DROP_TARGET)}
         onClick={() => openHeader(name)}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -912,9 +930,21 @@ export function Sidebar() {
     <aside
       ref={asideRef}
       aria-label="Prompts"
-      className="relative flex w-[clamp(13rem,28%,20rem)] shrink-0 flex-col border-r border-border bg-sidebar"
+      className={cn("relative flex w-[clamp(13rem,28%,20rem)] shrink-0 flex-col border-r border-border bg-sidebar", drag && "cursor-grabbing")}
       style={width.width == null ? undefined : { width: width.width }}
     >
+      {/* The lifted row's ghost: its title at its width, under the pointer,
+          over everything and letting the pointer through to the tree */}
+      {drag && ghost && (
+        <div
+          aria-hidden
+          data-drag-ghost
+          className="pointer-events-none fixed z-50 truncate rounded-md border border-border bg-background px-2 py-1 text-ui text-foreground shadow-lg"
+          style={{ left: ghost.x - 12, top: ghost.y - 14, width: drag.width }}
+        >
+          <bdi>{drag.title}</bdi>
+        </div>
+      )}
       {/* No heading: the window is Promptline and the list is visibly prompts;
           the landmark keeps its name through aria-label. What is shown (the
           filter) apart from how it is shown (Display) */}
@@ -982,7 +1012,7 @@ export function Sidebar() {
           className="relative flex size-8 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-hover hover:text-foreground"
           onClick={(e) => {
             const r = e.currentTarget.getBoundingClientRect()
-            const orders: [OrderBy, string][] = [["uses", ORDER_LABELS.uses], ["title", ORDER_LABELS.title], ["custom", `${ORDER_LABELS.custom} — drag to arrange`]]
+            const orders: [OrderBy, string][] = [["uses", ORDER_LABELS.uses], ["title", ORDER_LABELS.title], ["custom", `${ORDER_LABELS.custom} — Alt+↑/↓ to arrange`]]
             display.open(r.left, r.bottom + 4, [
               { kind: "header", text: "View" },
               { kind: "item", label: "Packs", checked: grouped, run: () => setGrouped(true) },
@@ -1076,7 +1106,7 @@ export function Sidebar() {
                       {p.groups.map((g) => {
                         const gc = !q && collapsedGroups.has(groupKey(p.name, g.name))
                         return (
-                          <TreeGroup key={g.name} role="presentation">
+                          <TreeGroup key={g.name} role="presentation" data-group={g.name}>
                             {groupTitle(p.name, g.name, g.items.length, gc)}
                             {/* The guide line ties a group's prompts to its header */}
                             {!gc && (
