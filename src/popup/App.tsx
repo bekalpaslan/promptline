@@ -2038,8 +2038,10 @@ export function App() {
               {/* Sticky, so the pack a row belongs to stays named while it
                   scrolls; the frame's card ground behind it hides rows passing
                   its rounded corners and the 2 px under it (painted here,
-                  pulled back by the children's own 2 px) */}
-              <div aria-hidden className="sticky top-0 z-10 -mb-0.5 rounded-t-lg bg-card pb-0.5">
+                  pulled back by the children's own 2 px). Only while open: a
+                  folded pack is a plain row, as in the sidebar, and the
+                  ground made it a filled bar (2026-10-10). */}
+              <div aria-hidden className={cn("sticky top-0 z-10 -mb-0.5 pb-0.5", !sec.isCollapsed && "rounded-t-lg bg-card")}>
               {sec.collapsible ? (
                 <div
                   data-selected={packSel || undefined}
