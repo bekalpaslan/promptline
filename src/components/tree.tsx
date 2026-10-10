@@ -7,7 +7,7 @@ import { SELECTED_BAR } from "@/components/menu-styles"
 // A pinned prompt's mark in both trees: the selection bar's shape in the
 // Warn colour, at the row's left edge; the selection bar wins on a row
 // that is both. The sidebar's legend names the two colours.
-export const PINNED_BAR = "shadow-[inset_2px_0_0_var(--warn)]"
+export const PINNED_BAR = "shadow-[inset_1.5px_0_0_var(--warn)]"
 
 // The library tree, one look in both windows. The manager's sidebar and
 // the popup's list are the same tree on different windows (decision

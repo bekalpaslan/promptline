@@ -1138,11 +1138,11 @@ export function Sidebar() {
           legend is decoration to assistive tech; the gear is not. */}
       <div className="flex h-8 shrink-0 items-center gap-3 border-t border-border px-3 text-micro text-muted-foreground">
         <span aria-hidden className="flex items-center gap-1.5">
-          <span className="h-3 w-0.5 rounded-full bg-(--focus)" />
+          <span className="size-1.5 bg-(--focus)" />
           viewed
         </span>
         <span aria-hidden className="flex items-center gap-1.5">
-          <span className="h-3 w-0.5 rounded-full bg-(--warn)" />
+          <span className="size-1.5 bg-(--warn)" />
           pinned
         </span>
         <button

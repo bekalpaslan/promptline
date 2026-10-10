@@ -204,7 +204,7 @@ function PromptCard({
         "flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5 rounded-lg border border-border bg-background p-3 text-left text-ui text-foreground transition-colors group-hover/card:border-primary focus-ring",
         // A pinned card carries the trees' Warn bar at its left edge, inside
         // the card's own shadow (both are box-shadow, so one declaration)
-        s.pinned ? "shadow-[inset_2px_0_0_var(--warn),var(--shadow-card)]" : "shadow-(--shadow-card)"
+        s.pinned ? "shadow-[inset_1.5px_0_0_var(--warn),var(--shadow-card)]" : "shadow-(--shadow-card)"
       )}
       onClick={onOpen}
       onContextMenu={(e) => {
