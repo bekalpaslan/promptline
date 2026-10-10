@@ -147,7 +147,8 @@ not structure, per the design system's "ink first, hue second"; so the
 `heading` tokens are ink colours. In the overview a group is a heading over
 a hairline, not a panel, so it doesn't repeat its pack's look.
 
-**The editor is the prompt and little else.** A crumb line says where
+**The editor is the prompt and little else.** The bar above the pane
+carries its crumb line (`EditorCrumbs`), which says where
 the prompt sits (pack › group at the left, each crumb opening that
 overview, the chevron after them opening the same Move-to menu a row's
 right-click does, with the prompt's own place checked) and, in one group
@@ -1543,9 +1544,11 @@ the theme is `palette`, the names from before there was a second axis;
 renaming the key would have meant a migration for a label. With the footer
 gone and the "Prompts" heading with it (the window is Promptline and the
 list is visibly prompts; the landmark keeps its name through
-`aria-label`), the sidebar is search, Display, New and the tree, nothing
-else; the Settings gear sits at the top-right of the pane, above whatever
-the pane shows.
+`aria-label`), the sidebar is search, Display, New, the tree and a foot
+that holds the bar legend and the Settings gear; the bar above the pane
+is the open prompt's crumb line. Until 2026-10-10 the gear stood alone
+in that bar and the crumbs were the editor's first line; the user wanted
+the crumbs up there and the gear out of the pane's way.
 
 `.dark` on `<html>` swaps CSS custom properties. It also sets `color-scheme`,
 which is what makes native UI the webview paints itself — scrollbars, `<select>`
