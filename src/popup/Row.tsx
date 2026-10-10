@@ -4,7 +4,7 @@ import { C, type RowIconName, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { HighlightedTitle, InputsBadge, Keys, MatchText, TagList } from "@/components/prompt-bits"
 import { SELECTED_BAR } from "@/components/menu-styles"
-import { PINNED_BAR } from "@/components/tree"
+import { PINNED_BAR, treeRowClass } from "@/components/tree"
 
 // The popup's list row. Its own module so the design-system bundle
 // (design/entry.tsx) can render the real row, not a copy; the pieces it is
@@ -133,8 +133,9 @@ export const Row = memo(function Row({
       data-selected={selected}
       data-icon={icon}
       className={cn(
-        "flex min-w-0 scroll-mt-[30px] cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
-        compact ? "py-0.5" : "py-1",
+        // The shared tree's row (tree.tsx); the scroll margin clears the sticky header
+        treeRowClass(compact),
+        "scroll-mt-[30px]",
         selected ? cn("text-foreground", SELECTED_BAR) : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),
         picked && "bg-primary/20"
       )}
