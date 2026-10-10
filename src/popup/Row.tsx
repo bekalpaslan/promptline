@@ -4,7 +4,7 @@ import { C, type RowIconName, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { HighlightedTitle, InputsBadge, Keys, MatchText, TagList } from "@/components/prompt-bits"
 import { SELECTED_BAR } from "@/components/menu-styles"
-import { PINNED_BAR, treeRowClass } from "@/components/tree"
+import { treeRowClass } from "@/components/tree"
 
 // The popup's list row. Its own module so the design-system bundle
 // (design/entry.tsx) can render the real row, not a copy; the pieces it is
@@ -140,7 +140,8 @@ export const Row = memo(function Row({
         treeRowClass,
         "scroll-mt-[30px]",
         "text-foreground",
-        selected && bar ? SELECTED_BAR : cn("hover:bg-hover", s.pinned && PINNED_BAR),
+        // A pinned row carries no mark here: the Pinned section says it
+        selected && bar ? SELECTED_BAR : "hover:bg-hover",
         picked && "bg-primary/20"
       )}
       onClick={(e) => {

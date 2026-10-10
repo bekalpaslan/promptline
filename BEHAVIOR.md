@@ -168,17 +168,17 @@ Prompt field sits under its title (the user asked for the frame,
 2026-10-10). The frame pulls out by its own 1 px border, so the header
 and the rows keep the x they have folded; a folded pack is a header row
 like any other, and a pack faded by the filter is folded. In both windows,
-since the trees are one. A pinned prompt carries a 1.5 px Warn bar at its left edge
-(`PINNED_BAR`), the selection bar's shape in the pin's colour, and so
-does its card in the overview (inside the card's shadow, in place of the
-pin icon it drew); in the popup the keyboard's Focus bar wins on a row
-that is both, and a legend at the sidebar's foot names the pinned bar
-with a square of its colour (it named the open prompt's Focus bar too,
-"viewed", until that bar went on 2026-10-10; the legend drew the bars'
-own shape first, and at 2 by 12 px they were too thin to read as
-colour). Until 2026-10-10
-the sidebar drew a pin icon before a pinned title and the popup's rows
-had a glyph column; both trees now start a row with its title. The look is
+since the trees are one. A pinned prompt carries a quiet pin at the
+right of its row in the sidebar, after the hover grip, and at the right
+of its card's title in the overview (`PinMark`: the muted ink, small, no
+colour); the popup's rows carry nothing, since its Pinned section says
+it. Through 2026-10-10 the mark was a 1.5 px Warn bar at the row's left
+edge in both trees and on the card, the selection bar's shape in the
+pin's colour, with a legend at the sidebar's foot naming it (and the
+open prompt's Focus bar, "viewed", while that lasted); the user found the
+bars a glow and asked for a colourless pin, and the legend went with
+them. Before that the sidebar drew a pin before a pinned title and the
+popup's rows had a glyph column; both trees start a row with its title. The look is
 written once, in `components/tree.tsx`, and
 the popup's list draws the same tree with it: since 2026-10-10 the two
 are one tree on two windows, so a change to a level's look lands in both
@@ -884,7 +884,7 @@ replies to an agent. While it is on (`AppState.keep_open`):
   edge to edge on the window, the micro size in the muted ink), since the
   two say the same kind of thing, what the marks and keys on the screen
   mean; the hints are the popup's own, in mono and 6 px apart, as the
-  legend and the gear are the sidebar's. The shell's insets are the
+  gear is the sidebar's. The shell's insets are the
   sidebar's too: 12 px at the sides and the top and 8 px between strips
   (the user wanted the two windows' margins the same, 2026-10-10; it was
   8 px all round with the bar inside). The resting bar's hints fill
@@ -1610,7 +1610,7 @@ renaming the key would have meant a migration for a label. With the footer
 gone and the "Prompts" heading with it (the window is Promptline and the
 list is visibly prompts; the landmark keeps its name through
 `aria-label`), the sidebar is search, Display, New, the tree and a foot
-that holds the bar legend and the Settings gear; the bar above the pane
+that holds the Settings gear; the bar above the pane
 is the open prompt's crumb line, and there is no bar while an overview
 or Settings is in the pane. Until 2026-10-10 the gear stood alone
 in that bar and the crumbs were the editor's first line; the user wanted
