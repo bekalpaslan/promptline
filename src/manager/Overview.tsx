@@ -197,7 +197,7 @@ function PromptCard({
       aria-label={`${name}${s.pinned ? ", pinned" : ""}`}
       aria-describedby={inputs.length ? badgeId : undefined}
       title={`${name} — click edits, Ctrl+C copies, right-click for actions`}
-      className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5 rounded-lg border border-border bg-background p-3 text-left text-ui text-foreground transition-colors group-hover/card:border-primary focus-ring"
+      className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5 rounded-lg border border-border bg-background p-3 text-left text-ui text-foreground shadow-(--shadow-card) transition-colors group-hover/card:border-primary focus-ring"
       onClick={onOpen}
       onContextMenu={(e) => {
         e.preventDefault()

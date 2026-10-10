@@ -106,6 +106,7 @@
     --shadow-shell: 0 8px 24px rgba(16, 24, 40, 0.16);
     --shadow-pop: 0 4px 12px rgba(16, 24, 40, 0.10);
     --shadow-segment: 0 1px 2px rgba(16, 24, 40, 0.10);
+    --shadow-card: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.07);
     --chip-tint: 12%;
     --chip-edge: 0%;
     --radius: 4px;
@@ -156,6 +157,7 @@
     --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.55);
     --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.45);
     --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.35);
     --chip-tint: 16%;
     --chip-edge: 0%;
     /* @tokens end */
@@ -208,6 +210,7 @@
     --shadow-shell: 0 24px 80px rgba(0, 0, 0, 0.18);
     --shadow-pop: 0 8px 24px rgba(15, 17, 24, 0.12);
     --shadow-segment: 0 1px 2px rgba(15, 17, 24, 0.10);
+    --shadow-card: 0 1px 2px rgba(15, 17, 24, 0.06), 0 6px 16px rgba(15, 17, 24, 0.08);
     --chip-tint: 10%;
     --chip-edge: 35%;
     --radius: 10px;
@@ -257,6 +260,7 @@
     --shadow-shell: 0 24px 80px rgba(0, 0, 0, 0.4);
     --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
     --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 6px 16px rgba(0, 0, 0, 0.35);
     --chip-tint: 10%;
     --chip-edge: 35%;
     /* @tokens end */
