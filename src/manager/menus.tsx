@@ -404,10 +404,35 @@ export function useLibraryMenus(opts: {
   // Takes the target ids explicitly: the caller may have just replaced the
   // selection, and reading m.selection here would still see the old one
   // (stale render) — showing the previous prompt's menu.
+  // Pin or unpin: unpin when everything given is pinned, otherwise pin the
+  // rest, within the popup's slot limit. The row menu's Pin item and the
+  // editor's Pin button are this one rule.
+  const togglePin = (ids: string[]) => {
+    const n = ids.length
+    const selected = m.snippets.filter((s) => ids.includes(s.id))
+    const allPinned = selected.length > 0 && selected.every((s) => s.pinned)
+    if (allPinned) {
+      void m
+        .persist((cur) => cur.map((s) => (ids.includes(s.id) ? C.withPin(s, false) : s)))
+        .then(() => say(n === 1 ? "Unpinned" : `Unpinned ${n}`))
+      return
+    }
+    // Rows in the selection that are already pinned take no new slot
+    const plan = C.pinPlan(m.snippets, ids, MAX_PINS)
+    if (!plan.ok) {
+      sayErr(
+        `Max ${MAX_PINS} pins — ${plan.already} already pinned, so you can pin ${plan.room === 0 ? "no" : plan.room} more`
+      )
+      return
+    }
+    void m
+      .persist((cur) => cur.map((s) => (ids.includes(s.id) ? C.withPin(s, true) : s)))
+      .then(() => say(plan.toPin === 1 ? "Pinned" : `Pinned ${plan.toPin}`))
+  }
+
   const openRowCtx = (x: number, y: number, idSet: Set<string>) => {
     const ids = [...idSet]
     const n = ids.length
-    // Unpin when everything selected is pinned; otherwise pin the rest
     const selected = m.snippets.filter((s) => ids.includes(s.id))
     const allPinned = selected.length > 0 && selected.every((s) => s.pinned)
     const items: CtxItem[] = [
@@ -426,25 +451,7 @@ export function useLibraryMenus(opts: {
       {
         kind: "item",
         label: allPinned ? (n === 1 ? "Unpin" : `Unpin ${n}`) : n === 1 ? "Pin" : `Pin ${n}`,
-        run: () => {
-          if (allPinned) {
-            void m
-              .persist((cur) => cur.map((s) => (ids.includes(s.id) ? C.withPin(s, false) : s)))
-              .then(() => say(n === 1 ? "Unpinned" : `Unpinned ${n}`))
-            return
-          }
-          // Rows in the selection that are already pinned take no new slot
-          const plan = C.pinPlan(m.snippets, ids, MAX_PINS)
-          if (!plan.ok) {
-            sayErr(
-              `Max ${MAX_PINS} pins — ${plan.already} already pinned, so you can pin ${plan.room === 0 ? "no" : plan.room} more`
-            )
-            return
-          }
-          void m
-            .persist((cur) => cur.map((s) => (ids.includes(s.id) ? C.withPin(s, true) : s)))
-            .then(() => say(plan.toPin === 1 ? "Pinned" : `Pinned ${plan.toPin}`))
-        },
+        run: () => togglePin(ids),
       },
       { kind: "header", text: "Move to" },
       ...moveToItems(ids, x, y),
@@ -609,6 +616,7 @@ export function useLibraryMenus(opts: {
     newPack,
     openRowCtx,
     openMoveTo,
+    togglePin,
     askDeletePrompts,
     askDeletePack,
   }
