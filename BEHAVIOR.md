@@ -53,7 +53,10 @@ same Copy at the right of its heading, copying what is in the field now,
 unsaved edits included (`src/manager/copy.ts`, one copy for both). In the
 sidebar's One list display there are no pack titles to select, so the
 overview is of every prompt ("All prompts", in the list's order, each card
-naming its pack and group, following the filter): switching to One list
+naming its pack and group, following the filter). A card carries a soft
+shadow out from its edge (`shadow-card`), so the cards float a little
+off the pane rather than sit flat on it (2026-10-10): the one surface
+shadowed at rest. Switching to One list
 turns an open overview into it, Escape reaches it from a prompt or from an
 empty pane, and switching back to Packs returns the pane to the editor,
 since that overview belongs to no pack. The editor's crumbs (pack, group)
