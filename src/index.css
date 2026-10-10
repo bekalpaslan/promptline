@@ -267,6 +267,107 @@
     --module-border: var(--border);
 }
 
+
+/* Clay: a theme (Settings → Appearance → Theme; BEHAVIOR.md → Theming).
+   Values come from design/clay.tokens.json through the same script. */
+:root[data-theme="clay"] {
+    /* @tokens clay light: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #faf9f5;
+    --sidebar: #f0eee6;
+    --segment-track: #f0eee6;
+    --secondary: #ece9df;
+    --muted: #ece9df;
+    --card: #ffffff;
+    --popover: #ffffff;
+    --segment-active: #ffffff;
+    --band: #e3e0d5;
+    --hover: #e8e5db;
+    --accent: #ddd9cc;
+    --foreground: #1f1e1d;
+    --card-foreground: #1f1e1d;
+    --popover-foreground: #1f1e1d;
+    --secondary-foreground: #1f1e1d;
+    --accent-foreground: #1f1e1d;
+    --muted-foreground: #5e5c56;
+    --border: #e3e0d5;
+    --input: #c9c6ba;
+    --link: #a84d2d;
+    --ring: #c96442;
+    --focus: #c96442;
+    --primary: #b5532f;
+    --primary-foreground: #ffffff;
+    --destructive: #b93227;
+    --warn: #a44a06;
+    --heading: #6b695f;
+    --heading-strong: #1f1e1d;
+    --success: #2b7a3b;
+    --code-ground: #faf9f5;
+    --param-builtin: #1f5fb0;
+    --param-builtin-bg: #e4ecf8;
+    --param-field: #8a5a05;
+    --param-field-bg: #fbf1dc;
+    --param-config: #9a2a8c;
+    --param-config-bg: #f9e6f5;
+    --shadow-shell: 0 8px 24px rgba(31, 30, 29, 0.16);
+    --shadow-pop: 0 4px 12px rgba(31, 30, 29, 0.10);
+    --shadow-segment: 0 1px 2px rgba(31, 30, 29, 0.10);
+    --shadow-card: 0 1px 2px rgba(31, 30, 29, 0.06), 0 4px 12px rgba(31, 30, 29, 0.07);
+    --chip-tint: 10%;
+    --chip-edge: 25%;
+    --radius: 8px;
+    --search-radius: 8px;
+    /* @tokens end */
+    --module-border: var(--border);
+}
+
+:root[data-theme="clay"].dark {
+    /* @tokens clay dark: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #141414;
+    --sidebar: #111111;
+    --segment-track: #111111;
+    --secondary: #262626;
+    --muted: #262626;
+    --card: #1d1d1d;
+    --popover: #1d1d1d;
+    --segment-active: #2e2e2e;
+    --band: #262626;
+    --hover: #1f1f1f;
+    --accent: #343434;
+    --foreground: #e8e6df;
+    --card-foreground: #e8e6df;
+    --popover-foreground: #e8e6df;
+    --secondary-foreground: #e8e6df;
+    --accent-foreground: #e8e6df;
+    --muted-foreground: #a19f97;
+    --border: #2a2a2a;
+    --input: #343434;
+    --link: #d97757;
+    --ring: #d97757;
+    --focus: #d97757;
+    --primary: #b5532f;
+    --primary-foreground: #ffffff;
+    --destructive: #ff7b6e;
+    --warn: #f5a54b;
+    --heading: #898781;
+    --heading-strong: #e8e6df;
+    --success: #7bd389;
+    --code-ground: #0c0c0c;
+    --param-builtin: #6fa6ea;
+    --param-builtin-bg: #182536;
+    --param-field: #f0c25a;
+    --param-field-bg: #3a2e12;
+    --param-config: #ea8fdc;
+    --param-config-bg: #3b1e37;
+    --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.6);
+    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.35);
+    --chip-tint: 10%;
+    --chip-edge: 25%;
+    /* @tokens end */
+    --module-border: var(--border);
+}
+
 /* Indigo's one structural difference the tokens can't carry: the sidebar's
    New is the filled accent button (the file's "+ New chat"), where Instrument
    keeps it a dashed outline and the accent as text only. */
@@ -280,6 +381,18 @@
     border-color: transparent;
     color: var(--primary-foreground);
     filter: brightness(1.08);
+}
+
+/* Clay's: New is a plain row like the reference sidebar's "+ New", no
+   outline at rest and the hover grey under the pointer. Same rule, third
+   value: outline (Instrument), fill (Indigo), none (Clay). */
+:root[data-theme="clay"] .sidebar-new {
+    border-color: transparent;
+    background-color: transparent;
+}
+:root[data-theme="clay"] .sidebar-new:hover {
+    border-color: transparent;
+    background-color: var(--hover);
 }
 
 /* Tag hues are tuned for dark surfaces (ui/core.js). A chip sets --tag to

@@ -6,7 +6,7 @@ export { DEFAULT_PACK, MAX_PINS } from "@/lib/library"
 
 export interface Prefs {
   theme: string // the mode: "system" | "light" | "dark" (legacy "sand"/"sundown" map to dark)
-  palette: string // the theme: "instrument" | "indigo" (lib/prefs.ts PALETTES)
+  palette: string // the theme: "instrument" | "indigo" | "clay" (lib/prefs.ts PALETTES)
   density: string
   scale: string
   font: string // id into FONTS (lib/prefs.ts)

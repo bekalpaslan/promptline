@@ -1531,7 +1531,7 @@ message; it used to be recorded and fail at Apply.
 
 **Two axes: a theme and a mode.** The theme is a palette with a light and
 a dark side; the mode picks the side. Settings → Appearance has Theme
-(Instrument, the default, or Indigo) as a select and Mode (System / Light
+(Instrument, the default, Indigo or Clay) as a select and Mode (System / Light
 / Dark) as a segmented control, next to density, font and scale, where the
 other appearance choices already were; the sidebar used to carry a Light /
 Dark toggle in its footer, permanent real estate for a choice made once.
@@ -1558,12 +1558,19 @@ the crumbs up there and the gear out of the pane's way.
 which is what makes native UI the webview paints itself — scrollbars, `<select>`
 popups, form controls — follow the theme. Tokens alone leave those light.
 `data-theme` on `<html>` picks the palette the same way: `design/tokens.json`
-is Instrument and `design/indigo.tokens.json` is Indigo, the same format
+is Instrument, `design/indigo.tokens.json` is Indigo and
+`design/clay.tokens.json` is Clay, the same format
 and the same contrast floors, rendered by `npm run tokens` into regions
-under `:root[data-theme="indigo"]` and `:root[data-theme="indigo"].dark`
+under `:root[data-theme="<id>"]` and `:root[data-theme="<id>"].dark`
 (the attribute outranks `.dark` alone, so each theme keeps both modes).
 Indigo is the AI Chat UI Pro look: a near-black ground, indigo as the one
-accent, 10 px controls and 14 px cards. Three things differ between the
+accent, 10 px controls and 14 px cards. Clay (2026-10) is the look of the
+Claude desktop app's sidebar: a near-black, neutral ground with warm
+off-white text, a grey selection rather than a tinted one, clay as the one
+accent and the primary button's fill, 8 px controls; its light side is
+derived on ivory, since the reference was dark only. Clay keeps the
+clipboard chip blue, the reference's one other colour, so the three
+placeholder kinds stay apart from the accent. Three things differ between the
 themes beyond colours, each a token so the components stay one definition:
 the search boxes' radius (`radius-search`, a pill in Indigo), how much of
 a tag's hue a resting chip's ground and edge carry (`chip-tint` and
@@ -1571,8 +1578,10 @@ a tag's hue a resting chip's ground and edge carry (`chip-tint` and
 file's state pills), and the ground under the popup's hover card
 (`code-ground`, the file's code block). The one exception is the sidebar's
 New button: Instrument keeps it a dashed outline, because the accent is
-text only there, and Indigo fills it, because the file leads with a filled
-primary; a `data-theme` rule in `index.css` does that, not a token. A
+text only there, Indigo fills it, because the file leads with a filled
+primary, and Clay draws it as a plain row with the hover grey under the
+pointer, as the reference draws its own New; a `data-theme` rule per
+theme in `index.css` does that, not a token. A
 theme never chooses the font: Inter ships beside Outfit under Font, and
 picking Indigo leaves the font where it was.
 
