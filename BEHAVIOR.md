@@ -147,13 +147,20 @@ not structure, per the design system's "ink first, hue second"; so the
 `heading` tokens are ink colours. In the overview a group is a heading over
 a hairline, not a panel, so it doesn't repeat its pack's look.
 
-**The editor is the prompt and little else.** A crumb line says where
-the prompt sits (pack › group, each crumb opening that overview) and
-holds its use count, its pin and two menus: the crumb's chevron opens the
-same Move-to menu a row's right-click does, with the prompt's own place
-checked, and a ⋯ at the right opens the prompt's own menu, the one its
-row's right-click opens (Pin, Move to, Add tag, Export, Delete), less
-Move up and down, which only the sidebar has rows for. Under it the title
+**The editor is the prompt and little else.** The bar above the pane
+carries its crumb line (`EditorCrumbs`), which says where
+the prompt sits (pack › group at the left, each crumb opening that
+overview, the chevron after them opening the same Move-to menu a row's
+right-click does, with the prompt's own place checked) and, in one group
+at the right, holds its use count, a Pin toggle and a ⋯ menu. The Pin
+button is pressed, in the pin's Warn, while the prompt is pinned, and
+runs the same rule as the row menu's Pin item (`togglePin`: the slot
+limit, the toasts); until 2026-10-10 the line showed "pinned" as a word
+beside the crumbs, which said the state without offering the switch, and
+the whole line was 12 px, a caption's size, against the pane's 13. The
+⋯ opens the prompt's own menu, the one its row's right-click opens (Pin,
+Move to, Add tag, Export, Delete), less Move up and down, which only the
+sidebar has rows for. Under it the title
 alone, at the heading size nothing else in the pane uses, then the text,
 the tags, and the placeholders the text holds. Placement is the store's,
 never a field of the autosave: the pack select and the free-text group
@@ -1537,9 +1544,11 @@ the theme is `palette`, the names from before there was a second axis;
 renaming the key would have meant a migration for a label. With the footer
 gone and the "Prompts" heading with it (the window is Promptline and the
 list is visibly prompts; the landmark keeps its name through
-`aria-label`), the sidebar is search, Display, New and the tree, nothing
-else; the Settings gear sits at the top-right of the pane, above whatever
-the pane shows.
+`aria-label`), the sidebar is search, Display, New, the tree and a foot
+that holds the bar legend and the Settings gear; the bar above the pane
+is the open prompt's crumb line. Until 2026-10-10 the gear stood alone
+in that bar and the crumbs were the editor's first line; the user wanted
+the crumbs up there and the gear out of the pane's way.
 
 `.dark` on `<html>` swaps CSS custom properties. It also sets `color-scheme`,
 which is what makes native UI the webview paints itself — scrollbars, `<select>`
