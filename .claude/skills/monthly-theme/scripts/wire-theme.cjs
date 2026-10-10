@@ -44,7 +44,7 @@ edit("scripts/tokens.mjs", (s) => {
 // 2. src/index.css: regions after the last data-theme block (or after .dark's)
 edit("src/index.css", (s) => {
   if (s.includes(`:root[data-theme="${id}"]`)) return null
-  const marker = (theme) => `    /* @tokens ${id} ${theme}: generated from design/tokens.json by \`npm run tokens\`; edit the JSON, not these lines */\n    /* @tokens end */\n    --module-border: var(--border);\n}`
+  const marker = (theme) => `    /* @tokens ${id} ${theme}: generated from design/tokens.json by \`npm run tokens\`; edit the JSON, not these lines */\n    /* @tokens end */\n}`
   const block =
     `\n/* ${label}: a theme (Settings → Appearance → Theme; BEHAVIOR.md → Theming).\n` +
     `   Values come from design/${id}.tokens.json through the same script. */\n` +

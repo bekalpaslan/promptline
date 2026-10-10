@@ -137,8 +137,8 @@ the branch must hold only the theme.
 2. **Wiring.** `node .claude/skills/monthly-theme/scripts/wire-theme.cjs
    <id> "<Label>"` adds the theme to `PALETTES` in `scripts/tokens.mjs`,
    the two marker regions in `src/index.css` (under
-   `:root[data-theme="<id>"]` and `:root[data-theme="<id>"].dark`, with
-   `--module-border`), the Settings list in `src/lib/prefs.ts`, and widens
+   `:root[data-theme="<id>"]` and `:root[data-theme="<id>"].dark`), the
+   Settings list in `src/lib/prefs.ts`, and widens
    `resolvePalette` in `ui/core.js` (it rewrites the function to a list of
    ids). It is idempotent; run it, then `npm run tokens`. A contrast
    failure names the pair and the theme: darken the text or lighten the
