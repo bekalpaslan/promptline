@@ -13,7 +13,6 @@ import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { footClass } from "@/components/foot"
 import { PINNED_BAR, TREE_FOCUS, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass, treeRowClass } from "@/components/tree"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
-import { SELECTED_BAR } from "@/components/menu-styles"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
 import { MenuDots, groupKey, useLibraryMenus } from "./menus"
@@ -724,7 +723,7 @@ export function Sidebar() {
         aria-selected={selected}
         aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
         title={`${group} — right-click or ⋯ for actions`}
-        className={cn(treeHeaderClass("group"), treeFillClass(selected), "group", TREE_FOCUS, dropHere && DROP_TARGET)}
+        className={cn(treeHeaderClass("group"), treeFillClass(false), "group", TREE_FOCUS, dropHere && DROP_TARGET)}
         onClick={() => openHeader(pack, group)}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -808,9 +807,10 @@ export function Sidebar() {
           treeRowClass,
           "group",
           TREE_FOCUS,
-          active
-            ? cn("text-foreground", SELECTED_BAR)
-            : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),
+          // The open prompt carries no mark (the bar went, 2026-10-10): the
+          // pane shows it, and the row is selected for assistive tech
+          "text-foreground hover:bg-hover",
+          s.pinned && PINNED_BAR,
           multi && "outline outline-1 -outline-offset-1 outline-primary",
           // Lifted: the row stays in place, dimmed, while its ghost travels
           lifted ? "opacity-40" : grouped && "hover:cursor-grab"
@@ -867,7 +867,7 @@ export function Sidebar() {
         // Short: a native tooltip cuts around 80 characters, and the keys
         // are in the menu's hints and BEHAVIOR.md rather than every row
         title={`${name} — right-click or ⋯ for actions`}
-        className={cn(treeHeaderClass("pack"), treeFillClass(selected), "group", TREE_FOCUS, faded && "opacity-45", dropHere && DROP_TARGET)}
+        className={cn(treeHeaderClass("pack"), treeFillClass(false), "group", TREE_FOCUS, faded && "opacity-45", dropHere && DROP_TARGET)}
         onClick={() => openHeader(name)}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -1142,10 +1142,6 @@ export function Sidebar() {
           pane until 2026-10-10; that bar is the crumb line's now). The
           legend is decoration to assistive tech; the gear is not. */}
       <div className={cn(footClass, "gap-x-3")}>
-        <span aria-hidden className="flex items-center gap-1.5">
-          <span className="size-1.5 bg-(--focus)" />
-          viewed
-        </span>
         <span aria-hidden className="flex items-center gap-1.5">
           <span className="size-1.5 bg-(--warn)" />
           pinned

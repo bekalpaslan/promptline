@@ -41,9 +41,10 @@ export const treeHeaderClass = (level: TreeLevel) =>
     level === "pack" ? "font-semibold text-(--heading-strong)" : "font-medium text-(--heading)"
   )
 
-// A header's fill: the hover grey under the pointer; the shown or
-// selected pack or group carries the bar instead of a tint (SELECTED_BAR)
-export const treeFillClass = (selected: boolean) => (selected ? SELECTED_BAR : "hover:bg-hover")
+// A header's fill: the hover grey under the pointer, or, in the popup once
+// an arrow key has moved the selection onto it, the bar (SELECTED_BAR,
+// menu-styles.ts). The sidebar's shown pack or group carries no mark.
+export const treeFillClass = (bar: boolean) => (bar ? SELECTED_BAR : "hover:bg-hover")
 
 // A prompt row's layout and type; the element, its fill and its bars are
 // the caller's. 2 px above and below in every row: a title-only row is
