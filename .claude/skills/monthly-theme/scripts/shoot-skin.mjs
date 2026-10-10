@@ -96,7 +96,7 @@ const SHOTS = {
     await page.getByRole("option").first().waitFor()
     await page.keyboard.press("ArrowDown")
     await page.keyboard.press("ArrowRight")
-    await page.getByRole("tooltip").waitFor()
+    await page.getByRole("note", { name: "Preview" }).waitFor()
   },
   "popup-search": async (page) => {
     await page.getByRole("combobox", { name: "Search prompts" }).fill("rev")
