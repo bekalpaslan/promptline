@@ -124,8 +124,12 @@ export function EditorCrumbs() {
         count, the Pin toggle (pressed while pinned, in the pin's Warn) and
         the ⋯ menu, 24 px tall each and 8 px apart. The line is the UI
         size: at 12 px it read as a caption, and "pinned" as a word in the
-        line said a state without offering the switch (2026-10-10). */}
-    <div className="flex min-w-0 flex-1 items-center gap-1 text-ui text-muted-foreground">
+        line said a state without offering the switch (2026-10-10). The
+        bar's side padding is the pane's 12 px plus the 13 px a card's
+        border and padding take, so the crumbs, the title and a card's
+        header text start on one line, and the right group ends where a
+        card's own controls end. */}
+    <div className="flex h-9 shrink-0 items-center gap-1 border-b border-border px-[25px] text-ui text-muted-foreground">
       <button
         type="button"
         className="min-w-0 cursor-pointer truncate rounded-sm font-medium hover:text-foreground focus-ring"
