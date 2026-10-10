@@ -68,16 +68,24 @@ rename and the delete-group dialog it drives, so both surfaces offer the
 same menu; only "Move up/down" is sidebar-only, since the overview's grid
 has no row order to move within. Packs and groups move from that menu (and
 Alt+Up/Down) only: a header is no drag handle, since a press on it
-selects it. Prompt rows still lift on press-and-hold, and the rows part for a
-lifted row as it crosses them: the tree is drawn with the row where the
-pointer would drop it, taking a group's label when it is among that
-group's rows (`C.placePrompt`, the one rule the release saves with, so
-what is on screen mid-drag is what the drop does), and the rows slide into
-their places (`flip.ts`). Until 0.2.19 an insertion line marked the spot
-instead. A lifted row is put back where it was, with nothing saved, when
-the gesture breaks off rather than ends (Escape, the browser taking the
-pointer, the window losing focus mid-drag): the release that came after
-an Alt+Tab used to drop the row wherever the pointer had last been. An
+selects it. A prompt row lifts on press-and-hold and moves: the row stays
+where it is, dimmed, while a ghost of its title travels with the pointer,
+the pack or group header under the pointer (a header, or any row under it;
+a row inside a group means the group) takes the hover fill and a Focus
+ring, and the release moves the prompt there, the same write the row's
+"Move to" menu makes. The prompt's own pack or group and a locked pack are
+no target, and nothing animates. Through 0.2.22 the drag arranged
+instead: the rows parted and slid for the lifted row (`C.placePrompt`,
+`flip.ts`) and the drop saved an order; before 0.2.19 an insertion line
+marked the spot. The user wanted a move, not an arrangement (2026-10-10),
+so ordering stays on Alt+Up/Down and the menu's Move up/down (the Display
+menu says so), which still take the custom order through
+`C.placePrompt`. In one list there is nothing to drop on, so rows don't
+lift there. A lifted row is put back where it was, with nothing written,
+when the gesture breaks off rather than ends (Escape, the browser taking
+the pointer, the window losing focus mid-drag): the release that came
+after an Alt+Tab used to drop the row wherever the pointer had last been.
+An
 overview follows a rename of its pack
 or group; one whose group is gone shows the pack. The folds and the
 inline-rename state are the manager's as well (`folds.ts`, `renaming` on

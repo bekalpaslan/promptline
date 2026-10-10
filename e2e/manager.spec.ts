@@ -517,48 +517,60 @@ test("a store build has no update controls in Settings", async ({ page }) => {
 
 // ---- Hardening (edge cases a real library throws at the manager) ----
 
-test("a drag the window loses mid-way is dropped, not committed", async ({ page }) => {
-  // Alt+Tab while a row is lifted: no release ever comes, and the one that
-  // came after the window was back used to drop the row wherever the
-  // pointer had last been
-  const from = promptRow(page, "Bisect a regression")
-  const to = promptRow(page, "Loose prompt")
-  await from.scrollIntoViewIfNeeded()
-  const a = (await from.boundingBox())!
-  const b = (await to.boundingBox())!
+test("a held row floats and drops into the pack or group under the pointer", async ({ page }) => {
+  const row = promptRow(page, "Bisect a regression")
+  const starter = tree(page).getByRole("treeitem", { name: /^Starter, / })
+  const ghost = page.locator("[data-drag-ghost]")
+  await row.scrollIntoViewIfNeeded()
+  const a = (await row.boundingBox())!
   await page.mouse.move(a.x + 40, a.y + a.height / 2)
   await page.mouse.down()
   await page.waitForTimeout(250) // past the 180 ms hold
-  await page.mouse.move(b.x + 40, b.y + b.height - 2, { steps: 4 })
-  await expect(from).toHaveClass(/cursor-grabbing/)
-  await page.evaluate(() => window.dispatchEvent(new Event("blur")))
-  await expect(from).not.toHaveClass(/cursor-grabbing/)
-  await page.mouse.up()
-  await page.waitForTimeout(100)
+  await page.mouse.move(a.x + 60, a.y + a.height / 2 + 4, { steps: 2 })
+  // The ghost carries the title and follows the pointer; the row stays put
+  await expect(ghost).toHaveText("Bisect a regression")
+  await expect(row).toHaveAttribute("aria-level", "3")
+  await starter.scrollIntoViewIfNeeded()
+  const b = (await starter.boundingBox())!
+  await page.mouse.move(b.x + 40, b.y + b.height / 2, { steps: 4 })
+  await expect(starter).toHaveAttribute("data-drop-target", "true")
   expect(await calls(page, "save_snippets")).toHaveLength(0)
-  // The next click on a row is not swallowed by the abandoned drag
-  await to.click()
-  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue("Loose prompt")
+  await page.mouse.up()
+  await expect.poll(() => calls(page, "save_snippets")).toHaveLength(1)
+  const lib = await library(page)
+  expect(lib.find((s) => s.title === "Bisect a regression")).toMatchObject({ pack: "Starter", group: "" })
+  await expect(page.getByText('Moved "Bisect a regression" to "Starter"')).toBeVisible()
+  await expect(ghost).toHaveCount(0)
+  await expect(starter).not.toHaveAttribute("data-drop-target", "true")
 })
 
-test("Escape cancels a lifted row where it was", async ({ page }) => {
-  const from = promptRow(page, "Bisect a regression")
-  const to = promptRow(page, "Loose prompt")
-  await from.scrollIntoViewIfNeeded()
-  const a = (await from.boundingBox())!
-  const b = (await to.boundingBox())!
+test("the target header is highlighted while hovered and the prompt's own group is no target", async ({ page }) => {
+  const row = promptRow(page, "Bisect a regression")
+  const own = tree(page).getByRole("treeitem", { name: /^Debugging, / })
+  const other = tree(page).getByRole("treeitem", { name: /^Review, / })
+  await row.scrollIntoViewIfNeeded()
+  const a = (await row.boundingBox())!
   await page.mouse.move(a.x + 40, a.y + a.height / 2)
   await page.mouse.down()
   await page.waitForTimeout(250)
-  await page.mouse.move(b.x + 40, b.y + b.height - 2, { steps: 4 })
-  await expect(from).toHaveClass(/cursor-grabbing/)
-  await page.keyboard.press("Escape")
-  await expect(from).not.toHaveClass(/cursor-grabbing/)
+  // Headers can sit under the fold at this viewport: bring each one in first
+  const hover = async (l: ReturnType<typeof promptRow>) => {
+    await l.scrollIntoViewIfNeeded()
+    const b = (await l.boundingBox())!
+    await page.mouse.move(b.x + 40, b.y + b.height / 2, { steps: 4 })
+  }
+  await hover(own)
+  await expect(page.locator("[data-drag-ghost]")).toBeVisible()
+  await expect(own).not.toHaveAttribute("data-drop-target", "true")
+  await hover(other)
+  await expect(other).toHaveAttribute("data-drop-target", "true")
+  await expect(own).not.toHaveAttribute("data-drop-target", "true")
+  // Over a row inside the group, the group's header is still the target
+  await hover(promptRow(page, "Review for bugs"))
+  await expect(other).toHaveAttribute("data-drop-target", "true")
   await page.mouse.up()
-  await page.waitForTimeout(100)
-  expect(await calls(page, "save_snippets")).toHaveLength(0)
-  // Escape cancelled the drag, not the view: the pane is as it was
-  await expect(page.getByText("Select a prompt to edit it")).toBeVisible()
+  await expect.poll(() => calls(page, "save_snippets")).toHaveLength(1)
+  expect((await library(page)).find((s) => s.title === "Bisect a regression")).toMatchObject({ pack: "Mock Groups", group: "Review" })
 })
 
 test("Ungroup on a selection spanning packs clears the label and leaves each prompt in its pack", async ({ page }) => {
@@ -622,31 +634,40 @@ test("a pack with a long name keeps the menus inside the window", async ({ page 
   }
 })
 
-test("rows part for a lifted row as it crosses them, and the drop saves what was shown", async ({ page }) => {
-  const lifted = promptRow(page, "Bisect a regression")
-  const target = promptRow(page, "Loose prompt")
-  await lifted.scrollIntoViewIfNeeded()
-  const a = (await lifted.boundingBox())!
-  const b = (await target.boundingBox())!
-  await page.mouse.move(a.x + 40, a.y + a.height / 2)
-  await page.mouse.down()
-  await page.waitForTimeout(250)
-  // Into the bottom half of the ungrouped row above its group
-  await page.mouse.move(b.x + 40, b.y + b.height - 2, { steps: 4 })
-  // Before release: the row sits under "Loose prompt", out of its group
-  await expect(lifted).toHaveAttribute("aria-level", "2")
-  const order = () =>
-    tree(page)
-      .locator('[data-pack="Mock Groups"] [role="treeitem"][aria-level="2"][data-snip-id]')
-      .evaluateAll((els) => els.map((el) => el.getAttribute("title")))
-  await expect.poll(order).toEqual(["Loose prompt", "Bisect a regression"])
-  expect(await calls(page, "save_snippets")).toHaveLength(0)
+test("Escape or a lost window put a lifted row back with nothing saved", async ({ page }) => {
+  const row = promptRow(page, "Bisect a regression")
+  const starter = tree(page).getByRole("treeitem", { name: /^Starter, / })
+  const ghost = page.locator("[data-drag-ghost]")
+  const lift = async () => {
+    await row.scrollIntoViewIfNeeded()
+    const a = (await row.boundingBox())!
+    await page.mouse.move(a.x + 40, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.waitForTimeout(250)
+    await starter.scrollIntoViewIfNeeded()
+    const b = (await starter.boundingBox())!
+    await page.mouse.move(b.x + 40, b.y + b.height / 2, { steps: 4 })
+    await expect(starter).toHaveAttribute("data-drop-target", "true")
+  }
+  await lift()
+  await page.keyboard.press("Escape")
+  await expect(ghost).toHaveCount(0)
+  await expect(starter).not.toHaveAttribute("data-drop-target", "true")
   await page.mouse.up()
-  await expect.poll(() => calls(page, "save_snippets")).toHaveLength(1)
-  const lib = await library(page)
-  expect(lib.find((s) => s.title === "Bisect a regression")).toMatchObject({ pack: "Mock Groups", group: "" })
-  await expect(page.getByText('Moved "Bisect a regression" out of its group')).toBeVisible()
-  await expect(lifted).toHaveAttribute("aria-level", "2")
+  await page.waitForTimeout(100)
+  expect(await calls(page, "save_snippets")).toHaveLength(0)
+  // Escape cancelled the drag, not the view: the pane is as it was
+  await expect(page.getByText("Select a prompt to edit it")).toBeVisible()
+  // Alt+Tab while a row is lifted: no release ever comes, and the one that
+  // came after the window was back used to drop the row wherever the
+  // pointer had last been
+  await lift()
+  await page.evaluate(() => window.dispatchEvent(new Event("blur")))
+  await expect(ghost).toHaveCount(0)
+  await page.mouse.up()
+  await page.waitForTimeout(100)
+  expect(await calls(page, "save_snippets")).toHaveLength(0)
+  await expect(row).toHaveAttribute("aria-level", "3")
 })
 
 test("Ctrl+N starts a draft where the pane is looking", async ({ page }) => {
