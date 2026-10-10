@@ -2070,9 +2070,9 @@ export function App() {
                     const gf = groupActive(g)
                     const gSel = !!headSel && headSel.pack === sec.name && headSel.group === g
                     return (
-                      // A group as the sidebar draws it: its header a step in
-                      // from the pack's, its rows hung from the guide line
-                      // under the chevron (TreeChildren). The scroll margin
+                      // A group as the sidebar draws it: its header under the
+                      // pack's, its rows on the same column (TreeChildren,
+                      // tree.tsx). The scroll margin
                       // keeps a header clear of the sticky pack header above
                       // it (28 px and the 2 px gap).
                       <TreeGroup key={g} role="group" aria-label={g}>

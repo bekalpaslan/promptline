@@ -1111,7 +1111,7 @@ export function Sidebar() {
                         return (
                           <TreeGroup key={g.name} role="presentation" data-group={g.name}>
                             {groupTitle(p.name, g.name, g.items.length, gc)}
-                            {/* The guide line ties a group's prompts to its header */}
+                            {/* A group's rows sit where the pack's own do (tree.tsx) */}
                             {!gc && (
                               <TreeChildren level="group" role="group">
                                 {g.items.map((s) => snipRow(s))}

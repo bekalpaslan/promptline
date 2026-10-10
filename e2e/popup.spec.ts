@@ -32,15 +32,15 @@ test("one 8 px inset: the strips share the search box's edges, and their content
   const box = page.getByRole("search")
   const row = rows(page).first()
   const [boxRect, rowRect] = await Promise.all([box.boundingBox(), row.boundingBox()])
-  // A row's fill runs edge to edge inside its pack's frame, which is the
-  // search box's edges (the 12 px step went with the frame, 2026-10-10)
-  expect(Math.abs(rowRect!.x - boxRect!.x)).toBeLessThan(0.6)
+  // A row's fill starts under the pack's chevron, 8 px into the frame
+  // (the search box's edges), and runs to the frame's right edge
+  expect(Math.abs(rowRect!.x - (boxRect!.x + 8))).toBeLessThan(0.6)
   expect(Math.abs(rowRect!.x + rowRect!.width - (boxRect!.x + boxRect!.width))).toBeLessThan(0.6)
   // The search icon, the clipboard icon, a pack's chevron and the first key
-  // of the hint bar start 8 px in; a row's title 28 px in, on the name
-  // column (the shared row's inset, tree.tsx: the header's padding, its
-  // chevron and the gap after, with no glyph drawn before the title since
-  // 2026-10-10)
+  // of the hint bar start 8 px in; a row's title 20 px into its box, 28
+  // from the frame's edge: the name column (tree.tsx: the header's
+  // padding, its chevron and the gap after, with no glyph drawn before
+  // the title since 2026-10-10)
   const starts = await Promise.all([
     x(box.locator("svg").first()),
     x(clipLine(page).locator("xpath=..").locator("svg").first()),
@@ -48,7 +48,7 @@ test("one 8 px inset: the strips share the search box's edges, and their content
     x(page.getByText("paste", { exact: true }).locator("xpath=..").locator("kbd").first()),
   ])
   for (const s of starts) expect(Math.abs(s - (boxRect!.x + 8))).toBeLessThan(0.6)
-  expect(Math.abs((await x(row.locator("bdi").first())) - (rowRect!.x + 28))).toBeLessThan(0.6)
+  expect(Math.abs((await x(row.locator("bdi").first())) - (rowRect!.x + 20))).toBeLessThan(0.6)
   // The fill-in form: fields and the button are boxes, edge to edge; the
   // title and the labels are text, 8 px in
   await search(page).fill("Bisect a regression")
@@ -70,12 +70,11 @@ test("a row is one pill, the slot key on the title line, and no button inside th
   const row = page.getByRole("option", { name: "Root cause first", exact: true })
   const key = row.locator("kbd").first()
   await expect(row.locator("kbd")).toHaveText(["3"])
-  // Titles start on two edges: a pack's own rows on one, a group's rows
-  // 21 px further in, past the guide line (16 px to it, the 1 px line,
-  // 4 px after); never a third
-  const edges = await page.getByRole("option").evaluateAll((els) => [...new Set(els.map((el) => Math.round(el.querySelector("bdi")!.getBoundingClientRect().left)))].sort((a, b) => a - b))
-  expect(edges).toHaveLength(2)
-  expect(edges[1] - edges[0]).toBe(21)
+  // Every title starts on one edge, the pack's name column: a group's
+  // rows sit where the pack's own do (they hung 21 px further in, past a
+  // guide line, until 2026-10-10)
+  const edges = await page.getByRole("option").evaluateAll((els) => [...new Set(els.map((el) => Math.round(el.querySelector("bdi")!.getBoundingClientRect().left)))])
+  expect(edges).toHaveLength(1)
   const [keyBox, rowBox] = await Promise.all([key.boundingBox(), row.boundingBox()])
   expect(keyBox!.y + keyBox!.height).toBeLessThan(rowBox!.y + rowBox!.height / 2 + 2)
   // A listbox option holds no button: the tag pill is text the row acts on
@@ -118,7 +117,7 @@ test("the selected row carries a Focus bar at its left edge; the others do not",
   expect(await bar(0)).not.toBe(focus)
 })
 
-test("pack and group headers are the sidebar's tree: a chevron each, the group a step in, its rows hung from a guide line", async ({ page }) => {
+test("pack and group headers are the sidebar's tree: a chevron each under the other, nothing filled at rest, the pack's sticky", async ({ page }) => {
   const pack = page.locator("button", { hasText: "Everyday" }).first()
   const group = page.locator("button[aria-expanded]", { hasText: "Stuck" }).first()
   const option = page.getByRole("option").nth(1)
@@ -130,19 +129,15 @@ test("pack and group headers are the sidebar's tree: a chevron each, the group a
   expect(await option.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(clear)
   expect(await fill(pack)).toBe(clear)
   expect(await fill(group)).toBe(clear)
-  // Inside the pack's frame nothing steps: the group's header starts on
-  // the pack's edge (its name on the pack's name column); the group's rows
-  // sit past the guide line, which is centred under the chevron
+  // Inside the pack's frame nothing steps: the group's chevron sits under
+  // the pack's (its name on the pack's name column), and the group's rows
+  // start where the group's header does, with no guide line (gone
+  // 2026-10-10: the row's inset is margin enough)
   const groupRow = page.getByRole("group", { name: "Stuck", exact: true }).getByRole("option").first()
-  expect((await left(group)) - (await left(pack))).toBeCloseTo(0, 0)
-  expect((await left(groupRow)) - (await left(group))).toBeGreaterThan(12)
-  const line = await groupRow.evaluate((e) => {
-    const w = e.parentElement!
-    return { width: parseFloat(getComputedStyle(w).borderLeftWidth), x: w.getBoundingClientRect().left }
-  })
-  expect(line.width).toBe(1)
-  const chevronMid = await group.locator("svg").first().evaluate((e) => e.getBoundingClientRect().left + e.getBoundingClientRect().width / 2)
-  expect(Math.abs(line.x + 0.5 - chevronMid)).toBeLessThan(1)
+  const chevron = (l: typeof pack) => l.locator("svg").first().evaluate((e) => e.getBoundingClientRect().left)
+  expect((await chevron(group)) - (await chevron(pack))).toBeCloseTo(0, 0)
+  expect((await left(groupRow)) - (await left(group))).toBeCloseTo(0, 0)
+  expect(await groupRow.evaluate((e) => parseFloat(getComputedStyle(e.parentElement!).borderLeftWidth))).toBe(0)
   // Scrolled into its pack, the header stays at the top of the list
   const top = await pack.evaluate((e) => {
     let s = e.parentElement
@@ -1394,12 +1389,11 @@ test("headers: pack 13/600 and group 13/500 as the sidebar's, title 13/500; a he
   await page.mouse.move(1, 1)
 })
 
-test("a row's title sits on its pack's name column, and a group's rows past the guide line, as the sidebar's do", async ({ page }) => {
-  // The shared row's 28 px inset (tree.tsx) is the name column: a pack's
-  // row and a group's header start where the pack's name does, and a
-  // group's row 21 px past the group's name (16 px to the guide line, the
-  // line, 4 px after). The rows sat left of the name until 2026-10-10,
-  // when only the sidebar's grip had pushed its titles in
+test("every title sits on its pack's name column, a group's rows too, as the sidebar's do", async ({ page }) => {
+  // A row's title lands on the name column (tree.tsx: 8 px of body, 20 px
+  // of row inset): a pack's row, a group's header and a group's row all
+  // start where the pack's name does. The rows sat left of the name until
+  // 2026-10-10, when only the sidebar's grip had pushed its titles in
   const left = async (l: ReturnType<typeof rows>) => (await l.boundingBox())!.x
   // Mock Groups has a row outside any group; Stuck is a group in Everyday
   const packName = page.locator("button[aria-expanded]", { hasText: "Mock Groups" }).first().locator("bdi")
@@ -1409,7 +1403,7 @@ test("a row's title sits on its pack's name column, and a group's rows past the 
   const groupRow = stuck.getByRole("option").first().locator("bdi").first()
   expect((await left(packRow)) - (await left(packName))).toBeCloseTo(0, 0)
   expect((await left(groupName)) - (await left(packName))).toBeCloseTo(0, 0)
-  expect((await left(groupRow)) - (await left(groupName))).toBeCloseTo(21, 0)
+  expect((await left(groupRow)) - (await left(groupName))).toBeCloseTo(0, 0)
 })
 
 test("counts end on the rows' right edge, and groups follow each other at the rows' 2 px", async ({ page }) => {
@@ -1420,7 +1414,7 @@ test("counts end on the rows' right edge, and groups follow each other at the ro
   const edge = await right(slot)
   expect(Math.abs((await right(packCount)) - edge)).toBeLessThan(1)
   expect(Math.abs((await right(groupCount)) - edge)).toBeLessThan(1)
-  // Two groups in a row: the guide line says where one ends, so the next
+  // Two groups in a row: the next header says where one ends, so it
   // sits at the rows' own 2 px (the 8 px of 2026-10-09 went with the
   // one-edge layout)
   const stuck = page.getByRole("group", { name: "Stuck", exact: true })

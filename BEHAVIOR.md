@@ -125,20 +125,25 @@ behind its fold chevron, a group a medium row in the secondary ink, a
 prompt a medium row in the foreground ink (13/500, the one row-title
 weight the popup's rows and the overview's cards use too; the sidebar's
 400 and the cards' 600 had the same title in two weights, and the cards'
-12 px body is the 13/20 body size since 2026-10-10); a pack's rows and groups start on its name
-column, a group's prompts hang from a guide line under its chevron, headers carry the rows' 8 px
+12 px body is the 13/20 body size since 2026-10-10); a pack's rows, its groups and their rows all
+start on its name column, headers carry the rows' 8 px
 side padding so every count ends on the rows' right edge, and counts sit
 there in mono. A prompt row is 24 px, the row the popup draws in Compact
 density (`treeRowClass`): the sidebar's rows were 28 px until 2026-10-10,
 when the user, liking the popup's compact tree, asked for the sidebar to
 match it (a title-only row is the compact row; only the popup's two-line
-Comfortable row is taller). A row's title starts 28 px into the row, the
-name column (a header's 8 px padding, its 16 px chevron, the 4 px after):
-a pack's rows and its group headers line up with the pack's name, since
-the frame below says what they belong to and a step said it twice, and a
-group's rows sit 21 px past the group's name, after its guide line; the
-sidebar's drag grip sits inside that inset and the popup's rows leave it
-empty. Until 2026-10-10 a pack's children stepped 12 px in, only the grip
+Comfortable row is taller). A row's box starts 8 px into the frame,
+under the pack's chevron, so its fill and its bars start where the
+chevrons do, and its title 20 px into the box: 28 px from the frame's
+edge, the name column (a header's 8 px padding, its 16 px chevron, the
+4 px after). A pack's rows and its group headers (which have no left
+padding of their own, so their chevrons sit under the pack's) line up
+with the pack's name, since the frame says what they belong to and a step
+said it twice, and a group's rows sit where the pack's own do: the row's
+inset is margin enough and the group's header says whose they are (they
+hung from a guide line under the group's chevron, 21 px further in,
+until 2026-10-10); the sidebar's drag grip sits inside the row's inset
+and the popup's rows leave it empty. Until 2026-10-10 a pack's children stepped 12 px in, only the grip
 pushed the sidebar's titles past the names, and the popup's rows, with the
 plain 8 px, sat left of their header's name. Packs sit 16 px apart (`TreeSection`), twice
 the earlier 8, so a pack reads as its own block among rows that tight.
@@ -639,10 +644,9 @@ gap to read as blocks). The rows were 6 and the packs 12 apart with
 28 px headers before 0.2.21, a 50 px pitch for a 44 px row, which showed
 seven prompts in the default window where eight now fit (twelve in
 Compact). The list is the sidebar's tree (`components/tree.tsx`, see
-*The tree tells its levels apart without colour* above): a pack's rows
-and groups start on its name column inside its frame, a group's rows hang
-from the guide line under the group's chevron, and the headers are 28 px
-tall like the sidebar's. Through 0.2.22 the popup kept every title on one edge with
+*The tree tells its levels apart without colour* above): a pack's rows,
+its groups and their rows start on its name column inside its frame, and
+the headers are 28 px tall like the sidebar's. Through 0.2.22 the popup kept every title on one edge with
 no indent and 24 px headers; the 2026-10-10 decision that the two trees
 are one thing on two windows ended that.
 
@@ -676,8 +680,8 @@ line keeps the one-line display (`clipboardEnds` in core).
 **A header never reads as a prompt.** The headers are the sidebar's: a
 pack's name at 13/600 in the strong heading ink behind its chevron
 (Pinned's pin and Results' magnifier stand in the chevron's place), a
-group's at 13/500 in the secondary ink a step in, and the group's rows
-hung from the guide line under its chevron; no header or row is filled at
+group's at 13/500 in the secondary ink under it, and the group's rows
+on the same column; no header or row is filled at
 rest, and a header under the pointer takes the rows' hover grey. An open
 pack is the sidebar's frame too (border, header on the card ground, rows
 on the secondary ground; Pinned and Results are open packs). The pack
@@ -696,7 +700,7 @@ missing), then a band in its own colour under the pack and a hairline
 after the group's name, with the weights pushed to 700 and 600 (2026-10-07
 and 2026-10-09). On 2026-10-10 the two trees became one, drawn by
 `components/tree.tsx` in both windows, and the sidebar's chevrons and
-guide line do that parting here too. `Ctrl` is printed once, on
+frame do that parting here too. `Ctrl` is printed once, on
 the first slot's key; the rows under it show their digit alone in the same
 column. Five `Ctrl` caps down the right edge were the loudest thing in the
 list and said one thing five times (critique popup, 2026-10-03).
