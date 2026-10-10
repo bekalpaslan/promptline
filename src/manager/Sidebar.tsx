@@ -792,7 +792,7 @@ export function Sidebar() {
         title={title}
         data-snip-id={s.id}
         className={cn(
-          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui transition-[transform,box-shadow] duration-150 focus-ring",
+          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui font-medium transition-[transform,box-shadow] duration-150 focus-ring",
           active
             ? cn("text-foreground", SELECTED_BAR)
             : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),

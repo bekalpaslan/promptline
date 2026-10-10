@@ -218,7 +218,7 @@ function PromptCard({
     >
       <span className="flex min-w-0 items-center gap-1.5 pr-7">
         {s.pinned && <RiPushpinFill className="size-3.5 shrink-0 text-(--warn)" aria-hidden />}
-        <span className="min-w-0 flex-1 truncate font-semibold">
+        <span className="min-w-0 flex-1 truncate font-medium">
           <bdi>{s.title || "(untitled)"}</bdi>
         </span>
         <InputsBadge inputs={inputs} id={badgeId} />
@@ -230,7 +230,7 @@ function PromptCard({
           <bdi>{place}</bdi>
         </span>
       )}
-      <span className="line-clamp-3 break-words text-xs leading-relaxed text-muted-foreground">
+      <span className="line-clamp-3 break-words text-ui text-muted-foreground">
         {excerpt.trim() ? <PromptTokens text={excerpt} clipboard={clipboard} configValues={s.configValues} /> : <i>(empty)</i>}
       </span>
       {tags.length > 0 && (
