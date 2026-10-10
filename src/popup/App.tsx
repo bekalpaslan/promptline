@@ -28,6 +28,7 @@ const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
+import { footClass } from "@/components/foot"
 import { TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
 import { Button } from "@/components/ui/button"
 import { MENU_ITEM, MENU_PANEL, SELECTED_BAR } from "@/components/menu-styles"
@@ -42,6 +43,13 @@ type PanelAction = { label: string; danger?: boolean; run: () => void }
 // Where Delete sits in the action panel (its digit is this plus one)
 const DELETE_AT = 4
 type CreateState = { title: string; pack: string; group: string; prefilled: string }
+// The clipboard's well: the sidebar's New button's look (a dashed rule on
+// the Paper ground, the module's corners), so what the popup will paste
+// sits in the same kind of box the sidebar keeps its one action in; it was
+// a plain Control-grey fill (the user's call, 2026-10-10). An outline, not
+// a border, so the strip keeps its 40 px and the line its 20.
+const CLIP_WELL = "rounded-lg bg-background outline-1 outline-dashed -outline-offset-1 outline-border"
+
 // One line of feedback above the hint bar: the popup's only channel for an
 // error (a failed paste or save), a confirmation that something landed
 // (copied, saved, restored: Success text, no fill, as every confirmation in
@@ -1863,8 +1871,9 @@ export function App() {
         <div
           ref={clipLineRef}
           className={cn(
-            "relative grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[1rem_1rem] items-center gap-x-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-hover",
-            clipOpen ? "bg-hover" : "bg-secondary"
+            "relative grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[1rem_1rem] items-center gap-x-1.5 px-2 py-1 text-xs text-muted-foreground hover:bg-hover",
+            CLIP_WELL,
+            clipOpen && "bg-hover"
           )}
         >
           <RiClipboardLine className="size-3.5 shrink-0 opacity-70" aria-hidden />
@@ -1927,10 +1936,7 @@ export function App() {
                 aria-expanded={clipOpen}
                 aria-controls={clipOpen ? "popup-clipboard" : undefined}
                 title={clipOpen ? "Hide the clipboard (Esc)" : "Show the whole clipboard (Ctrl+↓)"}
-                className={cn(
-                  "focus-ring flex min-w-0 flex-1 cursor-pointer items-center rounded-md bg-secondary text-left text-foreground hover:bg-hover",
-                  clipOpen && "bg-hover"
-                )}
+                className={cn("focus-ring flex min-w-0 flex-1 cursor-pointer items-center text-left text-foreground hover:bg-hover", CLIP_WELL, clipOpen && "bg-hover")}
                 onClick={() => {
                   toggleClip()
                   inputRef.current?.focus()
@@ -1954,15 +1960,18 @@ export function App() {
         id="popup-list"
         role="listbox"
         aria-label="Prompts"
-        // No side padding: a row's fill runs edge to edge under the search
-        // box, and every strip's content starts 8 px in (the row's own
-        // padding). The list was 2 px narrower than the box above it, and
-        // five strips began their content on five different lines.
-        // The scrollbar's 8 px live in the shell's right padding, reserved
-        // whether or not the list scrolls: inside the list they took the
-        // rows' right edge 8 px short of the search box's whenever it
-        // scrolled, which is nearly always.
-        className="-mr-2 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
+        // No side padding: a pack's frame runs edge to edge under the search
+        // box, and every strip's content starts 8 px in. The list was 2 px
+        // narrower than the box above it, and five strips began their
+        // content on five different lines. The scrollbar's 8 px live in the
+        // shell's right padding, reserved whether or not the list scrolls:
+        // inside the list they took the rows' right edge 8 px short of the
+        // search box's whenever it scrolled, which is nearly always. The
+        // 4 px above and below are the sidebar's tree's (its pt-1, and its
+        // pb-3 less the shell's gap), so the first frame sits 12 px under
+        // the strip above it in both windows; margins, not padding, so the
+        // sticky pack header still meets the scroller's top edge.
+        className="-mr-2 my-1 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
         onScroll={hidePreview}
       >
         {filtered.length === 0 && (
@@ -2349,7 +2358,12 @@ function Shell({
     // The shell is the sidebar's pane colour (`sidebar`), not the Paper:
     // the list is the sidebar's tree, and it sits on the same ground in
     // both windows (2026-10-10; the darker of the two was the better).
-    <div data-tauri-drag-region className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-sidebar p-2 text-foreground shadow-(--shadow-shell)">
+    // Its insets are the sidebar's too: 12 px at the sides and the top,
+    // 8 px between strips (the sidebar's search row, New and tree), and
+    // the hint bar at the foot edge to edge, as the sidebar's foot is (it
+    // was 8 px all round, with the bar inside; the user wanted the two
+    // windows' margins the same, 2026-10-10).
+    <div data-tauri-drag-region className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-sidebar px-3 pt-3 text-foreground shadow-(--shadow-shell)">
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
       {/* The one landmark: the window's content, whichever mode it is in.
           `contents`, so the shell's column layout is unchanged */}
@@ -2412,8 +2426,12 @@ function Shell({
           itself, and the hints are spans inside it. It holds no control. */}
       <div
         className={cn(
-          "group/bar relative @container flex shrink-0 select-none flex-wrap items-center gap-x-1.5 gap-y-1 border-t border-border pl-2 pt-2 font-mono text-micro text-muted-foreground",
-          movable ? "pr-7" : "pr-2",
+          // The sidebar's foot (components/foot.tsx), with the hints in mono
+          // and 6 px apart; it breaks out of the shell's side padding to
+          // run edge to edge like the sidebar's
+          footClass,
+          "group/bar relative @container -mx-3 gap-x-1.5 font-mono",
+          movable && "pr-7",
           gripping ? "cursor-grabbing" : "cursor-grab"
         )}
         onPointerDown={(e) => {
@@ -2422,11 +2440,11 @@ function Shell({
       >
         {hint}
         {/* The handle's own mark while kept open, the mode in which the
-            popup is moved: an open hand in the bar's right corner on the
-            hints' line, its right edge on the content edge every strip
-            keeps (17 px from the window, as the first hint is on the left),
-            in a gutter of its own (the bar's 28 px of right padding: the
-            inset, the hand, a hint gap) so it never covers a hint. The
+            popup is moved: an open hand at the bar's right, its right edge
+            on the strips' edge, where the first hint starts on the left
+            (the foot's 12 px inset, the sidebar's), in a gutter of its own
+            (the bar's 28 px of right padding: the inset, the hand, a hint
+            gap) so it never covers a hint. The
             kept-open bar's hints are fewer and leave the room; the resting
             bar's fill its line at 400 px, so there the hand is left out
             (the bar drags either way). Under the pointer it darkens, and
@@ -2438,7 +2456,7 @@ function Shell({
             aria-hidden
             title="Drag here to move the popup"
             className={cn(
-              "absolute bottom-px right-2 flex size-3.5 items-center justify-center opacity-80 transition-[transform,color,opacity] duration-150 ease-out group-hover/bar:text-foreground group-hover/bar:opacity-100",
+              "absolute inset-y-0 right-3 my-auto flex size-3.5 items-center justify-center opacity-80 transition-[transform,color,opacity] duration-150 ease-out group-hover/bar:text-foreground group-hover/bar:opacity-100",
               gripping && "-rotate-12 scale-75 text-foreground opacity-100"
             )}
           >
