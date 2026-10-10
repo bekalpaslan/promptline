@@ -147,8 +147,11 @@ and the popup's rows leave it empty. Until 2026-10-10 a pack's children stepped 
 pushed the sidebar's titles past the names, and the popup's rows, with the
 plain 8 px, sat left of their header's name. Packs sit 16 px apart (`TreeSection`), twice
 the earlier 8, so a pack reads as its own block among rows that tight.
-An open pack is a frame, the editor's Prompt panel in small: the module's
-border around the card ground, the pack's header on that ground as the
+An open pack is a frame, the editor's Prompt panel in small: the panel
+edge (`--module-border`: a hairline in Indigo; none in Instrument since
+2026-10-10, when the user had every panel's 1 px line go, there the
+card ground on the sunk pane is the edge, and the overview's cards keep
+their shadow) around the card ground, the pack's header on that ground as the
 panel's title line, and its rows and groups under it on the lighter
 secondary ground, with 2 px of air above and below them, the way the
 Prompt field sits under its title (the user asked for the frame,

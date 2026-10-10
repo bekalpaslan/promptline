@@ -112,7 +112,12 @@
     --radius: 4px;
     --search-radius: 4px;
     /* @tokens end */
-    --module-border: color-mix(in srgb, var(--heading) 35%, transparent);
+    /* A panel's edge: Instrument draws none (the user's call, 2026-10-10:
+       no 1 px line around a panel anywhere); its panels are their ground
+       alone on the pane, the Paper card on the sunk sidebar or shell, the
+       shadowed card on the pane. Indigo keeps its hairline. The width stays
+       so nothing moves between themes. It was Ink at 35% (40% dark). */
+    --module-border: transparent;
 }
 
 .dark {
@@ -161,7 +166,7 @@
     --chip-tint: 16%;
     --chip-edge: 0%;
     /* @tokens end */
-    --module-border: color-mix(in srgb, var(--heading) 40%, transparent);
+    --module-border: transparent;
 }
 
 /* Indigo, the second theme (Settings → Appearance → Theme; BEHAVIOR.md →
