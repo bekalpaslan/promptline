@@ -103,6 +103,9 @@
     --param-field-bg: #fbf1dc;
     --param-config: #9a2a8c;
     --param-config-bg: #f9e6f5;
+    --panel-head: #ffffff;
+    --panel-body: #f5f6f8;
+    --panel-edge: transparent;
     --shadow-shell: 0 8px 24px rgba(16, 24, 40, 0.16);
     --shadow-pop: 0 4px 12px rgba(16, 24, 40, 0.10);
     --shadow-segment: 0 1px 2px rgba(16, 24, 40, 0.10);
@@ -112,12 +115,6 @@
     --radius: 4px;
     --search-radius: 4px;
     /* @tokens end */
-    /* A panel's edge: Instrument draws none (the user's call, 2026-10-10:
-       no 1 px line around a panel anywhere); its panels are their ground
-       alone on the pane, the Paper card on the sunk sidebar or shell, the
-       shadowed card on the pane. Indigo keeps its hairline. The width stays
-       so nothing moves between themes. It was Ink at 35% (40% dark). */
-    --module-border: transparent;
 }
 
 .dark {
@@ -159,6 +156,9 @@
     --param-field-bg: #3a2e12;
     --param-config: #ea8fdc;
     --param-config-bg: #3b1e37;
+    --panel-head: #1c2024;
+    --panel-body: #22272c;
+    --panel-edge: transparent;
     --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.55);
     --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.45);
     --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -166,7 +166,6 @@
     --chip-tint: 16%;
     --chip-edge: 0%;
     /* @tokens end */
-    --module-border: transparent;
 }
 
 /* Indigo, the second theme (Settings → Appearance → Theme; BEHAVIOR.md →
@@ -212,6 +211,9 @@
     --param-field-bg: #fff4e1;
     --param-config: #9a2a8c;
     --param-config-bg: #f9e6f5;
+    --panel-head: #ffffff;
+    --panel-body: #eef0f7;
+    --panel-edge: #e6e8f0;
     --shadow-shell: 0 24px 80px rgba(0, 0, 0, 0.18);
     --shadow-pop: 0 8px 24px rgba(15, 17, 24, 0.12);
     --shadow-segment: 0 1px 2px rgba(15, 17, 24, 0.10);
@@ -221,7 +223,6 @@
     --radius: 10px;
     --search-radius: 999px;
     /* @tokens end */
-    --module-border: var(--border);
 }
 
 :root[data-theme="indigo"].dark {
@@ -262,6 +263,9 @@
     --param-field-bg: #282117;
     --param-config: #ea8fdc;
     --param-config-bg: #3b1e37;
+    --panel-head: #12141b;
+    --panel-body: #1f2129;
+    --panel-edge: #1c1d22;
     --shadow-shell: 0 24px 80px rgba(0, 0, 0, 0.4);
     --shadow-pop: 0 8px 24px rgba(0, 0, 0, 0.5);
     --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
@@ -269,7 +273,6 @@
     --chip-tint: 10%;
     --chip-edge: 35%;
     /* @tokens end */
-    --module-border: var(--border);
 }
 
 /* Indigo's one structural difference the tokens can't carry: the sidebar's
@@ -345,10 +348,15 @@
   color: var(--muted-foreground);
 }
 
+/* The manager's panels (the editor's Prompt, Tags and Advanced options,
+   Settings): the expandable panel's head ground and edge
+   (components/panel.tsx; the tokens panel-head and panel-edge, none in
+   Instrument since 2026-10-10, Indigo's line), at the larger radius with
+   12 px inside. The Prompt panel's field is the panel's body. */
 @utility module {
   border-radius: var(--radius-xl);
-  border: 1px solid var(--module-border);
-  background-color: var(--card);
+  border: 1px solid var(--panel-edge);
+  background-color: var(--panel-head);
   padding: calc(var(--spacing) * 3);
 }
 
