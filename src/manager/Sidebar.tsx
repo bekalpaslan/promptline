@@ -10,7 +10,7 @@ import {
 import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
-import { PINNED_BAR, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
+import { PINNED_BAR, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass, treeRowClass } from "@/components/tree"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { SELECTED_BAR } from "@/components/menu-styles"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
@@ -803,7 +803,9 @@ export function Sidebar() {
         title={title}
         data-snip-id={s.id}
         className={cn(
-          "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui font-medium focus-ring",
+          // The compact row the popup's Compact density draws (tree.tsx)
+          treeRowClass(true),
+          "group focus-ring",
           active
             ? cn("text-foreground", SELECTED_BAR)
             : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),
