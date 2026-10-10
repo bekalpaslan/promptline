@@ -126,6 +126,20 @@ test("the tree is one tab stop and the arrow keys walk it", async ({ page }) => 
   await expect(items.first()).toBeFocused()
 })
 
+test("the sidebar's rows are the popup's compact rows, and packs sit a row's height apart", async ({ page }) => {
+  // One tree on two windows: a title-only row is the 24 px row the
+  // popup draws in Compact, under the 28 px headers (2026-10-10)
+  const row = await promptRow(page, "Just the command").boundingBox()
+  expect(row!.height).toBeCloseTo(24, 0)
+  const pack = await tree(page).getByRole("treeitem", { name: "Everyday, 12 prompts" }).boundingBox()
+  expect(pack!.height).toBeCloseTo(28, 0)
+  // 16 px from a pack's last row to the next pack's header, so a pack
+  // reads as a block among rows that tight
+  const everyday = await tree(page).locator("[data-pack='Everyday']").boundingBox()
+  const next = await tree(page).locator("[data-pack='Mock Groups']").boundingBox()
+  expect(next!.y - (everyday!.y + everyday!.height)).toBeCloseTo(16, 0)
+})
+
 test("Left folds a pack and Right unfolds it", async ({ page }) => {
   const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
   await expect(pack).toHaveAttribute("aria-expanded", "true")

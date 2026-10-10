@@ -128,7 +128,12 @@ weight the popup's rows and the overview's cards use too; the sidebar's
 12 px body is the 13/20 body size since 2026-10-10); a pack's children step 12 px in, a group's prompts
 hang from a guide line under its chevron, headers carry the rows' 8 px
 side padding so every count ends on the rows' right edge, and counts sit
-there in mono. A pinned prompt carries a 1.5 px Warn bar at its left edge
+there in mono. A prompt row is 24 px, the row the popup draws in Compact
+density (`treeRowClass`): the sidebar's rows were 28 px until 2026-10-10,
+when the user, liking the popup's compact tree, asked for the sidebar to
+match it (a title-only row is the compact row; only the popup's two-line
+Comfortable row is taller). Packs sit 16 px apart (`TreeSection`), twice
+the earlier 8, so a pack reads as its own block among rows that tight. A pinned prompt carries a 1.5 px Warn bar at its left edge
 (`PINNED_BAR`), the selection bar's shape in the pin's colour, and so
 does its card in the overview (inside the card's shadow, in place of the
 pin icon it drew); the open or selected row's Focus bar wins on a row
@@ -611,9 +616,11 @@ box). A tree of `treeitem`s, like the sidebar, was the other way; it would
 have made the headers keyboard rows, which they have never been here.
 
 **The list's rhythm.** Rows sit 2 px apart (the rounded fill already
-parts them) and packs 8 px apart; pack and group headers are 24 px tall.
-It was 6 and 12 with 28 px headers, a 50 px pitch for a 44 px row, which
-showed seven prompts in the default window where eight now fit (twelve in
+parts them) and packs 16 px apart (8 until 2026-10-10, when the sidebar
+took the popup's compact row and the packs needed more air than a row's
+gap to read as blocks). The rows were 6 and the packs 12 apart with
+28 px headers before 0.2.21, a 50 px pitch for a 44 px row, which showed
+seven prompts in the default window where eight now fit (twelve in
 Compact). The list is the sidebar's tree (`components/tree.tsx`, see
 *The tree tells its levels apart without colour* above): a pack's rows
 and groups step 12 px in from its header, a group's rows hang from the
