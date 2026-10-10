@@ -11,7 +11,7 @@ import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { footClass } from "@/components/foot"
-import { PINNED_BAR, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass, treeRowClass } from "@/components/tree"
+import { PINNED_BAR, TREE_FOCUS, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass, treeRowClass } from "@/components/tree"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { SELECTED_BAR } from "@/components/menu-styles"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
@@ -724,7 +724,7 @@ export function Sidebar() {
         aria-selected={selected}
         aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
         title={`${group} — right-click or ⋯ for actions`}
-        className={cn(treeHeaderClass("group"), treeFillClass(selected), "group focus-ring", dropHere && DROP_TARGET)}
+        className={cn(treeHeaderClass("group"), treeFillClass(selected), "group", TREE_FOCUS, dropHere && DROP_TARGET)}
         onClick={() => openHeader(pack, group)}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -806,7 +806,8 @@ export function Sidebar() {
         className={cn(
           // The shared tree's row (tree.tsx)
           treeRowClass,
-          "group focus-ring",
+          "group",
+          TREE_FOCUS,
           active
             ? cn("text-foreground", SELECTED_BAR)
             : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),
@@ -828,8 +829,9 @@ export function Sidebar() {
           openRowCtx(e.clientX, e.clientY, ids)
         }}
       >
-        {/* Resting affordance for press-and-hold drag: a grip on hover */}
-        <RiDraggable className="absolute left-1 size-3 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
+        {/* Resting affordance for press-and-hold drag: a grip on hover, at
+            the row's right since the title took the row's left (2026-10-10) */}
+        <RiDraggable className="absolute right-2 size-3 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
         {/* A <bdi>, as the popup's rows: the title is the user's text, so a
             Hebrew one keeps its direction and a pasted-in direction control
             can't reorder what sits beside it */}
@@ -865,7 +867,7 @@ export function Sidebar() {
         // Short: a native tooltip cuts around 80 characters, and the keys
         // are in the menu's hints and BEHAVIOR.md rather than every row
         title={`${name} — right-click or ⋯ for actions`}
-        className={cn(treeHeaderClass("pack"), treeFillClass(selected), "group focus-ring", faded && "opacity-45", dropHere && DROP_TARGET)}
+        className={cn(treeHeaderClass("pack"), treeFillClass(selected), "group", TREE_FOCUS, faded && "opacity-45", dropHere && DROP_TARGET)}
         onClick={() => openHeader(name)}
         onDoubleClick={(e) => {
           e.stopPropagation()

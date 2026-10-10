@@ -23,17 +23,22 @@ export const PINNED_BAR = "shadow-[inset_1.5px_0_0_var(--warn)]"
 
 export type TreeLevel = "pack" | "group"
 
+// Keyboard focus on a tree row or header: the hover grey, no ring. The
+// focus ring (a 2 px glow in the Focus colour) sat around the sidebar's
+// focused header or row, over the bar that already says which row is the
+// cursor; the user wanted the glow gone (2026-10-10). The fill still
+// shows a keyboard user where they are, as it shows a pointer.
+export const TREE_FOCUS = "outline-none focus-visible:bg-hover"
+
 // The header row's layout and type; the element and its fill are the
-// caller's. A pack header spans its frame, 8 px of padding each side; a
-// group header sits in the frame's body, which already stands 8 px in
-// (TreeChildren), so it has no left padding: its chevron lands under the
-// pack's and its name on the pack's name column. The same 8 px on the
-// right as a prompt row, so a header's count ends on the rows' right edge
+// caller's. Pack and group headers alike span the frame, 8 px of padding
+// each side, so a group's chevron lands under the pack's and its name on
+// the pack's name column, and every count ends on the rows' right edge
 // (keys, chips) in both windows.
 export const treeHeaderClass = (level: TreeLevel) =>
   cn(
-    "flex min-w-0 cursor-pointer select-none items-center gap-1 rounded-md py-1 pr-2 text-ui",
-    level === "pack" ? "pl-2 font-semibold text-(--heading-strong)" : "font-medium text-(--heading)"
+    "flex min-w-0 cursor-pointer select-none items-center gap-1 rounded-md px-2 py-1 text-ui",
+    level === "pack" ? "font-semibold text-(--heading-strong)" : "font-medium text-(--heading)"
   )
 
 // A header's fill: the hover grey under the pointer; the shown or
@@ -47,20 +52,19 @@ export const treeFillClass = (selected: boolean) => (selected ? SELECTED_BAR : "
 // it, 2026-10-10), and the popup's Comfortable row is the same row with
 // its excerpt line under the title, 40 px (it had 4 px each side, so its
 // title sat 2 px lower than the sidebar's; the user wanted the paddings
-// the same, 2026-10-10). A row's box starts under the chevron
-// column, 8 px into the frame (the body's padding, TreeChildren), and
-// its title 20 px into the box: 28 px from the frame's edge, the name
-// column (the header's 8 px padding, its 16 px chevron and the 4 px
-// after), so a pack's rows and its group headers line up with the pack's
-// name (the frame says what they belong to, so they need no step; the
-// user's call, 2026-10-10). The box used to run from the frame's edge
-// with the title 28 px in; the user wanted the rows' fill and bars to
-// start where the chevrons do, with the titles where they were. The
-// sidebar's drag grip sits in that inset (absolute, so it adds nothing);
+// the same, 2026-10-10). A row's box spans the frame like a header's,
+// with the header's 8 px padding, so its title starts where the
+// chevrons do, under them and 20 px left of the names: the frame says
+// what the rows belong to, so they need no step, and the user found the
+// titles natural there (2026-10-10; through that day they stood on the
+// name column, 28 px in, and for a while the boxes stood 8 px in under
+// the chevrons, which without an edge on the frame read as an indent).
+// The sidebar's drag grip sits at the row's right (absolute, so it adds
+// nothing);
 // the popup's rows keep it empty. Until 2026-10-10 the popup's rows had
 // the plain 8 px and their titles sat left of the header's name while
 // the sidebar's, pushed by the grip, stepped in.
-export const treeRowClass = "relative flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md py-0.5 pl-5 pr-2 text-ui font-medium"
+export const treeRowClass = "relative flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-ui font-medium"
 
 // The fold chevron, in the glyph column every row shares
 export function TreeChevron({ open, className }: { open: boolean; className?: string }) {
@@ -100,10 +104,10 @@ export function TreeGroup({ className, ...props }: ComponentProps<"div">) {
 }
 
 // The run of rows under a header, 2 px apart. A pack's are the panel's
-// body, with 2 px of air above and below and 8 px
-// in from the frame's left edge, so a row's box and a group's header
-// start under the pack's chevron (their titles on the name column, see
-// treeRowClass). A group's rows sit where the pack's own do: the row's
+// body, with 2 px of air above and below, edge to edge, so a row's box
+// and a group's header span the frame like the pack's header (their
+// titles under the chevrons, see treeRowClass). A group's rows sit where
+// the pack's own do: the row's
 // inset is margin enough, and the group header above says whose they are
 // (the user's call, 2026-10-10; they hung from a guide line under the
 // group's chevron, 21 px further in, before).
@@ -112,7 +116,7 @@ export function TreeChildren({ level, className, ...props }: ComponentProps<"div
     <div
       className={cn(
         "flex flex-col gap-0.5",
-        level === "pack" && cn(panelBodyClass, "py-0.5 pl-2"),
+        level === "pack" && cn(panelBodyClass, "py-0.5"),
         className
       )}
       {...props}
