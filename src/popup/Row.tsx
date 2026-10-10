@@ -134,7 +134,7 @@ export const Row = memo(function Row({
       data-icon={icon}
       className={cn(
         // The shared tree's row (tree.tsx); the scroll margin clears the sticky header
-        treeRowClass(compact),
+        treeRowClass,
         "scroll-mt-[30px]",
         selected ? cn("text-foreground", SELECTED_BAR) : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),
         picked && "bg-primary/20"

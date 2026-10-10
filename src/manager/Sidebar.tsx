@@ -804,8 +804,8 @@ export function Sidebar() {
         title={title}
         data-snip-id={s.id}
         className={cn(
-          // The compact row the popup's Compact density draws (tree.tsx)
-          treeRowClass(true),
+          // The shared tree's row (tree.tsx)
+          treeRowClass,
           "group focus-ring",
           active
             ? cn("text-foreground", SELECTED_BAR)
