@@ -76,7 +76,7 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 - ~~**Popup groups in the manager's order**~~ — **shipped 0.2.15**
   (`C.groupOrder`).
 - **Pack colour, as a setting** — a colour per pack (a swatch on its header,
-  carried by its groups' guide lines and in the popup) for telling packs
+  carried by its frame and in the popup) for telling packs
   apart where their prompts mix. Direction B of the 2026-09-22 sidebar
   mockups; the ink hierarchy (A) shipped instead, colour-free by default.
 
