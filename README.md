@@ -179,10 +179,11 @@ built-in or a field name the rest of your library already uses.
 - **→** shows the full-prompt preview card (also on mouse hover), with the
   prompt's whole title above its text; **PgUp** / **PgDn** scroll it and
   **←** closes it
-- A line under the search box says what the clipboard holds, that it is
-  empty (the rows that would paste without it hollow their icon), or that it
-  still holds the last prompt you pasted; its **Ctrl N** key saves it as a
-  new prompt
+- A line under the search box says what the clipboard holds (several
+  lines show their first and last), that it is empty (the hint bar then
+  says the selected prompt pastes without it), or that it still holds the
+  last prompt you pasted; its **Ctrl N** key saves it as a new prompt, and
+  **Ctrl+↓** drops the whole clipboard down to read
 - Search is fuzzy over titles, tags, and bodies with match highlighting;
   `#tag`, `@pack` and `>group` terms filter (`#debug root cause`); click a tag pill to filter by it
 - With no query, prompts sort by how often you use them, grouped under
@@ -241,9 +242,10 @@ built-in or a field name the rest of your library already uses.
   the project it runs in, writing one pack per daily practice; the dialog
   watches for the agent's file with an elapsed clock and a Stop button, and
   no pack exists until you import
-- Sort by uses, title, or **Custom** — press and hold a row to lift it, then
-  drag to arrange your own order; **Alt+Up / Alt+Down** moves the selected row
-  from the keyboard
+- Sort by uses, title, or **Custom** — **Alt+Up / Alt+Down** (or **Move up
+  / Move down** in a row's menu) moves the selected row and switches to
+  your own order; press and hold a row to lift it, then drag it onto
+  another pack or group to move it there
 - Clicking a pack or group header shows its prompts in the pane and opens it
   in the tree; the chevron (or ←) folds it. **Ctrl+N** starts a prompt where
   the pane is looking, **Ctrl+F** reaches the filter
@@ -252,7 +254,7 @@ built-in or a field name the rest of your library already uses.
   packs in the same order. Groups move within their pack the same way
 - Every control is reachable from the keyboard, including context menus, and
   labelled for screen readers
-- **Settings** (⚙, top-right of the pane): record a hotkey by pressing it,
+- **Settings** (⚙, at the sidebar's foot): record a hotkey by pressing it,
   then **Apply** it; autostart (a login launch stays in the tray; the
   manager opens from the tray icon); theme (Instrument, the default, or
   Indigo, each with a light and a dark side); mode (System / Light / Dark,
