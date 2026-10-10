@@ -63,3 +63,19 @@ test('contrast flags a failing pair by theme', () => {
   assert.ok(failures.some((f) => f.startsWith('light: ink-3 on surface-0:')));
   assert.ok(!failures.some((f) => f.startsWith('dark:')));
 });
+
+test('renderShim never points a variable at itself or at another token of the same name (the design bundle lost its band and lit the selection cyan, 2026-10-10)', () => {
+  const t = tokens.readTokens();
+  const names = new Set(tokens.allTokens(t).map((x) => x.name));
+  const lines = tokens.renderShim(t).split('\n').filter((l) => l.trim().startsWith('--'));
+  for (const l of lines) {
+    const [, v, name] = /^\s*--([\w-]+): var\(--([\w-]+)\);$/.exec(l) || [];
+    if (!v) continue; // the font line is literal
+    assert.notEqual(v, name, l);
+    assert.ok(!names.has(v), `${l} redeclares the token --${v}`);
+  }
+  // The mapped names that are tokens' own stay out; the rest are still there
+  assert.ok(!lines.some((l) => l.includes('--band:')));
+  assert.ok(!lines.some((l) => l.includes('--accent:')));
+  assert.ok(lines.some((l) => l.includes('--background: var(--surface-0);')));
+});
