@@ -110,9 +110,21 @@ composition, which chooses the candidate (`commitKey` in `field.tsx`);
 it used to commit half a Japanese or Chinese word.
 
 **The tree tells its levels apart without colour.** A pack is a bold row
-with a box icon, a group a medium row in the secondary ink, a prompt a
-regular row; a group's prompts hang from a guide line under its header,
-and counts sit at the right in mono. Group names show as typed: uppercase
+behind its fold chevron, a group a medium row in the secondary ink, a
+prompt a regular row; a pack's children step 12 px in, a group's prompts
+hang from a guide line under its chevron, headers carry the rows' 8 px
+side padding so every count ends on the rows' right edge, and counts sit
+there in mono. A pinned prompt carries a 2 px Warn bar at its left edge
+(`PINNED_BAR`), the selection bar's shape in the pin's colour; the open
+or selected row's Focus bar wins on a row that is both, and a legend at
+the sidebar's foot names the two ("viewed", "pinned"). Until 2026-10-10
+the sidebar drew a pin icon before a pinned title and the popup's rows
+had a glyph column; both trees now start a row with its title. The look is
+written once, in `components/tree.tsx`, and
+the popup's list draws the same tree with it: since 2026-10-10 the two
+are one tree on two windows, so a change to a level's look lands in both
+(the sidebar keeps its `treeitem`s and the popup its hidden buttons; what
+a header *is* stays each window's own). Group names show as typed: uppercase
 is for the app's own section labels, never for names the user wrote. The
 accent hue marks state (the selected pack or group, focus, a search hit),
 not structure, per the design system's "ink first, hue second"; so the
@@ -409,7 +421,7 @@ says what the clipboard holds (one line on Control grey, with the *hidden text* 
 strip below), that it is empty ("Clipboard is empty — prompts paste without
 it": the fact in Warn while any prompt wraps the clipboard, and never
 truncated; the consequence after it gives way at the 320 px minimum; those
-rows hollow their clipboard icon and are described by the line for a
+rows carry the one tooltip and are described by the line for a
 screen reader), or that it holds the last prompt the popup
 pasted or copied ("Last pasted prompt", or "Last copied prompt" after a
 copy): the prompt stays on the clipboard
@@ -419,33 +431,35 @@ keeps what it last sent, expanded the way Rust expands it, and compares.
 Before the line, an empty clipboard was a native tooltip on the row, and a
 hole was found in the terminal.
 
-**A row shows one icon, and a hole comes first.** The slot at the row's
-left holds one of five (`C.rowIcon`), by what matters most before Enter:
-the hollow clipboard when the prompt wraps `{clipboard}`, the clipboard is
+**A row has one state, and a hole comes first.** Each row is one of five
+(`C.rowIcon`, kept as `data-icon`), by what matters most before Enter:
+`clipboard-empty` when the prompt wraps `{clipboard}`, the clipboard is
 empty and no fill-in form will show the hole first; then the pin, except
-under the Pinned heading; then the kind (a pencil for a prompt that asks, a
-filled clipboard, a page). The pin used to win everywhere, so the pinned
-rows, the ones pasted most and by `Ctrl+1..5` without a look at anything
-else, were the only rows that never hollowed, and a pinned "Explain this
-error" pasted its hole into the terminal unannounced (critique popup P1,
-2026-10-03). Under the Pinned heading every row is pinned, so the slot says
-the kind there, as it does in every pack; in search results, where pinned
-and unpinned rows mix, the pin still tells them apart. A fill-in row keeps
-its pencil, dimmed: Enter opens its form, whose preview shows
-"(clipboard is empty)" before anything is pasted. "Empty" is one test for
-the line, the rows and the hint bar, and whitespace alone counts: it
-pastes a hole as surely as nothing does, and the line used to call it
-empty while the rows did not.
+under the Pinned heading; then the kind (a prompt that asks, one that
+wraps the clipboard, a plain one). The state drives the row's tooltip, its
+description for a screen reader, the hint bar and the action panel's
+warnings. Through 0.2.22 it was also an icon at the row's left (a hollow
+clipboard, a pin, a pencil, a filled clipboard, a page); since 2026-10-10
+the rows start with their title, as the sidebar's do, and nothing is drawn
+for the state: with an empty clipboard a dozen rows showed the hollow
+icon at once, and the line and the hint already say it. The pin used to
+win everywhere, so the pinned rows, the ones pasted most and by
+`Ctrl+1..5` without a look at anything else, were the only rows that never
+hollowed, and a pinned "Explain this error" pasted its hole into the
+terminal unannounced (critique popup P1, 2026-10-03); the hole still comes
+first in the state. A fill-in row keeps its kind: Enter opens its form,
+whose preview shows "(clipboard is empty)" before anything is pasted.
+"Empty" is one test for the line, the rows and the hint bar, and
+whitespace alone counts: it pastes a hole as surely as nothing does, and
+the line used to call it empty while the rows did not.
 
 **An empty clipboard is said one way.** The line, the row's tooltip, the
 hint bar and the action panel all say the prompt pastes *without* the
 clipboard. The line and the tooltip used to say such rows "paste nothing",
 which they don't: they paste the prompt with nothing where the clipboard
 goes, and three wordings for one state read as three states (critique
-popup, 2026-10-03). The hollow icon is ink at 55%, not 40%: at 40% it was
-2.5:1 on Paper, under the 3:1 a state icon needs; it is deliberately not
-Warn, since with an empty clipboard a dozen rows show it at once and the
-Warn belongs to the one line and the one hint. The `Ctrl N` key on the
+popup, 2026-10-03). The Warn belongs to the one line and the one hint,
+never to the rows. The `Ctrl N` key on the
 line is drawn unavailable (half strength, `aria-disabled`) while there is
 nothing to save; it still answers with "Copy something first" in the strip.
 
@@ -575,17 +589,23 @@ have made the headers keyboard rows, which they have never been here.
 parts them) and packs 8 px apart; pack and group headers are 24 px tall.
 It was 6 and 12 with 28 px headers, a 50 px pitch for a 44 px row, which
 showed seven prompts in the default window where eight now fit (twelve in
-Compact). A group's rows are not indented: every title in the list starts
-on one edge, and every pack and group name sits on that same edge, so the
-outer edge holds glyphs (row icons, the headers' chevrons, Pinned's pin,
-Results' magnifier) and the inner one names and titles. Indented, titles
-sat on two edges 10 px apart.
+Compact). The list is the sidebar's tree (`components/tree.tsx`, see
+*The tree tells its levels apart without colour* above): a pack's rows
+and groups step 12 px in from its header, a group's rows hang from the
+guide line under the group's chevron, and the headers are 28 px tall like
+the sidebar's. Through 0.2.22 the popup kept every title on one edge with
+no indent and 24 px headers; the 2026-10-10 decision that the two trees
+are one thing on two windows ended that.
 
-**The selected row carries a bar.** The keyboard's row, and the action
-panel's highlighted item, have a 2 px Focus bar at the left edge over the
-Selection tint (`SELECTED_BAR`). The tint alone is a dark blue-teal in
-dark mode, and on the real screen it read as a green row nobody had
-explained rather than as the cursor.
+**The selected row carries a bar, and nothing else.** The keyboard's row,
+the selected pack or group header and the action panel's highlighted item
+have a 2 px Focus bar at the left edge (`SELECTED_BAR`) and no fill; the
+sidebar's shown pack or group and its open prompt, and a context menu's
+focused item, carry the same bar. Until 2026-10-10 the bar sat over the
+Selection tint: the tint alone, a dark blue-teal in dark mode, had read on
+the real screen as a green row nobody had explained rather than as the
+cursor, and once the bar said "cursor" the tint only said it again. The
+pointer's grey never marks the keyboard's row.
 
 **A clipboard of several lines shows its two ends.** When two or more
 lines hold text, the line becomes a strip shaped like a row: 40 px on
@@ -603,29 +623,27 @@ and a two-line "command, then error" copy both put it last (critique
 popup, 2026-10-09). The cost is 20 px of list, under half a row. A single
 line keeps the one-line display (`clipboardEnds` in core).
 
-**A header never reads as a prompt.** A pack header (and Pinned, and
-Results) is a band in its own colour (`band`), and no row is filled at
-rest. The band is a step heavier than hover in both modes: on Control
-grey it was the same colour as a row under the pointer in dark and
-lighter than one in light, so the pointer read as a header (critique
-popup, 2026-10-09). It
-sticks to the top of the list while its rows scroll, so the pack a row
-belongs to stays named, and rows keep a 28 px scroll margin so arrowing up
-never parks the selection under it. A group header is a divider: its
-chevron leads, its name in Ink 2 at 12/600 is followed by a hairline to
-its count, and a group that follows rows or another group starts 8 px
-down, the packs' own gap, where at the rows' 2 px the end of one group
-did not show. Three levels, three treatments, none above the body size:
-pack 13/700, group 12/600, title 13/500. At 600, 500 and 500 a group
-header read as a grey prompt. Every count ends on the rows' right edge:
-the header's filter button waits over the count (shown on hover) and
-takes a slot of its own only while its filter is on; holding the slot
-put the counts 26 px in from the keys and chips below them.
-Through 0.2.20 the headers were text alone, a pack's 600 one weight step
-above a title's 500 and a group's name on the title edge with its chevron
-at the far right, so a group read as a prompt whose first line was
-missing (the manager's sidebar parts them with chevrons and guide lines;
-the popup keeps its one edge and parts them with a fill and a rule). `Ctrl` is printed once, on
+**A header never reads as a prompt.** The headers are the sidebar's: a
+pack's name at 13/600 in the strong heading ink behind its chevron
+(Pinned's pin and Results' magnifier stand in the chevron's place), a
+group's at 13/500 in the secondary ink a step in, and the group's rows
+hung from the guide line under its chevron; no header or row is filled at
+rest, and a header under the pointer takes the rows' hover grey. The pack
+header sticks to the top of the list while its rows scroll, so the pack a
+row belongs to stays named, and rows and group headers keep a 30 px scroll
+margin (the 28 px header and its 2 px gap) so arrowing up never parks the
+selection under it. Every count ends on the rows' right edge: the headers
+carry the rows' 8 px side padding, and the header's filter button waits
+over the count (shown on hover) and takes a slot of its own only while
+its filter is on; holding the slot put the counts 26 px in from the keys
+and chips below them. Through 0.2.22 the popup parted its headers from
+rows its own way, with every name on the title edge: first text alone
+(through 0.2.20, when a group read as a prompt whose first line was
+missing), then a band in its own colour under the pack and a hairline
+after the group's name, with the weights pushed to 700 and 600 (2026-10-07
+and 2026-10-09). On 2026-10-10 the two trees became one, drawn by
+`components/tree.tsx` in both windows, and the sidebar's chevrons and
+guide line do that parting here too. `Ctrl` is printed once, on
 the first slot's key; the rows under it show their digit alone in the same
 column. Five `Ctrl` caps down the right edge were the loudest thing in the
 list and said one thing five times (critique popup, 2026-10-03).

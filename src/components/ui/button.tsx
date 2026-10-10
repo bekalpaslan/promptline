@@ -26,8 +26,9 @@ const buttonVariants = cva(
         xs: "h-5 gap-1 rounded-sm px-2 text-micro has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-2.5",
         sm: "h-6 gap-1 px-2 text-ui has-data-[icon=inline-end]:pr-1.5 has-data-[icon=inline-start]:pl-1.5 [&_svg:not([class*='size-'])]:size-3",
         // The manager's text-button idiom (Settings, dialogs): was an
-        // h-auto/px-2.5/py-1/text-xs override at fourteen sites
-        compact: "h-auto gap-1 px-2.5 py-1 text-ui [&_svg:not([class*='size-'])]:size-3",
+        // h-auto/px-2.5/py-1/text-xs override at fourteen sites. 32 px,
+        // the fields' and selects' height, since it stands in a row with them
+        compact: "h-8 gap-1 px-2.5 text-ui [&_svg:not([class*='size-'])]:size-3",
         lg: "h-8 gap-1 px-2.5 text-ui has-data-[icon=inline-end]:pr-2 has-data-[icon=inline-start]:pl-2 [&_svg:not([class*='size-'])]:size-4",
         // A standalone call to action (the empty states' New and Generate):
         // the sidebar's New button's 36 px, so the two read as one kind

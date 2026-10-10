@@ -32,19 +32,21 @@ test("one 8 px inset: the strips share the search box's edges, and their content
   const box = page.getByRole("search")
   const row = rows(page).first()
   const [boxRect, rowRect] = await Promise.all([box.boundingBox(), row.boundingBox()])
-  // A row's fill runs edge to edge under the search box
-  expect(Math.abs(rowRect!.x - boxRect!.x)).toBeLessThan(0.6)
-  expect(Math.abs(rowRect!.width - boxRect!.width)).toBeLessThan(0.6)
-  // The search icon, the clipboard icon, a pack's chevron, a row's icon and
-  // the first key of the hint bar start 8 px in
+  // A row's fill runs to the search box's right edge; its left edge is the
+  // tree's 12 px step under its header (the sidebar's tree, 2026-10-10)
+  expect(Math.abs(rowRect!.x - (boxRect!.x + 12))).toBeLessThan(0.6)
+  expect(Math.abs(rowRect!.x + rowRect!.width - (boxRect!.x + boxRect!.width))).toBeLessThan(0.6)
+  // The search icon, the clipboard icon, a pack's chevron and the first key
+  // of the hint bar start 8 px in; a row's title 8 px into its stepped row
+  // (no glyph before it since 2026-10-10)
   const starts = await Promise.all([
     x(box.locator("svg").first()),
     x(clipLine(page).locator("xpath=..").locator("svg").first()),
     x(page.locator("button", { hasText: "Everyday" }).first().locator("svg").first()),
-    x(row.locator("svg").first()),
     x(page.getByText("paste", { exact: true }).locator("xpath=..").locator("kbd").first()),
   ])
   for (const s of starts) expect(Math.abs(s - (boxRect!.x + 8))).toBeLessThan(0.6)
+  expect(Math.abs((await x(row.locator("bdi").first())) - (rowRect!.x + 8))).toBeLessThan(0.6)
   // The fill-in form: fields and the button are boxes, edge to edge; the
   // title and the labels are text, 8 px in
   await search(page).fill("Bisect a regression")
@@ -66,9 +68,12 @@ test("a row is one pill, the slot key on the title line, and no button inside th
   const row = page.getByRole("option", { name: "Root cause first", exact: true })
   const key = row.locator("kbd").first()
   await expect(row.locator("kbd")).toHaveText(["3"])
-  // Every title in the list starts on one edge, grouped or not
-  const edges = await page.getByRole("option").evaluateAll((els) => [...new Set(els.map((el) => Math.round(el.querySelector("bdi")!.getBoundingClientRect().left)))])
-  expect(edges).toHaveLength(1)
+  // Titles start on two edges: a pack's own rows on one, a group's rows
+  // 21 px further in, past the guide line (16 px to it, the 1 px line,
+  // 4 px after); never a third
+  const edges = await page.getByRole("option").evaluateAll((els) => [...new Set(els.map((el) => Math.round(el.querySelector("bdi")!.getBoundingClientRect().left)))].sort((a, b) => a - b))
+  expect(edges).toHaveLength(2)
+  expect(edges[1] - edges[0]).toBe(21)
   const [keyBox, rowBox] = await Promise.all([key.boundingBox(), row.boundingBox()])
   expect(keyBox!.y + keyBox!.height).toBeLessThan(rowBox!.y + rowBox!.height / 2 + 2)
   // A listbox option holds no button: the tag pill is text the row acts on
@@ -100,31 +105,42 @@ test("the listbox holds only options and named groups; the fold and filter butto
 
 test("the selected row carries a Focus bar at its left edge; the others do not", async ({ page }) => {
   const bar = (n: number) => rows(page).nth(n).evaluate((e) => getComputedStyle(e).boxShadow)
-  expect(await bar(0)).toMatch(/inset/)
-  expect(await bar(1)).not.toMatch(/inset/)
+  // The first rows are pinned, so each carries the Warn bar; the Focus bar
+  // is the selected one's alone and replaces the Warn bar there
+  const focus = await bar(0)
+  expect(focus).toMatch(/inset/)
+  expect(await bar(1)).toMatch(/inset/)
+  expect(await bar(1)).not.toBe(focus)
   await page.keyboard.press("ArrowDown")
-  await expect.poll(() => bar(1)).toMatch(/inset/)
-  expect(await bar(0)).not.toMatch(/inset/)
+  await expect.poll(() => bar(1)).toBe(focus)
+  expect(await bar(0)).not.toBe(focus)
 })
 
-test("pack and group headers part from prompt rows: a filled band that sticks, a ruled divider", async ({ page }) => {
+test("pack and group headers are the sidebar's tree: a chevron each, the group a step in, its rows hung from a guide line", async ({ page }) => {
   const pack = page.locator("button", { hasText: "Everyday" }).first()
-  const group = page.locator("button", { hasText: "Stuck" }).first()
+  const group = page.locator("button[aria-expanded]", { hasText: "Stuck" }).first()
   const option = page.getByRole("option").nth(1)
   const fill = (l: typeof pack) => l.evaluate((e) => getComputedStyle(e.parentElement!).backgroundColor)
+  const left = (l: typeof pack) => l.evaluate((e) => e.getBoundingClientRect().left)
   const clear = "rgba(0, 0, 0, 0)"
-  // No row is filled at rest; the pack's band is, the group's divider is not
+  // Nothing is filled at rest: no row, no header (the 2026-10-09 band went
+  // with the one-edge layout when the two trees became one, 2026-10-10)
   expect(await option.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(clear)
-  expect(await fill(pack)).not.toBe(clear)
+  expect(await fill(pack)).toBe(clear)
   expect(await fill(group)).toBe(clear)
-  // The group's name is followed by a hairline, so it reads as a divider
-  expect(await group.evaluate((e) => [...e.children].some((c) => c.tagName === "SPAN" && c.getBoundingClientRect().height <= 1 && c.getBoundingClientRect().width > 8))).toBe(true)
-  // Both names start on the titles' edge; the chevrons hold the icons' edge
-  const titleX = await option.locator("bdi").first().evaluate((e) => e.getBoundingClientRect().left)
-  for (const h of [pack, group]) {
-    expect(Math.abs((await h.locator("span").first().evaluate((e) => e.getBoundingClientRect().left)) - titleX)).toBeLessThan(0.6)
-  }
-  // Scrolled into its pack, the band stays at the top of the list
+  // Each level steps in: the group's header 12 px past the pack's, the
+  // group's rows past the guide line, which is centred under the chevron
+  const groupRow = page.getByRole("group", { name: "Stuck", exact: true }).getByRole("option").first()
+  expect((await left(group)) - (await left(pack))).toBeCloseTo(12, 0)
+  expect((await left(groupRow)) - (await left(group))).toBeGreaterThan(12)
+  const line = await groupRow.evaluate((e) => {
+    const w = e.parentElement!
+    return { width: parseFloat(getComputedStyle(w).borderLeftWidth), x: w.getBoundingClientRect().left }
+  })
+  expect(line.width).toBe(1)
+  const chevronMid = await group.locator("svg").first().evaluate((e) => e.getBoundingClientRect().left + e.getBoundingClientRect().width / 2)
+  expect(Math.abs(line.x + 0.5 - chevronMid)).toBeLessThan(1)
+  // Scrolled into its pack, the header stays at the top of the list
   const top = await pack.evaluate((e) => {
     let s = e.parentElement
     while (s && getComputedStyle(s).overflowY !== "auto") s = s.parentElement
@@ -1081,11 +1097,11 @@ test("UI scale reaches every text role: titles, chips, key caps and the hint bar
   expect(await sizeOf('[role="option"] kbd')).toBeCloseTo(13.75, 1)
   expect(await sizeOf('[data-tag]')).toBeCloseTo(13.75, 1)
   expect(await sizeOf("#popup-search")).toBeCloseTo(16.25, 1)
-  // A pack title is the body size at 700, not a larger step (the header is
-  // hidden from assistive tech, so it is found by its text)
+  // A pack title is the body size at 600, the sidebar's, not a larger step
+  // (the header is hidden from assistive tech, so it is found by its text)
   const header = page.locator("button", { hasText: "Everyday" }).first()
   expect(await header.evaluate((e) => getComputedStyle(e).fontSize)).toBe(await page.locator('[role="option"] bdi').first().evaluate((e) => getComputedStyle(e).fontSize))
-  expect(await header.evaluate((e) => getComputedStyle(e).fontWeight)).toBe("700")
+  expect(await header.evaluate((e) => getComputedStyle(e).fontWeight)).toBe("600")
   await page.evaluate(() => localStorage.removeItem("scale"))
 })
 
@@ -1358,26 +1374,24 @@ test("the clipboard panel hangs a wrapped line under its own first character", a
   expect(indent).toBeCloseTo(-pad, 1)
 })
 
-test("headers: pack 13/700 on its band, group 12/600, title 13/500; a hovered row never matches the band", async ({ page }) => {
+test("headers: pack 13/600 and group 13/500 as the sidebar's, title 13/500; a header hovers like a row", async ({ page }) => {
   const style = (l: ReturnType<typeof rows>) => l.evaluate((e) => ({ size: getComputedStyle(e).fontSize, weight: getComputedStyle(e).fontWeight }))
   const pack = page.locator("button", { hasText: "Everyday" }).first()
   const group = page.locator("button[aria-expanded]", { hasText: "Stuck" }).first()
   const title = rows(page).first().locator("bdi").first()
-  expect(await style(pack)).toEqual({ size: "13px", weight: "700" })
-  expect(await style(group)).toEqual({ size: "12px", weight: "600" })
+  expect(await style(pack)).toEqual({ size: "13px", weight: "600" })
+  expect(await style(group)).toEqual({ size: "13px", weight: "500" })
   expect(await style(title)).toEqual({ size: "13px", weight: "500" })
-  for (const theme of ["light", "dark"]) {
-    await page.evaluate((t) => document.documentElement.classList.toggle("dark", t === "dark"), theme)
-    const band = await pack.locator("xpath=..").evaluate((e) => getComputedStyle(e).backgroundColor)
-    const row = rows(page).nth(3)
-    await row.hover()
-    await expect.poll(() => row.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)")
-    expect(await row.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe(band)
-    await page.mouse.move(1, 1)
-  }
+  const row = rows(page).nth(3)
+  await row.hover()
+  await expect.poll(() => row.evaluate((e) => getComputedStyle(e).backgroundColor)).not.toBe("rgba(0, 0, 0, 0)")
+  const rowHover = await row.evaluate((e) => getComputedStyle(e).backgroundColor)
+  await pack.hover()
+  await expect.poll(() => pack.locator("xpath=..").evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(rowHover)
+  await page.mouse.move(1, 1)
 })
 
-test("counts end on the rows' right edge, and a group after rows or a group starts 8 px down", async ({ page }) => {
+test("counts end on the rows' right edge, and groups follow each other at the rows' 2 px", async ({ page }) => {
   const right = async (l: ReturnType<typeof rows>) => { const b = (await l.boundingBox())!; return b.x + b.width }
   const slot = rows(page).first().locator("kbd").last()
   const packCount = page.locator("button", { hasText: "Everyday" }).first().locator("span").last()
@@ -1385,9 +1399,11 @@ test("counts end on the rows' right edge, and a group after rows or a group star
   const edge = await right(slot)
   expect(Math.abs((await right(packCount)) - edge)).toBeLessThan(1)
   expect(Math.abs((await right(groupCount)) - edge)).toBeLessThan(1)
-  // Two groups in a row: the second sits 8 px below the first's last row
+  // Two groups in a row: the guide line says where one ends, so the next
+  // sits at the rows' own 2 px (the 8 px of 2026-10-09 went with the
+  // one-edge layout)
   const stuck = page.getByRole("group", { name: "Stuck", exact: true })
   const starting = page.getByRole("group", { name: "Starting", exact: true })
   const [a, b] = await Promise.all([stuck.boundingBox(), starting.boundingBox()])
-  expect(b!.y - (a!.y + a!.height)).toBeCloseTo(8, 0)
+  expect(b!.y - (a!.y + a!.height)).toBeCloseTo(2, 0)
 })

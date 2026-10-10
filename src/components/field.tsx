@@ -4,14 +4,17 @@ import { cn } from "@/lib/utils"
 
 // Every text input, textarea and dropdown in both windows: a grey fill, no
 // border, the one focus ring. `md` is a form field (the editor, Settings,
-// the popup's forms), `sm` sits in a row beside other controls. The search
-// boxes are the exception: each window's main field keeps a border.
+// the popup's forms), `sm` sits in a row beside other controls; both are
+// 32 px tall, like the search boxes, the segment controls and the buttons
+// that stand beside them (`sm` was 28, one of three heights in Settings,
+// 2026-10-10). The search boxes are the exception in look only: each
+// window's main field keeps a border.
 export const fieldVariants = cva(
   "rounded-md bg-secondary text-ui text-foreground outline-none placeholder:text-muted-foreground focus-ring disabled:cursor-not-allowed disabled:opacity-50",
   {
     variants: {
       size: {
-        sm: "px-2.5 py-1",
+        sm: "px-2.5 py-1.5",
         md: "px-3 py-1.5",
       },
     },

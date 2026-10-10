@@ -103,7 +103,8 @@ export function Editor() {
 // crumb's chevron opens the same Move-to menu the row's right-click does,
 // so a move never passes through the autosave and the two can't disagree.
 // Pin and Delete sit in one overflow menu, as the row's do; the pin shows
-// as the same warn-coloured pin the tree and the cards draw.
+// as the warn-coloured pin the cards draw (the trees mark a pinned row
+// with a Warn bar at its left edge instead).
 function EditorInner({ snippet }: { snippet: Snippet }) {
   const m = useManager()
   const menus = useLibraryMenus({ surface: "editor" })
@@ -464,7 +465,12 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             {copied ? "Copied" : "Copy"}
           </Button>
         </div>
-        <div className="-mx-3 flex flex-col overflow-hidden border border-transparent bg-secondary focus-within:border-(--focus)">
+        {/* Full bleed to the card's edge, with the card's 12 px inside, so
+            the text starts under "Prompt" above it; the focus edge is an
+            inset ring, not a border, so it adds no pixel to the inset
+            (at px-4 behind a 1 px border the text sat 5 px right of the
+            header) */}
+        <div className="-mx-3 flex flex-col overflow-hidden bg-secondary ring-1 ring-inset ring-transparent focus-within:ring-(--focus)">
           <Textarea
             ref={textRef}
             value={text}
@@ -472,7 +478,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             aria-label="Prompt text"
             spellCheck={false}
             placeholder="Prompt text…  Use {clipboard}, {date}, {time}, any {lowercase_word} as a fill-in field, or {{lowercase_word}} as a saved config parameter."
-            className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-4 py-3 leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
+            className="min-h-[calc(4lh+1.5rem)] max-h-[calc(10lh+1.5rem)] resize-none rounded-none border-0 bg-transparent px-3 py-3 leading-relaxed placeholder:text-muted-foreground/80 focus-visible:ring-0 dark:bg-transparent"
           />
         </div>
         {/* Auto enter: the field's footer. Off, it is the "Prompt" header's

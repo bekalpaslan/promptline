@@ -1,18 +1,17 @@
 import { useEffect, useMemo, useRef, useState } from "react"
 import {
   RiAddLine,
-  RiArrowDownSLine,
-  RiArrowRightSLine,
   RiDraggable,
   RiEqualizer2Line,
   RiLock2Fill,
-  RiPushpinFill,
   RiSearchLine,
 } from "@remixicon/react"
 import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
+import { PINNED_BAR, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
+import { SELECTED_BAR } from "@/components/menu-styles"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
 import { useSlideRows } from "./flip"
@@ -705,7 +704,6 @@ export function Sidebar() {
   // Group header: quieter than the pack title, sits among its rows
   const groupTitle = (pack: string, group: string, count: number, isCollapsed: boolean) => {
     const key = groupKey(pack, group)
-    const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
     const selected = shown?.pack === pack && shown.group === group
     return (
       <div
@@ -714,10 +712,7 @@ export function Sidebar() {
         aria-selected={selected}
         aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
         title={`${group} — right-click or ⋯ for actions`}
-        className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-medium text-(--heading) hover:bg-hover focus-ring",
-          selected && "bg-accent hover:bg-accent"
-        )}
+        className={cn(treeHeaderClass("group"), treeFillClass(selected), "group focus-ring")}
         onClick={() => openHeader(pack, group)}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -744,7 +739,7 @@ export function Sidebar() {
           }}
           onDoubleClick={(e) => e.stopPropagation()}
         >
-          <Chev className="size-4" />
+          <TreeChevron open={!isCollapsed} />
         </button>
         {renamingGroup === key ? (
           <input
@@ -767,9 +762,7 @@ export function Sidebar() {
             onBlur={() => setRenamingGroup(null)}
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate">
-            <bdi>{group}</bdi>
-          </span>
+          <TreeName>{group}</TreeName>
         )}
         {/* Hover-revealed way into the same menu right-click opens */}
         <MenuDots
@@ -801,8 +794,8 @@ export function Sidebar() {
         className={cn(
           "group flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-ui transition-[transform,box-shadow] duration-150 focus-ring",
           active
-            ? "bg-accent text-foreground"
-            : "text-foreground hover:bg-hover",
+            ? cn("text-foreground", SELECTED_BAR)
+            : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),
           multi && "outline outline-1 -outline-offset-1 outline-primary",
           lifted ? "z-10 scale-[1.02] cursor-grabbing shadow-lg ring-1 ring-ring/40" : "hover:cursor-grab"
         )}
@@ -817,7 +810,6 @@ export function Sidebar() {
       >
         {/* Resting affordance for press-and-hold drag: a grip on hover */}
         <RiDraggable className="-ml-1 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
-        {s.pinned && <RiPushpinFill className="size-3 shrink-0 text-(--warn)" aria-hidden />}
         {/* A <bdi>, as the popup's rows: the title is the user's text, so a
             Hebrew one keeps its direction and a pasted-in direction control
             can't reorder what sits beside it */}
@@ -840,7 +832,6 @@ export function Sidebar() {
   }
 
   const sectionTitle = (name: string, count: number, isCollapsed: boolean, faded = false) => {
-    const Chev = isCollapsed ? RiArrowRightSLine : RiArrowDownSLine
     const selected = shown?.pack === name && !shown.group
     const total = packTotals.get(name) ?? count
     return (
@@ -852,11 +843,7 @@ export function Sidebar() {
         // Short: a native tooltip cuts around 80 characters, and the keys
         // are in the menu's hints and BEHAVIOR.md rather than every row
         title={`${name} — right-click or ⋯ for actions`}
-        className={cn(
-          "group flex cursor-pointer select-none items-center gap-1 rounded-md px-1 py-1 text-ui font-semibold text-(--heading-strong) hover:bg-hover focus-ring",
-          selected && "bg-accent hover:bg-accent",
-          faded && "opacity-45"
-        )}
+        className={cn(treeHeaderClass("pack"), treeFillClass(selected), "group focus-ring", faded && "opacity-45")}
         onClick={() => openHeader(name)}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -882,7 +869,7 @@ export function Sidebar() {
           }}
           onDoubleClick={(e) => e.stopPropagation()}
         >
-          <Chev className="size-4" />
+          <TreeChevron open={!isCollapsed} />
         </button>
         {renaming === name ? (
           <input
@@ -903,9 +890,7 @@ export function Sidebar() {
             onBlur={() => setRenaming(null)}
           />
         ) : (
-          <span className="min-w-0 flex-1 truncate">
-            <bdi>{name}</bdi>
-          </span>
+          <TreeName>{name}</TreeName>
         )}
         <MenuDots
           label={`Actions for pack ${name}`}
@@ -1074,7 +1059,8 @@ export function Sidebar() {
         {/* One tree for assistive tech: packs at level 1, their prompts and
             groups at 2, a group's prompts at 3 (a flat list at 1); the
             wrappers between are presentation so each run of children is
-            owned by the row above it */}
+            owned by the row above it. The look is the shared tree's
+            (components/tree.tsx), the popup's list draws the same */}
         <div role="tree" aria-label="Library" aria-multiselectable="true">
           {tree ? (
             tree.map((p) => {
@@ -1082,28 +1068,28 @@ export function Sidebar() {
               const faded = !!q && p.count === 0
               const isCollapsed = faded || (!q && collapsed.has(p.name))
               return (
-                <div key={p.name} data-pack={p.name} role="presentation" className="mb-2">
+                <TreeSection key={p.name} data-pack={p.name} role="presentation">
                   {sectionTitle(p.name, p.count, isCollapsed, faded)}
                   {!isCollapsed && (
-                    <div role="group" className="mt-0.5 flex flex-col gap-0.5 pl-3">
+                    <TreeChildren level="pack" role="group">
                       {p.ungrouped.map((s) => snipRow(s))}
                       {p.groups.map((g) => {
                         const gc = !q && collapsedGroups.has(groupKey(p.name, g.name))
                         return (
-                          <div key={g.name} role="presentation" className="flex flex-col gap-0.5">
+                          <TreeGroup key={g.name} role="presentation">
                             {groupTitle(p.name, g.name, g.items.length, gc)}
                             {/* The guide line ties a group's prompts to its header */}
                             {!gc && (
-                              <div role="group" className="ml-[11px] flex flex-col gap-0.5 border-l border-border pl-1">
+                              <TreeChildren level="group" role="group">
                                 {g.items.map((s) => snipRow(s))}
-                              </div>
+                              </TreeChildren>
                             )}
-                          </div>
+                          </TreeGroup>
                         )
                       })}
-                    </div>
+                    </TreeChildren>
                   )}
-                </div>
+                </TreeSection>
               )
             })
           ) : (
@@ -1115,7 +1101,20 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* No footer: the theme lives in Settings (Appearance) and the gear
+      {/* The legend for the two bars a row can carry (the theme lives in
+          Settings and the gear sits at the top-right of the pane, so this
+          is the sidebar's one footer, and it is about the library) */}
+      <div aria-hidden className="flex shrink-0 items-center gap-3 border-t border-border px-3 py-1.5 text-micro text-muted-foreground">
+        <span className="flex items-center gap-1.5">
+          <span className="h-3 w-0.5 rounded-full bg-(--focus)" />
+          viewed
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="h-3 w-0.5 rounded-full bg-(--warn)" />
+          pinned
+        </span>
+      </div>
+      {/* The theme lives in Settings (Appearance) and the gear
           sits at the top-right of the pane, so the sidebar is the library
           and nothing else */}
       {menus}
