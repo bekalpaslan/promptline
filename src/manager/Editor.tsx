@@ -500,7 +500,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
             inset ring, not a border, so it adds no pixel to the inset
             (at px-4 behind a 1 px border the text sat 5 px right of the
             header) */}
-        <div className="-mx-3 flex flex-col overflow-hidden bg-secondary ring-1 ring-inset ring-transparent focus-within:ring-(--focus)">
+        <div className="-mx-3 flex flex-col overflow-hidden bg-(--panel-body) ring-1 ring-inset ring-transparent focus-within:ring-(--focus)">
           <Textarea
             ref={textRef}
             value={text}

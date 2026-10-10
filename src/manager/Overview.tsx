@@ -201,10 +201,10 @@ function PromptCard({
       aria-describedby={inputs.length ? badgeId : undefined}
       title={`${name} — click edits, Ctrl+C copies, right-click for actions`}
       className={cn(
-        // The panel edge (--module-border): a hairline in Indigo, none in
-        // Instrument, where the card's shadow is its edge; the accent edge
-        // under the pointer shows in both
-        "flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5 rounded-lg border border-(--module-border) bg-background p-3 text-left text-ui text-foreground transition-colors group-hover/card:border-primary focus-ring",
+        // The panel edge (panel-edge, components/panel.tsx): a hairline in
+        // Indigo, none in Instrument, where the card's shadow is its edge;
+        // the accent edge under the pointer shows in both
+        "flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5 rounded-lg border border-(--panel-edge) bg-background p-3 text-left text-ui text-foreground transition-colors group-hover/card:border-primary focus-ring",
         // A pinned card carries the trees' Warn bar at its left edge, inside
         // the card's own shadow (both are box-shadow, so one declaration)
         s.pinned ? "shadow-[inset_1.5px_0_0_var(--warn),var(--shadow-card)]" : "shadow-(--shadow-card)"

@@ -147,11 +147,16 @@ and the popup's rows leave it empty. Until 2026-10-10 a pack's children stepped 
 pushed the sidebar's titles past the names, and the popup's rows, with the
 plain 8 px, sat left of their header's name. Packs sit 16 px apart (`TreeSection`), twice
 the earlier 8, so a pack reads as its own block among rows that tight.
-An open pack is a frame, the editor's Prompt panel in small: the panel
-edge (`--module-border`: a hairline in Indigo; none in Instrument since
-2026-10-10, when the user had every panel's 1 px line go, there the
-card ground on the sunk pane is the edge, and the overview's cards keep
-their shadow) around the card ground, the pack's header on that ground as the
+An open pack is the expandable panel (`components/panel.tsx`), the
+editor's Prompt panel in small; Settings' pack cards are the same panel.
+The look is three tokens in `design/tokens.json` and the palettes' files
+(the user asked for it to be named once, 2026-10-10): `panel-head`, the
+ground the name sits on; `panel-body`, the lighter ground under it that
+holds what the thing is made of; `panel-edge`, the 1 px line around (a
+hairline in Indigo; none in Instrument since 2026-10-10, when the user
+had every panel's line go, there the head ground on the sunk pane is the
+edge, and the overview's cards, which take the same edge, keep their
+shadow). So: the edge around the head ground, the pack's header on that ground as the
 panel's title line, and its rows and groups under it on the lighter
 secondary ground, with 2 px of air above and below them, the way the
 Prompt field sits under its title (the user asked for the frame,
