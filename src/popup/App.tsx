@@ -2017,7 +2017,7 @@ export function App() {
             // them), 8 px between packs. It was 6 and 12, a pitch of 50 px
             // for a 44 px row, which showed seven prompts in the default
             // window; the same window now shows nine or ten.
-            <TreeSection key={sec.name} role="group" aria-label={sec.name}>
+            <TreeSection key={sec.name} open={!sec.isCollapsed} role="group" aria-label={sec.name}>
               {/* Pack title, as in the sidebar: a disclosure button (← / Ctrl+→
                   from a row do the same); Pinned / Results are plain headings.
                   Hidden from assistive tech: a listbox may hold only options
@@ -2027,10 +2027,10 @@ export function App() {
                   keyboard (← / Ctrl+→, typing @pack), and the buttons are
                   tabIndex -1 so nothing hidden is in the tab order. */}
               {/* Sticky, so the pack a row belongs to stays named while it
-                  scrolls; the pane colour behind it hides rows passing its rounded
-                  corners and the 2 px under it (painted here, pulled back
-                  by the children's own 2 px) */}
-              <div aria-hidden className="sticky top-0 z-10 -mb-0.5 bg-sidebar pb-0.5">
+                  scrolls; the frame's card ground behind it hides rows passing
+                  its rounded corners and the 2 px under it (painted here,
+                  pulled back by the children's own 2 px) */}
+              <div aria-hidden className="sticky top-0 z-10 -mb-0.5 rounded-t-lg bg-card pb-0.5">
               {sec.collapsible ? (
                 <div
                   data-selected={packSel || undefined}
