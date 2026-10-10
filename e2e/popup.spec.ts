@@ -130,6 +130,15 @@ test("pack and group headers are the sidebar's tree: a chevron each under the ot
   expect(await option.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(clear)
   expect(await fill(pack)).toBe(clear)
   expect(await fill(group)).toBe(clear)
+  // A folded pack is a plain row, as in the sidebar: its sticky wrapper
+  // paints the frame's card ground only while the pack is open
+  const wrap = (l: typeof pack) => l.evaluate((e) => getComputedStyle(e.parentElement!.parentElement!).backgroundColor)
+  expect(await wrap(pack)).not.toBe(clear)
+  await pack.click()
+  await expect(pack).toHaveAttribute("aria-expanded", "false")
+  expect(await wrap(pack)).toBe(clear)
+  await pack.click()
+  await expect(pack).toHaveAttribute("aria-expanded", "true")
   // Inside the pack's frame nothing steps: the group's chevron sits under
   // the pack's (its name on the pack's name column), and the group's rows
   // start where the group's header does, with no guide line (gone
