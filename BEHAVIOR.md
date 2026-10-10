@@ -125,20 +125,32 @@ behind its fold chevron, a group a medium row in the secondary ink, a
 prompt a medium row in the foreground ink (13/500, the one row-title
 weight the popup's rows and the overview's cards use too; the sidebar's
 400 and the cards' 600 had the same title in two weights, and the cards'
-12 px body is the 13/20 body size since 2026-10-10); a pack's children step 12 px in, a group's prompts
-hang from a guide line under its chevron, headers carry the rows' 8 px
+12 px body is the 13/20 body size since 2026-10-10); a pack's rows and groups start on its name
+column, a group's prompts hang from a guide line under its chevron, headers carry the rows' 8 px
 side padding so every count ends on the rows' right edge, and counts sit
 there in mono. A prompt row is 24 px, the row the popup draws in Compact
 density (`treeRowClass`): the sidebar's rows were 28 px until 2026-10-10,
 when the user, liking the popup's compact tree, asked for the sidebar to
 match it (a title-only row is the compact row; only the popup's two-line
-Comfortable row is taller). A row's title starts 22 px into the row, so
-it steps past the name of the pack or group over it (6 px past a pack's,
-14 past a group's); the sidebar's drag grip sits inside that inset and
-the popup's rows leave it empty. Until 2026-10-10 only the grip pushed
-the sidebar's titles in, and the popup's rows, with the plain 8 px, sat
-left of their header's name. Packs sit 16 px apart (`TreeSection`), twice
-the earlier 8, so a pack reads as its own block among rows that tight. A pinned prompt carries a 1.5 px Warn bar at its left edge
+Comfortable row is taller). A row's title starts 28 px into the row, the
+name column (a header's 8 px padding, its 16 px chevron, the 4 px after):
+a pack's rows and its group headers line up with the pack's name, since
+the frame below says what they belong to and a step said it twice, and a
+group's rows sit 21 px past the group's name, after its guide line; the
+sidebar's drag grip sits inside that inset and the popup's rows leave it
+empty. Until 2026-10-10 a pack's children stepped 12 px in, only the grip
+pushed the sidebar's titles past the names, and the popup's rows, with the
+plain 8 px, sat left of their header's name. Packs sit 16 px apart (`TreeSection`), twice
+the earlier 8, so a pack reads as its own block among rows that tight.
+An open pack is a frame, the editor's Prompt panel in small: the module's
+border around the card ground, the pack's header on that ground as the
+panel's title line, and its rows and groups under it on the lighter
+secondary ground, with 2 px of air above and below them, the way the
+Prompt field sits under its title (the user asked for the frame,
+2026-10-10). The frame pulls out by its own 1 px border, so the header
+and the rows keep the x they have folded; a folded pack is a header row
+like any other, and a pack faded by the filter is folded. In both windows,
+since the trees are one. A pinned prompt carries a 1.5 px Warn bar at its left edge
 (`PINNED_BAR`), the selection bar's shape in the pin's colour, and so
 does its card in the overview (inside the card's shadow, in place of the
 pin icon it drew); the open or selected row's Focus bar wins on a row
@@ -628,9 +640,9 @@ gap to read as blocks). The rows were 6 and the packs 12 apart with
 seven prompts in the default window where eight now fit (twelve in
 Compact). The list is the sidebar's tree (`components/tree.tsx`, see
 *The tree tells its levels apart without colour* above): a pack's rows
-and groups step 12 px in from its header, a group's rows hang from the
-guide line under the group's chevron, and the headers are 28 px tall like
-the sidebar's. Through 0.2.22 the popup kept every title on one edge with
+and groups start on its name column inside its frame, a group's rows hang
+from the guide line under the group's chevron, and the headers are 28 px
+tall like the sidebar's. Through 0.2.22 the popup kept every title on one edge with
 no indent and 24 px headers; the 2026-10-10 decision that the two trees
 are one thing on two windows ended that.
 
@@ -666,8 +678,11 @@ pack's name at 13/600 in the strong heading ink behind its chevron
 (Pinned's pin and Results' magnifier stand in the chevron's place), a
 group's at 13/500 in the secondary ink a step in, and the group's rows
 hung from the guide line under its chevron; no header or row is filled at
-rest, and a header under the pointer takes the rows' hover grey. The pack
-header sticks to the top of the list while its rows scroll, so the pack a
+rest, and a header under the pointer takes the rows' hover grey. An open
+pack is the sidebar's frame too (border, header on the card ground, rows
+on the secondary ground; Pinned and Results are open packs). The pack
+header sticks to the top of the list while its rows scroll, on the
+frame's card ground, so the pack a
 row belongs to stays named, and rows and group headers keep a 30 px scroll
 margin (the 28 px header and its 2 px gap) so arrowing up never parks the
 selection under it. Every count ends on the rows' right edge: the headers

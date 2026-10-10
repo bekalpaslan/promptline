@@ -140,6 +140,30 @@ test("the sidebar's rows are the popup's compact rows, and packs sit a row's hei
   expect(next!.y - (everyday!.y + everyday!.height)).toBeCloseTo(16, 0)
 })
 
+test("an open pack is a frame: header on the card ground, rows on the secondary ground, a border around; folded it is a row", async ({ page }) => {
+  const section = tree(page).locator("[data-pack='Mock Groups']")
+  const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
+  const body = section.getByRole("group").first()
+  const styleOf = (l: typeof section) => l.evaluate((e) => {
+    const s = getComputedStyle(e)
+    return { border: parseFloat(s.borderLeftWidth), bg: s.backgroundColor }
+  })
+  const tokens = await page.evaluate(() => {
+    const s = getComputedStyle(document.documentElement)
+    const paint = (v: string) => { const d = document.createElement("div"); d.style.backgroundColor = v; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c }
+    return { card: paint(s.getPropertyValue("--card")), secondary: paint(s.getPropertyValue("--secondary")) }
+  })
+  expect(await styleOf(section)).toEqual({ border: 1, bg: tokens.card })
+  expect((await styleOf(body)).bg).toBe(tokens.secondary)
+  // The frame pulls out by its border: the header's x is the folded one's
+  const openX = (await pack.boundingBox())!.x
+  await pack.focus()
+  await page.keyboard.press("ArrowLeft")
+  await expect(pack).toHaveAttribute("aria-expanded", "false")
+  expect((await styleOf(section)).border).toBe(0)
+  expect((await pack.boundingBox())!.x).toBeCloseTo(openX, 0)
+})
+
 test("Left folds a pack and Right unfolds it", async ({ page }) => {
   const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
   await expect(pack).toHaveAttribute("aria-expanded", "true")

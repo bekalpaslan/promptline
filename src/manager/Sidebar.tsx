@@ -1101,7 +1101,7 @@ export function Sidebar() {
               const faded = !!q && p.count === 0
               const isCollapsed = faded || (!q && collapsed.has(p.name))
               return (
-                <TreeSection key={p.name} data-pack={p.name} role="presentation">
+                <TreeSection key={p.name} open={!isCollapsed} data-pack={p.name} role="presentation">
                   {sectionTitle(p.name, p.count, isCollapsed, faded)}
                   {!isCollapsed && (
                     <TreeChildren level="pack" role="group">
