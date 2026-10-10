@@ -129,9 +129,11 @@ weight the popup's rows and the overview's cards use too; the sidebar's
 hang from a guide line under its chevron, headers carry the rows' 8 px
 side padding so every count ends on the rows' right edge, and counts sit
 there in mono. A pinned prompt carries a 2 px Warn bar at its left edge
-(`PINNED_BAR`), the selection bar's shape in the pin's colour; the open
-or selected row's Focus bar wins on a row that is both, and a legend at
-the sidebar's foot names the two ("viewed", "pinned"). Until 2026-10-10
+(`PINNED_BAR`), the selection bar's shape in the pin's colour, and so
+does its card in the overview (inside the card's shadow, in place of the
+pin icon it drew); the open or selected row's Focus bar wins on a row
+that is both, and a legend at the sidebar's foot names the two
+("viewed", "pinned"). Until 2026-10-10
 the sidebar drew a pin icon before a pinned title and the popup's rows
 had a glyph column; both trees now start a row with its title. The look is
 written once, in `components/tree.tsx`, and
