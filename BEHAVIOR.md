@@ -128,10 +128,11 @@ behind its fold chevron, a group a medium row in the secondary ink, a
 prompt a medium row in the foreground ink (13/500, the one row-title
 weight the popup's rows and the overview's cards use too; the sidebar's
 400 and the cards' 600 had the same title in two weights, and the cards'
-12 px body is the 13/20 body size since 2026-10-10); a pack's rows, its groups and their rows all
-start on its name column, headers carry the rows' 8 px
-side padding so every count ends on the rows' right edge, and counts sit
-there in mono. A prompt row is 24 px, the row the popup draws in Compact
+12 px body is the 13/20 body size since 2026-10-10); a pack's groups put
+their names on its name column and every row, the pack's own and a
+group's, starts its title under the chevrons (below), headers carry the
+rows' 8 px side padding so every count ends on the rows' right edge, and
+counts sit there in mono. A prompt row is 24 px, the row the popup draws in Compact
 density (`treeRowClass`): the sidebar's rows were 28 px until 2026-10-10,
 when the user, liking the popup's compact tree, asked for the sidebar to
 match it (a title-only row is the compact row; the popup's two-line
@@ -185,8 +186,8 @@ are one tree on two windows, so a change to a level's look lands in both
 (the sidebar keeps its `treeitem`s and the popup its hidden buttons; what
 a header *is* stays each window's own). Group names show as typed: uppercase
 is for the app's own section labels, never for names the user wrote. The
-accent hue marks state (the selected pack or group, focus, a search hit),
-not structure, per the design system's "ink first, hue second"; so the
+accent hue marks state (the popup's keyboard selection once an arrow key
+has moved it, focus, a search hit), not structure, per the design system's "ink first, hue second"; so the
 `heading` tokens are ink colours. In the overview a group is a heading over
 a hairline, not a panel, so it doesn't repeat its pack's look.
 
@@ -592,7 +593,9 @@ the clipboard and the prompts.
 
 **One inset.** Every strip of the popup shares the search box's edges, and
 its content starts 8 px in: the search icon, the clipboard icon, a pack's
-name, a row's icon, the first key of the hint bar. The list used to carry
+chevron, a row's title. The hint bar is the exception since 2026-10-10:
+it is the sidebar's foot, edge to edge on the window, and its first key
+starts on the strips' edge (*Keep open*, below). The list used to carry
 2 px of side padding, so a row's fill was narrower than the box above it,
 and the five strips began on five different lines (9, 8, 10, 6 and 4 px).
 The search box's own padding is 8 px less its 1 px border (the manager's
@@ -660,9 +663,9 @@ gap to read as blocks). The rows were 6 and the packs 12 apart with
 28 px headers before 0.2.21, a 50 px pitch for a 44 px row, which showed
 seven prompts in the default window where eight fit at 44 and nine at
 the 40 px row of 2026-10-10 (twelve in Compact). The list is the sidebar's tree (`components/tree.tsx`, see
-*The tree tells its levels apart without colour* above): a pack's rows,
-its groups and their rows start on its name column inside its frame, and
-the headers are 28 px tall like the sidebar's. Through 0.2.22 the popup kept every title on one edge with
+*The tree tells its levels apart without colour* above): a pack's groups
+start on its name column inside its frame, its rows and theirs under the
+chevrons, and the headers are 28 px tall like the sidebar's. Through 0.2.22 the popup kept every title on one edge with
 no indent and 24 px headers; the 2026-10-10 decision that the two trees
 are one thing on two windows ended that.
 
@@ -709,10 +712,11 @@ costs 24 px more, one row. A single line keeps the head alone
 pack's name at 13/600 in the strong heading ink behind its chevron
 (Pinned's pin and Results' magnifier stand in the chevron's place), a
 group's at 13/500 in the secondary ink under it, and the group's rows
-on the same column; no header or row is filled at
+where the pack's own are, their titles under the chevrons; no header or
+row is filled at
 rest, and a header under the pointer takes the rows' hover grey. An open
-pack is the sidebar's frame too (border, header on the card ground, rows
-on the secondary ground; Pinned and Results are open packs). The pack
+pack is the sidebar's frame too (the panel's edge, header on the head
+ground, rows on the body ground; Pinned and Results are open packs). The pack
 header sticks to the top of the list while its rows scroll, on the
 frame's card ground, so the pack a
 row belongs to stays named, and rows and group headers keep a 30 px scroll
@@ -813,7 +817,10 @@ neither fits; clamping it into the window used to slide it up over the
 row near the bottom of the list. Its floor is the list's bottom edge, so it
 never hangs over the feedback strip or the hint bar. One exception, since
 2026-10-03: in a window too short to hold the card beside the row (under
-120 px on the roomier side; the 320×280 minimum leaves about 85), a card
+120 px on the roomier side; the 320×280 minimum leaves about 85), or,
+since 2026-10-10, where the card above the row would reach past the
+list's top edge over the clipboard and the search box (the clipboard's
+panel head made that the minimum's case), a card
 opened with → takes the list's place and covers its row. It carries that
 row's whole title, and three lines beside the row showed neither the
 prompt nor its clipboard. A hover never does this: a card under the
@@ -1660,13 +1667,15 @@ while the 12px first line grew to 15px and the 16px pack headers to 20px.
 It and `text-micro` (11px: chips, key caps, the popup's hint bar, the `xs`
 button) are the two named steps below Tailwind's `sm`; there is no
 `text-[11px]` or `text-[13px]` anywhere. Pack titles in the popup's list
-are the body size at 700 (600 until 0.2.22, as in the sidebar), where they were `text-base`,
+are the body size at 600, as in the sidebar (700 from 0.2.22 to
+2026-10-10, when the two trees became one), where they were `text-base`,
 the largest text in the popup above the prompt titles the window is for.
 The `{N}` badge on a row is on the fill-in tint (it counts fill-ins) rather
 than the warn tint, whose text read 4.1:1 on its 15% ground in light; and
 a tag's text on a dark surface is the hue lifted a fifth towards white
 (`tag-text-dark`), since the raw hues clear 4.5:1 on the page but not on
-the selected row's tint, where the first row always sits. A confirmation
+the Selection tint the selected row carried until 2026-10-10, where the
+first row always sat; the lift stays. A confirmation
 in the popup's strip (copied, saved, restored) is Success text with no
 fill, as every confirmation in `DESIGN.md`; notes (undo offered, press Esc
 again) keep the neutral fill.
