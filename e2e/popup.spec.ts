@@ -32,14 +32,15 @@ test("one 8 px inset: the strips share the search box's edges, and their content
   const box = page.getByRole("search")
   const row = rows(page).first()
   const [boxRect, rowRect] = await Promise.all([box.boundingBox(), row.boundingBox()])
-  // A row's fill runs to the search box's right edge; its left edge is the
-  // tree's 12 px step under its header (the sidebar's tree, 2026-10-10)
-  expect(Math.abs(rowRect!.x - (boxRect!.x + 12))).toBeLessThan(0.6)
+  // A row's fill runs edge to edge inside its pack's frame, which is the
+  // search box's edges (the 12 px step went with the frame, 2026-10-10)
+  expect(Math.abs(rowRect!.x - boxRect!.x)).toBeLessThan(0.6)
   expect(Math.abs(rowRect!.x + rowRect!.width - (boxRect!.x + boxRect!.width))).toBeLessThan(0.6)
   // The search icon, the clipboard icon, a pack's chevron and the first key
-  // of the hint bar start 8 px in; a row's title 22 px into its stepped row
-  // (the shared row's inset, tree.tsx: past the header's name, with no
-  // glyph drawn before it since 2026-10-10)
+  // of the hint bar start 8 px in; a row's title 28 px in, on the name
+  // column (the shared row's inset, tree.tsx: the header's padding, its
+  // chevron and the gap after, with no glyph drawn before the title since
+  // 2026-10-10)
   const starts = await Promise.all([
     x(box.locator("svg").first()),
     x(clipLine(page).locator("xpath=..").locator("svg").first()),
@@ -47,7 +48,7 @@ test("one 8 px inset: the strips share the search box's edges, and their content
     x(page.getByText("paste", { exact: true }).locator("xpath=..").locator("kbd").first()),
   ])
   for (const s of starts) expect(Math.abs(s - (boxRect!.x + 8))).toBeLessThan(0.6)
-  expect(Math.abs((await x(row.locator("bdi").first())) - (rowRect!.x + 22))).toBeLessThan(0.6)
+  expect(Math.abs((await x(row.locator("bdi").first())) - (rowRect!.x + 28))).toBeLessThan(0.6)
   // The fill-in form: fields and the button are boxes, edge to edge; the
   // title and the labels are text, 8 px in
   await search(page).fill("Bisect a regression")
@@ -129,10 +130,11 @@ test("pack and group headers are the sidebar's tree: a chevron each, the group a
   expect(await option.evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(clear)
   expect(await fill(pack)).toBe(clear)
   expect(await fill(group)).toBe(clear)
-  // Each level steps in: the group's header 12 px past the pack's, the
-  // group's rows past the guide line, which is centred under the chevron
+  // Inside the pack's frame nothing steps: the group's header starts on
+  // the pack's edge (its name on the pack's name column); the group's rows
+  // sit past the guide line, which is centred under the chevron
   const groupRow = page.getByRole("group", { name: "Stuck", exact: true }).getByRole("option").first()
-  expect((await left(group)) - (await left(pack))).toBeCloseTo(12, 0)
+  expect((await left(group)) - (await left(pack))).toBeCloseTo(0, 0)
   expect((await left(groupRow)) - (await left(group))).toBeGreaterThan(12)
   const line = await groupRow.evaluate((e) => {
     const w = e.parentElement!
@@ -1392,20 +1394,22 @@ test("headers: pack 13/600 and group 13/500 as the sidebar's, title 13/500; a he
   await page.mouse.move(1, 1)
 })
 
-test("a row's title steps in past its header's name, as the sidebar's rows do", async ({ page }) => {
-  // The shared row's 22 px inset (tree.tsx): a pack's row sits 6 px past
-  // the pack's name and a group's row 14 px past the group's; the rows
-  // sat left of the name until 2026-10-10, when only the sidebar's grip
-  // had pushed its titles in
+test("a row's title sits on its pack's name column, and a group's rows past the guide line, as the sidebar's do", async ({ page }) => {
+  // The shared row's 28 px inset (tree.tsx) is the name column: a pack's
+  // row and a group's header start where the pack's name does, and a
+  // group's row 21 px past the group's name (16 px to the guide line, the
+  // line, 4 px after). The rows sat left of the name until 2026-10-10,
+  // when only the sidebar's grip had pushed its titles in
   const left = async (l: ReturnType<typeof rows>) => (await l.boundingBox())!.x
-  const packName = page.locator("button[aria-expanded]", { hasText: "Everyday" }).first().locator("bdi")
+  // Mock Groups has a row outside any group; Stuck is a group in Everyday
+  const packName = page.locator("button[aria-expanded]", { hasText: "Mock Groups" }).first().locator("bdi")
   const groupName = page.locator("button[aria-expanded]", { hasText: "Stuck" }).first().locator("bdi")
-  const everyday = page.getByRole("group", { name: "Everyday", exact: true })
   const stuck = page.getByRole("group", { name: "Stuck", exact: true })
-  const packRow = everyday.getByRole("option").first().locator("bdi").first()
+  const packRow = page.getByRole("option", { name: "Loose prompt", exact: true }).locator("bdi").first()
   const groupRow = stuck.getByRole("option").first().locator("bdi").first()
-  expect((await left(packRow)) - (await left(packName))).toBeGreaterThanOrEqual(5)
-  expect((await left(groupRow)) - (await left(groupName))).toBeGreaterThanOrEqual(13)
+  expect((await left(packRow)) - (await left(packName))).toBeCloseTo(0, 0)
+  expect((await left(groupName)) - (await left(packName))).toBeCloseTo(0, 0)
+  expect((await left(groupRow)) - (await left(groupName))).toBeCloseTo(21, 0)
 })
 
 test("counts end on the rows' right edge, and groups follow each other at the rows' 2 px", async ({ page }) => {
