@@ -74,6 +74,7 @@ export const MAP = {
   "param-config-soft": ["param-config-bg"],
   "code-ground": ["code-ground"],
   "shadow-segment": ["shadow-segment"],
+  "shadow-card": ["shadow-card"],
   "shadow-menu": ["shadow-pop"],
   "shadow-pop": ["shadow-shell"],
   // mix: percentages a chip mixes its tag hue at (see index.css tag-tint)
