@@ -148,12 +148,18 @@ not structure, per the design system's "ink first, hue second"; so the
 a hairline, not a panel, so it doesn't repeat its pack's look.
 
 **The editor is the prompt and little else.** A crumb line says where
-the prompt sits (pack › group, each crumb opening that overview) and
-holds its use count, its pin and two menus: the crumb's chevron opens the
-same Move-to menu a row's right-click does, with the prompt's own place
-checked, and a ⋯ at the right opens the prompt's own menu, the one its
-row's right-click opens (Pin, Move to, Add tag, Export, Delete), less
-Move up and down, which only the sidebar has rows for. Under it the title
+the prompt sits (pack › group at the left, each crumb opening that
+overview, the chevron after them opening the same Move-to menu a row's
+right-click does, with the prompt's own place checked) and, in one group
+at the right, holds its use count, a Pin toggle and a ⋯ menu. The Pin
+button is pressed, in the pin's Warn, while the prompt is pinned, and
+runs the same rule as the row menu's Pin item (`togglePin`: the slot
+limit, the toasts); until 2026-10-10 the line showed "pinned" as a word
+beside the crumbs, which said the state without offering the switch, and
+the whole line was 12 px, a caption's size, against the pane's 13. The
+⋯ opens the prompt's own menu, the one its row's right-click opens (Pin,
+Move to, Add tag, Export, Delete), less Move up and down, which only the
+sidebar has rows for. Under it the title
 alone, at the heading size nothing else in the pane uses, then the text,
 the tags, and the placeholders the text holds. Placement is the store's,
 never a field of the autosave: the pack select and the free-text group

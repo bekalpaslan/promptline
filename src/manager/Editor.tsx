@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { RiAddLine, RiArrowDownSLine, RiCheckLine, RiErrorWarningLine, RiFileCopyLine, RiFileTextLine, RiMoreLine, RiPushpinFill } from "@remixicon/react"
+import { RiAddLine, RiArrowDownSLine, RiCheckLine, RiErrorWarningLine, RiFileCopyLine, RiFileTextLine, RiMoreLine, RiPushpinFill, RiPushpinLine } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "./EmptyState"
 import { Textarea } from "@/components/ui/textarea"
@@ -334,11 +334,14 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
 
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
-      {/* Where this prompt sits: each crumb shows that pack's or group's
-          prompts beside the sidebar (Escape goes to the nearest one), and
-          the chevron moves it. The use count and the pin are read here too,
-          in the ink of the line, so nothing but the title is lit. */}
-      <div className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+      {/* Where this prompt sits, at the left: each crumb shows that pack's
+          or group's prompts beside the sidebar (Escape goes to the nearest
+          one), and the chevron moves it. At the right, in one group: the use
+          count, the Pin toggle (pressed while pinned, in the pin's Warn) and
+          the ⋯ menu, 24 px tall each and 8 px apart. The line is the UI
+          size: at 12 px it read as a caption, and "pinned" as a word in the
+          line said a state without offering the switch (2026-10-10). */}
+      <div className="flex min-w-0 items-center gap-1 text-ui text-muted-foreground">
         <button
           type="button"
           className="min-w-0 cursor-pointer truncate rounded-sm font-medium hover:text-foreground focus-ring"
@@ -362,37 +365,44 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         )}
         <Button
           variant="ghost"
-          size="icon-xs"
+          size="icon-sm"
           aria-label="Move to another pack or group"
           aria-haspopup="menu"
           title="Move to…"
           className="text-muted-foreground"
           onClick={(e) => menus.openMoveTo(...atButton(e), snippet.id)}
         >
-          <RiArrowDownSLine className="size-3.5" />
+          <RiArrowDownSLine className="size-4" />
         </Button>
-        {snippet.pinned && (
-          <span className="flex items-center gap-1 text-(--warn)" title="Pinned: always in the popup's top slots">
-            <RiPushpinFill className="size-3" aria-hidden />
-            pinned
-          </span>
-        )}
-        {snippet.uses > 0 && (
-          <span className="tabular-nums" title={`Pasted ${C.plural(snippet.uses, "time")}`}>
-            {snippet.uses}×
-          </span>
-        )}
-        <Button
-          variant="ghost"
-          size="icon-xs"
-          aria-label="Prompt actions"
-          aria-haspopup="menu"
-          title="Pin, move, tag, export, delete"
-          className="ml-auto text-muted-foreground"
-          onClick={(e) => menus.openRowCtx(...atButton(e), new Set([snippet.id]))}
-        >
-          <RiMoreLine className="size-4" />
-        </Button>
+        <span className="ml-auto flex shrink-0 items-center gap-2">
+          {snippet.uses > 0 && (
+            <span className="tabular-nums" title={`Pasted ${C.plural(snippet.uses, "time")}`}>
+              {snippet.uses}×
+            </span>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-pressed={!!snippet.pinned}
+            title={snippet.pinned ? "Unpin: leaves the popup's top slots" : "Pin: always in the popup's top slots"}
+            className={snippet.pinned ? "text-(--warn) hover:text-(--warn)" : "text-muted-foreground"}
+            onClick={() => menus.togglePin([snippet.id])}
+          >
+            {snippet.pinned ? <RiPushpinFill aria-hidden /> : <RiPushpinLine aria-hidden />}
+            {snippet.pinned ? "Pinned" : "Pin"}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label="Prompt actions"
+            aria-haspopup="menu"
+            title="Pin, move, tag, export, delete"
+            className="text-muted-foreground"
+            onClick={(e) => menus.openRowCtx(...atButton(e), new Set([snippet.id]))}
+          >
+            <RiMoreLine className="size-4" />
+          </Button>
+        </span>
       </div>
 
       {/* The title, alone on its line at the heading size nothing else in
