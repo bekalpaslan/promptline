@@ -37,8 +37,9 @@ test("one 8 px inset: the strips share the search box's edges, and their content
   expect(Math.abs(rowRect!.x - (boxRect!.x + 12))).toBeLessThan(0.6)
   expect(Math.abs(rowRect!.x + rowRect!.width - (boxRect!.x + boxRect!.width))).toBeLessThan(0.6)
   // The search icon, the clipboard icon, a pack's chevron and the first key
-  // of the hint bar start 8 px in; a row's title 8 px into its stepped row
-  // (no glyph before it since 2026-10-10)
+  // of the hint bar start 8 px in; a row's title 22 px into its stepped row
+  // (the shared row's inset, tree.tsx: past the header's name, with no
+  // glyph drawn before it since 2026-10-10)
   const starts = await Promise.all([
     x(box.locator("svg").first()),
     x(clipLine(page).locator("xpath=..").locator("svg").first()),
@@ -46,7 +47,7 @@ test("one 8 px inset: the strips share the search box's edges, and their content
     x(page.getByText("paste", { exact: true }).locator("xpath=..").locator("kbd").first()),
   ])
   for (const s of starts) expect(Math.abs(s - (boxRect!.x + 8))).toBeLessThan(0.6)
-  expect(Math.abs((await x(row.locator("bdi").first())) - (rowRect!.x + 8))).toBeLessThan(0.6)
+  expect(Math.abs((await x(row.locator("bdi").first())) - (rowRect!.x + 22))).toBeLessThan(0.6)
   // The fill-in form: fields and the button are boxes, edge to edge; the
   // title and the labels are text, 8 px in
   await search(page).fill("Bisect a regression")
@@ -1389,6 +1390,22 @@ test("headers: pack 13/600 and group 13/500 as the sidebar's, title 13/500; a he
   await pack.hover()
   await expect.poll(() => pack.locator("xpath=..").evaluate((e) => getComputedStyle(e).backgroundColor)).toBe(rowHover)
   await page.mouse.move(1, 1)
+})
+
+test("a row's title steps in past its header's name, as the sidebar's rows do", async ({ page }) => {
+  // The shared row's 22 px inset (tree.tsx): a pack's row sits 6 px past
+  // the pack's name and a group's row 14 px past the group's; the rows
+  // sat left of the name until 2026-10-10, when only the sidebar's grip
+  // had pushed its titles in
+  const left = async (l: ReturnType<typeof rows>) => (await l.boundingBox())!.x
+  const packName = page.locator("button[aria-expanded]", { hasText: "Everyday" }).first().locator("bdi")
+  const groupName = page.locator("button[aria-expanded]", { hasText: "Stuck" }).first().locator("bdi")
+  const everyday = page.getByRole("group", { name: "Everyday", exact: true })
+  const stuck = page.getByRole("group", { name: "Stuck", exact: true })
+  const packRow = everyday.getByRole("option").first().locator("bdi").first()
+  const groupRow = stuck.getByRole("option").first().locator("bdi").first()
+  expect((await left(packRow)) - (await left(packName))).toBeGreaterThanOrEqual(5)
+  expect((await left(groupRow)) - (await left(groupName))).toBeGreaterThanOrEqual(13)
 })
 
 test("counts end on the rows' right edge, and groups follow each other at the rows' 2 px", async ({ page }) => {

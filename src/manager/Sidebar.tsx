@@ -828,7 +828,7 @@ export function Sidebar() {
         }}
       >
         {/* Resting affordance for press-and-hold drag: a grip on hover */}
-        <RiDraggable className="-ml-1 size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
+        <RiDraggable className="absolute left-1 size-3 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
         {/* A <bdi>, as the popup's rows: the title is the user's text, so a
             Hebrew one keeps its direction and a pasted-in direction control
             can't reorder what sits beside it */}
