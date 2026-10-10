@@ -111,7 +111,10 @@ it used to commit half a Japanese or Chinese word.
 
 **The tree tells its levels apart without colour.** A pack is a bold row
 behind its fold chevron, a group a medium row in the secondary ink, a
-prompt a regular row; a pack's children step 12 px in, a group's prompts
+prompt a medium row in the foreground ink (13/500, the one row-title
+weight the popup's rows and the overview's cards use too; the sidebar's
+400 and the cards' 600 had the same title in two weights, and the cards'
+12 px body is the 13/20 body size since 2026-10-10); a pack's children step 12 px in, a group's prompts
 hang from a guide line under its chevron, headers carry the rows' 8 px
 side padding so every count ends on the rows' right edge, and counts sit
 there in mono. A pinned prompt carries a 2 px Warn bar at its left edge
