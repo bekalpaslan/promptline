@@ -3,7 +3,7 @@
 // The mode is "system", "light" or "dark" (C.resolveTheme; legacy
 // "sand"/"sundown" were both dark and stay dark); config.json and
 // localStorage still call it `theme`, from before there was a second axis.
-// The palette, "instrument" or "indigo" (C.resolvePalette), is what Settings
+// The palette, "instrument", "indigo" or "clay" (C.resolvePalette), is what Settings
 // calls Theme.
 import { C } from "./core"
 // The two themes, in Settings order. Each has a light and a dark side;
@@ -11,6 +11,7 @@ import { C } from "./core"
 export const PALETTES = [
   { id: "instrument", label: "Instrument (default)" },
   { id: "indigo", label: "Indigo" },
+  { id: "clay", label: "Clay" },
 ] as const
 // UI font choices: the platform UI face is the default (a tool, not a
 // website); "outfit" and "inter" ship with the app, the rest are stock

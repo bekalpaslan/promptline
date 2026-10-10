@@ -357,6 +357,16 @@ test("a theme choice is saved as the palette and keyed on the document, with the
     .toBe("solid")
 })
 
+test("Clay draws the sidebar's New as a plain row: no visible edge and no fill at rest", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings" }).click()
+  await page.getByRole("combobox", { name: "Theme" }).selectOption("clay")
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "clay")
+  const newButton = page.getByRole("complementary", { name: "Prompts" }).getByRole("button", { name: "New" })
+  await expect
+    .poll(() => newButton.evaluate((b) => [getComputedStyle(b).borderColor, getComputedStyle(b).backgroundColor]))
+    .toEqual(["rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0)"])
+})
+
 test("a first run shows the empty state and New → Pack makes one to name", async ({ page }) => {
   await open(page, "manager", "empty")
   await expect(page.getByText("No prompts yet")).toBeVisible()

@@ -261,8 +261,8 @@ interface PromptlineCore {
   /** "1 prompt", "2 prompts"; pass the plural for an irregular word */
   plural(n: number, word: string, pluralWord?: string): string
   resolveTheme(pref: string | null | undefined, systemDark: boolean): "light" | "dark"
-  /** The saved palette as `data-theme` on <html>: "indigo", or "instrument" for anything else */
-  resolvePalette(pref: string | null | undefined): "instrument" | "indigo"
+  /** The saved palette as `data-theme` on <html>: "indigo" or "clay", or "instrument" for anything else */
+  resolvePalette(pref: string | null | undefined): "instrument" | "indigo" | "clay"
   /** The dragged sidebar width clamped to 13rem..min(32rem, window − 18rem); width null keeps the CSS default */
   sidebarWidth(saved: string | number | null | undefined, windowWidth: number, rem: number): { width: number | null; min: number; max: number }
   fmtHotkey(combo: string): string
