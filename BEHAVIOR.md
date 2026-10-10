@@ -439,8 +439,10 @@ default window shows three hints on one line and a window widened to
 where the type is a quarter wider, and the bar wrapped at every width
 (critique popup, 2026-10-03). At 125% in the 320 px minimum the warning
 and the preview bars still take two lines. The clipboard's text on its
-line is on Control grey, not the built-in tint, which in Instrument is the
-selection's own colour and sat right above the selected row; a row's tag
+line is in a well with the sidebar's New button's look (a dashed rule on
+the Paper ground; Control grey through 2026-10-10, and before that the
+built-in tint, which in Instrument is the
+selection's own colour and sat right above the selected row); a row's tag
 pill truncates at 7rem so a long tag no longer squeezes the first line;
 the fill-in placeholder is full Ink 2 (at 70% it was 3:1); and with no
 rows the status region says the list's own message, which a listbox, read
@@ -469,7 +471,7 @@ group folded with ← could only be reopened with the mouse.
 
 **The clipboard has a line of its own under the search box.** Every
 `{clipboard}` row pastes it, and the row shows only the word, so the line
-says what the clipboard holds (one line on Control grey, with the *hidden text* badge; two lines or more get the
+says what the clipboard holds (one line in the dashed well, with the *hidden text* badge; two lines or more get the
 strip below), that it is empty ("Clipboard is empty — prompts paste without
 it": the fact in Warn while any prompt wraps the clipboard, and never
 truncated; the consequence after it gives way at the 320 px minimum; those
@@ -662,9 +664,10 @@ cursor, and once the bar said "cursor" the tint only said it again. The
 pointer's grey never marks the keyboard's row.
 
 **A clipboard of several lines shows its two ends.** When two or more
-lines hold text, the line becomes a strip shaped like a row: 40 px on
-Control grey, the icon in the rows' glyph column and the text on their
-title edge, in mono. The first line holding text sits at the top with
+lines hold text, the line becomes a strip shaped like a row: 40 px in
+the dashed well (the sidebar's New button's look, since 2026-10-10;
+Control grey before), the icon in the rows' glyph column and the text on
+their title edge, in mono. The first line holding text sits at the top with
 `Ctrl N` at its right; under it, `⋯ 28 ⋯` (the lines between, when there
 are any) and the last line holding text, with `Ctrl ↓` at its right (`Esc`
 while the panel is open). The whole strip is the panel's handle. The word
@@ -852,18 +855,25 @@ replies to an agent. While it is on (`AppState.keep_open`):
   popup (`startDragging`, started in code because Tauri's
   `data-tauri-drag-region` answers only a press on the element itself and
   the hints are spans inside it), with the grab cursor. While kept open,
-  the mode in which the popup is moved, its mark is an open hand in the
-  bar's right corner on the hints' line, its right edge on the content edge
-  every strip keeps (17 px from the window, as the first hint is on the
-  left, the search box's toggle and the clipboard line's key above it), in
-  a gutter of its own so it covers no hint. The resting bar's hints fill
+  the mode in which the popup is moved, its mark is an open hand at the
+  bar's right, its right edge on the strips' edge (the search box's, as the
+  first hint is on the left), in
+  a gutter of its own so it covers no hint. The bar is the sidebar's foot
+  (`components/foot.tsx`: 32 px, a rule above, the strips' 12 px inset,
+  edge to edge on the window, the micro size in the muted ink), since the
+  two say the same kind of thing, what the marks and keys on the screen
+  mean; the hints are the popup's own, in mono and 6 px apart, as the
+  legend and the gear are the sidebar's. The shell's insets are the
+  sidebar's too: 12 px at the sides and the top and 8 px between strips
+  (the user wanted the two windows' margins the same, 2026-10-10; it was
+  8 px all round with the bar inside). The resting bar's hints fill
   their line at 400 px, so there the hand is left out (it sat in the frame
   2 px from the window first, then cut the divider; both broke the insets).
   Under the pointer it darkens, and for 260 ms on a press it closes, smaller
   and tilted, with the grabbing cursor, as the drag starts (Windows runs the
   move itself, so the release never reaches the page and a timer lets go). The
-  frame (the shell's padding and the gaps between strips) drags too, but at
-  8 px it was too thin to find. The popup stays where it is dragged until
+  frame (the shell's padding and the gaps between strips) drags too, but it
+  was too thin to find. The popup stays where it is dragged until
   Keep open ends, and a later summon opens at the cursor again.
 - The hint bar shows `Ctrl K kept open` where `Esc close` was.
 

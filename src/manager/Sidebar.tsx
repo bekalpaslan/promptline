@@ -10,6 +10,7 @@ import {
 import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
+import { footClass } from "@/components/foot"
 import { PINNED_BAR, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass, treeRowClass } from "@/components/tree"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { SELECTED_BAR } from "@/components/menu-styles"
@@ -1138,7 +1139,7 @@ export function Sidebar() {
           Settings gear at the right (it stood alone in the bar above the
           pane until 2026-10-10; that bar is the crumb line's now). The
           legend is decoration to assistive tech; the gear is not. */}
-      <div className="flex h-8 shrink-0 items-center gap-3 border-t border-border px-3 text-micro text-muted-foreground">
+      <div className={cn(footClass, "gap-x-3")}>
         <span aria-hidden className="flex items-center gap-1.5">
           <span className="size-1.5 bg-(--focus)" />
           viewed
