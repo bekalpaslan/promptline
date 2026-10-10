@@ -5,6 +5,7 @@ import {
   RiEqualizer2Line,
   RiLock2Fill,
   RiSearchLine,
+  RiSettings3Line,
 } from "@remixicon/react"
 import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
@@ -1131,22 +1132,33 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* The legend for the two bars a row can carry (the theme lives in
-          Settings and the gear sits at the top-right of the pane, so this
-          is the sidebar's one footer, and it is about the library) */}
-      <div aria-hidden className="flex shrink-0 items-center gap-3 border-t border-border px-3 py-1.5 text-micro text-muted-foreground">
-        <span className="flex items-center gap-1.5">
+      {/* The foot: the legend for the two bars a row can carry, and the
+          Settings gear at the right (it stood alone in the bar above the
+          pane until 2026-10-10; that bar is the crumb line's now). The
+          legend is decoration to assistive tech; the gear is not. */}
+      <div className="flex h-8 shrink-0 items-center gap-3 border-t border-border px-3 text-micro text-muted-foreground">
+        <span aria-hidden className="flex items-center gap-1.5">
           <span className="h-3 w-0.5 rounded-full bg-(--focus)" />
           viewed
         </span>
-        <span className="flex items-center gap-1.5">
+        <span aria-hidden className="flex items-center gap-1.5">
           <span className="h-3 w-0.5 rounded-full bg-(--warn)" />
           pinned
         </span>
+        <button
+          type="button"
+          aria-label="Settings"
+          aria-pressed={m.settingsOpen}
+          title={m.hotkey ? `Settings — popup hotkey: ${C.fmtHotkey(m.hotkey)}` : "Settings"}
+          className={cn(
+            "ml-auto flex size-6 cursor-pointer items-center justify-center rounded-md hover:bg-hover hover:text-foreground focus-ring",
+            m.settingsOpen && "bg-secondary text-foreground"
+          )}
+          onClick={() => m.showSettings(!m.settingsOpen)}
+        >
+          <RiSettings3Line className="size-4" />
+        </button>
       </div>
-      {/* The theme lives in Settings (Appearance) and the gear
-          sits at the top-right of the pane, so the sidebar is the library
-          and nothing else */}
       {menus}
       {display.element}
       <div role="status" aria-live="polite" className="sr-only">{announce}</div>
