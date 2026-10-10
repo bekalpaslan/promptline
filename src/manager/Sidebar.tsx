@@ -11,7 +11,7 @@ import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { footClass } from "@/components/foot"
-import { PINNED_BAR, TREE_FOCUS, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass, treeRowClass } from "@/components/tree"
+import { PinMark, TREE_FOCUS, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass, treeRowClass } from "@/components/tree"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
@@ -810,7 +810,6 @@ export function Sidebar() {
           // The open prompt carries no mark (the bar went, 2026-10-10): the
           // pane shows it, and the row is selected for assistive tech
           "text-foreground hover:bg-hover",
-          s.pinned && PINNED_BAR,
           multi && "outline outline-1 -outline-offset-1 outline-primary",
           // Lifted: the row stays in place, dimmed, while its ghost travels
           lifted ? "opacity-40" : grouped && "hover:cursor-grab"
@@ -829,9 +828,6 @@ export function Sidebar() {
           openRowCtx(e.clientX, e.clientY, ids)
         }}
       >
-        {/* Resting affordance for press-and-hold drag: a grip on hover, at
-            the row's right since the title took the row's left (2026-10-10) */}
-        <RiDraggable className="absolute right-2 size-3 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
         {/* A <bdi>, as the popup's rows: the title is the user's text, so a
             Hebrew one keeps its direction and a pasted-in direction control
             can't reorder what sits beside it */}
@@ -849,6 +845,10 @@ export function Sidebar() {
             <bdi>{marked(title, words)}</bdi>
           </span>
         )}
+        {/* At the row's right: the drag grip on hover (the title took the
+            row's left, 2026-10-10), then the pin of a pinned prompt */}
+        <RiDraggable className="ml-auto size-3 shrink-0 opacity-0 transition-opacity group-hover:opacity-50" aria-hidden />
+        {s.pinned && <PinMark />}
       </div>
     )
   }
@@ -1137,15 +1137,11 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* The foot: the legend for the two bars a row can carry, and the
-          Settings gear at the right (it stood alone in the bar above the
-          pane until 2026-10-10; that bar is the crumb line's now). The
-          legend is decoration to assistive tech; the gear is not. */}
+      {/* The foot: the Settings gear at the right (it stood alone in the
+          bar above the pane until 2026-10-10; that bar is the crumb line's
+          now). A legend for the rows' edge bars stood here on 2026-10-10,
+          and went with the bars. */}
       <div className={cn(footClass, "gap-x-3")}>
-        <span aria-hidden className="flex items-center gap-1.5">
-          <span className="size-1.5 bg-(--warn)" />
-          pinned
-        </span>
         <button
           type="button"
           aria-label="Settings"
