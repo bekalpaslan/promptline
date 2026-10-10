@@ -167,7 +167,10 @@ panel's title line, and its rows and groups under it on the lighter
 secondary ground, with 2 px of air above and below them, the way the
 Prompt field sits under its title (the user asked for the frame,
 2026-10-10). The frame pulls out by its own 1 px border, so the header
-and the rows keep the x they have folded; a folded pack is a header row
+and the rows keep the x they have folded, and the scroller around the
+tree holds a pixel of padding for that border (the sidebar's 12 px, the
+popup list's own 1, given back by its margins), or the border is clipped
+and the list scrolls sideways by one; a folded pack is a header row
 like any other, and a pack faded by the filter is folded. In both windows,
 since the trees are one. A pinned prompt carries a quiet pin at the
 right of its row in the sidebar, after the hover grip, and at the right

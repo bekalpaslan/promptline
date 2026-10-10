@@ -1956,7 +1956,11 @@ export function App() {
         id="popup-list"
         role="listbox"
         aria-label="Prompts"
-        // No side padding: a pack's frame runs edge to edge under the search
+        // No side padding but the pixel an open pack's frame edge needs
+        // (TreeSection pulls the frame out by its edge; the margins give the
+        // pixel back, so the content box is unchanged; without it the edge
+        // was clipped and the list scrolled sideways by one, review
+        // 2026-10-10): a pack's frame runs edge to edge under the search
         // box, and every strip's content starts 8 px in. The list was 2 px
         // narrower than the box above it, and five strips began their
         // content on five different lines. The scrollbar's 8 px live in the
@@ -1967,7 +1971,7 @@ export function App() {
         // pb-3 less the shell's gap), so the first frame sits 12 px under
         // the strip above it in both windows; margins, not padding, so the
         // sticky pack header still meets the scroller's top edge.
-        className="-mr-2 my-1 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
+        className="-ml-px -mr-[9px] my-1 flex-1 overflow-y-auto px-px [scrollbar-gutter:stable]"
         onScroll={hidePreview}
       >
         {filtered.length === 0 && (

@@ -17,5 +17,6 @@ export const MENU_ITEM =
 // said the same thing twice. 1.5 px, down from 2: a hair thinner was
 // the ask once the tint was gone.
 export const SELECTED_BAR = "shadow-[inset_1.5px_0_0_var(--focus)]"
-// A menu item that is focused rather than selected: the hover grey
-export const FOCUS_BAR = "focus-visible:bg-hover"
+// A menu item that is focused rather than selected: the hover grey (it
+// was the bar too, until the bar left the menus)
+export const FOCUS_FILL = "focus-visible:bg-hover"

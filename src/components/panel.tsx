@@ -13,11 +13,13 @@ import { cn } from "@/lib/utils"
 // and the palettes' files; Instrument's edge is none, Indigo's its line).
 // The head's own layout (a tree header, a title line, a disclosure
 // button) and the body's padding are the caller's; the corners are the
-// module's 8 px outside, so the body's bottom corners are 7 inside the
-// 1 px edge. Folded, a panel is whatever its head is on its own.
+// theme's `--radius-lg` outside (4 px in Instrument, 10 in Indigo), and
+// the body's bottom corners sit 1 px inside the edge, so they follow the
+// frame's (a fixed 7 px showed the head's ground in the corners, review
+// 2026-10-10). Folded, a panel is whatever its head is on its own.
 
 export const panelClass = "rounded-lg border border-(--panel-edge) bg-(--panel-head)"
-export const panelBodyClass = "rounded-b-[7px] bg-(--panel-body)"
+export const panelBodyClass = "rounded-b-[calc(var(--radius-lg)_-_1px)] bg-(--panel-body)"
 
 export function Panel({ open = true, className, ...props }: ComponentProps<"div"> & { open?: boolean }) {
   return <div className={cn(open && panelClass, className)} {...props} />

@@ -203,8 +203,9 @@ export function EditorCrumbs() {
 // crumb's chevron opens the same Move-to menu the row's right-click does,
 // so a move never passes through the autosave and the two can't disagree.
 // Pin and Delete sit in one overflow menu, as the row's do; the pin shows
-// as the warn-coloured pin the cards draw (the trees mark a pinned row
-// with a Warn bar at its left edge instead).
+// as the warn-coloured pin the cards draw (the sidebar's row and the
+// overview's card carry a quiet pin at the right, PinMark; the popup's
+// rows none, its Pinned section says it).
 function EditorInner({ snippet }: { snippet: Snippet }) {
   const m = useManager()
   const menus = useLibraryMenus({ surface: "editor" })
