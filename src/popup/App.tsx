@@ -4,7 +4,6 @@ import { listen } from "@tauri-apps/api/event"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import {
   RiArrowDownSLine,
-  RiArrowRightSLine,
   RiClipboardLine,
   RiFileCopyLine,
   RiFilterLine,
@@ -29,6 +28,7 @@ const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
+import { TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
 import { Button } from "@/components/ui/button"
 import { MENU_ITEM, MENU_PANEL, SELECTED_BAR } from "@/components/menu-styles"
 import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
@@ -1987,9 +1987,9 @@ export function App() {
           // (a pack is collapsible)
           const underPinned = flat && sec.name === "Pinned"
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!, underPinned))
-          // The section's glyph sits in the rows' icon column: a chevron on a
-          // pack, a pin on Pinned, a magnifier on Results
-          const Lead = sec.collapsible ? (sec.isCollapsed ? RiArrowRightSLine : RiArrowDownSLine) : underPinned ? RiPushpinLine : RiSearchLine
+          // The section's glyph sits in the rows' icon column: the tree's
+          // chevron on a pack, a pin on Pinned, a magnifier on Results
+          const Lead = underPinned ? RiPushpinLine : RiSearchLine
           const filtered = sec.collapsible && packActive(sec.name)
           // The keyboard is on this pack's header
           const packSel = !!headSel && headSel.pack === sec.name && headSel.group === undefined
@@ -2000,23 +2000,15 @@ export function App() {
               {`${label}, ${folded ? "folded" : "open"}, ${C.plural(n, "prompt")}`}
             </div>
           )
-          // Three levels, three treatments, nothing above the body size: a
-          // pack title at 13/700 in Graphite on its band, a group's name at
-          // 12/600 in Ink 2, a prompt's title at 13/500 in Ink. Pack at 600
-          // and group at 500 sat one weight step from a title, and a group
-          // header read as a grey prompt (critique popup, 2026-10-09). The
-          // band is its own colour, a step heavier than hover in both modes:
-          // on Control grey, a row under the pointer looked like a header.
-          // 24 px tall, not 28: four headers above the fold cost a row.
-          const headerClass = cn(
-            "flex min-w-0 flex-1 select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-left text-ui font-bold",
-            sec.collapsible && "cursor-pointer",
-            sec.isCollapsed ? "text-(--heading-strong)/70 hover:text-(--heading-strong)" : "text-(--heading-strong)"
-          )
+          // The headers are the shared tree's (components/tree.tsx): the
+          // sidebar's pack and group headers, drawn here on buttons. The
+          // 2026-10-09 band and hairline went with the one-edge layout
+          // (2026-10-10): the two lists are one tree on two windows.
+          const headerClass = cn(treeHeaderClass("pack"), "flex-1 text-left", !sec.collapsible && "cursor-default")
           const headerBody = (
             <>
-              <Lead className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="min-w-0 flex-1 truncate">{sec.name}</span>
+              {sec.collapsible ? <TreeChevron open={!sec.isCollapsed} className="text-muted-foreground" /> : <Lead className="size-4 shrink-0 text-muted-foreground" />}
+              <TreeName>{sec.name}</TreeName>
               <Count>{sec.count}</Count>
             </>
           )
@@ -2025,7 +2017,7 @@ export function App() {
             // them), 8 px between packs. It was 6 and 12, a pitch of 50 px
             // for a 44 px row, which showed seven prompts in the default
             // window; the same window now shows nine or ten.
-            <div key={sec.name} className="mb-2" role="group" aria-label={sec.name}>
+            <TreeSection key={sec.name} role="group" aria-label={sec.name}>
               {/* Pack title, as in the sidebar: a disclosure button (← / Ctrl+→
                   from a row do the same); Pinned / Results are plain headings.
                   Hidden from assistive tech: a listbox may hold only options
@@ -2035,15 +2027,16 @@ export function App() {
                   keyboard (← / Ctrl+→, typing @pack), and the buttons are
                   tabIndex -1 so nothing hidden is in the tab order. */}
               {/* Sticky, so the pack a row belongs to stays named while it
-                  scrolls; the Paper behind the band hides rows passing its
-                  rounded corners and the 2 px under it */}
-              <div aria-hidden className="sticky top-0 z-10 bg-background pb-0.5">
+                  scrolls; the pane colour behind it hides rows passing its rounded
+                  corners and the 2 px under it (painted here, pulled back
+                  by the children's own 2 px) */}
+              <div aria-hidden className="sticky top-0 z-10 -mb-0.5 bg-sidebar pb-0.5">
               {sec.collapsible ? (
                 <div
                   data-selected={packSel || undefined}
                   className={cn(
                     "group/hdr relative flex items-center rounded-md",
-                    packSel ? cn("bg-accent", SELECTED_BAR) : filtered ? "bg-(--focus)/10" : "bg-band"
+                    packSel ? SELECTED_BAR : filtered ? "bg-(--focus)/10" : treeFillClass(false)
                   )}
                 >
                   <button
@@ -2064,37 +2057,31 @@ export function App() {
                   {funnel("@", sec.name, filtered)}
                 </div>
               ) : (
-                <div className={cn(headerClass, "bg-band")}>{headerBody}</div>
+                <div className={headerClass}>{headerBody}</div>
               )}
               </div>
               {packSel && headOption(sec.name, sec.count, sec.isCollapsed)}
               {!sec.isCollapsed && (
-                <div className="flex flex-col gap-0.5">
+                <TreeChildren level="pack">
                   {rows(ungrouped)}
                   {[...groups.entries()].map(([g, es]) => {
                     const key = groupKey(sec.name, g)
                     const gc = effCollapsedGroups.has(key)
-                    const GChev = gc ? RiArrowRightSLine : RiArrowDownSLine
                     const gf = groupActive(g)
                     const gSel = !!headSel && headSel.pack === sec.name && headSel.group === g
                     return (
-                      // No indent on a group's rows: every title in the
-                      // list starts on one edge. The outer edge holds the
-                      // glyphs (row icons, the chevrons), the inner one every
-                      // name and title; indented, titles sat on two edges
-                      // 10 px apart. A hairline runs from the group's name
-                      // to its count, so the header reads as a divider and
-                      // not as a prompt whose first line is missing.
-                      // 8 px above a group that follows rows or another
-                      // group, the packs' own gap: at the rows' 2 px, where
-                      // one group ended and the next began did not show.
-                      <div key={g} className="flex flex-col gap-0.5 not-first:mt-1.5" role="group" aria-label={g}>
+                      // A group as the sidebar draws it: its header a step in
+                      // from the pack's, its rows hung from the guide line
+                      // under the chevron (TreeChildren). The scroll margin
+                      // keeps a header clear of the sticky pack header above
+                      // it (28 px and the 2 px gap).
+                      <TreeGroup key={g} role="group" aria-label={g}>
                         <div
                           aria-hidden
                           data-selected={gSel || undefined}
                           className={cn(
-                            "group/hdr relative flex scroll-mt-7 items-center rounded-md",
-                            gSel ? cn("bg-accent", SELECTED_BAR) : gf && "bg-(--focus)/10"
+                            "group/hdr relative flex scroll-mt-[30px] items-center rounded-md",
+                            gSel ? SELECTED_BAR : gf ? "bg-(--focus)/10" : treeFillClass(false)
                           )}
                         >
                           <button
@@ -2102,31 +2089,27 @@ export function App() {
                             tabIndex={-1}
                             aria-expanded={!gc}
                             title={gc ? "Unfold (Ctrl+→ unfolds all)" : "Fold (← on a row folds its pack or group)"}
-                            className={cn(
-                              // A group name is the user's words: shown as typed, never uppercased
-                              "flex min-w-0 flex-1 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs font-semibold",
-                              gc ? "text-(--heading)/70 hover:text-(--heading)" : "text-(--heading)"
-                            )}
+                            // A group name is the user's words: shown as typed, never uppercased
+                            className={cn(treeHeaderClass("group"), "flex-1 text-left")}
                             onClick={() => {
                               toggleCollapsedGroup(key)
                               inputRef.current?.focus()
                             }}
                           >
-                            <GChev className="size-3.5 shrink-0 text-muted-foreground" />
-                            <span className="min-w-0 truncate">{g}</span>
-                            <span className="h-px min-w-3 flex-1 bg-border" />
+                            <TreeChevron open={!gc} className="text-muted-foreground" />
+                            <TreeName>{g}</TreeName>
                             <Count>{es.length}</Count>
                           </button>
                           {funnel(">", g, gf)}
                         </div>
                         {gSel && headOption(g, es.length, gc)}
-                        {!gc && rows(es)}
-                      </div>
+                        {!gc && <TreeChildren level="group">{rows(es)}</TreeChildren>}
+                      </TreeGroup>
                     )
                   })}
-                </div>
+                </TreeChildren>
               )}
-            </div>
+            </TreeSection>
           )
         })}
       </div>
@@ -2297,7 +2280,7 @@ export function App() {
                 "justify-between",
                 // Armed, the highlight is the danger's soft fill, not the
                 // accent: the item is no longer one choice among five
-                i === panelSel && cn(SELECTED_BAR, a.danger && deleteArmed ? "bg-destructive/10 font-medium dark:bg-destructive/15" : "bg-accent"),
+                i === panelSel && cn(SELECTED_BAR, a.danger && deleteArmed && "bg-destructive/10 font-medium dark:bg-destructive/15"),
                 a.danger && "text-destructive"
               )}
               onClick={a.run}
@@ -2363,7 +2346,10 @@ function Shell({
     // Tauri moves it only when the press lands on this element itself, so
     // the search box, the rows and every control keep their own clicks.
     // A kept-open popup is moved there, beside the work.
-    <div data-tauri-drag-region className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-background p-2 text-foreground shadow-(--shadow-shell)">
+    // The shell is the sidebar's pane colour (`sidebar`), not the Paper:
+    // the list is the sidebar's tree, and it sits on the same ground in
+    // both windows (2026-10-10; the darker of the two was the better).
+    <div data-tauri-drag-region className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-sidebar p-2 text-foreground shadow-(--shadow-shell)">
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
       {/* The one landmark: the window's content, whichever mode it is in.
           `contents`, so the shell's column layout is unchanged */}

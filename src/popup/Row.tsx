@@ -1,9 +1,10 @@
 import { memo } from "react"
-import { RiClipboardFill, RiClipboardLine, RiCornerDownLeftLine, RiEdit2Line, RiFileTextLine, RiPushpinFill } from "@remixicon/react"
+import { RiCornerDownLeftLine } from "@remixicon/react"
 import { C, type RowIconName, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { HighlightedTitle, InputsBadge, Keys, MatchText, TagList } from "@/components/prompt-bits"
 import { SELECTED_BAR } from "@/components/menu-styles"
+import { PINNED_BAR } from "@/components/tree"
 
 // The popup's list row. Its own module so the design-system bundle
 // (design/entry.tsx) can render the real row, not a copy; the pieces it is
@@ -26,17 +27,13 @@ export function derive(s: Snippet): Derived {
   return { inputs: C.requiredInputs(s), clip: s.text.includes("{clipboard}") }
 }
 
-// The one icon a row shows is core's call (`C.rowIcon`: a hole first, then
-// the pin, then the kind); this is what each name draws
+// The row's state is core's call (`C.rowIcon`: a hole first, then the
+// pin, then the kind). It was the one icon at the row's left until
+// 2026-10-10, when the rows lost their glyph and start with the title as
+// the sidebar's do; the name still drives the tooltip, the description,
+// the hint bar and `data-icon`.
 export function rowIcon(s: Snippet, d: Derived, clipEmpty: boolean, underPinned: boolean): RowIconName {
   return C.rowIcon({ pinned: s.pinned, asks: d.inputs.length > 0, clip: d.clip }, clipEmpty, underPinned)
-}
-const ROW_ICONS: Record<RowIconName, typeof RiFileTextLine> = {
-  "clipboard-empty": RiClipboardLine,
-  pin: RiPushpinFill,
-  asks: RiEdit2Line,
-  clipboard: RiClipboardFill,
-  plain: RiFileTextLine,
 }
 
 // The clipboard line under the popup's search box; a row that would paste
@@ -90,13 +87,11 @@ export const Row = memo(function Row({
   const tags = s.tags || []
   const { inputs, clip } = derived
   const usesClip = clipEmpty && clip
-  // An empty clipboard hollows the icon, on a pinned row too; a fill-in row
-  // keeps its pencil (its form shows the hole before anything is pasted),
-  // dimmed, and every such row is described by the clipboard line. Dimmed
-  // to 55%, not 40%: a state icon has to clear 3:1, and at 40% it was
-  // 2.5:1 on Paper and on the selection tint (critique popup, 2026-10-03)
+  // An empty clipboard marks the row (`clipboard-empty`), on a pinned row
+  // too; a fill-in row keeps its kind (its form shows the hole before
+  // anything is pasted), and every such row is described by the clipboard
+  // line and carries the one tooltip worth having
   const icon = rowIcon(s, derived, clipEmpty, !!underPinned)
-  const RowIcon = ROW_ICONS[icon]
   // Found by its body (no title match to underline): the second line is
   // where the body matched, not the prompt's opening words
   const excerpt = queryText && !indices?.length ? C.bodyExcerpt(queryText, s.text) : null
@@ -138,9 +133,9 @@ export const Row = memo(function Row({
       data-selected={selected}
       data-icon={icon}
       className={cn(
-        "flex min-w-0 scroll-mt-7 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
+        "flex min-w-0 scroll-mt-[30px] cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium",
         compact ? "py-0.5" : "py-1",
-        selected ? cn("bg-accent text-foreground", SELECTED_BAR) : "text-foreground hover:bg-hover",
+        selected ? cn("text-foreground", SELECTED_BAR) : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),
         picked && "bg-primary/20"
       )}
       onClick={(e) => {
@@ -151,7 +146,6 @@ export const Row = memo(function Row({
       onMouseMove={(e) => onMove(index, e)}
       onMouseLeave={onLeave}
     >
-      <RowIcon className={cn("size-3.5 shrink-0", icon === "pin" ? "text-(--warn)" : usesClip ? "opacity-55" : "opacity-70")} aria-hidden />
       <div className="flex min-w-0 flex-1 flex-col justify-center">
         {/* The slot key at the title's right edge: it is the row's own
             address, read with the title, not with the tags */}

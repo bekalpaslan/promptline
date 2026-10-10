@@ -365,7 +365,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
           }
           aria-label="Topic"
           spellCheck={false}
-          className={cn(fieldVariants(), "py-2")}
+          className={fieldVariants()}
         />
 
         {path === "agent" && !topic.trim() && (

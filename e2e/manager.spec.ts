@@ -523,6 +523,7 @@ test("a drag the window loses mid-way is dropped, not committed", async ({ page 
   // pointer had last been
   const from = promptRow(page, "Bisect a regression")
   const to = promptRow(page, "Loose prompt")
+  await from.scrollIntoViewIfNeeded()
   const a = (await from.boundingBox())!
   const b = (await to.boundingBox())!
   await page.mouse.move(a.x + 40, a.y + a.height / 2)
@@ -543,6 +544,7 @@ test("a drag the window loses mid-way is dropped, not committed", async ({ page 
 test("Escape cancels a lifted row where it was", async ({ page }) => {
   const from = promptRow(page, "Bisect a regression")
   const to = promptRow(page, "Loose prompt")
+  await from.scrollIntoViewIfNeeded()
   const a = (await from.boundingBox())!
   const b = (await to.boundingBox())!
   await page.mouse.move(a.x + 40, a.y + a.height / 2)
@@ -623,6 +625,7 @@ test("a pack with a long name keeps the menus inside the window", async ({ page 
 test("rows part for a lifted row as it crosses them, and the drop saves what was shown", async ({ page }) => {
   const lifted = promptRow(page, "Bisect a regression")
   const target = promptRow(page, "Loose prompt")
+  await lifted.scrollIntoViewIfNeeded()
   const a = (await lifted.boundingBox())!
   const b = (await target.boundingBox())!
   await page.mouse.move(a.x + 40, a.y + a.height / 2)
