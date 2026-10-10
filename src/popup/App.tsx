@@ -160,6 +160,12 @@ export function App() {
   // (a larger UI scale) and move the list's bottom edge up under the card
   const [previewList, setPreviewList] = useState<{ top: number; bottom: number } | null>(null)
   const [compact, setCompact] = useState(isCompact())
+  // Whether an arrow key has moved the selection since the summon: the
+  // selection bar (SELECTED_BAR) shows only then. A popup that has just
+  // opened has its first row selected for Enter, but draws no bar on it;
+  // the first ↓ or ↑ brings the bar out, on the row or header it lands on
+  // (the user's call, 2026-10-10: the bar at rest read as a glow).
+  const [navigated, setNavigated] = useState(false)
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
   const [packsArranged, setPacksArranged] = useState(false)
   const [create, setCreate] = useState<CreateState | null>(null)
@@ -788,6 +794,7 @@ export function App() {
     setQuery("")
     setSel(0)
     setHeadSel(null)
+    setNavigated(false)
     mouseSeeded.current = false
     lastMouse.current = { x: -1, y: -1 }
     // A summon starts at the top of the list. The scroll offset outlives
@@ -1033,8 +1040,8 @@ export function App() {
         // panel, and moving off the item withdraws it, so it can't be
         // found still armed on the way back
         if (e.key === "Escape") { e.preventDefault(); if (deleteArmed) setDeleteArmed(false); else closePanel() }
-        else if (e.key === "ArrowDown") { e.preventDefault(); setDeleteArmed(false); setPanelSel((p) => (p + 1) % panelActions.length) }
-        else if (e.key === "ArrowUp") { e.preventDefault(); setDeleteArmed(false); setPanelSel((p) => (p - 1 + panelActions.length) % panelActions.length) }
+        else if (e.key === "ArrowDown") { e.preventDefault(); setDeleteArmed(false); setNavigated(true); setPanelSel((p) => (p + 1) % panelActions.length) }
+        else if (e.key === "ArrowUp") { e.preventDefault(); setDeleteArmed(false); setNavigated(true); setPanelSel((p) => (p - 1 + panelActions.length) % panelActions.length) }
         else if (e.key === "Enter") { e.preventDefault(); panelActions[panelSel]?.run() }
         else if (/^[1-9]$/.test(e.key)) { e.preventDefault(); panelActions[Number(e.key) - 1]?.run() }
         else if (e.key === "Tab") { e.preventDefault(); closePanel() }
@@ -1127,6 +1134,8 @@ export function App() {
       if (e.key === "ArrowDown" || e.key === "ArrowUp") {
         hidePreview()
         suppressHoverUntil.current = Date.now() + 250
+        // The first arrow key since the summon brings the selection bar out
+        setNavigated(true)
       }
       if (headSel) {
         const isGroup = headSel.group !== undefined
@@ -1779,6 +1788,7 @@ export function App() {
       entry={entry}
       index={i}
       selected={!headSel && i === sel}
+      bar={navigated}
       picked={pickedId === entry.s.id}
       compact={compact}
       derived={derived.get(entry.s.id) ?? derive(entry.s)}
@@ -2047,7 +2057,7 @@ export function App() {
                   data-selected={packSel || undefined}
                   className={cn(
                     "group/hdr relative flex items-center rounded-md",
-                    packSel ? SELECTED_BAR : filtered ? "bg-(--focus)/10" : treeFillClass(false)
+                    packSel && navigated ? SELECTED_BAR : filtered ? "bg-(--focus)/10" : treeFillClass(false)
                   )}
                 >
                   <button
@@ -2092,7 +2102,7 @@ export function App() {
                           data-selected={gSel || undefined}
                           className={cn(
                             "group/hdr relative flex scroll-mt-[30px] items-center rounded-md",
-                            gSel ? SELECTED_BAR : gf ? "bg-(--focus)/10" : treeFillClass(false)
+                            gSel && navigated ? SELECTED_BAR : gf ? "bg-(--focus)/10" : treeFillClass(false)
                           )}
                         >
                           <button
@@ -2291,7 +2301,7 @@ export function App() {
                 "justify-between",
                 // Armed, the highlight is the danger's soft fill, not the
                 // accent: the item is no longer one choice among five
-                i === panelSel && cn(SELECTED_BAR, a.danger && deleteArmed && "bg-destructive/10 font-medium dark:bg-destructive/15"),
+                i === panelSel && cn(navigated ? SELECTED_BAR : "bg-hover", a.danger && deleteArmed && "bg-destructive/10 font-medium dark:bg-destructive/15"),
                 a.danger && "text-destructive"
               )}
               onClick={a.run}

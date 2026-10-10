@@ -171,10 +171,11 @@ like any other, and a pack faded by the filter is folded. In both windows,
 since the trees are one. A pinned prompt carries a 1.5 px Warn bar at its left edge
 (`PINNED_BAR`), the selection bar's shape in the pin's colour, and so
 does its card in the overview (inside the card's shadow, in place of the
-pin icon it drew); the open or selected row's Focus bar wins on a row
-that is both, and a legend at the sidebar's foot names the two
-("viewed", "pinned") with a square of each colour (the legend drew the
-bars' own shape first; at 2 by 12 px they were too thin to read as
+pin icon it drew); in the popup the keyboard's Focus bar wins on a row
+that is both, and a legend at the sidebar's foot names the pinned bar
+with a square of its colour (it named the open prompt's Focus bar too,
+"viewed", until that bar went on 2026-10-10; the legend drew the bars'
+own shape first, and at 2 by 12 px they were too thin to read as
 colour). Until 2026-10-10
 the sidebar drew a pin icon before a pinned title and the popup's rows
 had a glyph column; both trees now start a row with its title. The look is
@@ -665,12 +666,19 @@ the headers are 28 px tall like the sidebar's. Through 0.2.22 the popup kept eve
 no indent and 24 px headers; the 2026-10-10 decision that the two trees
 are one thing on two windows ended that.
 
-**The selected row carries a bar, and nothing else.** The keyboard's row,
-the selected pack or group header and the action panel's highlighted item
-have a 1.5 px Focus bar at the left edge (`SELECTED_BAR`) and no fill
-(2 px at first; a hair thinner once the tint under it was gone); the
-sidebar's shown pack or group and its open prompt, and a context menu's
-focused item, carry the same bar. Until 2026-10-10 the bar sat over the
+**The selected row carries a bar once an arrow key has moved it, and
+nothing else.** The keyboard's row, the selected pack or group header and
+the action panel's highlighted item have a 1.5 px Focus bar at the left
+edge (`SELECTED_BAR`) and no fill (2 px at first; a hair thinner once the
+tint under it was gone), but only once ↓ or ↑ has moved the selection
+since the summon (`navigated`): a popup that has just opened has its
+first row selected for Enter and draws no bar on it, and the first arrow
+key brings the bar out on the row or header it lands on. Before an arrow
+key the action panel's highlighted item is the hover grey. The bar sat on
+the selected row from the summon, and the sidebar's shown pack or group
+and its open prompt and a context menu's focused item carried the same
+bar, until 2026-10-10, when the user had the bar at rest go everywhere:
+on the real screen it read as a glow. Until 2026-10-10 the bar sat over the
 Selection tint: the tint alone, a dark blue-teal in dark mode, had read on
 the real screen as a green row nobody had explained rather than as the
 cursor, and once the bar said "cursor" the tint only said it again. The

@@ -46,6 +46,7 @@ export const Row = memo(function Row({
   entry,
   index,
   selected,
+  bar,
   picked,
   compact,
   derived,
@@ -65,6 +66,8 @@ export const Row = memo(function Row({
   /** Ctrl+digit slot (1..5) this row answers to, if any */
   slot?: number
   selected: boolean
+  /** The selected row's Focus bar: only once an arrow key has moved the selection since the summon */
+  bar: boolean
   picked: boolean
   compact: boolean
   derived: Derived
@@ -136,7 +139,8 @@ export const Row = memo(function Row({
         // The shared tree's row (tree.tsx); the scroll margin clears the sticky header
         treeRowClass,
         "scroll-mt-[30px]",
-        selected ? cn("text-foreground", SELECTED_BAR) : cn("text-foreground hover:bg-hover", s.pinned && PINNED_BAR),
+        "text-foreground",
+        selected && bar ? SELECTED_BAR : cn("hover:bg-hover", s.pinned && PINNED_BAR),
         picked && "bg-primary/20"
       )}
       onClick={(e) => {
