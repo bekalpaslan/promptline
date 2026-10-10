@@ -740,7 +740,8 @@ test("Ctrl+↓ drops the whole clipboard under its line, line by line; Esc, Ente
   await setClipboard(page, trace.join("\r\n") + "\r\n")
   await emit(page, "popup-shown")
   const panel = page.getByRole("region", { name: "Clipboard" })
-  const toggle = page.getByRole("button", { name: /TypeError: x is undefined/ })
+  // The handle is the whole panel; its name says what it does (the text is in the body, decoration)
+  const toggle = page.getByRole("button", { name: /Show the whole clipboard|Hide the clipboard/ })
   await expect(toggle).toHaveAttribute("aria-expanded", "false")
   await search(page).press("Control+ArrowDown")
   await expect(panel).toBeVisible()
@@ -1358,14 +1359,17 @@ test("a clipboard of several lines shows its first and last lines, mono, with th
   await expect(strip).toContainText(trace[0])
   await expect(strip).toContainText("⋯ 2 ⋯")
   await expect(strip).toContainText(trace[3])
-  const head = clipLine(page).getByText(trace[0], { exact: true })
+  const head = strip.getByText(trace[0], { exact: true })
   expect(await head.evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(/Cascadia|Consolas|mono/i)
-  // Two lines of 16 px with the row's 4 px above and below
-  expect((await strip.boundingBox())!.height).toBeCloseTo(40, 0)
+  // The expandable panel (2026-10-10): a 28 px head naming the clipboard
+  // and its count, a body of two 16 px lines with 2 px above and below, and
+  // the panel's 1 px edges
+  expect((await strip.boundingBox())!.height).toBeCloseTo(66, 0)
+  await expect(clipLine(page)).toContainText("4 lines")
   // A screen reader hears both ends and the count, not a flattened trace
   await expect(search(page)).toHaveAccessibleDescription(/Clipboard ?, 4 lines: Traceback \(most recent call last\): ?, 2 lines more, then: KeyError: 'id'/)
-  // The whole strip is the panel's handle, its last line included
-  await strip.click({ position: { x: 120, y: 30 } })
+  // The whole panel is the handle, its body included
+  await strip.click({ position: { x: 120, y: 50 } })
   await expect(page.getByRole("region", { name: "Clipboard" })).toBeVisible()
   await search(page).press("Escape")
   // The preview card shows the same ends on lines of their own
@@ -1378,7 +1382,7 @@ test("a clipboard of several lines shows its first and last lines, mono, with th
   // One line keeps the one-line display
   await setClipboard(page, "npm ERR! missing script: build")
   await emit(page, "popup-shown")
-  expect((await clipLine(page).locator("xpath=..").boundingBox())!.height).toBeLessThanOrEqual(20)
+  expect((await clipLine(page).locator("xpath=..").boundingBox())!.height).toBeCloseTo(28, 0)
 })
 
 test("the clipboard panel hangs a wrapped line under its own first character", async ({ page }) => {

@@ -453,9 +453,9 @@ default window shows three hints on one line and a window widened to
 where the type is a quarter wider, and the bar wrapped at every width
 (critique popup, 2026-10-03). At 125% in the 320 px minimum the warning
 and the preview bars still take two lines. The clipboard's text on its
-line is in a well with the sidebar's New button's look (a dashed rule on
-the Paper ground; Control grey through 2026-10-10, and before that the
-built-in tint, which in Instrument is the
+line sits plain, in mono, the line being a panel's head (on 2026-10-10
+it was in a dashed well, and before that on Control grey; earlier still
+on the built-in tint, which in Instrument is the
 selection's own colour and sat right above the selected row); a row's tag
 pill truncates at 7rem so a long tag no longer squeezes the first line;
 the fill-in placeholder is full Ink 2 (at 70% it was 3:1); and with no
@@ -485,8 +485,8 @@ group folded with ← could only be reopened with the mouse.
 
 **The clipboard has a line of its own under the search box.** Every
 `{clipboard}` row pastes it, and the row shows only the word, so the line
-says what the clipboard holds (one line in the dashed well, with the *hidden text* badge; two lines or more get the
-strip below), that it is empty ("Clipboard is empty — prompts paste without
+says what the clipboard holds (one line, in mono with the *hidden text* badge, on the head of the clipboard's
+panel; two lines or more open its body, below), that it is empty ("Clipboard is empty — prompts paste without
 it": the fact in Warn while any prompt wraps the clipboard, and never
 truncated; the consequence after it gives way at the 320 px minimum; those
 rows carry the one tooltip and are described by the line for a
@@ -684,22 +684,26 @@ the real screen as a green row nobody had explained rather than as the
 cursor, and once the bar said "cursor" the tint only said it again. The
 pointer's grey never marks the keyboard's row.
 
-**A clipboard of several lines shows its two ends.** When two or more
-lines hold text, the line becomes a strip shaped like a row: 40 px in
-the dashed well (the sidebar's New button's look, since 2026-10-10;
-Control grey before), the icon in the rows' glyph column and the text on
-their title edge, in mono. The first line holding text sits at the top with
-`Ctrl N` at its right; under it, `⋯ 28 ⋯` (the lines between, when there
-are any) and the last line holding text, with `Ctrl ↓` at its right (`Esc`
-while the panel is open). The whole strip is the panel's handle. The word
-"Clipboard" goes to the screen reader, which hears "Clipboard, 30 lines:
-first line, 28 lines more, then: last line"; a "Last pasted prompt" label
-stays in sight, in Warn when the selected row would wrap it. Flattened onto
-one line, a trace showed about 24 characters at the default width and 11
-at the minimum, and never the line that says what broke: a Python trace
-and a two-line "command, then error" copy both put it last (critique
-popup, 2026-10-09). The cost is 20 px of list, under half a row. A single
-line keeps the one-line display (`clipboardEnds` in core).
+**A clipboard of several lines shows its two ends.** The clipboard line
+is the expandable panel the packs fold open with (`components/panel.tsx`,
+since 2026-10-10, at the user's ask): its head is a 28 px line like a
+pack header, the icon in the glyph column, then "Clipboard" (or "Last
+pasted prompt", in Warn when the selected row would wrap it), a single
+line's text in mono with the chevron that drops the whole clipboard
+down, and `Ctrl N` at the right. When two or more lines hold text the
+head shows the line count instead and the panel opens its body: the
+first line holding text, then `⋯ 28 ⋯` (the lines between, when there
+are any) and the last line holding text, in mono on the body ground,
+with `Ctrl ↓` at its right (`Esc` while the clipboard is open). The whole
+panel is the handle. The screen reader hears "Clipboard, 30 lines: first
+line, 28 lines more, then: last line" from the head; the body is
+decoration. Flattened onto one line, a trace showed about 24 characters
+at the default width and 11 at the minimum, and never the line that says
+what broke: a Python trace and a two-line "command, then error" copy both
+put it last (critique popup, 2026-10-09); the two ends were a 40 px strip
+in a dashed well (Control grey before) through 2026-10-10, and the panel
+costs 24 px more, one row. A single line keeps the head alone
+(`clipboardEnds` in core).
 
 **A header never reads as a prompt.** The headers are the sidebar's: a
 pack's name at 13/600 in the strong heading ink behind its chevron
