@@ -1546,7 +1546,8 @@ gone and the "Prompts" heading with it (the window is Promptline and the
 list is visibly prompts; the landmark keeps its name through
 `aria-label`), the sidebar is search, Display, New, the tree and a foot
 that holds the bar legend and the Settings gear; the bar above the pane
-is the open prompt's crumb line. Until 2026-10-10 the gear stood alone
+is the open prompt's crumb line, and there is no bar while an overview
+or Settings is in the pane. Until 2026-10-10 the gear stood alone
 in that bar and the crumbs were the editor's first line; the user wanted
 the crumbs up there and the gear out of the pane's way.
 
