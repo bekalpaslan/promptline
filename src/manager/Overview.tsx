@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
-import { RiAddLine, RiArrowLeftSLine, RiCheckLine, RiFileCopyLine, RiFolderLine, RiLock2Fill, RiPushpinFill } from "@remixicon/react"
+import { RiAddLine, RiArrowLeftSLine, RiCheckLine, RiFileCopyLine, RiFolderLine, RiLock2Fill } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Count, InputsBadge, PromptTokens, TagList } from "@/components/prompt-bits"
@@ -197,7 +197,12 @@ function PromptCard({
       aria-label={`${name}${s.pinned ? ", pinned" : ""}`}
       aria-describedby={inputs.length ? badgeId : undefined}
       title={`${name} — click edits, Ctrl+C copies, right-click for actions`}
-      className="flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5 rounded-lg border border-border bg-background p-3 text-left text-ui text-foreground shadow-(--shadow-card) transition-colors group-hover/card:border-primary focus-ring"
+      className={cn(
+        "flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5 rounded-lg border border-border bg-background p-3 text-left text-ui text-foreground transition-colors group-hover/card:border-primary focus-ring",
+        // A pinned card carries the trees' Warn bar at its left edge, inside
+        // the card's own shadow (both are box-shadow, so one declaration)
+        s.pinned ? "shadow-[inset_2px_0_0_var(--warn),var(--shadow-card)]" : "shadow-(--shadow-card)"
+      )}
       onClick={onOpen}
       onContextMenu={(e) => {
         e.preventDefault()
@@ -217,7 +222,6 @@ function PromptCard({
       }}
     >
       <span className="flex min-w-0 items-center gap-1.5 pr-7">
-        {s.pinned && <RiPushpinFill className="size-3.5 shrink-0 text-(--warn)" aria-hidden />}
         <span className="min-w-0 flex-1 truncate font-medium">
           <bdi>{s.title || "(untitled)"}</bdi>
         </span>
