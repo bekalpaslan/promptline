@@ -132,7 +132,12 @@ there in mono. A prompt row is 24 px, the row the popup draws in Compact
 density (`treeRowClass`): the sidebar's rows were 28 px until 2026-10-10,
 when the user, liking the popup's compact tree, asked for the sidebar to
 match it (a title-only row is the compact row; only the popup's two-line
-Comfortable row is taller). Packs sit 16 px apart (`TreeSection`), twice
+Comfortable row is taller). A row's title starts 22 px into the row, so
+it steps past the name of the pack or group over it (6 px past a pack's,
+14 past a group's); the sidebar's drag grip sits inside that inset and
+the popup's rows leave it empty. Until 2026-10-10 only the grip pushed
+the sidebar's titles in, and the popup's rows, with the plain 8 px, sat
+left of their header's name. Packs sit 16 px apart (`TreeSection`), twice
 the earlier 8, so a pack reads as its own block among rows that tight. A pinned prompt carries a 1.5 px Warn bar at its left edge
 (`PINNED_BAR`), the selection bar's shape in the pin's colour, and so
 does its card in the overview (inside the card's shadow, in place of the

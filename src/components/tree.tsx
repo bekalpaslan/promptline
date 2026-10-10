@@ -40,9 +40,14 @@ export const treeFillClass = (selected: boolean) => (selected ? SELECTED_BAR : "
 // rows are always that, and the popup's in Compact density (the user
 // liked the popup's compact tree and asked for the sidebar to match it,
 // 2026-10-10); the popup's two-line row in Comfortable takes 4 px more
-// each side for its excerpt line.
+// each side for its excerpt line. The title starts 22 px in, past the
+// pack's name under it and well past a group's: the sidebar's drag grip
+// sits in that inset (absolute, so it adds nothing), and the popup's rows
+// keep it empty. Until 2026-10-10 the popup's rows had the plain 8 px and
+// their titles sat left of the header's name while the sidebar's, pushed
+// by the grip, stepped in.
 export const treeRowClass = (compact: boolean) =>
-  cn("flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 text-ui font-medium", compact ? "py-0.5" : "py-1")
+  cn("relative flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md pl-[22px] pr-2 text-ui font-medium", compact ? "py-0.5" : "py-1")
 
 // The fold chevron, in the glyph column every row shares
 export function TreeChevron({ open, className }: { open: boolean; className?: string }) {
