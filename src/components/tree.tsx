@@ -21,7 +21,8 @@ export function PinMark() {
 // header bold in the strong heading ink, a group header medium in the
 // secondary one, each with its fold chevron on the outer edge and its
 // count at the right; an open pack framed, every row and group header
-// inside it on the pack's name column. What a header *is* differs by
+// inside it spanning the frame, titles under the chevrons. What a
+// header *is* differs by
 // window (a treeitem with a roving tab stop in the sidebar, an aria-hidden
 // button in the popup), so the windows keep their own elements and
 // handlers and draw them with these parts.
@@ -52,24 +53,16 @@ export const treeHeaderClass = (level: TreeLevel) =>
 export const treeFillClass = (bar: boolean) => (bar ? SELECTED_BAR : "hover:bg-hover")
 
 // A prompt row's layout and type; the element, its fill and its bars are
-// the caller's. 2 px above and below in every row: a title-only row is
-// 24 px, the sidebar's always and the popup's in Compact density (the
-// user liked the popup's compact tree and asked for the sidebar to match
-// it, 2026-10-10), and the popup's Comfortable row is the same row with
-// its excerpt line under the title, 40 px (it had 4 px each side, so its
-// title sat 2 px lower than the sidebar's; the user wanted the paddings
-// the same, 2026-10-10). A row's box spans the frame like a header's,
-// with the header's 8 px padding, so its title starts where the
-// chevrons do, under them and 20 px left of the names: the frame says
-// what the rows belong to, so they need no step, and the user found the
-// titles natural there (2026-10-10; through that day they stood on the
-// name column, 28 px in, and for a while the boxes stood 8 px in under
-// the chevrons, which without an edge on the frame read as an indent).
-// The sidebar's drag grip sits at the row's right (absolute, so it adds
-// nothing);
-// the popup's rows keep it empty. Until 2026-10-10 the popup's rows had
-// the plain 8 px and their titles sat left of the header's name while
-// the sidebar's, pushed by the grip, stepped in.
+// the caller's. 2 px above and below in every row, in both windows: a
+// title-only row is 24 px (the sidebar's always, the popup's in Compact
+// density), and the popup's Comfortable row is the same row with its
+// excerpt line under the title, 40 px. A row's box spans the frame like
+// a header's, with the header's 8 px padding, so its title starts where
+// the chevrons do, 20 px left of the names: the frame says what the rows
+// belong to, so they need no step (the user's calls, 2026-10-10; the
+// steps tried before are in BEHAVIOR.md and the log). The sidebar's
+// drag grip sits at the row's right, absolute, so it adds nothing; the
+// popup's rows keep that empty.
 export const treeRowClass = "relative flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-ui font-medium"
 
 // The fold chevron, in the glyph column every row shares
@@ -98,8 +91,10 @@ export function TreeName({ children }: { children: ReactNode }) {
 // the way the Prompt field sits under its title (the user asked for the
 // frame, 2026-10-10). The frame pulls out by its own 1 px edge, so the
 // header and the rows keep the x they have folded and the chevron stays
-// in the strips' glyph column. Folded, a pack is a header row like any
-// other.
+// in the strips' glyph column; the scroller around the tree keeps a
+// pixel of padding for it (the sidebar's 12, the popup list's own 1), or
+// the edge is clipped and the list scrolls sideways by one. Folded, a
+// pack is a header row like any other.
 export function TreeSection({ open, className, ...props }: ComponentProps<"div"> & { open?: boolean }) {
   return <div className={cn("mb-4", open && cn(panelClass, "-mx-px"), className)} {...props} />
 }
@@ -113,10 +108,10 @@ export function TreeGroup({ className, ...props }: ComponentProps<"div">) {
 // body, with 2 px of air above and below, edge to edge, so a row's box
 // and a group's header span the frame like the pack's header (their
 // titles under the chevrons, see treeRowClass). A group's rows sit where
-// the pack's own do: the row's
-// inset is margin enough, and the group header above says whose they are
-// (the user's call, 2026-10-10; they hung from a guide line under the
-// group's chevron, 21 px further in, before).
+// the pack's own do: the row's inset is margin enough, and the group
+// header above says whose they are (the user's call, 2026-10-10; they
+// hung from a guide line under the group's chevron, 21 px further in,
+// before).
 export function TreeChildren({ level, className, ...props }: ComponentProps<"div"> & { level: TreeLevel }) {
   return (
     <div

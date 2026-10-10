@@ -2,7 +2,7 @@ import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from
 import { createPortal } from "react-dom"
 import { RiCheckLine } from "@remixicon/react"
 import { cn } from "@/lib/utils"
-import { FOCUS_BAR, MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
+import { FOCUS_FILL, MENU_ITEM, MENU_PANEL } from "@/components/menu-styles"
 import { commitKey, fieldVariants } from "@/components/field"
 
 // Imperative context menu, ported from the legacy openCtx(): menus are built
@@ -189,7 +189,7 @@ export function useCtxMenu() {
           className={cn(
             MENU_ITEM,
             "justify-between gap-3 hover:bg-hover",
-            FOCUS_BAR,
+            FOCUS_FILL,
             onSub && sub?.index === i && "bg-hover"
           )}
           onMouseEnter={(e) => onSub?.(i, e.currentTarget)}
@@ -220,7 +220,7 @@ export function useCtxMenu() {
         className={cn(
           MENU_ITEM,
           "hover:bg-hover",
-          FOCUS_BAR,
+          FOCUS_FILL,
           it.danger && "text-destructive",
           it.indent && "pl-5"
         )}

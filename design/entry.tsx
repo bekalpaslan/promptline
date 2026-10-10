@@ -24,7 +24,7 @@ export function snippet(partial: Partial<Snippet> & Pick<Snippet, "id" | "title"
 export function rowProps(s: Snippet, extra: Partial<Parameters<typeof Row>[0]> = {}) {
   const entry: Entry = { s, indices: null }
   return {
-    entry, index: 0, selected: false, picked: false, compact: false, derived: derive(s),
+    entry, index: 0, selected: false, bar: false, picked: false, compact: false, derived: derive(s),
     onPick: () => {}, onMove: () => {}, onLeave: () => {}, onTag: () => {},
     activeTags: [] as string[], previewed: false, clipEmpty: false,
     ...extra,

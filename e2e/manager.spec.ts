@@ -151,10 +151,10 @@ test("an open pack is the panel: header on the head ground, rows on the body gro
   const tokens = await page.evaluate(() => {
     const s = getComputedStyle(document.documentElement)
     const paint = (v: string) => { const d = document.createElement("div"); d.style.backgroundColor = v; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c }
-    return { card: paint(s.getPropertyValue("--panel-head")), secondary: paint(s.getPropertyValue("--panel-body")) }
+    return { head: paint(s.getPropertyValue("--panel-head")), body: paint(s.getPropertyValue("--panel-body")) }
   })
-  expect(await styleOf(section)).toEqual({ border: 1, bg: tokens.card })
-  expect((await styleOf(body)).bg).toBe(tokens.secondary)
+  expect(await styleOf(section)).toEqual({ border: 1, bg: tokens.head })
+  expect((await styleOf(body)).bg).toBe(tokens.body)
   // The frame pulls out by its border: the header's x is the folded one's
   const openX = (await pack.boundingBox())!.x
   await pack.focus()

@@ -69,13 +69,16 @@ backlog, not from another audit, unless asked.
   are made, not taken: `npm run shots` (`e2e/shots.spec.ts`) stages each
   screen against the demo library (`?mock=showcase`, `e2e/showcase.json`)
   and writes `docs/screenshots/<shot>-<light|dark>.png` at 2x and
-  `docs/og.png`; rerun it after a visible UI change and commit the images.
+  `docs/og.png`; rerun it once at the end of a session of visible UI
+  changes, not per commit (the 2026-10-10 session regenerated every
+  image ten times and added 44 MB to history), and commit the images.
   The launch clip is made the same way: `npm run clip`
   (`e2e/clip.spec.ts` around `e2e/clip-terminal.html`, a Windows Terminal
   running Claude Code with the real popup over it) captures each state as
   counted frames, so a rerun writes the same frames, and
   `scripts/clip-encode.mjs` encodes `docs/clip/clip-<light|dark>.{mp4,webm,gif}`
-  plus a `-poster.png`; rerun it after a visible popup change and commit the
+  plus a `-poster.png`; rerun it with the shots, once per session of
+  visible popup changes, and commit the
   files. It needs ffmpeg once (`winget install Gyan.FFmpeg`, like
   `npx playwright install chromium` for the suite); without it the command
   stops before capturing and says so.

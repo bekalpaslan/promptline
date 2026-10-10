@@ -1139,8 +1139,7 @@ export function Sidebar() {
 
       {/* The foot: the Settings gear at the right (it stood alone in the
           bar above the pane until 2026-10-10; that bar is the crumb line's
-          now). A legend for the rows' edge bars stood here on 2026-10-10,
-          and went with the bars. */}
+          now), in the style the popup's hint bar shares (foot.tsx). */}
       <div className={cn(footClass, "gap-x-3")}>
         <button
           type="button"
