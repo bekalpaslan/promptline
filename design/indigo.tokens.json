@@ -260,6 +260,30 @@
           "dark": "#3b1e37"
         },
         "usage": "Ground under a config parameter chip."
+      },
+      {
+        "name": "panel-head",
+        "value": {
+          "light": "#ffffff",
+          "dark": "#12141b"
+        },
+        "usage": "The expandable panel's head: the ground a pack frame's header, the editor's Prompt title line and a Settings pack card's name sit on. Surface-raised's value."
+      },
+      {
+        "name": "panel-body",
+        "value": {
+          "light": "#eef0f7",
+          "dark": "#1f2129"
+        },
+        "usage": "The panel's body under the head, a step up in dark and sunk in light: the rows under a pack header, the Prompt field, a pack card's details. Control's value."
+      },
+      {
+        "name": "panel-edge",
+        "value": {
+          "light": "#e6e8f0",
+          "dark": "#1c1d22"
+        },
+        "usage": "The panel's edge, 1 px. None in Instrument (no line around a panel anywhere, 2026-10-10); Indigo's line."
       }
     ]
   },

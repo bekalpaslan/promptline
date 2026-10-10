@@ -35,7 +35,6 @@ for (const [token, vars] of Object.entries(MAP)) for (const v of vars) (VAR_TO_T
 VAR_TO_TOKEN.radius = ["radius-2"]
 VAR_TO_TOKEN["app-font"] = ["sans"]
 VAR_TO_TOKEN["font-mono"] = ["mono"]
-VAR_TO_TOKEN["module-border"] = ["heading"]
 
 const THEME_COLORS = "background|foreground|card-foreground|card|popover-foreground|popover|primary-foreground|primary|secondary-foreground|secondary|muted-foreground|muted|accent-foreground|accent|destructive|border|input|ring|sidebar|hover"
 const UTILITY = new RegExp(

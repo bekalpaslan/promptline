@@ -52,6 +52,10 @@ export const MAP = {
   "segment-active": ["segment-active"],
   hover: ["hover"],
   band: ["band"],
+  // the expandable panel (components/panel.tsx): head, body and edge
+  "panel-head": ["panel-head"],
+  "panel-body": ["panel-body"],
+  "panel-edge": ["panel-edge"],
   selection: ["accent"],
   ink: ["foreground", "card-foreground", "popover-foreground", "secondary-foreground", "accent-foreground"],
   "ink-2": ["muted-foreground"],

@@ -6,6 +6,7 @@ import { SEGMENT_TRACK, Select, commitKey, fieldVariants, segmentClass } from "@
 import { Checkbox } from "@/components/ui/checkbox"
 import { Label } from "@/components/ui/label"
 import { C } from "@/lib/core"
+import { Panel, PanelBody } from "@/components/panel"
 import { FONTS, PALETTES, fontStack } from "@/lib/prefs"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
@@ -335,12 +336,15 @@ export function Settings() {
             const isOpen = expanded.has(name)
             const Chev = isOpen ? RiArrowDownSLine : RiArrowRightSLine
             return (
-              <div key={name} className="overflow-hidden rounded-md bg-secondary/60">
+              // The expandable panel (components/panel.tsx), as the trees'
+              // pack frames and the editor's Prompt panel: the name on the
+              // head, the file and its actions on the body
+              <Panel key={name} className="overflow-hidden">
                 {/* A real disclosure button: Enter/Space work, state is announced */}
                 <button
                   type="button"
                   aria-expanded={isOpen}
-                  className="flex w-full cursor-pointer select-none items-center gap-2 px-2.5 py-1.5 text-left text-ui text-foreground hover:bg-secondary"
+                  className="flex w-full cursor-pointer select-none items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-ui text-foreground hover:bg-hover"
                   onClick={() => {
                     const next = new Set(expanded)
                     if (next.has(name)) next.delete(name)
@@ -356,7 +360,7 @@ export function Settings() {
                   <span className="text-xs tabular-nums text-muted-foreground">{C.plural(count, "prompt")}</span>
                 </button>
                 {isOpen && (
-                  <div className="flex flex-col gap-2 border-t border-border px-2.5 py-2 text-ui text-muted-foreground">
+                  <PanelBody className="flex flex-col gap-2 px-2.5 py-2 text-ui text-muted-foreground">
                     <div className="break-all">{meta?.path || "This pack has no file yet"}</div>
                     <div className="flex flex-wrap gap-1.5">
                       {meta?.path ? (
@@ -428,9 +432,9 @@ export function Settings() {
                         {m.isLocked(name) ? "Delete (locked)" : "Delete pack…"}
                       </Button>
                     </div>
-                  </div>
+                  </PanelBody>
                 )}
-              </div>
+              </Panel>
             )
           })}
         </div>
