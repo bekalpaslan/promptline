@@ -41,11 +41,13 @@ export const treeHeaderClass = (level: TreeLevel) =>
 export const treeFillClass = (selected: boolean) => (selected ? SELECTED_BAR : "hover:bg-hover")
 
 // A prompt row's layout and type; the element, its fill and its bars are
-// the caller's. A title-only row is the compact one, 24 px: the sidebar's
-// rows are always that, and the popup's in Compact density (the user
-// liked the popup's compact tree and asked for the sidebar to match it,
-// 2026-10-10); the popup's two-line row in Comfortable takes 4 px more
-// each side for its excerpt line. A row's box starts under the chevron
+// the caller's. 2 px above and below in every row: a title-only row is
+// 24 px, the sidebar's always and the popup's in Compact density (the
+// user liked the popup's compact tree and asked for the sidebar to match
+// it, 2026-10-10), and the popup's Comfortable row is the same row with
+// its excerpt line under the title, 40 px (it had 4 px each side, so its
+// title sat 2 px lower than the sidebar's; the user wanted the paddings
+// the same, 2026-10-10). A row's box starts under the chevron
 // column, 8 px into the frame (the body's padding, TreeChildren), and
 // its title 20 px into the box: 28 px from the frame's edge, the name
 // column (the header's 8 px padding, its 16 px chevron and the 4 px
@@ -58,8 +60,7 @@ export const treeFillClass = (selected: boolean) => (selected ? SELECTED_BAR : "
 // the popup's rows keep it empty. Until 2026-10-10 the popup's rows had
 // the plain 8 px and their titles sat left of the header's name while
 // the sidebar's, pushed by the grip, stepped in.
-export const treeRowClass = (compact: boolean) =>
-  cn("relative flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md pl-5 pr-2 text-ui font-medium", compact ? "py-0.5" : "py-1")
+export const treeRowClass = "relative flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md py-0.5 pl-5 pr-2 text-ui font-medium"
 
 // The fold chevron, in the glyph column every row shares
 export function TreeChevron({ open, className }: { open: boolean; className?: string }) {
