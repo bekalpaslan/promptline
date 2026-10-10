@@ -108,7 +108,10 @@ Home/End move between rows, Right unfolds a pack or group or steps to its
 first child, Left folds or steps out to the parent, Enter or Space is the
 click (with Ctrl and Shift for the selection; on a pack or group it shows
 its overview and opens it in the tree), Alt+Up/Down moves a prompt, a pack or a group, and the Menu key or Shift+F10 opens the row's menu at it. While a search
-holds every fold open, Left and Right only move. The chevron and the three
+holds every fold open, Left and Right only move. The row the keyboard is
+on carries the hover grey (`TREE_FOCUS`), no ring: the 2 px Focus glow
+sat around it over the bar that already marks the cursor, and the user
+had it go (2026-10-10). The chevron and the three
 dots are hidden from assistive tech, since those keys reach the same
 actions, and a click on either keeps focus on the row. The rows used to be
 `role=button` tab stops with real buttons nested inside: about a hundred
@@ -134,20 +137,20 @@ when the user, liking the popup's compact tree, asked for the sidebar to
 match it (a title-only row is the compact row; the popup's two-line
 Comfortable row is the same row with its excerpt line under the title,
 40 px, with the same 2 px above the title: it had 4, and its titles sat
-lower than the sidebar's, until 2026-10-10). A row's box starts 8 px into the frame,
-under the pack's chevron, so its fill and its bars start where the
-chevrons do, and its title 20 px into the box: 28 px from the frame's
-edge, the name column (a header's 8 px padding, its 16 px chevron, the
-4 px after). A pack's rows and its group headers (which have no left
-padding of their own, so their chevrons sit under the pack's) line up
-with the pack's name, since the frame says what they belong to and a step
-said it twice, and a group's rows sit where the pack's own do: the row's
-inset is margin enough and the group's header says whose they are (they
-hung from a guide line under the group's chevron, 21 px further in,
-until 2026-10-10); the sidebar's drag grip sits inside the row's inset
-and the popup's rows leave it empty. Until 2026-10-10 a pack's children stepped 12 px in, only the grip
-pushed the sidebar's titles past the names, and the popup's rows, with the
-plain 8 px, sat left of their header's name. Packs sit 16 px apart (`TreeSection`), twice
+lower than the sidebar's, until 2026-10-10). A row's box spans the frame
+like a header's, with the header's 8 px padding, so its title starts
+where the chevrons do, under them and 20 px left of the pack's and
+groups' names: the frame says what the rows belong to, so they need no
+step, and a group's rows sit where the pack's own do, the group's header
+saying whose they are (they hung from a guide line under the group's
+chevron, 21 px further in, until 2026-10-10). Through 2026-10-10 the
+titles stood on the name column, 28 px in (before that a pack's children
+stepped 12 px in, only the sidebar's grip pushed its titles past the
+names, and the popup's rows sat left of their header's name), and for a
+while that day the row boxes stood 8 px in under the chevrons, which
+without an edge on the frame read as an indent; the user had the rows
+fill the frame and found the titles natural at the chevrons. The
+sidebar's drag grip sits at the row's right. Packs sit 16 px apart (`TreeSection`), twice
 the earlier 8, so a pack reads as its own block among rows that tight.
 An open pack is the expandable panel (`components/panel.tsx`), the
 editor's Prompt panel in small; Settings' pack cards are the same panel.
