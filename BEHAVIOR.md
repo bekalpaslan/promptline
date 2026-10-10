@@ -131,8 +131,10 @@ side padding so every count ends on the rows' right edge, and counts sit
 there in mono. A prompt row is 24 px, the row the popup draws in Compact
 density (`treeRowClass`): the sidebar's rows were 28 px until 2026-10-10,
 when the user, liking the popup's compact tree, asked for the sidebar to
-match it (a title-only row is the compact row; only the popup's two-line
-Comfortable row is taller). A row's box starts 8 px into the frame,
+match it (a title-only row is the compact row; the popup's two-line
+Comfortable row is the same row with its excerpt line under the title,
+40 px, with the same 2 px above the title: it had 4, and its titles sat
+lower than the sidebar's, until 2026-10-10). A row's box starts 8 px into the frame,
 under the pack's chevron, so its fill and its bars start where the
 chevrons do, and its title 20 px into the box: 28 px from the frame's
 edge, the name column (a header's 8 px padding, its 16 px chevron, the
@@ -652,8 +654,8 @@ parts them) and packs 16 px apart (8 until 2026-10-10, when the sidebar
 took the popup's compact row and the packs needed more air than a row's
 gap to read as blocks). The rows were 6 and the packs 12 apart with
 28 px headers before 0.2.21, a 50 px pitch for a 44 px row, which showed
-seven prompts in the default window where eight now fit (twelve in
-Compact). The list is the sidebar's tree (`components/tree.tsx`, see
+seven prompts in the default window where eight fit at 44 and nine at
+the 40 px row of 2026-10-10 (twelve in Compact). The list is the sidebar's tree (`components/tree.tsx`, see
 *The tree tells its levels apart without colour* above): a pack's rows,
 its groups and their rows start on its name column inside its frame, and
 the headers are 28 px tall like the sidebar's. Through 0.2.22 the popup kept every title on one edge with
