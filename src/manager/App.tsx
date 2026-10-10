@@ -648,14 +648,11 @@ export function App() {
           <Sidebar />
           <div className="flex min-w-0 flex-1 flex-col">
             {/* The bar above the pane is the open prompt's crumb line (where
-                it sits, its use count, Pin, its menu); the Settings gear
-                that stood here alone lives in the sidebar's foot since
-                2026-10-10. Its side padding is the pane's 12 px plus the
-                13 px a card's border and padding take, so the crumbs,
-                the title and a card's header text start on one line. */}
-            <div className="flex h-9 shrink-0 items-center border-b border-border px-[25px]">
-              <EditorCrumbs />
-            </div>
+                it sits, its use count, Pin, its menu), and only that: with
+                an overview or Settings in the pane there is no bar (an empty
+                ruled strip stood there, 2026-10-10). The Settings gear that
+                stood here alone lives in the sidebar's foot. */}
+            <EditorCrumbs />
             {settingsOpen ? (
               <Settings />
             ) : view.kind === "overview" ? (
