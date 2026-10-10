@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils"
 import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { footClass } from "@/components/foot"
+import { panelBodyClass, panelClass } from "@/components/panel"
 import { TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
 import { Button } from "@/components/ui/button"
 import { MENU_ITEM, MENU_PANEL, SELECTED_BAR } from "@/components/menu-styles"
@@ -43,13 +44,6 @@ type PanelAction = { label: string; danger?: boolean; run: () => void }
 // Where Delete sits in the action panel (its digit is this plus one)
 const DELETE_AT = 4
 type CreateState = { title: string; pack: string; group: string; prefilled: string }
-// The clipboard's well: the sidebar's New button's look (a dashed rule on
-// the Paper ground, the module's corners), so what the popup will paste
-// sits in the same kind of box the sidebar keeps its one action in; it was
-// a plain Control-grey fill (the user's call, 2026-10-10). An outline, not
-// a border, so the strip keeps its 40 px and the line its 20.
-const CLIP_WELL = "rounded-lg bg-background outline-1 outline-dashed -outline-offset-1 outline-border"
-
 // One line of feedback above the hint bar: the popup's only channel for an
 // error (a failed paste or save), a confirmation that something landed
 // (copied, saved, restored: Success text, no fill, as every confirmation in
@@ -1859,111 +1853,103 @@ export function App() {
         </button>
       </div>
 
-      {/* The clipboard, one line: the text on the builtin's tint as in every
-          preview, its marks (hidden text, line count) before it so they
-          survive the truncation, and at the right the key that saves it as
-          a prompt. That key was a 32 px bar of its own under the list
-          ("New prompt from clipboard…") on every summon; the clipboard is
-          its subject, so it lives on the clipboard's line. The describing
-          span leaves the key out, so a row described by the line hears the
-          clipboard, not a shortcut. */}
-      {clipEnds && clipLine.text ? (
-        // Two lines or more: the clipboard's ends, on a strip shaped like a
-        // row (icon in the rows' glyph column, text on their title edge),
-        // in mono because this is the text as it pastes. Flattened onto one
-        // line, a trace showed two dozen characters and never the line that
-        // says what broke (critique popup, 2026-10-09). The first line keeps
-        // Ctrl N at its right, the last the key that opens the whole thing,
-        // so the panel is found at every width, not only from 560 px. The
-        // whole strip is the panel's handle (the toggle's ::after covers
-        // it); the word "Clipboard" goes to the screen reader, a "Last
-        // pasted prompt" label stays in sight.
-        <div
-          ref={clipLineRef}
-          className={cn(
-            "relative grid shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] grid-rows-[1rem_1rem] items-center gap-x-1.5 px-2 py-1 text-xs text-muted-foreground hover:bg-hover",
-            CLIP_WELL,
-            clipOpen && "bg-hover"
-          )}
-        >
+      {/* The clipboard, as the expandable panel the packs fold open with
+          (components/panel.tsx). Its head is a line like a pack header:
+          the clipboard icon in the glyph column, what the clipboard is
+          ("Clipboard", "Last pasted prompt", "Clipboard is empty — …"),
+          then a single line's text in mono with the chevron that drops the
+          whole clipboard down, or, for two lines or more, the line count,
+          and at the right the key that saves it as a prompt (Ctrl N; it
+          was a 32 px bar of its own under the list on every summon, and
+          the clipboard is its subject). Two lines or more open the panel's
+          body under the head: the first line holding text, then `⋯ N ⋯`
+          and the last, in mono, with the panel's key (Ctrl ↓, Esc while it
+          is open) at the right; the whole panel is the handle. It was a
+          40 px strip of the two lines in a dashed well, and a 20 px line
+          before that; the user asked for the panel (2026-10-10). The
+          describing span leaves the keys out, so a row described by the
+          line hears the clipboard, not a shortcut. */}
+      <div ref={clipLineRef} className={cn("relative shrink-0 text-ui text-muted-foreground", clipEnds && clipLine.text && panelClass)}>
+        <div className={cn("flex h-7 items-center gap-1.5 rounded-md px-2", clipLine.text && "hover:bg-hover", clipOpen && "bg-hover")}>
           <RiClipboardLine className="size-3.5 shrink-0 opacity-70" aria-hidden />
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-expanded={clipOpen}
-            aria-controls={clipOpen ? "popup-clipboard" : undefined}
-            title={clipOpen ? "Hide the clipboard (Esc)" : "Show the whole clipboard (Ctrl+↓)"}
-            className="focus-ring flex min-w-0 cursor-pointer items-center text-left after:absolute after:inset-0 after:rounded-md"
-            onClick={() => {
-              toggleClip()
-              inputRef.current?.focus()
-            }}
-          >
-            <span id={CLIP_LINE_ID} className="flex min-w-0 flex-1 items-center gap-1.5">
-              <span className={cn(clipLine.label === "Clipboard" ? "sr-only" : "shrink-0", clipLine.warn && "text-(--warn)")}>
-                {clipLine.label}
-              </span>
-              <span className="sr-only">{`, ${C.plural(clipEnds.total, "line")}: `}</span>
-              <ClipboardMarks clipboard={clip} lines={false} />
-              <bdi className="min-w-0 flex-1 truncate font-mono text-foreground">{clipEnds.head}</bdi>
-              <span className="sr-only">
-                {clipEnds.between ? `, ${C.plural(clipEnds.between, "line")} more, then: ` : ", then: "}
-                {clipEnds.tail}
-              </span>
-            </span>
-          </button>
-          <span className="relative z-10 flex justify-end">{newFromClip}</span>
-          <span aria-hidden className="col-start-2 flex min-w-0 items-center gap-1.5 font-mono">
-            {clipEnds.between > 0 && <span className="shrink-0 tabular-nums">{`⋯ ${clipEnds.between} ⋯`}</span>}
-            <bdi className="min-w-0 flex-1 truncate text-foreground">{clipEnds.tail}</bdi>
+          <span id={CLIP_LINE_ID} className="flex min-w-0 flex-1 items-center gap-1.5">
+            {/* The label keeps its width; what follows it gives way: the
+                clipboard's text, or, empty, the consequence. At the 320 px
+                minimum "Clipboard is empty" is what must survive. */}
+            <span className={cn("shrink-0", clipLine.warn && "text-(--warn)")}>{clipLine.label}</span>
+            {clipLine.detail && <>{" "}<span className="min-w-0 truncate">{clipLine.detail}</span></>}
+            {clipLine.text && clipEnds && (
+              <>
+                {/* The count in sight; the two ends go to the screen reader
+                    from here, since the body that shows them is decoration */}
+                <span className="sr-only">{`, ${C.plural(clipEnds.total, "line")}: `}</span>
+                <ClipboardMarks clipboard={clip} lines={false} />
+                <span aria-hidden className="shrink-0 font-mono text-xs tabular-nums">{C.plural(clipEnds.total, "line")}</span>
+                <span className="sr-only">
+                  {clipEnds.head}
+                  {clipEnds.between ? `, ${C.plural(clipEnds.between, "line")} more, then: ` : ", then: "}
+                  {clipEnds.tail}
+                </span>
+              </>
+            )}
+            {clipLine.text && !clipEnds && (
+              <>
+                <ClipboardMarks clipboard={clip} />
+                {/* The text is the panel's handle: a click drops the whole
+                    clipboard down under it, and the chevron says it will */}
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  aria-expanded={clipOpen}
+                  aria-controls={clipOpen ? "popup-clipboard" : undefined}
+                  title={clipOpen ? "Hide the clipboard (Esc)" : "Show the whole clipboard (Ctrl+↓)"}
+                  className="focus-ring flex min-w-0 flex-1 cursor-pointer items-center rounded-sm text-left text-foreground"
+                  onClick={() => {
+                    toggleClip()
+                    inputRef.current?.focus()
+                  }}
+                >
+                  <bdi className="min-w-0 flex-1 truncate font-mono text-xs">{clipLine.text}</bdi>
+                  <RiArrowDownSLine
+                    aria-hidden
+                    className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", clipOpen && "rotate-180")}
+                  />
+                </button>
+              </>
+            )}
           </span>
-          <span aria-hidden className="flex justify-end">
-            <Keys combo={clipOpen ? "Esc" : "Ctrl+↓"} />
-          </span>
-        </div>
-      ) : (
-      <div ref={clipLineRef} className="flex h-5 shrink-0 items-center gap-1.5 px-2 text-xs text-muted-foreground">
-        <RiClipboardLine className="size-3.5 shrink-0 opacity-70" aria-hidden />
-        <span id={CLIP_LINE_ID} className="flex min-w-0 flex-1 items-center gap-1.5">
-          {/* The label keeps its width; what follows it gives way: the
-              clipboard's text, or, empty, the consequence. At the 320 px
-              minimum "Clipboard is empty" is what must survive. */}
-          <span className={cn("shrink-0", clipLine.warn && "text-(--warn)")}>{clipLine.label}</span>
-          {clipLine.detail && <>{" "}<span className="min-w-0 truncate">{clipLine.detail}</span></>}
-          {clipLine.text && (
-            <>
-              <ClipboardMarks clipboard={clip} />
-              {/* On Control grey here, not the built-in tint: in Instrument
-                  that tint is the selection's own colour, and the line sits
-                  right above the selected row, so two things glowed where
-                  DESIGN.md allows one. In a preview, inside the prompt's
-                  text, the tint still marks what was inserted. */}
-              {/* The text is the panel's handle: a click drops the whole
-                  clipboard down under it, and the chevron says it will */}
-              <button
-                type="button"
-                tabIndex={-1}
-                aria-expanded={clipOpen}
-                aria-controls={clipOpen ? "popup-clipboard" : undefined}
-                title={clipOpen ? "Hide the clipboard (Esc)" : "Show the whole clipboard (Ctrl+↓)"}
-                className={cn("focus-ring flex min-w-0 flex-1 cursor-pointer items-center text-left text-foreground hover:bg-hover", CLIP_WELL, clipOpen && "bg-hover")}
-                onClick={() => {
-                  toggleClip()
-                  inputRef.current?.focus()
-                }}
-              >
-                <bdi className="min-w-0 flex-1 truncate px-1">{clipLine.text}</bdi>
-                <RiArrowDownSLine
-                  aria-hidden
-                  className={cn("size-3.5 shrink-0 text-muted-foreground transition-transform duration-150", clipOpen && "rotate-180")}
-                />
-              </button>
-            </>
+          {clipLine.text && clipEnds && (
+            // The whole panel is the handle: this button covers it (the
+            // body under it is decoration), and the Ctrl N key beside it
+            // stays its own control, above
+            <button
+              type="button"
+              tabIndex={-1}
+              aria-expanded={clipOpen}
+              aria-controls={clipOpen ? "popup-clipboard" : undefined}
+              title={clipOpen ? "Hide the clipboard (Esc)" : "Show the whole clipboard (Ctrl+↓)"}
+              className="focus-ring absolute inset-0 cursor-pointer rounded-lg"
+              onClick={() => {
+                toggleClip()
+                inputRef.current?.focus()
+              }}
+            >
+              <span className="sr-only">{clipOpen ? "Hide the clipboard" : "Show the whole clipboard"}</span>
+            </button>
           )}
-        </span>
-        {newFromClip}
+          <span className="relative z-10 flex shrink-0">{newFromClip}</span>
+        </div>
+        {clipLine.text && clipEnds && (
+          <div aria-hidden className={cn(panelBodyClass, "flex flex-col px-2 py-0.5 font-mono text-xs leading-4")}>
+            <bdi className="min-w-0 truncate text-foreground">{clipEnds.head}</bdi>
+            <span className="flex min-w-0 items-center gap-1.5">
+              {clipEnds.between > 0 && <span className="shrink-0 tabular-nums">{`⋯ ${clipEnds.between} ⋯`}</span>}
+              <bdi className="min-w-0 flex-1 truncate text-foreground">{clipEnds.tail}</bdi>
+              <Keys combo={clipOpen ? "Esc" : "Ctrl+↓"} />
+            </span>
+          </div>
+        )}
       </div>
-      )}
 
       <div
         ref={listRef}
@@ -2159,13 +2145,16 @@ export function App() {
         let cap = Math.min(maxH, Math.max(60, below ? roomBelow : roomAbove))
         let top = below ? pos.y : Math.max(pad, pos.above - Math.min(natural, cap))
         // A window too short to hold the card on either side of the row (the
-        // 320×280 minimum leaves it about 85 px): opened from the keyboard,
+        // 320×280 minimum leaves it about 85 px), or one where the card
+        // above the row would reach over the list's top edge, across the
+        // clipboard and the search box (the clipboard's panel head made
+        // that the minimum's case, 2026-10-10): opened from the keyboard,
         // the card takes the list's place instead. It covers the row it
         // describes, the one case where it may, because it carries that
         // row's whole title; a strip three lines tall showed neither the
         // prompt nor its clipboard. A hover never does this: a card under
         // the pointer would hide the rows the pointer is moving across.
-        if (pos.key && list && Math.max(roomBelow, roomAbove) < 120 && natural > cap) {
+        if (pos.key && list && ((Math.max(roomBelow, roomAbove) < 120 && natural > cap) || (!below && top < list.top))) {
           top = list.top
           cap = list.bottom - list.top
         }
