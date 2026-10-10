@@ -36,18 +36,19 @@ test("one 8 px inset: the strips share the search box's edges, and their content
   // (the search box's edges), and runs to the frame's right edge
   expect(Math.abs(rowRect!.x - (boxRect!.x + 8))).toBeLessThan(0.6)
   expect(Math.abs(rowRect!.x + rowRect!.width - (boxRect!.x + boxRect!.width))).toBeLessThan(0.6)
-  // The search icon, the clipboard icon, a pack's chevron and the first key
-  // of the hint bar start 8 px in; a row's title 20 px into its box, 28
-  // from the frame's edge: the name column (tree.tsx: the header's
-  // padding, its chevron and the gap after, with no glyph drawn before
-  // the title since 2026-10-10)
+  // The search icon, the clipboard icon and a pack's chevron start 8 px
+  // in; a row's title 20 px into its box, 28 from the frame's edge: the
+  // name column (tree.tsx: the header's padding, its chevron and the gap
+  // after, with no glyph drawn before the title since 2026-10-10). The
+  // hint bar is the sidebar's foot, so its first key starts on the strips'
+  // edge itself, as the sidebar's legend does under its filter
   const starts = await Promise.all([
     x(box.locator("svg").first()),
     x(clipLine(page).locator("xpath=..").locator("svg").first()),
     x(page.locator("button", { hasText: "Everyday" }).first().locator("svg").first()),
-    x(page.getByText("paste", { exact: true }).locator("xpath=..").locator("kbd").first()),
   ])
   for (const s of starts) expect(Math.abs(s - (boxRect!.x + 8))).toBeLessThan(0.6)
+  expect(Math.abs((await x(page.getByText("paste", { exact: true }).locator("xpath=..").locator("kbd").first())) - boxRect!.x)).toBeLessThan(0.6)
   expect(Math.abs((await x(row.locator("bdi").first())) - (rowRect!.x + 20))).toBeLessThan(0.6)
   // The fill-in form: fields and the button are boxes, edge to edge; the
   // title and the labels are text, 8 px in
@@ -863,12 +864,13 @@ test("the hint bar keeps the strips' insets: kept open, the hand mirrors the fir
     const box = (await page.locator(sel).first().boundingBox())!
     return side === "left" ? box.x : W - (box.x + box.width)
   }
-  // At rest there is no hand, and the hints start on the strips' content edge
-  // The search box's edge; every strip's content starts 8 px inside it
+  // At rest there is no hand, and the hints start on the strips' edge:
+  // the bar is the sidebar's foot (components/foot.tsx), edge to edge
+  // with the strips' 12 px inset, so its first item lands where the
+  // search box starts, as the sidebar's legend does under its filter
   const left = await edge('[role="search"]', "left")
   await expect(page.locator('[title="Drag here to move the popup"]')).toHaveCount(0)
-  // The search box's own toggle ends on that edge too
-  const toggleRight = await edge('[aria-label="Keep open (Ctrl K)"]', "right")
+  const boxRight = await edge('[role="search"]', "right")
   const firstHint = await page.getByText("paste", { exact: true }).evaluate((el) => el.parentElement!.getBoundingClientRect().left)
   // Kept open, the hand's right edge mirrors the first hint's left edge
   await search(page).press("Control+k")
@@ -876,8 +878,8 @@ test("the hint bar keeps the strips' insets: kept open, the hand mirrors the fir
   await expect(hand).toBeVisible()
   const handRight = await edge('[title="Drag here to move the popup"]', "right")
   expect(Math.abs(handRight - firstHint)).toBeLessThanOrEqual(1)
-  expect(Math.abs(toggleRight - firstHint)).toBeLessThanOrEqual(1)
-  expect(Math.abs(firstHint - (left + 8))).toBeLessThanOrEqual(1)
+  expect(Math.abs(boxRight - handRight)).toBeLessThanOrEqual(1)
+  expect(Math.abs(firstHint - left)).toBeLessThanOrEqual(1)
   // …and the hints stay on one line beside it
   const [a, b] = await Promise.all([page.getByText("paste", { exact: true }).boundingBox(), page.getByText("kept open", { exact: true }).boundingBox()])
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
@@ -1238,9 +1240,11 @@ test("at the 320 px minimum and 125% a Warn hint stands alone, on one line", asy
   await expect(warn).toBeVisible()
   // Esc gave way: with it the bar wrapped and took a row from a window that has one
   await expect(page.getByText("close", { exact: true })).toBeHidden()
+  // One line: the bar stands at its own minimum height (the foot's 2rem,
+  // 40 px at 125%); a second line would push it past that
   const bar = warn.locator("xpath=../..")
-  const [barBox, warnBox] = await Promise.all([bar.boundingBox(), warn.boundingBox()])
-  expect(barBox!.height).toBeLessThan(warnBox!.height * 2)
+  const [barBox, minH] = await Promise.all([bar.boundingBox(), bar.evaluate((e) => parseFloat(getComputedStyle(e).minHeight))])
+  expect(barBox!.height).toBeCloseTo(minH, 0)
   // At 100% the same window has room for both
   await page.evaluate(() => localStorage.removeItem("scale"))
   await emit(page, "popup-shown")
