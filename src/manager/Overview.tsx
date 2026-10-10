@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { RiAddLine, RiArrowLeftSLine, RiCheckLine, RiFileCopyLine, RiFolderLine, RiLock2Fill } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
+import { PinMark } from "@/components/tree"
 import { Count, InputsBadge, PromptTokens, TagList } from "@/components/prompt-bits"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { EmptyState } from "./EmptyState"
@@ -205,9 +206,10 @@ function PromptCard({
         // Indigo, none in Instrument, where the card's shadow is its edge;
         // the accent edge under the pointer shows in both
         "flex min-w-0 flex-1 cursor-pointer flex-col gap-1.5 rounded-lg border border-(--panel-edge) bg-background p-3 text-left text-ui text-foreground transition-colors group-hover/card:border-primary focus-ring",
-        // A pinned card carries the trees' Warn bar at its left edge, inside
-        // the card's own shadow (both are box-shadow, so one declaration)
-        s.pinned ? "shadow-[inset_1.5px_0_0_var(--warn),var(--shadow-card)]" : "shadow-(--shadow-card)"
+        // The card floats on its shadow; a pinned one says so with the
+        // sidebar's pin at its title's right (a Warn bar at the left edge,
+        // inside this shadow, until 2026-10-10)
+        "shadow-(--shadow-card)"
       )}
       onClick={onOpen}
       onContextMenu={(e) => {
@@ -233,6 +235,7 @@ function PromptCard({
         </span>
         <InputsBadge inputs={inputs} id={badgeId} />
         {s.uses > 0 && <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{s.uses}×</span>}
+        {s.pinned && <PinMark />}
       </span>
       {/* The sidebar's one-list row says the same under its title */}
       {place && (

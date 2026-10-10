@@ -476,7 +476,7 @@ Settings → About.
   uppercase is for the app's own section labels (`name-label` vs
   `section-label`).
 - The sidebar is the library (search, Display, New, the tree) plus its
-  foot (the bar legend and the Settings gear); the bar above the pane is
+  foot (the Settings gear); the bar above the pane is
   the open prompt's crumb line; appearance choices live in Settings.
 - Every Tauri command the webview can call takes no path it hasn't been
   given by Rust (`read_pack_file`, `show_in_folder` refuse paths outside

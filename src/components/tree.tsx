@@ -1,14 +1,19 @@
 import type { ComponentProps, ReactNode } from "react"
-import { RiArrowDownSLine, RiArrowRightSLine } from "@remixicon/react"
+import { RiArrowDownSLine, RiArrowRightSLine, RiPushpinLine } from "@remixicon/react"
 
 import { cn } from "@/lib/utils"
 import { SELECTED_BAR } from "@/components/menu-styles"
 import { panelBodyClass, panelClass } from "@/components/panel"
 
-// A pinned prompt's mark in both trees: the selection bar's shape in the
-// Warn colour, at the row's left edge; the selection bar wins on a row
-// that is both. The sidebar's legend names the two colours.
-export const PINNED_BAR = "shadow-[inset_1.5px_0_0_var(--warn)]"
+// A pinned prompt's mark in the manager: a quiet pin at the right of its
+// row in the sidebar and of its card's title in the overview, the muted
+// ink and small. The popup draws none: its Pinned section says it. It
+// was a 1.5 px Warn bar at the row's left edge in both trees and on the
+// card, with a legend at the sidebar's foot, until 2026-10-10, when the
+// user found the bar a glow and asked for a colourless pin instead.
+export function PinMark() {
+  return <RiPushpinLine data-pin aria-hidden className="size-3 shrink-0 text-muted-foreground opacity-70" />
+}
 
 // The library tree, one look in both windows. The manager's sidebar and
 // the popup's list are the same tree on different windows (decision

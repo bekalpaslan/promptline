@@ -106,24 +106,22 @@ test("the listbox holds only options and named groups; the fold and filter butto
 
 test("the selected row carries a Focus bar only once an arrow key has moved it; a fresh popup shows none", async ({ page }) => {
   const bar = (n: number) => rows(page).nth(n).evaluate((e) => getComputedStyle(e).boxShadow)
-  // The first rows are pinned, so each carries the Warn bar; at rest the
-  // selected first row shows that and nothing else (the bar read as a glow
-  // on a popup that had just opened, 2026-10-10)
-  const warn = await bar(1)
-  expect(warn).toMatch(/inset/)
-  expect(await bar(0)).toBe(warn)
-  // The first ↓ brings the Focus bar out on the row it lands on, in place
-  // of that row's Warn bar; the row left behind keeps its own
+  // At rest no row carries a bar, the selected first one included, and
+  // the pinned rows no longer carry a Warn bar either: the Pinned section
+  // says it (both read as a glow on a popup that had just opened,
+  // 2026-10-10)
+  expect(await bar(0)).toBe("none")
+  expect(await bar(1)).toBe("none")
+  // The first ↓ brings the Focus bar out on the row it lands on
   await page.keyboard.press("ArrowDown")
-  await expect.poll(() => bar(1)).not.toBe(warn)
-  const focus = await bar(1)
-  expect(focus).toMatch(/inset/)
-  expect(await bar(0)).toBe(warn)
+  await expect.poll(() => bar(1)).toMatch(/inset/)
+  expect(await bar(0)).toBe("none")
   await page.keyboard.press("ArrowUp")
-  await expect.poll(() => bar(0)).toBe(focus)
+  await expect.poll(() => bar(0)).toMatch(/inset/)
+  expect(await bar(1)).toBe("none")
   // A summon starts over without the bar
   await emit(page, "popup-shown")
-  await expect.poll(() => bar(0)).toBe(warn)
+  await expect.poll(() => bar(0)).toBe("none")
 })
 
 test("pack and group headers are the sidebar's tree: a chevron each under the other, nothing filled at rest, the pack's sticky", async ({ page }) => {

@@ -164,6 +164,19 @@ test("an open pack is the panel: header on the head ground, rows on the body gro
   expect((await pack.boundingBox())!.x).toBeCloseTo(openX, 0)
 })
 
+test("a pinned prompt's row carries a quiet pin at its right and no bar", async ({ page }) => {
+  // The Warn bar at the row's left edge, and the legend naming it at the
+  // sidebar's foot, went on 2026-10-10
+  const pinned = promptRow(page, "Explain this error").first()
+  const plain = promptRow(page, "Just the command")
+  await expect(pinned.locator("[data-pin]")).toHaveCount(1)
+  await expect(plain.locator("[data-pin]")).toHaveCount(0)
+  const [rowBox, pinBox] = await Promise.all([pinned.boundingBox(), pinned.locator("[data-pin]").boundingBox()])
+  expect(pinBox!.x + pinBox!.width).toBeCloseTo(rowBox!.x + rowBox!.width - 8, 0)
+  expect(await pinned.evaluate((e) => getComputedStyle(e).boxShadow)).toBe("none")
+  await expect(page.getByRole("complementary", { name: "Prompts" }).getByText("pinned", { exact: true })).toHaveCount(0)
+})
+
 test("Left folds a pack and Right unfolds it", async ({ page }) => {
   const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
   await expect(pack).toHaveAttribute("aria-expanded", "true")
