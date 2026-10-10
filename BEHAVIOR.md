@@ -128,12 +128,14 @@ weight the popup's rows and the overview's cards use too; the sidebar's
 12 px body is the 13/20 body size since 2026-10-10); a pack's children step 12 px in, a group's prompts
 hang from a guide line under its chevron, headers carry the rows' 8 px
 side padding so every count ends on the rows' right edge, and counts sit
-there in mono. A pinned prompt carries a 2 px Warn bar at its left edge
+there in mono. A pinned prompt carries a 1.5 px Warn bar at its left edge
 (`PINNED_BAR`), the selection bar's shape in the pin's colour, and so
 does its card in the overview (inside the card's shadow, in place of the
 pin icon it drew); the open or selected row's Focus bar wins on a row
 that is both, and a legend at the sidebar's foot names the two
-("viewed", "pinned"). Until 2026-10-10
+("viewed", "pinned") with a square of each colour (the legend drew the
+bars' own shape first; at 2 by 12 px they were too thin to read as
+colour). Until 2026-10-10
 the sidebar drew a pin icon before a pinned title and the popup's rows
 had a glyph column; both trees now start a row with its title. The look is
 written once, in `components/tree.tsx`, and
@@ -622,7 +624,8 @@ are one thing on two windows ended that.
 
 **The selected row carries a bar, and nothing else.** The keyboard's row,
 the selected pack or group header and the action panel's highlighted item
-have a 2 px Focus bar at the left edge (`SELECTED_BAR`) and no fill; the
+have a 1.5 px Focus bar at the left edge (`SELECTED_BAR`) and no fill
+(2 px at first; a hair thinner once the tint under it was gone); the
 sidebar's shown pack or group and its open prompt, and a context menu's
 focused item, carry the same bar. Until 2026-10-10 the bar sat over the
 Selection tint: the tint alone, a dark blue-teal in dark mode, had read on
