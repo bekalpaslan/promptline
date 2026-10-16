@@ -3,7 +3,6 @@ import { RiArrowDownSLine, RiArrowRightSLine, RiPushpinLine } from "@remixicon/r
 
 import { cn } from "@/lib/utils"
 import { SELECTED_BAR } from "@/components/menu-styles"
-import { panelBodyClass, panelClass } from "@/components/panel"
 
 // A pinned prompt's mark in the manager: a quiet pin at the right of its
 // row in the sidebar and of its card's title in the overview, the muted
@@ -20,9 +19,11 @@ export function PinMark() {
 // 2026-10-10), so what a level looks like is written once here: a pack
 // header bold in the strong heading ink, a group header medium in the
 // secondary one, each with its fold chevron on the outer edge and its
-// count at the right; an open pack framed, every row and group header
-// inside it spanning the frame, titles under the chevrons. What a
-// header *is* differs by
+// count at the right; every row and group header under it spanning the
+// pack's width, titles under the chevrons; no frame, ground or edge
+// around an open pack (it was the expandable panel from 2026-10-10 to
+// 2026-10-16, when the user found the card look wrong in the sidebar and
+// had it go). What a header *is* differs by
 // window (a treeitem with a roving tab stop in the sidebar, an aria-hidden
 // button in the popup), so the windows keep their own elements and
 // handlers and draw them with these parts.
@@ -37,7 +38,7 @@ export type TreeLevel = "pack" | "group"
 export const TREE_FOCUS = "outline-none focus-visible:bg-hover"
 
 // The header row's layout and type; the element and its fill are the
-// caller's. Pack and group headers alike span the frame, 8 px of padding
+// caller's. Pack and group headers alike span the pack's width, 8 px of padding
 // each side, so a group's chevron lands under the pack's and its name on
 // the pack's name column, and every count ends on the rows' right edge
 // (keys, chips) in both windows.
@@ -56,11 +57,11 @@ export const treeFillClass = (bar: boolean) => (bar ? SELECTED_BAR : "hover:bg-h
 // the caller's. 2 px above and below in every row, in both windows: a
 // title-only row is 24 px (the sidebar's always, the popup's in Compact
 // density), and the popup's Comfortable row is the same row with its
-// excerpt line under the title, 40 px. A row's box spans the frame like
-// a header's, with the header's 8 px padding, so its title starts where
-// the chevrons do, 20 px left of the names: the frame says what the rows
-// belong to, so they need no step (the user's calls, 2026-10-10; the
-// steps tried before are in BEHAVIOR.md and the log). The sidebar's
+// excerpt line under the title, 40 px. A row's box spans the pack's width
+// like a header's, with the header's 8 px padding, so its title starts
+// where the chevrons do, 20 px left of the names: the header above says
+// what the rows belong to, so they need no step (the user's calls,
+// 2026-10-10; the steps tried before are in BEHAVIOR.md and the log). The sidebar's
 // drag grip sits at the row's right, absolute, so it adds nothing; the
 // popup's rows keep that empty.
 export const treeRowClass = "relative flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md px-2 py-0.5 text-ui font-medium"
@@ -85,18 +86,16 @@ export function TreeName({ children }: { children: ReactNode }) {
 // One pack: its header and, unfolded, its children; 16 px to the next
 // pack, so a pack reads as its own block in a list of compact rows (8 px,
 // one row gap short of a row, let the packs run together; 2026-10-10).
-// Open, the pack is the expandable panel (components/panel.tsx), the
-// editor's Prompt panel in small: the header on the panel's head ground
-// as its title line, and its rows and groups on the body ground under it,
-// the way the Prompt field sits under its title (the user asked for the
-// frame, 2026-10-10). The frame pulls out by its own 1 px edge, so the
-// header and the rows keep the x they have folded and the chevron stays
-// in the strips' glyph column; the scroller around the tree keeps a
-// pixel of padding for it (the sidebar's 12, the popup list's own 1), or
-// the edge is clipped and the list scrolls sideways by one. Folded, a
-// pack is a header row like any other.
-export function TreeSection({ open, className, ...props }: ComponentProps<"div"> & { open?: boolean }) {
-  return <div className={cn("mb-4", open && cn(panelClass, "-mx-px"), className)} {...props} />
+// Open or folded, a pack draws nothing of its own: the header is a row
+// like any other and the children sit under it on the list's ground.
+// From 2026-10-10 to 2026-10-16 an open pack was the expandable panel
+// (components/panel.tsx), the header on its head ground and the rows on
+// its body ground inside a 1 px edge; the user found the card look wrong
+// in the sidebar and had it go. The panel stays where a thing folds open
+// to something other than rows (the editor's Prompt, Settings' pack
+// cards, the popup's clipboard).
+export function TreeSection({ className, ...props }: ComponentProps<"div">) {
+  return <div className={cn("mb-4", className)} {...props} />
 }
 
 // One group inside a pack: its header and, unfolded, its rows
@@ -104,10 +103,10 @@ export function TreeGroup({ className, ...props }: ComponentProps<"div">) {
   return <div className={cn("flex flex-col gap-0.5", className)} {...props} />
 }
 
-// The run of rows under a header, 2 px apart. A pack's are the panel's
-// body, with 2 px of air above and below, edge to edge, so a row's box
-// and a group's header span the frame like the pack's header (their
-// titles under the chevrons, see treeRowClass). A group's rows sit where
+// The run of rows under a header, 2 px apart, the first 2 px under its
+// header like the rest, edge to edge, so a row's box and a group's
+// header span the pack's width like the pack's header (their titles
+// under the chevrons, see treeRowClass). A group's rows sit where
 // the pack's own do: the row's inset is margin enough, and the group
 // header above says whose they are (the user's call, 2026-10-10; they
 // hung from a guide line under the group's chevron, 21 px further in,
@@ -117,7 +116,7 @@ export function TreeChildren({ level, className, ...props }: ComponentProps<"div
     <div
       className={cn(
         "flex flex-col gap-0.5",
-        level === "pack" && cn(panelBodyClass, "py-0.5"),
+        level === "pack" && "pt-0.5",
         className
       )}
       {...props}
