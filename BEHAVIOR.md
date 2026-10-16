@@ -205,7 +205,9 @@ carries its crumb line (`EditorCrumbs`), which says where
 the prompt sits (pack › group at the left, each crumb opening that
 overview, the chevron after them opening the same Move-to menu a row's
 right-click does, with the prompt's own place checked) and, in one group
-at the right, holds its use count, a Pin toggle and a ⋯ menu. The Pin
+at the right, holds its use count as "Used 7×" (a bare "7×", the
+overview cards' form, said nothing on its own there; the user asked for
+the word, 2026-10-16), a Pin toggle and a ⋯ menu. The Pin
 button is pressed, in the pin's Warn, while the prompt is pinned, and
 runs the same rule as the row menu's Pin item (`togglePin`: the slot
 limit, the toasts); until 2026-10-10 the line showed "pinned" as a word

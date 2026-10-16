@@ -163,9 +163,11 @@ export function EditorCrumbs() {
         <RiArrowDownSLine className="size-4" />
       </Button>
       <span className="ml-auto flex shrink-0 items-center gap-2">
+        {/* "Used 7×", a phrase, not the cards' bare "7×": alone at the
+            bar's right the number said nothing (the user, 2026-10-16) */}
         {snippet.uses > 0 && (
           <span className="tabular-nums" title={`Pasted ${C.plural(snippet.uses, "time")}`}>
-            {snippet.uses}×
+            Used {snippet.uses}×
           </span>
         )}
         <Button
