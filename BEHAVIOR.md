@@ -128,31 +128,44 @@ behind its fold chevron, a group a medium row in the secondary ink, a
 prompt a medium row in the foreground ink (13/500, the one row-title
 weight the popup's rows and the overview's cards use too; the sidebar's
 400 and the cards' 600 had the same title in two weights, and the cards'
-12 px body is the 13/20 body size since 2026-10-10); a pack's groups put
-their names on its name column and every row, the pack's own and a
-group's, starts its title under the chevrons (below), headers carry the
-rows' 8 px side padding so every count ends on the rows' right edge, and
-counts sit there in mono. A prompt row is 24 px, the row the popup draws in Compact
+12 px body is the 13/20 body size since 2026-10-10); each level steps
+one glyph column (20 px, the chevron and its gap) further in on the
+text (below), headers and rows carry the same 8 px right padding so
+every count ends on the rows' right edge, and counts sit there in mono. A prompt row is 24 px, the row the popup draws in Compact
 density (`treeRowClass`): the sidebar's rows were 28 px until 2026-10-10,
 when the user, liking the popup's compact tree, asked for the sidebar to
 match it (a title-only row is the compact row; the popup's two-line
 Comfortable row is the same row with its excerpt line under the title,
 40 px, with the same 2 px above the title: it had 4, and its titles sat
-lower than the sidebar's, until 2026-10-10). A row's box spans the pack's
-width like a header's, with the header's 8 px padding, so its title
-starts where the chevrons do, under them and 20 px left of the pack's and
-groups' names: the header above says what the rows belong to, so they
-need no step, and a group's rows sit where the pack's own do, the
-group's header saying whose they are (they hung from a guide line under
-the group's chevron, 21 px further in, until 2026-10-10). Through
-2026-10-10 the titles stood on the name column, 28 px in (before that a
-pack's children stepped 12 px in, only the sidebar's grip pushed its
-titles past the names, and the popup's rows sat left of their header's
-name), and for a while that day the row boxes stood 8 px in under the
-chevrons, which read as an indent; the user had the rows fill the width
-and found the titles natural at the chevrons. The sidebar's drag grip
-sits at the row's right. Packs sit 16 px apart (`TreeSection`), twice
-the earlier 8, so a pack reads as its own block among rows that tight.
+lower than the sidebar's, until 2026-10-10). A row's or header's box
+spans the pack's width, so the hover grey, the drop highlight and the
+right-edge column stay edge to edge; what steps is the text. A pack's
+chevron stands 8 px in and its name at 28; the pack's own rows and its
+groups' chevrons stand on the pack's name column, 28 px in; a group's
+name and its rows one column further, at 48 (`--tree-indent`, set by
+the run of children, `TreeChildren`; in rem, so the UI scale carries
+it). So a group's rows sit under the group's name and the pack's own
+under the pack's, and a title says its level by where it stands even
+after the header above has scrolled off. A row outside any run (the
+sidebar's list sorted by uses or title, which has no headers) starts at
+the side padding. The step is on the text, not the box, on purpose: for
+a while on 2026-10-10 the row boxes stood 8 px in under the chevrons,
+and the user had the rows fill the width. From 2026-10-10 to 2026-10-16
+every title stood on the chevron column and the levels differed by
+weight and ink alone, on the thought that the header above says what the
+rows belong to; the critique of 2026-10-16 found a group's prompts and
+the pack's own one edge, indistinguishable once the group's header had
+scrolled off, and the user chose the full step over indenting a group's
+rows alone. Before 2026-10-10 the titles stood on the name column with
+the rows hanging from a guide line under the group's chevron, 21 px
+further in, and the sidebar's grip, then at the row's left, pushed its
+titles past the names, which is why that layout went; the grip sits at
+the row's right now. Packs sit 16 px apart (`TreeSection`), twice the
+earlier 8, so a pack reads as its own block among rows that tight, and
+a group header stands 8 px off whatever is above it (`TreeGroup`, since
+2026-10-16; it had the rows' 2 px, and a pack's loose rows, a group's
+header and the group's rows read as one run) with the rows' 2 px below
+it: the rhythm is 16 / 8 / 2 for pack / group / row.
 An open pack draws nothing of its own: its header is a row like any
 other, its rows and groups sit 2 px under it on the list's ground, and
 a folded pack is the header alone (a pack faded by the filter is
@@ -674,11 +687,15 @@ gap to read as blocks). The rows were 6 and the packs 12 apart with
 28 px headers before 0.2.21, a 50 px pitch for a 44 px row, which showed
 seven prompts in the default window where eight fit at 44 and nine at
 the 40 px row of 2026-10-10 (twelve in Compact). The list is the sidebar's tree (`components/tree.tsx`, see
-*The tree tells its levels apart without colour* above): a pack's groups
-start on its name column under its header, its rows and theirs under the
-chevrons, and the headers are 28 px tall like the sidebar's. Through 0.2.22 the popup kept every title on one edge with
-no indent and 24 px headers; the 2026-10-10 decision that the two trees
-are one thing on two windows ended that.
+*The tree tells its levels apart without colour* above): a pack's own
+rows and its groups' chevrons stand on its name column, a group's rows
+on the group's name column, one glyph column further (the Pinned and
+Results rows stand where a pack's own do, under their pack-level
+header), a group header has 8 px above it, and the headers are 28 px
+tall like the sidebar's. Through 0.2.22 the popup kept every title on
+one edge with no indent and 24 px headers; the 2026-10-10 decision that
+the two trees are one thing on two windows ended that, and the per-level
+step came with the sidebar's on 2026-10-16.
 
 **The selected row carries a bar once an arrow key has moved it, and
 nothing else.** The keyboard's row, the selected pack or group header and
