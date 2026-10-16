@@ -31,12 +31,27 @@ export function PinMark() {
 
 export type TreeLevel = "pack" | "group"
 
-// Keyboard focus on a tree row or header: the hover grey, no ring. The
-// focus ring (a 2 px glow in the Focus colour) sat around the sidebar's
-// focused header or row, over the bar that already says which row is the
-// cursor; the user wanted the glow gone (2026-10-10). The fill still
-// shows a keyboard user where they are, as it shows a pointer.
-export const TREE_FOCUS = "outline-none focus-visible:bg-hover"
+// Keyboard focus on a sidebar row or header: the hover grey and a 1 px
+// hairline inside the row's edge in the input-edge ink, no ring and no
+// hue. The focus ring (a 2 px glow in the Focus colour) sat around the
+// focused header or row, over the bar that then said which row was the
+// cursor; the user wanted the glow gone (2026-10-10), and the fill alone
+// stood for the cursor until 2026-10-16, when the critique found that a
+// pointer resting on the tree drew a second cursor in the same grey. The
+// hairline tells the keyboard's row from the pointer's; on a selected
+// row (below) the fill stays the selection's and the hairline alone says
+// the cursor is here.
+export const TREE_FOCUS = "outline-none not-aria-selected:focus-visible:bg-hover focus-visible:shadow-[inset_0_0_0_1px_var(--input)]"
+
+// The sidebar's selection: the open prompt's row, the shown pack's or
+// group's header and every row in a multi-select carry the Band grey, a
+// step heavier than the hover grey in both modes and no hue, so a glance
+// back from the pane finds the prompt the pane shows; the hover grey goes
+// on the rest under the pointer. The selection was unmarked from
+// 2026-10-10 (the Focus bar read as a glow on the real screen, and the
+// Selection tint before it as a green row) to 2026-10-16, when the
+// critique found the cursor lost at every Tab to the pane and back.
+export const TREE_SELECTED = "aria-selected:bg-band not-aria-selected:hover:bg-hover"
 
 // Each level of the tree steps one glyph column (20 px: the 16 px chevron
 // and its 4 px gap) further in, on the text, never on the box. A row's or
@@ -60,14 +75,18 @@ const INDENT_GROUP_CHILDREN = "[--tree-indent:3rem]"
 const INDENT = "pl-[var(--tree-indent,0.5rem)] pr-2"
 
 // The header row's layout and type; the element and its fill are the
-// caller's. A pack header starts at the side padding; a group header takes
-// its run's inset (above), so its chevron lands under the pack's rows'
-// titles and its name one column further; every count ends on the rows'
-// right edge (keys, chips) in both windows.
+// caller's. A pack header is 28 px and starts at the side padding; a
+// group header is 24 px, a row's height, and takes its run's inset
+// (above), so its chevron lands under the pack's rows' titles and its
+// name one column further; every count ends on the rows' right edge
+// (keys, chips) in both windows. The group header was 28 px like the
+// pack's until 2026-10-16: the two headers had one silhouette and only
+// the ink told them apart, so the pack keeps the taller row and a group
+// is a quieter line among its rows.
 export const treeHeaderClass = (level: TreeLevel) =>
   cn(
-    "flex min-w-0 cursor-pointer select-none items-center gap-1 rounded-md py-1 text-ui",
-    level === "pack" ? "px-2 font-semibold text-(--heading-strong)" : `${INDENT} font-medium text-(--heading)`
+    "flex min-w-0 cursor-pointer select-none items-center gap-1 rounded-md text-ui",
+    level === "pack" ? "px-2 py-1 font-semibold text-(--heading-strong)" : `${INDENT} py-0.5 font-medium text-(--heading)`
   )
 
 // A header's fill: the hover grey under the pointer, or, in the popup once

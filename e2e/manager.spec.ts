@@ -170,6 +170,54 @@ test("each level steps one glyph column in on the text, the box stays the pack's
   const [looseBox, groupBox, groupedBox] = boxes.slice(1)
   expect(groupBox!.y - (looseBox!.y + looseBox!.height)).toBeCloseTo(8, 0)
   expect(groupedBox!.y - (groupBox!.y + groupBox!.height)).toBeCloseTo(2, 0)
+  // A pack header keeps the taller row; a group header is a row's height
+  expect(boxes[0]!.height).toBeCloseTo(28, 0)
+  expect(groupBox!.height).toBeCloseTo(24, 0)
+})
+
+test("the open prompt's row and the shown pack's header carry the Band grey, and the keyboard's row a hairline", async ({ page }) => {
+  // The selection went unmarked from 2026-10-10 to 2026-10-16: a glance
+  // back from the pane found nothing. The fill is a grey, no hue, a step
+  // heavier than the hover grey; the keyboard's row adds a 1 px inset
+  // hairline so a pointer resting on the tree is not a second cursor
+  const bg = (l: ReturnType<typeof promptRow>) => l.evaluate((e) => getComputedStyle(e).backgroundColor)
+  const token = (name: string) =>
+    page.evaluate((n) => {
+      const d = document.createElement("div")
+      d.style.backgroundColor = `var(${n})`
+      document.body.append(d)
+      const v = getComputedStyle(d).backgroundColor
+      d.remove()
+      return v
+    }, name)
+  const row = promptRow(page, "Loose prompt")
+  const other = promptRow(page, "Review for bugs")
+  await row.click()
+  await expect(row).toHaveAttribute("aria-selected", "true")
+  expect(await bg(row)).toBe(await token("--band"))
+  expect(await bg(other)).toBe("rgba(0, 0, 0, 0)")
+  // The pointer's grey is lighter than the selection's, and never on it
+  await other.hover()
+  await expect.poll(() => bg(other)).toBe(await token("--hover"))
+  expect(await bg(row)).toBe(await token("--band"))
+  await page.mouse.move(1, 1)
+  // The keyboard's row: the hairline, over the hover grey on a row that is
+  // not selected and over the Band on one that is
+  await row.focus()
+  await page.keyboard.press("ArrowDown")
+  const focused = tree(page).locator(":focus")
+  await expect(focused).toHaveAttribute("aria-selected", "false")
+  expect(await bg(focused)).toBe(await token("--hover"))
+  expect(await focused.evaluate((e) => getComputedStyle(e).boxShadow)).not.toBe("none")
+  await page.keyboard.press("ArrowUp")
+  expect(await bg(row)).toBe(await token("--band"))
+  expect(await row.evaluate((e) => getComputedStyle(e).boxShadow)).not.toBe("none")
+  // The shown pack's header carries the same grey
+  const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
+  await pack.click()
+  await expect(pack).toHaveAttribute("aria-selected", "true")
+  expect(await bg(pack)).toBe(await token("--band"))
+  expect(await bg(row)).toBe("rgba(0, 0, 0, 0)")
 })
 
 test("an open pack is no card: no edge, no ground, its rows on the sidebar's own; folded it is a row at the same x", async ({ page }) => {

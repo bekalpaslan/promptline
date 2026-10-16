@@ -11,7 +11,7 @@ import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { footClass } from "@/components/foot"
-import { PinMark, TREE_FOCUS, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass, treeRowClass } from "@/components/tree"
+import { PinMark, TREE_FOCUS, TREE_SELECTED, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeHeaderClass, treeRowClass } from "@/components/tree"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
@@ -723,7 +723,7 @@ export function Sidebar() {
         aria-selected={selected}
         aria-label={`${group}, ${count} prompt${count === 1 ? "" : "s"}`}
         title={`${group} — right-click or ⋯ for actions`}
-        className={cn(treeHeaderClass("group"), treeFillClass(false), "group", TREE_FOCUS, dropHere && DROP_TARGET)}
+        className={cn(treeHeaderClass("group"), TREE_SELECTED, "group", TREE_FOCUS, dropHere && DROP_TARGET)}
         onClick={() => openHeader(pack, group)}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -759,7 +759,7 @@ export function Sidebar() {
             aria-label={`Rename group ${group}`}
             defaultValue={group}
             spellCheck={false}
-            className="min-w-0 flex-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-ui font-medium text-foreground focus-ring"
+            className="-my-0.5 -ml-1 min-w-0 flex-1 rounded-sm bg-secondary px-1 py-0.5 text-ui font-medium text-foreground focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               // The header above toggles on Enter / Space; typing must not reach it
@@ -807,9 +807,11 @@ export function Sidebar() {
           treeRowClass,
           "group",
           TREE_FOCUS,
-          // The open prompt carries no mark (the bar went, 2026-10-10): the
-          // pane shows it, and the row is selected for assistive tech
-          "text-foreground hover:bg-hover",
+          // The open prompt and a multi-selected row carry the Band grey
+          // (TREE_SELECTED, tree.tsx; no mark from 2026-10-10 to
+          // 2026-10-16, when the pane alone showed it)
+          "text-foreground",
+          TREE_SELECTED,
           multi && "outline outline-1 -outline-offset-1 outline-primary",
           // Lifted: the row stays in place, dimmed, while its ghost travels
           lifted ? "opacity-40" : grouped && "hover:cursor-grab"
@@ -867,7 +869,7 @@ export function Sidebar() {
         // Short: a native tooltip cuts around 80 characters, and the keys
         // are in the menu's hints and BEHAVIOR.md rather than every row
         title={`${name} — right-click or ⋯ for actions`}
-        className={cn(treeHeaderClass("pack"), treeFillClass(false), "group", TREE_FOCUS, faded && "opacity-45", dropHere && DROP_TARGET)}
+        className={cn(treeHeaderClass("pack"), TREE_SELECTED, "group", TREE_FOCUS, faded && "opacity-45", dropHere && DROP_TARGET)}
         onClick={() => openHeader(name)}
         onDoubleClick={(e) => {
           e.stopPropagation()
@@ -902,7 +904,7 @@ export function Sidebar() {
             aria-label={`Rename pack ${name}`}
             defaultValue={name}
             spellCheck={false}
-            className="min-w-0 flex-1 -my-0.5 rounded-sm bg-secondary px-1 py-0.5 text-ui font-semibold text-(--heading-strong) focus-ring"
+            className="-my-0.5 -ml-1 min-w-0 flex-1 rounded-sm bg-secondary px-1 py-0.5 text-ui font-semibold text-(--heading-strong) focus-ring"
             onClick={(e) => e.stopPropagation()}
             onKeyDown={(e) => {
               e.stopPropagation()
