@@ -1956,11 +1956,7 @@ export function App() {
         id="popup-list"
         role="listbox"
         aria-label="Prompts"
-        // No side padding but the pixel an open pack's frame edge needs
-        // (TreeSection pulls the frame out by its edge; the margins give the
-        // pixel back, so the content box is unchanged; without it the edge
-        // was clipped and the list scrolled sideways by one, review
-        // 2026-10-10): a pack's frame runs edge to edge under the search
+        // No side padding: a pack's rows run edge to edge under the search
         // box, and every strip's content starts 8 px in. The list was 2 px
         // narrower than the box above it, and five strips began their
         // content on five different lines. The scrollbar's 8 px live in the
@@ -1968,10 +1964,13 @@ export function App() {
         // inside the list they took the rows' right edge 8 px short of the
         // search box's whenever it scrolled, which is nearly always. The
         // 4 px above and below are the sidebar's tree's (its pt-1, and its
-        // pb-3 less the shell's gap), so the first frame sits 12 px under
+        // pb-3 less the shell's gap), so the first pack sits 12 px under
         // the strip above it in both windows; margins, not padding, so the
-        // sticky pack header still meets the scroller's top edge.
-        className="-ml-px -mr-[9px] my-1 flex-1 overflow-y-auto px-px [scrollbar-gutter:stable]"
+        // sticky pack header still meets the scroller's top edge. (The
+        // open pack's frame, 2026-10-10 to 2026-10-16, pulled out by its
+        // 1 px edge and needed a pixel of padding here, given back by the
+        // margins.)
+        className="-mr-2 my-1 flex-1 overflow-y-auto [scrollbar-gutter:stable]"
         onScroll={hidePreview}
       >
         {filtered.length === 0 && (
@@ -2026,7 +2025,7 @@ export function App() {
             // them), 8 px between packs. It was 6 and 12, a pitch of 50 px
             // for a 44 px row, which showed seven prompts in the default
             // window; the same window now shows nine or ten.
-            <TreeSection key={sec.name} open={!sec.isCollapsed} role="group" aria-label={sec.name}>
+            <TreeSection key={sec.name} role="group" aria-label={sec.name}>
               {/* Pack title, as in the sidebar: a disclosure button (← / Ctrl+→
                   from a row do the same); Pinned / Results are plain headings.
                   Hidden from assistive tech: a listbox may hold only options
@@ -2036,12 +2035,13 @@ export function App() {
                   keyboard (← / Ctrl+→, typing @pack), and the buttons are
                   tabIndex -1 so nothing hidden is in the tab order. */}
               {/* Sticky, so the pack a row belongs to stays named while it
-                  scrolls; the frame's card ground behind it hides rows passing
-                  its rounded corners and the 2 px under it (painted here,
-                  pulled back by the children's own 2 px). Only while open: a
-                  folded pack is a plain row, as in the sidebar, and the
-                  ground made it a filled bar (2026-10-10). */}
-              <div aria-hidden className={cn("sticky top-0 z-10 -mb-0.5 pb-0.5", !sec.isCollapsed && "rounded-t-lg bg-card")}>
+                  scrolls; the shell's own ground behind it hides rows passing
+                  under it and the 2 px below it (painted here, pulled back by
+                  the children's own 2 px). The shell's ground, so a folded
+                  pack stays a plain row, as in the sidebar (the frame's card
+                  ground made it a filled bar, 2026-10-10; the frame itself
+                  went 2026-10-16). */}
+              <div aria-hidden className="sticky top-0 z-10 -mb-0.5 bg-sidebar pb-0.5">
               {sec.collapsible ? (
                 <div
                   data-selected={packSel || undefined}

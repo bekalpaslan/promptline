@@ -32,7 +32,7 @@ test("one 8 px inset: the strips share the search box's edges, and their content
   const box = page.getByRole("search")
   const row = rows(page).first()
   const [boxRect, rowRect] = await Promise.all([box.boundingBox(), row.boundingBox()])
-  // A row's fill spans its pack's frame, which is the search box's edges
+  // A row's fill spans its pack's width, which is the search box's edges
   // (the boxes stood 8 px in for a while on 2026-10-10)
   expect(Math.abs(rowRect!.x - boxRect!.x)).toBeLessThan(0.6)
   expect(Math.abs(rowRect!.x + rowRect!.width - (boxRect!.x + boxRect!.width))).toBeLessThan(0.6)
@@ -62,18 +62,20 @@ test("one 8 px inset: the strips share the search box's edges, and their content
   expect(Math.abs((await x(label)) + pad - (boxRect!.x + 8))).toBeLessThan(0.6)
 })
 
-test("an open pack's frame keeps its 1 px edge inside the list, which never scrolls sideways", async ({ page }) => {
-  // TreeSection pulls an open frame out by its edge; the list holds a
-  // pixel of padding for it, given back by its margins. Without it the
-  // left edge was clipped and the list scrolled sideways by one (review,
-  // 2026-10-10)
+test("an open pack draws no frame in the list, which never scrolls sideways", async ({ page }) => {
+  // An open pack was a 1 px-edged panel from 2026-10-10 to 2026-10-16
+  // (the list then held a pixel of padding for the edge, or it was
+  // clipped and the list scrolled sideways by one); the user found the
+  // card look wrong and had it go, and the list has no padding to give
   const list = page.getByRole("listbox", { name: "Prompts" })
   const box = (await page.getByRole("search").boundingBox())!
   const scroll = await list.evaluate((e) => ({ over: e.scrollWidth - e.clientWidth, left: e.getBoundingClientRect().left }))
   expect(scroll.over).toBe(0)
-  const frame = (await page.getByRole("group", { name: "Everyday", exact: true }).boundingBox())!
-  expect(frame.x).toBeGreaterThanOrEqual(scroll.left)
-  // …and the rows still share the search box's edges
+  const pack = page.getByRole("group", { name: "Everyday", exact: true })
+  const style = await pack.evaluate((e) => { const s = getComputedStyle(e); return { border: parseFloat(s.borderLeftWidth), bg: s.backgroundColor } })
+  expect(style).toEqual({ border: 0, bg: "rgba(0, 0, 0, 0)" })
+  expect((await pack.boundingBox())!.x).toBeCloseTo(scroll.left, 0)
+  // …and the rows share the search box's edges
   const row = (await rows(page).first().boundingBox())!
   expect(Math.abs(row.x - box.x)).toBeLessThan(0.6)
   expect(Math.abs(row.x + row.width - (box.x + box.width))).toBeLessThan(0.6)
@@ -154,15 +156,18 @@ test("pack and group headers are the sidebar's tree: a chevron each under the ot
   expect(await fill(pack)).toBe(clear)
   expect(await fill(group)).toBe(clear)
   // A folded pack is a plain row, as in the sidebar: its sticky wrapper
-  // paints the frame's card ground only while the pack is open
+  // paints the shell's own ground, open or folded, so nothing reads as a
+  // bar (the frame's card ground did, 2026-10-10; the frame went
+  // 2026-10-16)
+  const shell = await page.evaluate(() => getComputedStyle(document.querySelector("[data-tauri-drag-region]")!).backgroundColor)
   const wrap = (l: typeof pack) => l.evaluate((e) => getComputedStyle(e.parentElement!.parentElement!).backgroundColor)
-  expect(await wrap(pack)).not.toBe(clear)
+  expect(await wrap(pack)).toBe(shell)
   await pack.click()
   await expect(pack).toHaveAttribute("aria-expanded", "false")
-  expect(await wrap(pack)).toBe(clear)
+  expect(await wrap(pack)).toBe(shell)
   await pack.click()
   await expect(pack).toHaveAttribute("aria-expanded", "true")
-  // Inside the pack's frame nothing steps: the group's chevron sits under
+  // Under the pack's header nothing steps: the group's chevron sits under
   // the pack's (its name on the pack's name column), and the group's rows
   // start where the group's header does, with no guide line (gone
   // 2026-10-10: the row's inset is margin enough)

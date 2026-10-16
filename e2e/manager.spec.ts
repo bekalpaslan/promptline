@@ -140,27 +140,27 @@ test("the sidebar's rows are the popup's compact rows, and packs sit a row's hei
   expect(next!.y - (everyday!.y + everyday!.height)).toBeCloseTo(16, 0)
 })
 
-test("an open pack is the panel: header on the head ground, rows on the body ground, the edge around; folded it is a row", async ({ page }) => {
+test("an open pack is no card: no edge, no ground, its rows on the sidebar's own; folded it is a row at the same x", async ({ page }) => {
+  // The expandable panel framed an open pack from 2026-10-10 to
+  // 2026-10-16, when the user found the card look wrong in the sidebar
   const section = tree(page).locator("[data-pack='Mock Groups']")
   const pack = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
   const body = section.getByRole("group").first()
+  const clear = "rgba(0, 0, 0, 0)"
   const styleOf = (l: typeof section) => l.evaluate((e) => {
     const s = getComputedStyle(e)
-    return { border: parseFloat(s.borderLeftWidth), bg: s.backgroundColor }
+    return { border: parseFloat(s.borderLeftWidth), bg: s.backgroundColor, radius: s.borderTopLeftRadius }
   })
-  const tokens = await page.evaluate(() => {
-    const s = getComputedStyle(document.documentElement)
-    const paint = (v: string) => { const d = document.createElement("div"); d.style.backgroundColor = v; document.body.append(d); const c = getComputedStyle(d).backgroundColor; d.remove(); return c }
-    return { head: paint(s.getPropertyValue("--panel-head")), body: paint(s.getPropertyValue("--panel-body")) }
-  })
-  expect(await styleOf(section)).toEqual({ border: 1, bg: tokens.head })
-  expect((await styleOf(body)).bg).toBe(tokens.body)
-  // The frame pulls out by its border: the header's x is the folded one's
-  const openX = (await pack.boundingBox())!.x
+  expect(await styleOf(section)).toEqual({ border: 0, bg: clear, radius: "0px" })
+  expect(await styleOf(body)).toEqual({ border: 0, bg: clear, radius: "0px" })
+  // A row's box spans the pack's width, as the header's does
+  const [packBox, rowBox] = await Promise.all([pack.boundingBox(), promptRow(page, "Loose prompt").boundingBox()])
+  expect(rowBox!.x).toBeCloseTo(packBox!.x, 0)
+  expect(rowBox!.width).toBeCloseTo(packBox!.width, 0)
+  const openX = packBox!.x
   await pack.focus()
   await page.keyboard.press("ArrowLeft")
   await expect(pack).toHaveAttribute("aria-expanded", "false")
-  expect((await styleOf(section)).border).toBe(0)
   expect((await pack.boundingBox())!.x).toBeCloseTo(openX, 0)
 })
 
