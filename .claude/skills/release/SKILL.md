@@ -17,15 +17,16 @@ releases taught. Read the Releasing section first, every time; it changes.
    sources for the notes, overlapped waits, the CI failure path, what to
    skip, the report.
 2. [The shelf](#0-the-shelf): the month's theme, on a `theme/<id>` branch
-   or already merged, and the optional notes draft.
+   or already merged, the tokens master added since it was shelved, the
+   winget PR's state, and the optional notes draft.
 3. [Before the bump](#1-before-the-bump): a clean tree, third-party
    notices, the notes file.
 4. [Bump, push, build](#2-bump-push-build): the bump script, the signed
-   build as the human's step, a worktree when the tree is dirty, the
-   four files to verify before tagging.
+   build handed over in set words, a worktree when the tree is dirty,
+   the four files to verify before tagging.
 5. [Tag, release, feed](#3-tag-release-feed): tag, `gh release create`
-   with three assets, the tag's CI, the feed with `--bundle-dir`, the
-   hash check.
+   with three assets, the released hash (three steps use it), the tag's
+   CI, the feed with `--bundle-dir` and the exact url check.
 6. [Package managers](#4-package-managers): winget with komac or the
    PR-update script, Scoop with checkver.
 7. [The post, the map, the report](#5-the-post-the-map-the-report): the
@@ -51,7 +52,10 @@ The feed and the X post use the repo's own `scripts/latest-json.mjs` and
   holds resolutions worded for a reader. Anything that moves data, changes
   a default, or changes the on-disk format gets its own bullet; so does
   any change to what the app sends over the network, or "nothing changes"
-  when a security bullet might make a reader wonder.
+  when a security bullet might make a reader wonder. No bullet for a
+  commit that fixes or reworks something introduced since the last tag
+  (the user never saw the first version; describe the end state once),
+  and none for docs, tests, skills or screenshots alone.
 - **Overlap the waits.** The signed build may start as soon as the bump
   commit exists; only the tag waits for green CI (`gh run list --branch
   master --limit 3` for the id, `gh run watch <id> --exit-status`).
@@ -80,9 +84,29 @@ git diff --diff-filter=A --name-only <latest tag>..origin/master -- 'design/*.to
   month" was 0.2.18's; later ones name the theme and the month).
 - A tokens file added since the last tag on master is a theme already
   merged: same notes treatment.
+- **A shelved theme is behind master.** Master keeps adding tokens after
+  the theme was shelved (0.2.24: Clay was shelved on 2026-10-10, the
+  panel tokens landed the same week, and the merged theme failed
+  `tests/tokens.test.js` with "MAP names a missing token"). Right after
+  the merge, `npm test` first, and
+  `git diff $(git merge-base master origin/theme/<id>)..master -- design/tokens.json`
+  lists what was added. Give the theme's file each new token in the
+  position Indigo's file has it, with values by the token's own rule in
+  its `usage` (a `panel-head` equals the theme's `surface-raised`, a
+  `panel-body` its `control`, a `panel-edge` its `line` or transparent
+  by whether the theme draws lines around panels), then `npm run tokens`
+  and commit it alone as `<Theme>: the tokens added since it was shelved`.
 - Nothing on the shelf: say so in one line before continuing. Whether to
   release without the month's theme is the user's call, but don't block
   on it unless they asked for the theme release specifically.
+
+Also in step 0, so the package-manager step is known before it comes:
+`gh pr list --repo microsoft/winget-pkgs --author "@me" --search
+Promptline --state open --json number,title`. An open "New package" PR
+means the package is still unmerged upstream and komac can't update it;
+the PR-update script will (step 4). `Validation-Completed` and
+`Azure-Pipeline-Passed` labels with no moderator merge mean waiting,
+not a problem.
 
 If `docs/RELEASE-NOTES-next.md` exists, it is the draft of the notes;
 start from it and delete it in the bump commit.
@@ -105,10 +129,25 @@ start from it and delete it in the bump commit.
    `unix2dos` the five files, commit `Bump to X.Y.Z`, push master. Note
    the CI run id.
 2. **The signed build is the human's step**: the updater key's password
-   lives in their password manager. Hand over the exact command from
-   CLAUDE.md → Releasing step 3 and wait. Check first that the shell has
-   no `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; if it does, the user set it
-   on purpose and the build can run here.
+   lives in their password manager. Check first that the shell has no
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; if it does, the user set it on
+   purpose and the build can run here. Otherwise hand it over with all
+   four facts, in this shape (0.2.24's handover said only "your own
+   PowerShell" and the user asked where and when):
+
+   > The signed build is your step. **Where:** a PowerShell window of
+   > your own, in the repo root `C:\Users\alpas\IdeaProjects\easypaste`
+   > (the password prompt must stay out of this session). **When:** now;
+   > it needs only the bump commit, which is pushed, and doesn't wait for
+   > CI. It asks for the updater key's password once and takes several
+   > minutes. Say "build done" when it finishes.
+   >
+   > ```powershell
+   > <the command from CLAUDE.md → Releasing step 3>
+   > ```
+
+   Then wait; meanwhile watch CI in the background (`gh run watch <id>
+   --exit-status` as a background call), since the tag needs it.
 3. **A dirty tree needs a clean worktree.** If the checkout has another
    session's changes, the build must not come from it: a binary that
    matches no commit can't be tagged honestly. Create
@@ -131,32 +170,61 @@ Steps 4 to 6 of CLAUDE.md → Releasing, with these details:
 - `gh release create` with both installers and a copy of the setup exe
   named `Promptline-setup.exe` (the site's Download button). Confirm with
   `gh release view vX.Y.Z --json assets --jq '.assets[] | "\(.name) \(.size)"'`.
-- The tag triggers CI with the `installers` job; watch it to the end for
-  the report (it takes longer than the checks).
+- The tag triggers CI with the `installers` job, about ten minutes.
+  Start watching it in the background right away (`gh run list --branch
+  vX.Y.Z --limit 1` for the id) and report it with its artifact
+  (`gh api repos/bekalpaslan/promptline/actions/runs/<id>/artifacts`).
+- **The released hash, once.** Right after the release exists:
+
+  ```sh
+  curl -sL -o /tmp/released-setup.exe https://github.com/bekalpaslan/promptline/releases/download/vX.Y.Z/Promptline_X.Y.Z_x64-setup.exe
+  sha256sum /tmp/released-setup.exe <bundle>/nsis/Promptline_X.Y.Z_x64-setup.exe
+  ```
+
+  The two must match (a code-signed installer would differ, and then
+  the released one is the truth). Three steps use this hash: this
+  comparison, the winget PR-update script, and Scoop's manifest (which
+  checkver computes itself and must agree). Keep it in the report.
 - `node scripts/latest-json.mjs --notes <notes> --bundle-dir <bundle>`:
   `--bundle-dir` points at the worktree's `src-tauri/target/release/bundle`
-  when the build came from one. curl every url in the feed for 200
-  before committing it alone as `Site: update feed for X.Y.Z`; wait for
-  the Pages run and poll `https://promptline.cc/latest.json` until it
-  shows the version (up to ten minutes of cache).
-- Download the released setup exe and compare its sha256 with the local
-  build's: the package managers hash the released file.
+  when the build came from one. Check the feed's own urls, not every
+  `https://` in the file (the notes field holds the previous release's
+  link, and a grep over the file "finds" it with the notes' text glued
+  on and reports a 404 that isn't one, 0.2.24):
+
+  ```sh
+  for u in $(node -e 'for (const p of Object.values(require("./site/latest.json").platforms)) console.log(p.url)'); do printf "%s %s\n" "$(curl -sIL -o /dev/null -w '%{http_code}' "$u")" "$u"; done
+  ```
+
+  Every line 200, then commit it alone as `Site: update feed for X.Y.Z`,
+  push, `gh run list --workflow pages.yml --limit 1` for the Pages run,
+  `gh run watch <id>`, and poll until the live feed shows the version
+  (up to ten minutes of cache; 0.2.24 took about four):
+
+  ```sh
+  until [ "$(curl -s https://promptline.cc/latest.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).version))')" = "X.Y.Z" ]; do sleep 30; done
+  ```
 
 ## 4. Package managers
 
-Both run from this machine with the maintainer's `gh` login.
+Both run from this machine with the maintainer's `gh` login. winget
+needs only the release and the released hash, so it can run while the
+feed is still propagating; Scoop's checkver reads the version from the
+live feed, so it waits for that.
 
-- **winget.** `komac update AlpaslanBek.Promptline --version X.Y.Z --urls
+- **winget.** Step 0 said which case this is. The package merged
+  upstream: `komac update AlpaslanBek.Promptline --version X.Y.Z --urls
   <versioned setup url> --release-notes-url <release page> --submit` with
   `$env:GITHUB_TOKEN = gh auth token` (komac's exe path is in CLAUDE.md).
-  If komac answers "does not exist in microsoft/winget-pkgs", the first
-  package PR is still unmerged: find it (`gh pr list --repo
-  microsoft/winget-pkgs --author "@me" --search Promptline --state open`)
-  and move it to the new version with
-  `node .claude/skills/release/scripts/winget-pr-update.cjs <pr> X.Y.Z <sha256>`.
-  One PR carrying the latest version beats two queued ones; the
-  moderators merge it in hours or days and nothing waits on it. Never
-  clone winget-pkgs on Windows: its paths are too long for the checkout.
+  The first package PR still open (0.2.17 through 0.2.24 so far; komac
+  would answer "does not exist in microsoft/winget-pkgs"): move it to the
+  new version, from Bash, with
+  `GITHUB_TOKEN=$(gh auth token) node .claude/skills/release/scripts/winget-pr-update.cjs <pr> X.Y.Z <sha256> <YYYY-MM-DD>`.
+  It pushes one commit to the PR branch and retitles the PR; validation
+  reruns by itself. One PR carrying the latest version beats two queued
+  ones; the moderators merge it in hours or days and nothing waits on
+  it. Never clone winget-pkgs on Windows: its paths are too long for the
+  checkout.
 - **Scoop.** `checkver.ps1 -App promptline -Dir ..\scoop-bucket\bucket
   -Update` once the live feed shows the version (it reads the version
   from the feed), then commit and push the bucket.
@@ -165,8 +233,14 @@ Both run from this machine with the maintainer's `gh` login.
 
 - **X is the human's step** (the keys live in their password manager).
   Run the dry run, show the text, and hand over the command with the
-  notes path: `node scripts/post-x.mjs --notes <notes>`. If the lead
-  sentence doesn't read as a post, write a `--text` file instead.
+  notes path: `node scripts/post-x.mjs --notes <notes>`, with where and
+  when as for the build (their own PowerShell with the four `X_*`
+  variables set; any time after the live feed shows the version). If the
+  lead sentence doesn't read as a post, write a `--text` file instead.
+  The notes file lives in the session's scratchpad, which a later
+  session doesn't have; if the post happens later, regenerate it from
+  the release itself and point `--notes` at that:
+  `gh release view vX.Y.Z --json body --jq .body > notes-X.Y.Z.md`.
 - **The architecture map** needs a refresh when windows, commands, events
   or storage changed since its `meta.repository.revision` (a config
   field counts). `node .claude/skills/release/scripts/remap-map.cjs
@@ -186,6 +260,11 @@ Both run from this machine with the maintainer's `gh` login.
 
 ## What past releases taught
 
+- 0.2.24: the shelved theme was a week behind master's tokens and failed
+  the tokens test on merge (the shelf step above). A grep for `https://`
+  over `site/latest.json` reported a 404 from the notes field's link.
+  The build handover lacked where and when, and the user had to ask. The
+  winget PR from 0.2.17 was still open, its fourth version now.
 - 0.2.18: the first build came from a tree carrying another session's
   uncommitted popup work; it was rebuilt in a worktree at the tagged
   commit. The first build also ran without the key (no `.sig`); check
