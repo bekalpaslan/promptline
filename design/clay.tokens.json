@@ -260,6 +260,30 @@
           "dark": "#3b1e37"
         },
         "usage": "Ground under a config parameter chip."
+      },
+      {
+        "name": "panel-head",
+        "value": {
+          "light": "#ffffff",
+          "dark": "#1d1d1d"
+        },
+        "usage": "The expandable panel's head: the ground the editor's Prompt title line, a Settings pack card's name and the popup's clipboard line sit on. Kept equal to surface-raised by hand (the file holds no aliases): change the two together."
+      },
+      {
+        "name": "panel-body",
+        "value": {
+          "light": "#ece9df",
+          "dark": "#262626"
+        },
+        "usage": "The panel's body under the head, a step up in dark and sunk in light: the Prompt field, a pack card's details, the clipboard's two ends. Kept equal to control by hand: change the two together."
+      },
+      {
+        "name": "panel-edge",
+        "value": {
+          "light": "#e3e0d5",
+          "dark": "#2a2a2a"
+        },
+        "usage": "The panel's edge, 1 px: Clay's line, since its raised surfaces always carry a line edge (none in Instrument; Indigo's line)."
       }
     ]
   },

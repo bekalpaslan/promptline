@@ -316,6 +316,9 @@
     --param-field-bg: #fbf1dc;
     --param-config: #9a2a8c;
     --param-config-bg: #f9e6f5;
+    --panel-head: #ffffff;
+    --panel-body: #ece9df;
+    --panel-edge: #e3e0d5;
     --shadow-shell: 0 8px 24px rgba(31, 30, 29, 0.16);
     --shadow-pop: 0 4px 12px rgba(31, 30, 29, 0.10);
     --shadow-segment: 0 1px 2px rgba(31, 30, 29, 0.10);
@@ -366,6 +369,9 @@
     --param-field-bg: #3a2e12;
     --param-config: #ea8fdc;
     --param-config-bg: #3b1e37;
+    --panel-head: #1d1d1d;
+    --panel-body: #262626;
+    --panel-edge: #2a2a2a;
     --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.6);
     --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.5);
     --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
