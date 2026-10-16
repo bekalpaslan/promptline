@@ -1209,8 +1209,10 @@ test('sidebarWidth: the pane keeps 18rem when the window shrinks', () => {
 
 // ---- theme ------------------------------------------------------------------------------
 
-test('resolvePalette: indigo is the one alternative, anything else is instrument', () => {
+test('resolvePalette: indigo and clay are the alternatives, anything else is instrument', () => {
   assert.equal(core.resolvePalette('indigo'), 'indigo');
+  assert.equal(core.resolvePalette('clay'), 'clay');
+  assert.equal(core.resolvePalette('Clay'), 'instrument');
   assert.equal(core.resolvePalette('instrument'), 'instrument');
   assert.equal(core.resolvePalette(undefined), 'instrument');
   assert.equal(core.resolvePalette(null), 'instrument');
