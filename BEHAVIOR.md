@@ -109,9 +109,19 @@ first child, Left folds or steps out to the parent, Enter or Space is the
 click (with Ctrl and Shift for the selection; on a pack or group it shows
 its overview and opens it in the tree), Alt+Up/Down moves a prompt, a pack or a group, and the Menu key or Shift+F10 opens the row's menu at it. While a search
 holds every fold open, Left and Right only move. The row the keyboard is
-on carries the hover grey (`TREE_FOCUS`), no ring: the 2 px Focus glow
-sat around it over the bar that already marks the cursor, and the user
-had it go (2026-10-10). The chevron and the three
+on carries the hover grey and a 1 px hairline inside its edge in the
+input-edge ink (`TREE_FOCUS`), no ring and no hue: the 2 px Focus glow
+sat around it over the bar that then marked the cursor, and the user
+had it go (2026-10-10); the hairline came 2026-10-16, when the critique
+found a pointer resting on the tree drawing a second cursor in the same
+grey. The open prompt's row, the shown pack's or group's header and
+every row in a multi-select carry the Band grey (`TREE_SELECTED`), a
+step heavier than the hover grey in both modes and no hue, so a glance
+back from the pane finds the prompt it shows (the selection went
+unmarked from 2026-10-10, when the Focus bar at rest read as a glow, to
+2026-10-16, when the critique found the cursor lost at every Tab to the
+pane and back; on a selected row the keyboard's hairline alone says
+the cursor is here). The chevron and the three
 dots are hidden from assistive tech, since those keys reach the same
 actions, and a click on either keeps focus on the row. The rows used to be
 `role=button` tab stops with real buttons nested inside: about a hundred
@@ -128,7 +138,10 @@ behind its fold chevron, a group a medium row in the secondary ink, a
 prompt a medium row in the foreground ink (13/500, the one row-title
 weight the popup's rows and the overview's cards use too; the sidebar's
 400 and the cards' 600 had the same title in two weights, and the cards'
-12 px body is the 13/20 body size since 2026-10-10); each level steps
+12 px body is the 13/20 body size since 2026-10-10); a pack header is
+28 px and a group header 24, a row's height, so the pack keeps the
+taller row and a group is a quieter line among its rows (both were 28
+until 2026-10-16, one silhouette told apart by ink alone); each level steps
 one glyph column (20 px, the chevron and its gap) further in on the
 text (below), headers and rows carry the same 8 px right padding so
 every count ends on the rows' right edge, and counts sit there in mono. A prompt row is 24 px, the row the popup draws in Compact
@@ -691,8 +704,8 @@ the 40 px row of 2026-10-10 (twelve in Compact). The list is the sidebar's tree 
 rows and its groups' chevrons stand on its name column, a group's rows
 on the group's name column, one glyph column further (the Pinned and
 Results rows stand where a pack's own do, under their pack-level
-header), a group header has 8 px above it, and the headers are 28 px
-tall like the sidebar's. Through 0.2.22 the popup kept every title on
+header), a group header has 8 px above it, and the headers are the
+sidebar's, 28 px for a pack and 24 for a group. Through 0.2.22 the popup kept every title on
 one edge with no indent and 24 px headers; the 2026-10-10 decision that
 the two trees are one thing on two windows ended that, and the per-level
 step came with the sidebar's on 2026-10-16.
