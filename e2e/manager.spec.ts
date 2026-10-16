@@ -140,6 +140,38 @@ test("the sidebar's rows are the popup's compact rows, and packs sit a row's hei
   expect(next!.y - (everyday!.y + everyday!.height)).toBeCloseTo(16, 0)
 })
 
+test("each level steps one glyph column in on the text, the box stays the pack's width, and a group has air above it", async ({ page }) => {
+  // The critique of 2026-10-16: a group's prompts and the pack's own were
+  // one edge, so once the group's header scrolled off nothing told them
+  // apart. Now a pack's rows and its groups' chevrons stand on the pack's
+  // name column and a group's rows on the group's name column, 20 px (the
+  // chevron and its gap) per level; the boxes do not move, so the hover
+  // and the right-edge column stay edge to edge
+  const section = tree(page).locator("[data-pack='Mock Groups']")
+  const pack = section.getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
+  const loose = promptRow(page, "Loose prompt")
+  const group = section.getByRole("treeitem", { name: /^Debugging, / })
+  // Everyday has an "Explain this error" too
+  const grouped = section.getByRole("treeitem", { name: /^Explain this error/ })
+  const textLeft = (l: typeof pack) => l.locator("bdi").first().evaluate((e) => e.getBoundingClientRect().left)
+  const chevronLeft = (l: typeof pack) => l.locator("svg").first().evaluate((e) => e.getBoundingClientRect().left)
+  const packName = await textLeft(pack)
+  expect((await textLeft(loose)) - packName).toBeCloseTo(0, 0)
+  expect((await chevronLeft(group)) - packName).toBeCloseTo(0, 0)
+  expect((await textLeft(group)) - packName).toBeCloseTo(20, 0)
+  expect((await textLeft(grouped)) - packName).toBeCloseTo(20, 0)
+  const boxes = await Promise.all([pack, loose, group, grouped].map((l) => l.boundingBox()))
+  for (const b of boxes.slice(1)) {
+    expect(b!.x).toBeCloseTo(boxes[0]!.x, 0)
+    expect(b!.width).toBeCloseTo(boxes[0]!.width, 0)
+  }
+  // 8 px above a group header, half the gap between packs; 2 px below it
+  // like any row: the rhythm is 16 / 8 / 2 for pack / group / row
+  const [looseBox, groupBox, groupedBox] = boxes.slice(1)
+  expect(groupBox!.y - (looseBox!.y + looseBox!.height)).toBeCloseTo(8, 0)
+  expect(groupedBox!.y - (groupBox!.y + groupBox!.height)).toBeCloseTo(2, 0)
+})
+
 test("an open pack is no card: no edge, no ground, its rows on the sidebar's own; folded it is a row at the same x", async ({ page }) => {
   // The expandable panel framed an open pack from 2026-10-10 to
   // 2026-10-16, when the user found the card look wrong in the sidebar
