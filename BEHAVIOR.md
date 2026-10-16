@@ -138,41 +138,33 @@ when the user, liking the popup's compact tree, asked for the sidebar to
 match it (a title-only row is the compact row; the popup's two-line
 Comfortable row is the same row with its excerpt line under the title,
 40 px, with the same 2 px above the title: it had 4, and its titles sat
-lower than the sidebar's, until 2026-10-10). A row's box spans the frame
-like a header's, with the header's 8 px padding, so its title starts
-where the chevrons do, under them and 20 px left of the pack's and
-groups' names: the frame says what the rows belong to, so they need no
-step, and a group's rows sit where the pack's own do, the group's header
-saying whose they are (they hung from a guide line under the group's
-chevron, 21 px further in, until 2026-10-10). Through 2026-10-10 the
-titles stood on the name column, 28 px in (before that a pack's children
-stepped 12 px in, only the sidebar's grip pushed its titles past the
-names, and the popup's rows sat left of their header's name), and for a
-while that day the row boxes stood 8 px in under the chevrons, which
-without an edge on the frame read as an indent; the user had the rows
-fill the frame and found the titles natural at the chevrons. The
-sidebar's drag grip sits at the row's right. Packs sit 16 px apart (`TreeSection`), twice
+lower than the sidebar's, until 2026-10-10). A row's box spans the pack's
+width like a header's, with the header's 8 px padding, so its title
+starts where the chevrons do, under them and 20 px left of the pack's and
+groups' names: the header above says what the rows belong to, so they
+need no step, and a group's rows sit where the pack's own do, the
+group's header saying whose they are (they hung from a guide line under
+the group's chevron, 21 px further in, until 2026-10-10). Through
+2026-10-10 the titles stood on the name column, 28 px in (before that a
+pack's children stepped 12 px in, only the sidebar's grip pushed its
+titles past the names, and the popup's rows sat left of their header's
+name), and for a while that day the row boxes stood 8 px in under the
+chevrons, which read as an indent; the user had the rows fill the width
+and found the titles natural at the chevrons. The sidebar's drag grip
+sits at the row's right. Packs sit 16 px apart (`TreeSection`), twice
 the earlier 8, so a pack reads as its own block among rows that tight.
-An open pack is the expandable panel (`components/panel.tsx`), the
-editor's Prompt panel in small; Settings' pack cards are the same panel.
-The look is three tokens in `design/tokens.json` and the palettes' files
-(the user asked for it to be named once, 2026-10-10): `panel-head`, the
-ground the name sits on; `panel-body`, the lighter ground under it that
-holds what the thing is made of; `panel-edge`, the 1 px line around (a
-hairline in Indigo; none in Instrument since 2026-10-10, when the user
-had every panel's line go, there the head ground on the sunk pane is the
-edge, and the overview's cards, which take the same edge, keep their
-shadow). So: the edge around the head ground, the pack's header on that ground as the
-panel's title line, and its rows and groups under it on the lighter
-secondary ground, with 2 px of air above and below them, the way the
-Prompt field sits under its title (the user asked for the frame,
-2026-10-10). The frame pulls out by its own 1 px border, so the header
-and the rows keep the x they have folded, and the scroller around the
-tree holds a pixel of padding for that border (the sidebar's 12 px, the
-popup list's own 1, given back by its margins), or the border is clipped
-and the list scrolls sideways by one; a folded pack is a header row
-like any other, and a pack faded by the filter is folded. In both windows,
-since the trees are one. A pinned prompt carries a quiet pin at the
+An open pack draws nothing of its own: its header is a row like any
+other, its rows and groups sit 2 px under it on the list's ground, and
+a folded pack is the header alone (a pack faded by the filter is
+folded). From 2026-10-10 to 2026-10-16 an open pack was the expandable
+panel (`components/panel.tsx`, below): the header on the panel's head
+ground as its title line, the rows and groups on the lighter body ground
+under it inside the 1 px edge, the way the Prompt field sits under its
+title. The user had asked for that frame and, seeing it in the sidebar
+for a week, found the card look wrong there and had it go; the trees
+being one, it went from the popup too. The frame had pulled out by its
+own border, so the scrollers held a pixel of padding for it; that pixel
+went with it. In both windows, since the trees are one. A pinned prompt carries a quiet pin at the
 right of its row in the sidebar, after the hover grip, and at the right
 of its card's title in the overview (`PinMark`: the muted ink, small, no
 colour); the popup's rows carry nothing, since its Pinned section says
@@ -192,14 +184,30 @@ is for the app's own section labels, never for names the user wrote. The
 accent hue marks state (the popup's keyboard selection once an arrow key
 has moved it, focus, a search hit), not structure, per the design system's "ink first, hue second"; so the
 `heading` tokens are ink colours. In the overview a group is a heading over
-a hairline, not a panel, so it doesn't repeat its pack's look.
+a hairline, not a panel.
+
+**The expandable panel.** One look wherever the app folds a thing open
+to something other than a run of rows (`components/panel.tsx`): the
+editor's Prompt panel (its title line over the field), Settings' pack
+cards (the name over the file and actions) and the popup's clipboard
+line (the line over the clipboard's two ends). The look is three tokens
+in `design/tokens.json` and the palettes' files (the user asked for it
+to be named once, 2026-10-10): `panel-head`, the ground the name sits
+on; `panel-body`, the lighter ground under it that holds what the thing
+is made of; `panel-edge`, the 1 px line around (a hairline in Indigo;
+none in Instrument since 2026-10-10, when the user had every panel's
+line go, there the head ground on the sunk pane is the edge, and the
+overview's cards, which take the same edge, keep their shadow). The
+trees' open packs drew it too, 2026-10-10 to 2026-10-16 (above).
 
 **The editor is the prompt and little else.** The bar above the pane
 carries its crumb line (`EditorCrumbs`), which says where
 the prompt sits (pack › group at the left, each crumb opening that
 overview, the chevron after them opening the same Move-to menu a row's
 right-click does, with the prompt's own place checked) and, in one group
-at the right, holds its use count, a Pin toggle and a ⋯ menu. The Pin
+at the right, holds its use count as "Used 7×" (a bare "7×", the
+overview cards' form, said nothing on its own there; the user asked for
+the word, 2026-10-16), a Pin toggle and a ⋯ menu. The Pin
 button is pressed, in the pin's Warn, while the prompt is pinned, and
 runs the same rule as the row menu's Pin item (`togglePin`: the slot
 limit, the toasts); until 2026-10-10 the line showed "pinned" as a word
@@ -667,7 +675,7 @@ gap to read as blocks). The rows were 6 and the packs 12 apart with
 seven prompts in the default window where eight fit at 44 and nine at
 the 40 px row of 2026-10-10 (twelve in Compact). The list is the sidebar's tree (`components/tree.tsx`, see
 *The tree tells its levels apart without colour* above): a pack's groups
-start on its name column inside its frame, its rows and theirs under the
+start on its name column under its header, its rows and theirs under the
 chevrons, and the headers are 28 px tall like the sidebar's. Through 0.2.22 the popup kept every title on one edge with
 no indent and 24 px headers; the 2026-10-10 decision that the two trees
 are one thing on two windows ended that.
@@ -691,8 +699,8 @@ cursor, and once the bar said "cursor" the tint only said it again. The
 pointer's grey never marks the keyboard's row.
 
 **A clipboard of several lines shows its two ends.** The clipboard line
-is the expandable panel the packs fold open with (`components/panel.tsx`,
-since 2026-10-10, at the user's ask): its head is a 28 px line like a
+is the expandable panel (`components/panel.tsx`, since 2026-10-10, at
+the user's ask; the packs folded open with it that week): its head is a 28 px line like a
 pack header, the icon in the glyph column, then "Clipboard" (or "Last
 pasted prompt", in Warn when the selected row would wrap it), a single
 line's text in mono with the chevron that drops the whole clipboard
@@ -718,10 +726,10 @@ group's at 13/500 in the secondary ink under it, and the group's rows
 where the pack's own are, their titles under the chevrons; no header or
 row is filled at
 rest, and a header under the pointer takes the rows' hover grey. An open
-pack is the sidebar's frame too (the panel's edge, header on the head
-ground, rows on the body ground; Pinned and Results are open packs). The pack
+pack draws no frame, as in the sidebar (it did, 2026-10-10 to
+2026-10-16; Pinned and Results are open packs). The pack
 header sticks to the top of the list while its rows scroll, on the
-frame's card ground, so the pack a
+shell's own ground, so the pack a
 row belongs to stays named, and rows and group headers keep a 30 px scroll
 margin (the 28 px header and its 2 px gap) so arrowing up never parks the
 selection under it. Every count ends on the rows' right edge: the headers
@@ -735,7 +743,7 @@ missing), then a band in its own colour under the pack and a hairline
 after the group's name, with the weights pushed to 700 and 600 (2026-10-07
 and 2026-10-09). On 2026-10-10 the two trees became one, drawn by
 `components/tree.tsx` in both windows, and the sidebar's chevrons and
-frame do that parting here too. `Ctrl` is printed once, on
+weights do that parting here too. `Ctrl` is printed once, on
 the first slot's key; the rows under it show their digit alone in the same
 column. Five `Ctrl` caps down the right edge were the loudest thing in the
 list and said one thing five times (critique popup, 2026-10-03).

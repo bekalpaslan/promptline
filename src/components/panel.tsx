@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils"
 // it on a lighter ground (a step up in dark, sunk in light) holding what
 // the thing is made of, a list of prompts, a text field, a pack's file and
 // actions. The editor's Prompt panel is the pattern (its title line over
-// the field); the trees' pack frames and Settings' pack cards draw the
+// the field); Settings' pack cards and the popup's clipboard draw the
 // same since 2026-10-10, and the user asked for it to be named once (the
 // `panel-head`, `panel-body` and `panel-edge` tokens in design/tokens.json
 // and the palettes' files; Instrument's edge is none, Indigo's its line).
@@ -16,7 +16,10 @@ import { cn } from "@/lib/utils"
 // theme's `--radius-lg` outside (4 px in Instrument, 10 in Indigo), and
 // the body's bottom corners sit 1 px inside the edge, so they follow the
 // frame's (a fixed 7 px showed the head's ground in the corners, review
-// 2026-10-10). Folded, a panel is whatever its head is on its own.
+// 2026-10-10). Folded, a panel is whatever its head is on its own. The
+// trees' open packs were panels too, 2026-10-10 to 2026-10-16: the user
+// found the card look wrong in the sidebar, and a pack is a header over
+// rows again (components/tree.tsx).
 
 export const panelClass = "rounded-lg border border-(--panel-edge) bg-(--panel-head)"
 export const panelBodyClass = "rounded-b-[calc(var(--radius-lg)_-_1px)] bg-(--panel-body)"
