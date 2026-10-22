@@ -217,9 +217,7 @@ export function Settings() {
           </label>
         </Row>
         <p id="setting-hotkey-help" className="mt-3 text-ui leading-relaxed text-muted-foreground">
-          Click Record, press a combination, then Apply (Esc cancels). The default is Ctrl+Alt+V. An install from
-          0.2.16 or earlier keeps its Ctrl+Shift+V, which shadows paste in Windows Terminal and "paste without
-          formatting" in browsers.
+          Click Record, press a combination, then Apply (Esc cancels). The default is Ctrl+Alt+V.
         </p>
       </Card>
 

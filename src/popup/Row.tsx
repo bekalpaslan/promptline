@@ -139,7 +139,6 @@ export const Row = memo(function Row({
         // The shared tree's row (tree.tsx); the scroll margin clears the sticky header
         treeRowClass,
         "scroll-mt-[30px]",
-        "text-foreground",
         // A pinned row carries no mark here: the Pinned section says it
         selected && bar ? SELECTED_BAR : "hover:bg-hover",
         picked && "bg-primary/20"
