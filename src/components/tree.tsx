@@ -17,17 +17,24 @@ export function PinMark() {
 // The library tree, one look in both windows. The manager's sidebar and
 // the popup's list are the same tree on different windows (decision
 // 2026-10-10), so what a level looks like is written once here: a pack
-// header bold in the strong heading ink, a group header medium in the
-// secondary one, each with its fold chevron before its name and its
+// header bold and a group header medium, both in the body ink, each
+// with its fold chevron before its name and its
 // count at the right; every row and group header under it spanning the
-// pack's width, each level's titles one glyph column further in than the
-// level above (the indent, below); no frame, ground or edge
+// pack's width, each level's titles one glyph slot (24 px) further in
+// than the level above (the indent, below); no frame, ground or edge
 // around an open pack (it was the expandable panel from 2026-10-10 to
 // 2026-10-16, when the user found the card look wrong in the sidebar and
 // had it go). What a header *is* differs by
 // window (a treeitem with a roving tab stop in the sidebar, an aria-hidden
 // button in the popup), so the windows keep their own elements and
-// handlers and draw them with these parts.
+// handlers and draw them with these parts. Both headers are set one
+// step above the rows (14 px to the rows' 13, Tailwind's `sm` over the
+// body `text-ui`, on the same 20 px line so the 28 and 24 px rows keep
+// their height): the user found a pack's or group's name lost among its
+// rows at the body size (2026-10-22), where weight and ink alone had
+// told the levels apart since 2026-10-10. The size says "a heading" and
+// the weight and ink still say which; the rows stay the body, since
+// they are what both windows are for.
 
 export type TreeLevel = "pack" | "group"
 
@@ -53,40 +60,66 @@ export const TREE_FOCUS = "outline-none not-aria-selected:focus-visible:bg-hover
 // critique found the cursor lost at every Tab to the pane and back.
 export const TREE_SELECTED = "aria-selected:bg-band not-aria-selected:hover:bg-hover"
 
-// Each level of the tree steps one glyph column (20 px: the 16 px chevron
-// and its 4 px gap) further in, on the text, never on the box. A row's or
-// header's box spans the pack's width, so the hover grey, the drop
-// highlight and the right-edge column (counts, keys, pins) stay edge to
-// edge; what moves is where its chevron or title starts: a pack's chevron
-// at 8 px and its name at 28, the pack's own rows and a group's chevron
-// at 28, a group's name and its rows at 48. So a group's rows sit under
-// the group's name, the pack's own under the pack's, and a title says its
-// level by where it stands even when the header above has scrolled away.
-// The children's run (TreeChildren) sets the inset for everything in it
-// as `--tree-indent`; a header or row outside any run (a pack header, the
-// sidebar's flat list while sorting by uses or title) starts at the 8 px
-// side padding. In rem so the UI scale carries it. From 2026-10-10 to
-// 2026-10-16 every title stood on the chevron column and the levels
-// differed by weight and ink alone; the critique of 2026-10-16 found a
-// group's prompts indistinguishable from the pack's own once the group's
-// header had scrolled off, and the user chose the full step.
-const INDENT_PACK_CHILDREN = "[--tree-indent:1.75rem]"
+// Each level of the tree steps one glyph slot (24 px, TREE_GLYPH below)
+// further in, on the text, never on the box. A row's or header's box
+// spans the pack's width, so the hover grey, the drop highlight and the
+// right-edge column (counts, keys, pins) stay edge to edge; what moves is
+// where its chevron or title starts: a pack's slot flush at the box's
+// edge (its chevron 4 px in, centred in the slot) and its name at 24,
+// the pack's own rows and a group's slot at 24, a group's name and its
+// rows at 48. So a group's rows sit under the group's name, the pack's
+// own under the pack's, and a title says its level by where it stands
+// even when the header above has scrolled away. The children's run
+// (TreeChildren) sets the inset for everything in it as `--tree-indent`;
+// a header or row outside any run (a pack header, the sidebar's flat
+// list while sorting by uses or title) starts at the edge. In rem so the
+// UI scale carries it. No side padding, as the dicehub kit's tree has
+// none: the user's call on 2026-10-22, after 4 px for a day and 8 px
+// (with a 20 px step, the 16 px chevron and its 4 px gap, which put the
+// chevron on the popup's search-icon column) from 2026-10-16; the rest
+// of that comparison stayed (28 px pack headers, counts, the rounded
+// fill, no guide line, no per-row delete). From 2026-10-10 to 2026-10-16
+// every title stood on the chevron column and the levels differed by
+// weight and ink alone; the critique of 2026-10-16 found a group's
+// prompts indistinguishable from the pack's own once the group's header
+// had scrolled off, and the user chose the full step.
+const INDENT_PACK_CHILDREN = "[--tree-indent:1.5rem]"
 const INDENT_GROUP_CHILDREN = "[--tree-indent:3rem]"
-const INDENT = "pl-[var(--tree-indent,0.5rem)] pr-2"
+const INDENT = "pl-[var(--tree-indent,0px)] pr-0"
+
+// The glyph slot a header's chevron (or the pin and search glyphs on the
+// popup's Pinned and Results headers) sits in: 24 px wide and the row's
+// 20 px line tall (so a header keeps its height), the 16 px glyph
+// centred, so the next level's text starts one slot in. The
+// header's 4 px gap would push the name to 28; the slot's negative
+// margin folds that gap under itself, so the name starts at the slot's
+// edge and the 24 px step holds. The sidebar's fold button is the slot
+// itself (its hover fill is the slot); the popup wraps its glyph in a
+// span with it.
+export const TREE_GLYPH = "-mr-1 flex h-5 w-6 shrink-0 items-center justify-center"
 
 // The header row's layout and type; the element and its fill are the
-// caller's. A pack header is 28 px and starts at the side padding; a
+// caller's. A pack header is 28 px and starts at the box's edge; a
 // group header is 24 px, a row's height, and takes its run's inset
 // (above), so its chevron lands under the pack's rows' titles and its
 // name one column further; every count ends on the rows' right edge
 // (keys, chips) in both windows. The group header was 28 px like the
 // pack's until 2026-10-16: the two headers had one silhouette and only
 // the ink told them apart, so the pack keeps the taller row and a group
-// is a quieter line among its rows.
+// is a quieter line among its rows. Both names are a step larger than a
+// row's title (`text-sm`, see the top) and both in the body ink
+// (`--heading-strong`), the bright lines over the rows' secondary grey
+// (treeRowClass): the user asked for "prompts secondary gray and groups
+// body ink" on 2026-10-22, once the groups had grown to the headers'
+// size and read as bigger but dimmer than their own rows. A group was
+// the secondary ink (`--heading`, the module titles') from 2026-10-10,
+// a quieter line by colour; now it is quieter by weight alone. The
+// count beside a name keeps its own size and ink (`Count`,
+// prompt-bits.tsx).
 export const treeHeaderClass = (level: TreeLevel) =>
   cn(
-    "flex min-w-0 cursor-pointer select-none items-center gap-1 rounded-md text-ui",
-    level === "pack" ? "px-2 py-1 font-semibold text-(--heading-strong)" : `${INDENT} py-0.5 font-medium text-(--heading)`
+    "flex min-w-0 cursor-pointer select-none items-center gap-1 rounded-md text-sm text-(--heading-strong)",
+    level === "pack" ? "py-1 font-semibold" : `${INDENT} py-0.5 font-medium`
   )
 
 // A header's fill: the hover grey under the pointer, or, in the popup once
@@ -102,10 +135,15 @@ export const treeFillClass = (bar: boolean) => (bar ? SELECTED_BAR : "hover:bg-h
 // like a header's; its title starts at its run's inset (above), under the
 // name of the header it belongs to. The sidebar's drag grip sits at the
 // row's right, absolute, so it adds nothing; the popup's rows keep that
-// empty.
-export const treeRowClass = `relative flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md ${INDENT} py-0.5 text-ui font-medium`
+// empty. The title is the secondary grey (`muted-foreground`, the ink
+// the counts and the popup's first lines already wear), so the headers
+// in the body ink are the bright lines and the prompts the quiet run
+// under them (user, 2026-10-22; the rows were the body ink before, and
+// the groups the grey). Weight and size still part a title from the
+// popup's first line under it (13/500 over 12/400).
+export const treeRowClass = `relative flex min-w-0 cursor-pointer select-none items-center gap-1.5 rounded-md ${INDENT} py-0.5 text-ui font-medium text-muted-foreground`
 
-// The fold chevron, in the glyph column every row shares
+// The fold chevron's glyph; the slot it sits in is the caller's (TREE_GLYPH)
 export function TreeChevron({ open, className }: { open: boolean; className?: string }) {
   const Chev = open ? RiArrowDownSLine : RiArrowRightSLine
   return <Chev className={cn("size-4 shrink-0", className)} />
@@ -122,9 +160,12 @@ export function TreeName({ children }: { children: ReactNode }) {
   )
 }
 
-// One pack: its header and, unfolded, its children; 16 px to the next
-// pack, so a pack reads as its own block in a list of compact rows (8 px,
-// one row gap short of a row, let the packs run together; 2026-10-10).
+// One pack: its header and, unfolded, its children; 2 px to the next
+// pack, the rows' own gap, so the list is one flat run that the indent
+// alone divides, as the dicehub kit's tree is (2026-10-22). It was 16 px
+// from 2026-10-10 (8 before, and the packs ran together in a list of
+// compact rows) until the user, setting the tree against that kit's,
+// chose its flat rhythm with the 24 px step to tell the levels apart.
 // Open or folded, a pack draws nothing of its own: the header is a row
 // like any other and the children sit under it on the list's ground.
 // From 2026-10-10 to 2026-10-16 an open pack was the expandable panel
@@ -134,17 +175,19 @@ export function TreeName({ children }: { children: ReactNode }) {
 // to something other than rows (the editor's Prompt, Settings' pack
 // cards, the popup's clipboard).
 export function TreeSection({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("mb-4", className)} {...props} />
+  return <div className={cn("mb-0.5", className)} {...props} />
 }
 
-// One group inside a pack: its header and, unfolded, its rows. 6 px above
-// it, so with the run's 2 px a group header stands 8 px off the row or
-// header before it, half the gap between packs, and none below: the
-// rhythm is 16 / 8 / 2 for pack / group / row. With the same 2 px before
-// a group header as before any row (through 2026-10-16) a pack's loose
-// rows, a group's header and the group's rows were one run.
+// One group inside a pack: its header and, unfolded, its rows, with the
+// run's 2 px above and below like any row: the rhythm is 2 / 2 / 2 for
+// pack / group / row since 2026-10-22, the dicehub kit's flat run. From
+// 2026-10-16 a group had 6 px of its own above it (8 with the gap, half
+// the 16 between packs), because through 2026-10-16 a pack's loose rows,
+// a group's header and the group's rows had read as one run at the rows'
+// 2 px; they are one run again by the user's choice, and the 24 px step
+// now tells them apart.
 export function TreeGroup({ className, ...props }: ComponentProps<"div">) {
-  return <div className={cn("mt-1.5 flex flex-col gap-0.5", className)} {...props} />
+  return <div className={cn("flex flex-col gap-0.5", className)} {...props} />
 }
 
 // The run of rows under a header, 2 px apart, the first 2 px under its
@@ -153,7 +196,7 @@ export function TreeGroup({ className, ...props }: ComponentProps<"div">) {
 // inset its rows and headers start at (`--tree-indent`, see the top): a
 // pack's run puts its rows' titles and its groups' chevrons on the
 // pack's name column, a group's run puts its rows' titles on the group's
-// name column, one glyph column further. The rows hung from a guide line
+// name column, one glyph slot further. The rows hung from a guide line
 // under the group's chevron until 2026-10-10, then sat where the pack's
 // own did until 2026-10-16.
 export function TreeChildren({ level, className, ...props }: ComponentProps<"div"> & { level: TreeLevel }) {
