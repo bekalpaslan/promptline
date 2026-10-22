@@ -1593,7 +1593,9 @@ plugin creates it first) is a fresh install, and it takes Ctrl+Alt+V. A
 `config.json` that fails to parse is still quarantined and replaced by
 defaults, now Ctrl+Alt+V; the notice says the old hotkey is in the
 quarantined file. Settings' Reset offers Ctrl+Alt+V to every install, old
-or new, and its help text says who still has Ctrl+Shift+V.
+or new, and its help text names that default alone: it said who still
+has Ctrl+Shift+V until 2026-10-22, when the user had the sentence go
+(README and the site keep theirs).
 
 The decision fails toward "existing install", because the two mistakes
 are not equal: calling an existing install fresh moves its hotkey for
