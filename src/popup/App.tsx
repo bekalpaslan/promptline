@@ -30,7 +30,7 @@ import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { footClass } from "@/components/foot"
 import { panelBodyClass, panelClass } from "@/components/panel"
-import { TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
+import { TREE_GLYPH, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
 import { Button } from "@/components/ui/button"
 import { MENU_ITEM, MENU_PANEL, SELECTED_BAR } from "@/components/menu-styles"
 import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
@@ -2015,14 +2015,17 @@ export function App() {
           const headerClass = cn(treeHeaderClass("pack"), "flex-1 text-left", !sec.collapsible && "cursor-default")
           const headerBody = (
             <>
-              {sec.collapsible ? <TreeChevron open={!sec.isCollapsed} className="text-muted-foreground" /> : <Lead className="size-4 shrink-0 text-muted-foreground" />}
+              <span className={cn(TREE_GLYPH, "text-muted-foreground")}>
+                {sec.collapsible ? <TreeChevron open={!sec.isCollapsed} /> : <Lead className="size-4" />}
+              </span>
               <TreeName>{sec.name}</TreeName>
               <Count>{sec.count}</Count>
             </>
           )
           return (
             // Rhythm: 2 px between rows (the rounded fill already parts
-            // them), 8 px between packs. It was 6 and 12, a pitch of 50 px
+            // them) and, since 2026-10-22, 2 px between packs too (16 from
+            // 2026-10-10, 8 before). It was 6 and 12, a pitch of 50 px
             // for a 44 px row, which showed seven prompts in the default
             // window; the same window now shows nine or ten.
             <TreeSection key={sec.name} role="group" aria-label={sec.name}>
@@ -2107,7 +2110,9 @@ export function App() {
                               inputRef.current?.focus()
                             }}
                           >
-                            <TreeChevron open={!gc} className="text-muted-foreground" />
+                            <span className={cn(TREE_GLYPH, "text-muted-foreground")}>
+                              <TreeChevron open={!gc} />
+                            </span>
                             <TreeName>{g}</TreeName>
                             <Count>{es.length}</Count>
                           </button>
