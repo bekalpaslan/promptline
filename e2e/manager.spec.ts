@@ -126,27 +126,30 @@ test("the tree is one tab stop and the arrow keys walk it", async ({ page }) => 
   await expect(items.first()).toBeFocused()
 })
 
-test("the sidebar's rows are the popup's compact rows, and packs sit a row's height apart", async ({ page }) => {
+test("the sidebar's rows are the popup's compact rows, and packs sit a row's gap apart", async ({ page }) => {
   // One tree on two windows: a title-only row is the 24 px row the
   // popup draws in Compact, under the 28 px headers (2026-10-10)
   const row = await promptRow(page, "Just the command").boundingBox()
   expect(row!.height).toBeCloseTo(24, 0)
   const pack = await tree(page).getByRole("treeitem", { name: "Everyday, 12 prompts" }).boundingBox()
   expect(pack!.height).toBeCloseTo(28, 0)
-  // 16 px from a pack's last row to the next pack's header, so a pack
-  // reads as a block among rows that tight
+  // 2 px from a pack's last row to the next pack's header, the rows' own
+  // gap: the list is one flat run since 2026-10-22 (16 px from
+  // 2026-10-10, when packs needed air to read as blocks among rows that
+  // tight; the 24 px step does that now)
   const everyday = await tree(page).locator("[data-pack='Everyday']").boundingBox()
   const next = await tree(page).locator("[data-pack='Mock Groups']").boundingBox()
-  expect(next!.y - (everyday!.y + everyday!.height)).toBeCloseTo(16, 0)
+  expect(next!.y - (everyday!.y + everyday!.height)).toBeCloseTo(2, 0)
 })
 
-test("each level steps one glyph column in on the text, the box stays the pack's width, and a group has air above it", async ({ page }) => {
+test("each level steps one 24 px glyph slot in on the text, the box stays the pack's width, and a group sits in the run like a row", async ({ page }) => {
   // The critique of 2026-10-16: a group's prompts and the pack's own were
   // one edge, so once the group's header scrolled off nothing told them
-  // apart. Now a pack's rows and its groups' chevrons stand on the pack's
-  // name column and a group's rows on the group's name column, 20 px (the
-  // chevron and its gap) per level; the boxes do not move, so the hover
-  // and the right-edge column stay edge to edge
+  // apart. Now a pack's rows and its groups' chevron slots stand on the
+  // pack's name column and a group's rows on the group's name column,
+  // one 24 px slot per level (the dicehub kit's step, 2026-10-22; 20 px,
+  // the chevron and its gap, from 2026-10-16); the boxes do not move, so
+  // the hover and the right-edge column stay edge to edge
   const section = tree(page).locator("[data-pack='Mock Groups']")
   const pack = section.getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
   const loose = promptRow(page, "Loose prompt")
@@ -154,25 +157,55 @@ test("each level steps one glyph column in on the text, the box stays the pack's
   // Everyday has an "Explain this error" too
   const grouped = section.getByRole("treeitem", { name: /^Explain this error/ })
   const textLeft = (l: typeof pack) => l.locator("bdi").first().evaluate((e) => e.getBoundingClientRect().left)
-  const chevronLeft = (l: typeof pack) => l.locator("svg").first().evaluate((e) => e.getBoundingClientRect().left)
+  // The slot is the fold button; its glyph sits centred, 4 px into it
+  const slotLeft = (l: typeof pack) => l.locator("button").first().evaluate((e) => e.getBoundingClientRect().left)
   const packName = await textLeft(pack)
   expect((await textLeft(loose)) - packName).toBeCloseTo(0, 0)
-  expect((await chevronLeft(group)) - packName).toBeCloseTo(0, 0)
-  expect((await textLeft(group)) - packName).toBeCloseTo(20, 0)
-  expect((await textLeft(grouped)) - packName).toBeCloseTo(20, 0)
+  expect((await slotLeft(group)) - packName).toBeCloseTo(0, 0)
+  expect((await textLeft(group)) - packName).toBeCloseTo(24, 0)
+  expect((await textLeft(grouped)) - packName).toBeCloseTo(24, 0)
+  // The pack's own slot stands flush at the box's edge, its name one
+  // slot in at 24 (the slot stood at a 4 px side padding for a day on
+  // 2026-10-22, and the chevron 8 px in before)
+  const packBox = (await pack.boundingBox())!
+  expect((await slotLeft(pack)) - packBox.x).toBeCloseTo(0, 0)
+  expect(packName - packBox.x).toBeCloseTo(24, 0)
   const boxes = await Promise.all([pack, loose, group, grouped].map((l) => l.boundingBox()))
   for (const b of boxes.slice(1)) {
     expect(b!.x).toBeCloseTo(boxes[0]!.x, 0)
     expect(b!.width).toBeCloseTo(boxes[0]!.width, 0)
   }
-  // 8 px above a group header, half the gap between packs; 2 px below it
-  // like any row: the rhythm is 16 / 8 / 2 for pack / group / row
+  // 2 px above a group header and 2 below, like any row: the rhythm is
+  // 2 / 2 / 2 for pack / group / row (16 / 8 / 2 from 2026-10-16 to
+  // 2026-10-22)
   const [looseBox, groupBox, groupedBox] = boxes.slice(1)
-  expect(groupBox!.y - (looseBox!.y + looseBox!.height)).toBeCloseTo(8, 0)
+  expect(groupBox!.y - (looseBox!.y + looseBox!.height)).toBeCloseTo(2, 0)
   expect(groupedBox!.y - (groupBox!.y + groupBox!.height)).toBeCloseTo(2, 0)
   // A pack header keeps the taller row; a group header is a row's height
   expect(boxes[0]!.height).toBeCloseTo(28, 0)
   expect(groupBox!.height).toBeCloseTo(24, 0)
+})
+
+test("a pack's and a group's name are a step larger than a row's title: 14/600, 14/500 and 13/500", async ({ page }) => {
+  // The three levels were one size, told apart by weight and ink, from
+  // 2026-10-10 to 2026-10-22, when the user found the names lost among
+  // the rows. The step rides the same 20 px line, so the 28 and 24 px
+  // headers above hold; the count beside a name keeps its own 12 px
+  const section = tree(page).locator("[data-pack='Mock Groups']")
+  const style = (l: ReturnType<typeof promptRow>) => l.evaluate((e) => ({ size: getComputedStyle(e).fontSize, weight: getComputedStyle(e).fontWeight }))
+  const pack = section.getByRole("treeitem", { name: "Mock Groups, 4 prompts" })
+  const group = section.getByRole("treeitem", { name: /^Debugging, / })
+  expect(await style(pack)).toEqual({ size: "14px", weight: "600" })
+  expect(await style(group)).toEqual({ size: "14px", weight: "500" })
+  expect(await style(promptRow(page, "Loose prompt"))).toEqual({ size: "13px", weight: "500" })
+  const count = pack.getByText("4", { exact: true })
+  expect(await count.evaluate((e) => getComputedStyle(e).fontSize)).toBe("12px")
+  // The inks: both headers in the body ink, the rows in the counts' grey
+  // (user, 2026-10-22; the groups wore the grey and the rows the ink)
+  const ink = (l: ReturnType<typeof promptRow>) => l.evaluate((e) => getComputedStyle(e).color)
+  expect(await ink(group)).toBe(await ink(pack))
+  expect(await ink(promptRow(page, "Loose prompt"))).toBe(await ink(count))
+  expect(await ink(promptRow(page, "Loose prompt"))).not.toBe(await ink(pack))
 })
 
 test("the open prompt's row and the shown pack's header carry the Band grey, and the keyboard's row a hairline", async ({ page }) => {
@@ -252,7 +285,8 @@ test("a pinned prompt's row carries a quiet pin at its right and no bar", async 
   await expect(pinned.locator("[data-pin]")).toHaveCount(1)
   await expect(plain.locator("[data-pin]")).toHaveCount(0)
   const [rowBox, pinBox] = await Promise.all([pinned.boundingBox(), pinned.locator("[data-pin]").boundingBox()])
-  expect(pinBox!.x + pinBox!.width).toBeCloseTo(rowBox!.x + rowBox!.width - 8, 0)
+  // Flush on the rows' right edge: no side padding (8 px until 2026-10-22, 4 for a day)
+  expect(pinBox!.x + pinBox!.width).toBeCloseTo(rowBox!.x + rowBox!.width, 0)
   expect(await pinned.evaluate((e) => getComputedStyle(e).boxShadow)).toBe("none")
   await expect(page.getByRole("complementary", { name: "Prompts" }).getByText("pinned", { exact: true })).toHaveCount(0)
 })

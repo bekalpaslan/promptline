@@ -134,17 +134,27 @@ composition, which chooses the candidate (`commitKey` in `field.tsx`);
 it used to commit half a Japanese or Chinese word.
 
 **The tree tells its levels apart without colour.** A pack is a bold row
-behind its fold chevron, a group a medium row in the secondary ink, a
-prompt a medium row in the foreground ink (13/500, the one row-title
+behind its fold chevron, a group a medium row, both in the body ink; a
+prompt a medium row in the secondary grey (13/500, the one row-title
 weight the popup's rows and the overview's cards use too; the sidebar's
 400 and the cards' 600 had the same title in two weights, and the cards'
-12 px body is the 13/20 body size since 2026-10-10); a pack header is
+12 px body is the 13/20 body size since 2026-10-10; the rows wore the
+body ink and the groups the grey until 2026-10-22, when the user, seeing
+a group grown to the headers' size yet dimmer than its own rows, had the
+inks swapped: the headers are the bright lines, the prompts the quiet
+run under them, and the counts and the popup's first lines share the
+rows' grey); a pack's and a
+group's name are one step larger than a row's title (14 px, Tailwind's
+`sm`, on the same 20 px line as the 13 px body, so no row changes height;
+the user found the names lost among the rows at the body size, where
+weight and ink alone had told the levels apart from 2026-10-10 to
+2026-10-22) and the count beside a name keeps its own 12 px; a pack header is
 28 px and a group header 24, a row's height, so the pack keeps the
 taller row and a group is a quieter line among its rows (both were 28
 until 2026-10-16, one silhouette told apart by ink alone); each level steps
-one glyph column (20 px, the chevron and its gap) further in on the
-text (below), headers and rows carry the same 8 px right padding so
-every count ends on the rows' right edge, and counts sit there in mono. A prompt row is 24 px, the row the popup draws in Compact
+one glyph slot (24 px) further in on the text (below), headers and rows
+carry no side padding so every count ends flush on the rows' right
+edge, and counts sit there in mono. A prompt row is 24 px, the row the popup draws in Compact
 density (`treeRowClass`): the sidebar's rows were 28 px until 2026-10-10,
 when the user, liking the popup's compact tree, asked for the sidebar to
 match it (a title-only row is the compact row; the popup's two-line
@@ -153,15 +163,22 @@ Comfortable row is the same row with its excerpt line under the title,
 lower than the sidebar's, until 2026-10-10). A row's or header's box
 spans the pack's width, so the hover grey, the drop highlight and the
 right-edge column stay edge to edge; what steps is the text. A pack's
-chevron stands 8 px in and its name at 28; the pack's own rows and its
-groups' chevrons stand on the pack's name column, 28 px in; a group's
-name and its rows one column further, at 48 (`--tree-indent`, set by
-the run of children, `TreeChildren`; in rem, so the UI scale carries
-it). So a group's rows sit under the group's name and the pack's own
+chevron sits centred in a 24 px slot (`TREE_GLYPH`) flush at the box's
+edge, so the glyph stands 4 px in, and its name at 24; the pack's own
+rows and its groups' slots stand on the pack's name column, 24 px in; a
+group's name and its rows one slot further, at 48 (`--tree-indent`, set
+by the run of children, `TreeChildren`; in rem, so the UI scale carries
+it). The slot and the flush edge came on 2026-10-22, when the user set
+the tree against the dicehub UI kit's and took its 24 px step and its
+rows with no side padding (4 px for a day first; from 2026-10-16 the
+step was a 20 px column, the chevron and its gap, at 8 px side padding,
+which put the chevron on the popup's search-icon column), kept the
+28 px pack header, the counts and the rounded 24 px fill, and declined
+its guide lines, its per-row delete icon and its inline badges. So a group's rows sit under the group's name and the pack's own
 under the pack's, and a title says its level by where it stands even
 after the header above has scrolled off. A row outside any run (the
 sidebar's list sorted by uses or title, which has no headers) starts at
-the side padding. The step is on the text, not the box, on purpose: for
+the edge. The step is on the text, not the box, on purpose: for
 a while on 2026-10-10 the row boxes stood 8 px in under the chevrons,
 and the user had the rows fill the width. From 2026-10-10 to 2026-10-16
 every title stood on the chevron column and the levels differed by
@@ -173,12 +190,13 @@ rows alone. Before 2026-10-10 the titles stood on the name column with
 the rows hanging from a guide line under the group's chevron, 21 px
 further in, and the sidebar's grip, then at the row's left, pushed its
 titles past the names, which is why that layout went; the grip sits at
-the row's right now. Packs sit 16 px apart (`TreeSection`), twice the
-earlier 8, so a pack reads as its own block among rows that tight, and
-a group header stands 8 px off whatever is above it (`TreeGroup`, since
-2026-10-16; it had the rows' 2 px, and a pack's loose rows, a group's
-header and the group's rows read as one run) with the rows' 2 px below
-it: the rhythm is 16 / 8 / 2 for pack / group / row.
+the row's right now. Packs sit 2 px apart (`TreeSection`) and a group
+header 2 px off whatever is above it (`TreeGroup`), the rows' own gap:
+the rhythm is 2 / 2 / 2 for pack / group / row, one flat run that the
+24 px step alone divides, as in the dicehub kit's tree (2026-10-22, the
+user's choice over the 16 / 8 / 2 of 2026-10-16, when packs sat 16 px
+apart to read as blocks among rows that tight and a group had 8 px of
+air so a pack's loose rows, its header and its rows were not one run).
 An open pack draws nothing of its own: its header is a row like any
 other, its rows and groups sit 2 px under it on the list's ground, and
 a folded pack is the header alone (a pack faded by the filter is
@@ -629,8 +647,13 @@ it out: the folded headers show it, and the line was one more strip between
 the clipboard and the prompts.
 
 **One inset.** Every strip of the popup shares the search box's edges, and
-its content starts 8 px in: the search icon, the clipboard icon, a pack's
-chevron, a row's title. The hint bar is the exception since 2026-10-10:
+its content starts 8 px in: the search icon, the clipboard icon, the
+form's title and labels. The tree is the exception since 2026-10-22: its
+rows carry no side padding (*The tree tells its levels apart without
+colour*), so a pack's chevron sits 4 px in, centred in its slot at the
+edge, and a row's title 24 px in, one slot past it (8 and 28 from
+2026-10-16, the chevron on the icon column, until the user took the
+dicehub kit's flush rows). The hint bar is the other exception since 2026-10-10:
 it is the sidebar's foot, edge to edge on the window, and its first key
 starts on the strips' edge (*Keep open*, below). The list used to carry
 2 px of side padding, so a row's fill was narrower than the box above it,
@@ -694,17 +717,19 @@ box). A tree of `treeitem`s, like the sidebar, was the other way; it would
 have made the headers keyboard rows, which they have never been here.
 
 **The list's rhythm.** Rows sit 2 px apart (the rounded fill already
-parts them) and packs 16 px apart (8 until 2026-10-10, when the sidebar
-took the popup's compact row and the packs needed more air than a row's
-gap to read as blocks). The rows were 6 and the packs 12 apart with
+parts them) and packs 2 px apart too since 2026-10-22, the flat run of
+the sidebar's tree (16 from 2026-10-10, when the sidebar took the
+popup's compact row and the packs needed more air than a row's gap to
+read as blocks, and 8 before). The rows were 6 and the packs 12 apart with
 28 px headers before 0.2.21, a 50 px pitch for a 44 px row, which showed
 seven prompts in the default window where eight fit at 44 and nine at
 the 40 px row of 2026-10-10 (twelve in Compact). The list is the sidebar's tree (`components/tree.tsx`, see
 *The tree tells its levels apart without colour* above): a pack's own
-rows and its groups' chevrons stand on its name column, a group's rows
-on the group's name column, one glyph column further (the Pinned and
+rows and its groups' chevron slots stand on its name column, a group's
+rows on the group's name column, one 24 px slot further (the Pinned and
 Results rows stand where a pack's own do, under their pack-level
-header), a group header has 8 px above it, and the headers are the
+header, whose pin or search glyph sits in the slot a chevron would), a
+group header has the rows' 2 px above it, and the headers are the
 sidebar's, 28 px for a pack and 24 for a group. Through 0.2.22 the popup kept every title on
 one edge with no indent and 24 px headers; the 2026-10-10 decision that
 the two trees are one thing on two windows ended that, and the per-level
@@ -750,9 +775,11 @@ costs 24 px more, one row. A single line keeps the head alone
 (`clipboardEnds` in core).
 
 **A header never reads as a prompt.** The headers are the sidebar's: a
-pack's name at 13/600 in the strong heading ink behind its chevron
-(Pinned's pin and Results' magnifier stand in the chevron's place), a
-group's at 13/500 in the secondary ink under it, and the group's rows
+pack's name at 14/600 behind its chevron (Pinned's pin and Results'
+magnifier stand in the chevron's place), a group's at 14/500 under it,
+both in the body ink over rows in the secondary grey (13/500; the sizes
+and inks of 2026-10-22, see *The tree tells its levels apart without
+colour*), and the group's rows
 where the pack's own are, their titles under the chevrons; no header or
 row is filled at
 rest, and a header under the pointer takes the rows' hover grey. An open
@@ -763,7 +790,8 @@ shell's own ground, so the pack a
 row belongs to stays named, and rows and group headers keep a 30 px scroll
 margin (the 28 px header and its 2 px gap) so arrowing up never parks the
 selection under it. Every count ends on the rows' right edge: the headers
-carry the rows' 8 px side padding, and the header's filter button waits
+share the rows' flush edge (no side padding since 2026-10-22, 8 px
+before), and the header's filter button waits
 over the count (shown on hover) and takes a slot of its own only while
 its filter is on; holding the slot put the counts 26 px in from the keys
 and chips below them. Through 0.2.22 the popup parted its headers from
@@ -1718,10 +1746,13 @@ the root font size; `text-ui` (13px at 100%, the body) was a literal
 while the 12px first line grew to 15px and the 16px pack headers to 20px.
 It and `text-micro` (11px: chips, key caps, the popup's hint bar, the `xs`
 button) are the two named steps below Tailwind's `sm`; there is no
-`text-[11px]` or `text-[13px]` anywhere. Pack titles in the popup's list
-are the body size at 600, as in the sidebar (700 from 0.2.22 to
-2026-10-10, when the two trees became one), where they were `text-base`,
-the largest text in the popup above the prompt titles the window is for.
+`text-[11px]` or `text-[13px]` anywhere. Pack and group titles in both
+trees are `text-sm` (14px, the step above the body) at 600 and 500 since
+2026-10-22, when the user found them lost among the 13px rows; they were
+the body size from 2026-10-10, when the two trees became one, and before
+that the popup's were `text-base` at 700 (0.2.22 to 2026-10-10), the
+largest text in the popup above the prompt titles the window is for,
+which is why the step is one and not three.
 The `{N}` badge on a row is on the fill-in tint (it counts fill-ins) rather
 than the warn tint, whose text read 4.1:1 on its 15% ground in light; and
 a tag's text on a dark surface is the hue lifted a fifth towards white

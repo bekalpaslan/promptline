@@ -11,7 +11,7 @@ import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { footClass } from "@/components/foot"
-import { PinMark, TREE_FOCUS, TREE_SELECTED, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeHeaderClass, treeRowClass } from "@/components/tree"
+import { PinMark, TREE_FOCUS, TREE_GLYPH, TREE_SELECTED, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeHeaderClass, treeRowClass } from "@/components/tree"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
@@ -742,7 +742,7 @@ export function Sidebar() {
           tabIndex={-1}
           aria-hidden
           title={isCollapsed ? "Expand" : "Collapse"}
-          className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className={cn(TREE_GLYPH, "cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground")}
           onMouseDown={keepRowFocus}
           onClick={(e) => {
             e.stopPropagation()
@@ -810,7 +810,6 @@ export function Sidebar() {
           // The open prompt and a multi-selected row carry the Band grey
           // (TREE_SELECTED, tree.tsx; no mark from 2026-10-10 to
           // 2026-10-16, when the pane alone showed it)
-          "text-foreground",
           TREE_SELECTED,
           multi && "outline outline-1 -outline-offset-1 outline-primary",
           // Lifted: the row stays in place, dimmed, while its ghost travels
@@ -887,7 +886,7 @@ export function Sidebar() {
           tabIndex={-1}
           aria-hidden
           title={isCollapsed ? "Expand" : "Collapse"}
-          className="flex shrink-0 cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground"
+          className={cn(TREE_GLYPH, "cursor-pointer rounded-sm text-muted-foreground hover:bg-secondary hover:text-foreground")}
           onMouseDown={keepRowFocus}
           onClick={(e) => {
             e.stopPropagation()
