@@ -1,3 +1,6 @@
 {
-  "bundle": { "createUpdaterArtifacts": false }
+  "bundle": {
+    "createUpdaterArtifacts": false,
+    "windows": { "certificateThumbprint": null }
+  }
 }

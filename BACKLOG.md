@@ -119,6 +119,14 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   times that; check the pricing page before building it.
 
 - **Code signing** — unsigned installers trip Windows SmartScreen.
+  Decided 2026-10-23: a Certum Open Source Code Signing certificate in
+  the cloud (SimplySign), issued to the maintainer, signing the local
+  release build through `bundle.windows.certificateThumbprint`; CI and
+  `build:unsigned` stay unsigned (`tauri.unsigned.conf.json` clears the
+  thumbprint). Azure Artifact Signing is closed to EU individuals, and
+  EV lost its SmartScreen bypass in 2024. SignPath Foundation, which
+  declined the first application, stays the free fallback. Waiting on
+  the certificate.
 - ~~**Auto-update**~~ — **shipped 0.2.17**: the Tauri
   updater reads `site/latest.json` on promptline.cc, written by the release
   step (CLAUDE.md, Releasing).
