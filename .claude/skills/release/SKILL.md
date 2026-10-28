@@ -19,8 +19,8 @@ releases taught. Read the Releasing section first, every time; it changes.
 2. [The shelf](#0-the-shelf): the month's theme, on a `theme/<id>` branch
    or already merged, the tokens master added since it was shelved, the
    winget PR's state, and the optional notes draft.
-3. [Before the bump](#1-before-the-bump): a clean tree, third-party
-   notices, the notes file.
+3. [Before the bump](#1-before-the-bump): the work branch merged and
+   checked, a clean tree, third-party notices, the notes file.
 4. [Bump, push, build](#2-bump-push-build): the bump script, the signed
    build handed over in set words, a worktree when the tree is dirty,
    the four files to verify before tagging.
@@ -113,6 +113,13 @@ start from it and delete it in the bump commit.
 
 ## 1. Before the bump
 
+- Merge the session's work branch into master first, as a command of its
+  own: `git merge --no-ff <branch> -m "Merge branch '<branch>'"` (`git
+  merge` takes its message from `-m` or a real file; it has no stdin
+  form). Then `git log --oneline -3` on master must show the merge before
+  the bump runs. The tag can only sit on the bump if nothing lands after
+  it: in 0.2.25 the merge failed inside a chained command, the chain went
+  on, the bump landed first, and the tag had to move to the merge commit.
 - Check the working tree: `git status --short`. Modified files that this
   session didn't make belong to another session (it happens). Never
   commit them, and don't build from a tree that has them (below).
@@ -159,14 +166,22 @@ start from it and delete it in the bump commit.
    four files exist (`…-setup.exe`, `…_en-US.msi`, both with `.sig`
    beside them, timestamps after the bump). No `.sig` means the build ran
    without the key; ask for it again. The feed can't be written without
-   them and installed copies would refuse the update.
+   them and installed copies would refuse the update. The build also
+   rewrites `src-tauri/Cargo.toml` as LF, which `git status` shows as a
+   modification with no content lines: when
+   `git diff --ignore-cr-at-eol -- src-tauri/Cargo.toml` prints nothing,
+   `git checkout -- src-tauri/Cargo.toml`, so the tree is clean for the
+   tag and the feed commit.
 
 ## 3. Tag, release, feed
 
 Steps 4 to 6 of CLAUDE.md → Releasing, with these details:
 
-- Tag the commit the build was made from, which is the bump commit (or
-  the later commit the worktree checked out). CI must be green on it.
+- Tag the commit HEAD was at when the build ran: the bump commit when
+  nothing landed after it, otherwise the later one (a merge that came
+  late, the worktree's checkout). CI must be green on that commit, not on
+  an earlier one; `gh run list --branch master --limit 3` names the
+  commit of each run.
 - `gh release create` with both installers and a copy of the setup exe
   named `Promptline-setup.exe` (the site's Download button). Confirm with
   `gh release view vX.Y.Z --json assets --jq '.assets[] | "\(.name) \(.size)"'`.
@@ -216,8 +231,8 @@ live feed, so it waits for that.
   upstream: `komac update AlpaslanBek.Promptline --version X.Y.Z --urls
   <versioned setup url> --release-notes-url <release page> --submit` with
   `$env:GITHUB_TOKEN = gh auth token` (komac's exe path is in CLAUDE.md).
-  The first package PR still open (0.2.17 through 0.2.24 so far; komac
-  would answer "does not exist in microsoft/winget-pkgs"): move it to the
+  The first package PR still open (since 0.2.17; komac would answer
+  "does not exist in microsoft/winget-pkgs"): move it to the
   new version, from Bash, with
   `GITHUB_TOKEN=$(gh auth token) node .claude/skills/release/scripts/winget-pr-update.cjs <pr> X.Y.Z <sha256> <YYYY-MM-DD>`.
   It pushes one commit to the PR branch and retitles the PR; validation
@@ -255,16 +270,21 @@ live feed, so it waits for that.
   triggered with its outcome; downstream state (Scoop commit, winget PR
   number and what happened to it, map republished); the X command for
   the user; anything left in flight or skipped and why.
-- Delete the merged `theme/<id>` branch (local and origin) and the
-  release worktree, if any.
+- Delete the merged `theme/<id>` branch (local and origin), the session's
+  merged work branch, and the release worktree, if any.
 
 ## What past releases taught
 
+- 0.2.25: the work branch's merge ran inside a chained command with
+  `-F -`, failed, and the chain went on, so the bump landed on master
+  before the merge; the tag went on the merge commit the build ran from,
+  and CI on the bump commit was cancelled as superseded. Hence the merge
+  bullet before the bump and the tag named by the build, not the bump.
 - 0.2.24: the shelved theme was a week behind master's tokens and failed
   the tokens test on merge (the shelf step above). A grep for `https://`
   over `site/latest.json` reported a 404 from the notes field's link.
   The build handover lacked where and when, and the user had to ask. The
-  winget PR from 0.2.17 was still open, its fourth version now.
+  winget PR from 0.2.17 was still open.
 - 0.2.18: the first build came from a tree carrying another session's
   uncommitted popup work; it was rebuilt in a worktree at the tagged
   commit. The first build also ran without the key (no `.sig`); check
@@ -272,8 +292,6 @@ live feed, so it waits for that.
 - 0.2.17: the winget PR passed validation and sat for a week waiting for a
   moderator; komac can't update a package that isn't merged, hence the
   PR-update script.
-- Any `cargo` run rewrites `src-tauri/Cargo.toml` as LF; `git checkout --
-  src-tauri/Cargo.toml` when that is the only diff.
 - `npm install` of a new dependency rewrites the lockfile and drops
   optional-peer entries CI's npm 10 needs; rebuild the lock from `HEAD`
   plus the new entries (CLAUDE.md → Housekeeping) before the bump.
