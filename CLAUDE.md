@@ -39,17 +39,21 @@ backlog, not from another audit, unless asked.
   agents never edit it.
 - `docs/architecture/` — the architecture map, for the human managing the
   project (see *Architecture map* below).
-- `.claude/skills/` — the three project skills, tracked while the rest of
+- `.claude/skills/` — the four project skills, tracked while the rest of
   `.claude/` is ignored: `monthly-theme` (a theme from a Figma design,
   trialled as a skin over the mock, wired through the token pipeline and
   shelved on a `theme/<id>` branch; Promptline ships one theme a month
   since 0.2.18), `release` (the *Releasing* section below with the
   maintainer's standing decisions, the shelf check for the month's
-  theme, and the scripts: version bump, winget PR update, map remap)
-  and `doc-audit` (every checkable claim in the docs checked against the
+  theme, and the scripts: version bump, winget PR update, map remap),
+  `doc-audit` (every checkable claim in the docs checked against the
   code and the doc fixed, one commit per doc, on a `chore/doc-audit-…`
-  branch). `/monthly-theme <figma url>`, `/release` and
-  `/doc-audit [doc, area or "since vX.Y.Z"]` run them.
+  branch) and `fresh-eyes` (an open-ended improvement review where the
+  agents, not the asker, choose the areas: blind discovery, a check of
+  each proposal by an agent that didn't write it, one ranked report with
+  the maintainer's decisions in their own section; read-only, with a
+  ready-made workflow script). `/monthly-theme <figma url>`, `/release`,
+  `/doc-audit [doc, area or "since vX.Y.Z"]` and `/fresh-eyes` run them.
 - `site/` — the website at https://promptline.cc (the home page, `posts/`
   and `code-signing/`), published to
   GitHub Pages by `.github/workflows/pages.yml` on every push to `master`
