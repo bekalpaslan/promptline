@@ -76,7 +76,7 @@ over from an older version. Turn it off under **Settings → About**.
 
 ### Build from source
 
-Requires Rust and Node 22. `npm run build` produces the same two installers
+Requires Rust and Node 24. `npm run build` produces the same two installers
 under `src-tauri/target/release/bundle/` (`nsis/` and `msi/`). See
 [Development](#development).
 
@@ -92,13 +92,20 @@ macOS only, and its snippets have no packs, groups or files an agent can
 write. Promptline runs on Windows today, with a macOS version on the way.
 
 **Why not slash commands in Claude Code, or Cursor rules?** They're the
-right tool inside the one tool they belong to. A prompt library hotkey works
-everywhere: the same library pastes into the terminal, the browser, the IDE
-and a PR comment box.
+right tool inside the one tool they belong to; Windows Terminal's snippets
+are the same, with no clipboard to put inside. A prompt library hotkey
+works everywhere: the same library pastes into the terminal, the browser,
+the IDE and a PR comment box.
 
 **Why not a clipboard manager?** Ditto and the Windows clipboard history
 remember what you copied, and do it well. Promptline is what you meant to
 say about it: your clipboard, inside the prompt you picked.
+
+**Why not PowerToys Advanced Paste?** It runs a model over your clipboard,
+a model you configure, and pastes what the model said. Promptline runs no
+model and sends nothing anywhere: it pastes the prompt you picked, your
+clipboard inside, into the agent you were already talking to, the one with
+your repo open.
 
 **Why not a Notion page of prompts?** It keeps prompts tidy, and it's two
 windows and a copy away. Promptline is one hotkey away, in every window,
@@ -284,7 +291,7 @@ in the app shouldn't be able to destroy them.
 
 ## Development
 
-Requires Rust and Node 22 (`.nvmrc`).
+Requires Rust and Node 24 (`.nvmrc`).
 
 ```sh
 npm install
