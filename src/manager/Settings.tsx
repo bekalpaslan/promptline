@@ -217,7 +217,10 @@ export function Settings() {
           </label>
         </Row>
         <p id="setting-hotkey-help" className="mt-3 text-ui leading-relaxed text-muted-foreground">
-          Click Record, press a combination, then Apply (Esc cancels). The default is Ctrl+Alt+V.
+          Click Record, press a combination, then Apply (Esc cancels). The default is Ctrl+Alt+V. Promptline takes the
+          combination from every other program while it runs: Ctrl+Alt+V is how Czech, Slovak, Hungarian, Croatian and
+          Slovenian layouts type @ (AltGr+V) and Introduce Variable in JetBrains IDEs, and Ctrl+Shift+V is paste in
+          Windows Terminal.
         </p>
       </Card>
 

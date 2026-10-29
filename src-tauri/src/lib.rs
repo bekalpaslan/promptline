@@ -22,7 +22,7 @@ mod platform;
 mod store;
 mod update;
 
-use commands::resolve_hotkey;
+use commands::{resolve_hotkey, warn_hotkey_layout};
 use migrations::{migrate_data_dir, migrate_v1_data, session_hotkey, settle_default_hotkey};
 use packs::ensure_packs_backed;
 use paste::{is_resize_drag, persist_popup_size, show_popup};
@@ -299,7 +299,9 @@ pub fn run() {
             // Register the configured global hotkey (fall back to default on bad
             // config). A refusal — another program owns the combination — must
             // not abort startup: without the tray and the manager the user
-            // could never reach Settings to pick another one.
+            // could never reach Settings to pick another one. A combination
+            // that registers but is how one of the user's keyboard layouts
+            // types a character (AltGr+V is @ on Czech) is a notice too.
             let config = load_config_from_disk(handle).unwrap_or_default();
             handle
                 .state::<AppState>()
@@ -320,6 +322,8 @@ pub fn run() {
                         hotkey
                     ),
                 );
+            } else {
+                warn_hotkey_layout(handle, &hotkey);
             }
 
             // Restore the saved popup size (0 = never resized, keep the default)

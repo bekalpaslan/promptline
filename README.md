@@ -147,6 +147,13 @@ Backup and import** (see [Data](#data)).
   formatting* in browsers; Promptline wins while it runs, and those apps
   lose the shortcut. Record `Ctrl+Alt+V` (or anything else) in
   **Settings** if you miss either.
+- **`Ctrl+Alt+V` is also `AltGr+V`, which types `@` on Czech, Slovak,
+  Hungarian, Croatian and Slovenian layouts**, and Windows can't tell the
+  two apart: while Promptline runs it takes the keystroke and no `@`
+  appears. The manager says so at startup when one of your layouts is
+  affected. `Ctrl+Alt+V` is also *Introduce Variable* in JetBrains IDEs
+  (IntelliJ, PyCharm, WebStorm, Rider), and Promptline takes it from them
+  too. Record another combination in **Settings** if you need either.
 
 **No telemetry. One update check, off in a click.** At startup and once a
 day Promptline fetches one small file, `https://promptline.cc/latest.json`,

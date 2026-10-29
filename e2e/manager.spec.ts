@@ -617,6 +617,26 @@ test("a pack and the library export to a file, in the JSON Import reads", async 
   expect(packs.reduce((n, p) => n + p.prompts.length, 0)).toBe(snippets.length)
 })
 
+// ---- Notices --------------------------------------------------------------------------
+
+test("a hotkey-layout notice stays until closed, and the closed one is not shown again", async ({ page }) => {
+  const message =
+    "On your Czech keyboard layout, Ctrl+Alt+V is how you type @, and Promptline takes it while it runs. Choose another combination under Settings → Global hotkey."
+  await emit(page, "notice", { kind: "hotkey-layout", message })
+  // The toasts are the items of the notifications region
+  const toasts = page.getByRole("region", { name: /Notifications/ }).getByRole("listitem")
+  const notice = toasts.filter({ hasText: "On your Czech keyboard layout" })
+  await expect(notice).toBeVisible()
+  await notice.getByRole("button", { name: "Close toast" }).click()
+  await expect(notice).toHaveCount(0)
+  // Rust raises it on every launch: the one the user closed stays away
+  await emit(page, "notice", { kind: "hotkey-layout", message })
+  await expect(notice).toHaveCount(0)
+  // Another hotkey's is news
+  await emit(page, "notice", { kind: "hotkey-layout", message: message.replace("Ctrl+Alt+V", "Ctrl+Alt+Q") })
+  await expect(toasts.filter({ hasText: "Ctrl+Alt+Q is how you type @" })).toBeVisible()
+})
+
 // ---- Updates --------------------------------------------------------------------------
 
 test("an update offer from the tray or toast shows the version, the notes and two buttons", async ({ page }) => {

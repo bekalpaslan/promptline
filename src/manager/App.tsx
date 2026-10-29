@@ -19,10 +19,26 @@ import { GenerateDialog } from "./GenerateDialog"
 import { UpdateOffer } from "./UpdateOffer"
 import { getUpdateState, setUpdateCheck, UPDATE_AVAILABLE, UPDATE_OFFER, type UpdateInfo, type UpdateState } from "@/lib/update"
 
-/** Something Rust needs the user to see; see `notify` in lib.rs */
+/** Something Rust needs the user to see; see `notify` in store.rs */
 interface Notice {
   kind: string
   message: string
+}
+
+// Every notice stays until dismissed. The hotkey-layout one (the hotkey is
+// how one of the user's keyboard layouts types a character) is advice, not
+// a failure, and Rust raises it on every launch: so the manager keeps the
+// message the user closed and skips that one. A changed hotkey or layout
+// changes the message and the notice is back. Per webview profile, like
+// the other localStorage mirrors; it isn't a preference worth exporting.
+const DISMISSED_LAYOUT_NOTICE = "dismissed-hotkey-layout-notice"
+function showNotice(n: Notice) {
+  if (n.kind !== "hotkey-layout") {
+    sayPersistent(n.message)
+    return
+  }
+  if (localStorage.getItem(DISMISSED_LAYOUT_NOTICE) === n.message) return
+  sayPersistent(n.message, () => localStorage.setItem(DISMISSED_LAYOUT_NOTICE, n.message))
 }
 
 export function App() {
@@ -449,7 +465,7 @@ export function App() {
       // file, a refused hotkey) is shown now and stays until dismissed
       const notices = await invoke<Notice[]>("take_notices").catch(() => [] as Notice[])
       if (cancelled) return
-      for (const n of notices) sayPersistent(n.message)
+      for (const n of notices) showNotice(n)
     })()
     return () => {
       cancelled = true
@@ -479,7 +495,7 @@ export function App() {
       setActiveId(payload)
       setView({ kind: "prompt" })
     })
-    const unNotice = listen<Notice>("notice", ({ payload }) => sayPersistent(payload.message))
+    const unNotice = listen<Notice>("notice", ({ payload }) => showNotice(payload))
     // A check (automatic or by hand, elsewhere) found a version: update the
     // About card's offer, but don't pop anything over what the user is doing
     const unUpdateAvailable = listen<UpdateInfo>(UPDATE_AVAILABLE, ({ payload }) =>

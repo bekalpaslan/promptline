@@ -1624,9 +1624,55 @@ plugin creates it first) is a fresh install, and it takes Ctrl+Alt+V. A
 `config.json` that fails to parse is still quarantined and replaced by
 defaults, now Ctrl+Alt+V; the notice says the old hotkey is in the
 quarantined file. Settings' Reset offers Ctrl+Alt+V to every install, old
-or new, and its help text names that default alone: it said who still
-has Ctrl+Shift+V until 2026-10-22, when the user had the sentence go
-(README and the site keep theirs).
+or new, and its help text names that default and the collisions below,
+not who still has Ctrl+Shift+V: it said so until 2026-10-22, when the
+user had the sentence go (README and the site keep theirs).
+
+**Ctrl+Alt+V is also AltGr+V, and a notice says so.** Windows treats the
+right Alt key as Ctrl+Alt on layouts with the AltGr flag, and
+`RegisterHotKey` (which `tauri-plugin-global-shortcut` reaches through
+`global-hotkey` 0.8, with `MOD_CONTROL | MOD_ALT | MOD_NOREPEAT`) cannot
+tell the two apart: a Ctrl+Alt+V registration fires on AltGr+V and
+swallows the character. On the Czech (`00000405`), Slovak (`0000041b`),
+Hungarian (`0000040e`), Croatian (`0000041a`) and Slovenian (`00000424`)
+layouts AltGr+V types `@`, so a user on one of them loses `@` in every
+window while Promptline runs (reproduced 2026-10-29 with
+US-International: LCtrl+RAlt+E typed `é` unregistered; with the hotkey
+registered, WM_HOTKEY arrived and nothing was typed). Microsoft's Win32
+UX guide rules out Ctrl+Alt shortcuts for exactly this reason. So after a
+registration succeeds, at startup and in `set_hotkey`,
+`platform::altgr_char_for` (Windows only; the stub answers None) parses
+the combination and, for one carrying Ctrl and Alt and a letter or digit,
+asks every layout on `GetKeyboardLayoutList` what that key types with
+both modifiers held (`ToUnicodeEx` with the leave-the-state-alone flag
+`0x4`; nothing, a dead key or a control character is no hit) and names
+the first layout that answers with printable text as the language bar
+does ("Czech", from the registry's `Keyboard Layouts` key; the language's
+display name when the layout isn't described there). The notice reads
+"On your Czech keyboard layout, Ctrl+Alt+V is how you type @, and
+Promptline takes it while it runs. Choose another combination under
+Settings → Global hotkey." and travels the ordinary notice path
+(`notify`, kind `hotkey-layout`: `take_notices` at startup, the `notice`
+event later), so the manager shows it as a persistent toast like the
+others, with one difference: Rust raises it on every launch, so the
+manager keeps the message the user closed (`localStorage`, per webview
+profile) and skips that one; a changed hotkey or layout changes the
+message and the notice is back. A Windows-only test loads the Czech
+layout for the test process (`LoadKeyboardLayoutW` with
+`KLF_NOTELLSHELL`, unloaded again after; it leaves the user's layout
+list as it was) and checks that it answers `@`. The default stays
+Ctrl+Alt+V all the same, because every candidate loses something:
+Ctrl+Shift+V is paste in Windows Terminal and browsers, Win combinations
+are the shell's and Alt+letter combinations are menu accelerators
+(Microsoft's guide rules those out too). Ctrl+Alt+V is also *Introduce
+Variable* in JetBrains' default Windows keymap (Ctrl+Alt+M / F / P / N
+are Extract Method, Introduce Field, Introduce Parameter and Inline),
+which Promptline's system-wide registration takes from IntelliJ,
+PyCharm, WebStorm and Rider; nothing on the machine says whether the
+user has one, so that is no notice. Settings' help names the default's
+known collisions (the AltGr `@`, the JetBrains refactoring) and
+Ctrl+Shift+V's Terminal paste, so the recorded combination's collisions
+are in view where it is recorded.
 
 The decision fails toward "existing install", because the two mistakes
 are not equal: calling an existing install fresh moves its hotkey for
