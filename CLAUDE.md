@@ -47,7 +47,8 @@ backlog, not from another audit, unless asked.
 - `docs/architecture/` — the architecture map, for the human managing the
   project (see *Architecture map* below).
 - `.claude/skills/` — the five project skills, tracked while the rest of
-  `.claude/` is ignored: `monthly-theme` (a theme from a Figma design,
+  `.claude/` is ignored (each skill has its own `!.claude/skills/<name>/`
+  line in `.gitignore`; a new skill is invisible to git without one): `monthly-theme` (a theme from a Figma design,
   trialled as a skin over the mock, wired through the token pipeline and
   shelved on a `theme/<id>` branch; Promptline ships one theme a month
   since 0.2.18), `release` (the *Releasing* section below with the
