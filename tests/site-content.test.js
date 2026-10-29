@@ -85,10 +85,10 @@ test('the <title> still carries "your prompt vocabulary, one hotkey away"', () =
 
 // ---- SITE-02: Why not... ---------------------------------------------------
 
-test('the Why not... section has five always-open Q&As, no <details>, no <table>', () => {
+test('the Why not... section has six always-open Q&As, no <details>, no <table>', () => {
   const html = read();
   const why = section(html, 'id="why-not"');
-  assert.equal((why.match(/<h3>/g) || []).length, 5);
+  assert.equal((why.match(/<h3>/g) || []).length, 6);
   assert.equal((why.match(/<details/gi) || []).length, 0);
   assert.equal((why.match(/<table/gi) || []).length, 0);
   const h2 = /<h2[^>]*>([\s\S]*?)<\/h2>/.exec(why);
@@ -96,12 +96,22 @@ test('the Why not... section has five always-open Q&As, no <details>, no <table>
   assert.equal(visibleText(h2[1]), 'Why not…');
 });
 
-test('the Why not... section names all five tools it answers for', () => {
+test('the Why not... section names all six tools it answers for', () => {
   const html = read();
   const text = visibleText(section(html, 'id="why-not"'));
-  for (const name of ['Espanso', 'AutoHotkey', 'Raycast', 'slash commands', 'Cursor rules', 'Ditto', 'clipboard history', 'Notion']) {
+  for (const name of ['Espanso', 'AutoHotkey', 'Raycast', 'slash commands', 'Cursor rules', 'Ditto', 'clipboard history', 'PowerToys', 'Advanced Paste', 'Windows Terminal', 'Notion']) {
     assert.ok(text.includes(name), `Why not... is missing "${name}"`);
   }
+});
+
+test('the Advanced Paste answer follows the clipboard-manager one, and Windows Terminal is a clause, not a question', () => {
+  const html = read();
+  const why = section(html, 'id="why-not"');
+  const questions = [...why.matchAll(/<h3>([\s\S]*?)<\/h3>/g)].map((m) => visibleText(m[1]));
+  const clipboard = questions.findIndex((q) => q.includes('clipboard manager'));
+  const powertoys = questions.findIndex((q) => q.includes('PowerToys Advanced Paste'));
+  assert.ok(clipboard >= 0 && powertoys === clipboard + 1, `questions: ${questions.join(' | ')}`);
+  assert.equal(questions.some((q) => q.includes('Windows Terminal')), false);
 });
 
 test('the Raycast answer says macOS only, not "same on both platforms"', () => {

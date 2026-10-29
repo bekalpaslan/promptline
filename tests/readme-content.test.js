@@ -68,7 +68,7 @@ test('"## Why not…" exists once, after Install and before Uninstall', () => {
   assert.ok(whyNotIdx < uninstallIdx, 'Why not… must come before Uninstall');
 });
 
-test('the Why not… section holds exactly five answers naming the expected tools', () => {
+test('the Why not… section holds exactly six answers naming the expected tools', () => {
   const text = read();
   const start = text.indexOf('## Why not…');
   assert.ok(start !== -1);
@@ -77,7 +77,7 @@ test('the Why not… section holds exactly five answers naming the expected tool
   const section = nextHeadingIdx === -1 ? rest : rest.slice(0, nextHeadingIdx);
 
   const answers = section.match(/^\*\*Why not .+\?\*\*/gm) || [];
-  assert.equal(answers.length, 5);
+  assert.equal(answers.length, 6);
 
   for (const tool of [
     'Espanso',
@@ -87,10 +87,21 @@ test('the Why not… section holds exactly five answers naming the expected tool
     'Cursor rules',
     'Ditto',
     'clipboard history',
+    'PowerToys',
+    'Advanced Paste',
+    'Windows Terminal',
     'Notion',
   ]) {
     assert.ok(section.includes(tool), `expected the Why not… section to name ${tool}`);
   }
+
+  // Windows Terminal snippets fold into the slash-commands answer, not a row of their own
+  const slash = answers.find((a) => a.includes('slash commands'));
+  assert.ok(slash && !slash.includes('Windows Terminal'));
+  assert.equal(answers.some((a) => a.includes('Windows Terminal')), false);
+
+  // The Advanced Paste answer follows the clipboard-manager one and precedes Notion
+  inOrder(section, ['**Why not a clipboard manager?**', '**Why not PowerToys Advanced Paste?**', '**Why not a Notion page of prompts?**']);
 
   assert.ok(section.includes('macOS only'));
   assert.equal(section.includes('same on both platforms'), false);
