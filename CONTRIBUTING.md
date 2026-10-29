@@ -16,7 +16,7 @@ clippy without default features on every push and pull request. Pure logic goes
 in `ui/core.js` with a `node --test` case, not in a component. The
 repository's index uses LF line endings while Windows working copies are
 mixed, so run `unix2dos` on the files you touch, and only those, before
-committing. Node 22 (`.nvmrc`) and a stable Rust toolchain are all you need;
+committing. Node 24 (`.nvmrc`) and a stable Rust toolchain are all you need;
 `npm run dev` starts the app with a hot-reloading UI, and
 `http://localhost:5173/?mock` serves the manager against a fake backend
 when the real one is in the way.
