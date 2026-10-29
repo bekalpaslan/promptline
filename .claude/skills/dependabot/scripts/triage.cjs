@@ -80,5 +80,15 @@ function alerts() {
   console.log()
 }
 
+function orphanBranches() {
+  const open = new Set((gh(`pr list --repo ${slug} --author app/dependabot --state open --json headRefName`) || []).map((p) => p.headRefName))
+  const heads = sh(`git ls-remote --heads origin 'dependabot/*'`).split("
+").map((l) => l.split("	")[1]).filter(Boolean).map((r) => r.replace("refs/heads/", ""))
+  const orphans = heads.filter((b) => !open.has(b))
+  console.log(orphans.length ? `Dependabot branches with no open PR (delete with git push origin --delete <branch>): ${orphans.join(", ")}` : "Dependabot branches with no open PR: none")
+  console.log()
+}
+
 prs()
 alerts()
+orphanBranches()

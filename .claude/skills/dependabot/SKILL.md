@@ -118,6 +118,12 @@ Then, in this order: alerts that are reachable and fixable in range
 (they are the only urgent thing), the grouped PRs, the unreachable
 alerts, the config.
 
+Branches: the merge and close commands below carry `--delete-branch`,
+and Dependabot deletes its own branch when it recreates a PR, so no
+branch should outlive its PR. The script lists any `dependabot/*` branch
+on origin with no open PR (a PR closed in the GitHub UI leaves one);
+delete those with `git push origin --delete <branch>`.
+
 ## 2. A grouped PR
 
 1. Read the PR body: Dependabot lists every move as `Updates X from A
