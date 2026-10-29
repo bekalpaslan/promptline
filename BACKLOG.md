@@ -123,10 +123,12 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 - **Manager window residency** (noted 2026-10-29). Both windows are
   declared in `tauri.conf.json`, so the hidden 1000×800 manager has a
   WebView2 renderer alive from login for a user who only ever presses the
-  hotkey. Measure first: Task Manager after a `--hidden` launch, with and
-  without the window declared. If the difference is tens of MB, build the
-  manager lazily from the tray click (and the other places that open it)
-  instead.
+  hotkey. Measured 2026-10-29 on the installed 0.2.25 with the manager
+  never opened: two WebView2 renderer processes, one per window, 36 and
+  42 MB private (82 and 90 MB working set), so the idle manager costs
+  about 40 MB. Worth doing: build the manager lazily from the tray click
+  (and the other places that open it) and destroy it on close, keeping
+  the `edit-prompt` and `library` event paths working when it isn't there.
 
 ## Popup
 
