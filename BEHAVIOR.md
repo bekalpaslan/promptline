@@ -1326,10 +1326,13 @@ save" and throw the keystrokes away. A write that still fails removes its
 `.tmp` so nothing is left behind.
 
 **A file that won't parse is quarantined, never replaced in place.** Loading
-distinguishes three cases. Missing means a first run and yields the starter
-pack. Unparseable means the file is renamed to `<name>.corrupt-<timestamp>`,
-a `Notice` is raised, and the library starts *empty* — starting with the
-starters instead would look like a reset rather than a loss, and the first
+distinguishes three cases. Missing means a first run and yields the Starter
+pack: `packs/starter.json` compiled in with `include_str!`, so the seed and
+the repo file can't drift (only Starter is seeded; Everyday and Session Flow
+stay files in `packs/` for Settings → Import). Unparseable means the file is
+renamed to `<name>.corrupt-<timestamp>`, a `Notice` is raised, and the
+library starts *empty* — starting with the starters instead would look like
+a reset rather than a loss, and the first
 autosave would have buried the only copy of the user's prompts. An I/O error
 (a lock, a permission problem) is an error the command returns; nothing is
 written, because the file may be perfectly good.
