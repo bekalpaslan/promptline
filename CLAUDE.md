@@ -8,9 +8,9 @@ the popup and paste pipeline, `platform.rs` the Win32 calls, `update.rs`
 the update check, `migrations.rs` old data), two React windows
 (`index.html` = manager, `popup.html` = popup) built by one Vite config,
 pure logic in `ui/core.js` (plain UMD, tested with bare `node --test`) with
-its TypeScript face in `src/lib/core.ts`. The updater is a default-on Cargo
-feature (`updater`); the store build compiles it out with
-`npm run build:store` (`--no-default-features`).
+its TypeScript face in `src/lib/core.ts`. Every build carries the updater
+(the store build that compiled it out went with the Microsoft Store
+listing on 2026-10-29; Promptline is donations only, nothing is sold).
 
 Released as `v0.2.9` on 2026-09-23 after a full audit; everything that
 audit found is closed (`docs/history/RELEASE-AUDIT.md`). Start from the
@@ -191,9 +191,7 @@ Seven, and CI runs all of them on every push and PR (`.github/workflows/ci.yml`)
 - `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
 - `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
   (`rustup component add rustfmt clippy` once; both are clean today, keep
-  them so with fixes, not `#[allow]`). CI also runs clippy with
-  `--no-default-features` (the store build's feature set) and it must stay
-  clean too.
+  them so with fixes, not `#[allow]`).
 
 CI also runs `npm run ui:build` (`tsc -b && vite build`), where Tailwind
 and CSS errors surface.
@@ -258,11 +256,10 @@ Open `http://localhost:5175/?mock` (manager) or `/popup.html?mock` (popup);
 `calls` (every invoke with its args), `clipboard` (settable), `emit(event,
 payload)` for backend events such as `edit-prompt`, `library`, and
 `pasteResult`, `update` and `fail` (a set of command names that reject).
-`?mock=library-error` is an upgraded install whose library can't be read;
-`?mock=store` is the store build (no updater). Each page
-has its own in-memory store; a reload starts over. Unknown commands resolve
-to null and log `[mock] unhandled command …`. When you add a Tauri command
-the UI depends on, add it to the mock too.
+`?mock=library-error` is an upgraded install whose library can't be read.
+Each page has its own in-memory store; a reload starts over. Unknown
+commands resolve to null and log `[mock] unhandled command …`. When you add
+a Tauri command the UI depends on, add it to the mock too.
 
 With the Playwright MCP, `browser_run_code_unsafe` runs in the browser
 sandbox: there is no `require`/`fs`. Navigate to the `?mock` URL and assert

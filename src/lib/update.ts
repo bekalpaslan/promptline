@@ -1,6 +1,6 @@
-// The manager's side of update.rs: Rust makes the one request (a GitHub
-// build checks https://promptline.cc/latest.json once at startup, then
-// daily), never the webview, so the CSP's connect-src stays the IPC only.
+// The manager's side of update.rs: Rust makes the one request (it checks
+// https://promptline.cc/latest.json once at startup, then daily), never
+// the webview, so the CSP's connect-src stays the IPC only.
 // See `UpdateInfo` / `UpdateState` in update.rs for the Rust shapes these
 // mirror, and `update-available` / `update-offer` for the events it emits.
 import { invoke } from "@tauri-apps/api/core"
@@ -12,7 +12,6 @@ export interface UpdateInfo {
 
 /** What Settings' About card and the offer dialog need; see `UpdateState` in update.rs */
 export interface UpdateState {
-  supported: boolean
   autoCheck: boolean
   available: UpdateInfo | null
 }

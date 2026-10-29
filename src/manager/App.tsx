@@ -472,8 +472,8 @@ export function App() {
     }
   }, [applyLibrary])
 
-  // An old Rust answering null (or a store build's stub) is fine either way:
-  // `update` stays null and the manager shows no update controls
+  // An old Rust answering null is fine: `update` stays null and the manager
+  // shows no update controls
   useEffect(() => {
     getUpdateState().then(setUpdate).catch(() => {})
   }, [])
@@ -683,7 +683,7 @@ export function App() {
 
         <GenerateDialog open={genOpen} onOpenChange={setGenOpen} />
         <UpdateOffer
-          open={offerOpen && !!update?.supported && !!update?.available}
+          open={offerOpen && !!update?.available}
           info={update?.available ?? null}
           onClose={() => setOfferOpen(false)}
           flush={() => pendingFlush.current?.() ?? Promise.resolve()}

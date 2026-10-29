@@ -462,7 +462,6 @@ mod imp {
     /// id, so the process, its windows and its toasts read as one app to
     /// Windows. Debug builds skip this (see `show_toast`): an uninstalled
     /// dev build has no shortcut for our id.
-    #[cfg(feature = "updater")]
     pub(crate) fn claim_app_id(id: &str) {
         if let Err(e) = unsafe {
             windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(&HSTRING::from(id))
@@ -478,7 +477,6 @@ mod imp {
     /// live in a `Mutex` the way the update slot does, and one small leak
     /// per new version found is cheaper than tearing down and rebuilding
     /// this plumbing per toast).
-    #[cfg(feature = "updater")]
     pub(crate) fn show_toast(
         app_id: &str,
         title: &str,
@@ -607,10 +605,8 @@ mod imp {
         false
     }
 
-    #[cfg(feature = "updater")]
     pub(crate) fn claim_app_id(_id: &str) {}
 
-    #[cfg(feature = "updater")]
     pub(crate) fn show_toast(
         _app_id: &str,
         _title: &str,
@@ -623,11 +619,10 @@ mod imp {
 
 #[cfg(windows)]
 pub(crate) use imp::open_url;
-#[cfg(feature = "updater")]
-pub(crate) use imp::{claim_app_id, show_toast};
 pub(crate) use imp::{
-    focus_window, foreground_window, last_foreign_window, left_button_down, note_foreign,
-    on_session_end, send_ctrl_v, send_enter, track_foreground, SessionEnd,
+    claim_app_id, focus_window, foreground_window, last_foreign_window, left_button_down,
+    note_foreign, on_session_end, send_ctrl_v, send_enter, show_toast, track_foreground,
+    SessionEnd,
 };
 
 #[cfg(test)]

@@ -57,8 +57,6 @@ jobs:
           retention-days: 7
       - run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
       - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-      # The store build (no updater, `--no-default-features`) must stay clean too
-      - run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --no-default-features -- -D warnings
       - run: npm run test:rust
 
   installers:

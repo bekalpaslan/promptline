@@ -166,7 +166,6 @@ fn tray_menu(
 /// Swaps the tray menu to offer the version found: called once a check (by
 /// hand or automatic) finds one. Stays offered until the update installs
 /// and the process restarts.
-#[cfg(feature = "updater")]
 pub(crate) fn offer_update_in_tray(app: &AppHandle, version: &str) {
     let Some(tray) = app.tray_by_id(TRAY_ID) else {
         return;
@@ -188,7 +187,6 @@ pub fn run() {
     // it. A debug build stays unclaimed: it has no Start Menu shortcut to
     // agree with, so the toast falls back to PowerShell's id instead
     // (`platform::show_toast`).
-    #[cfg(feature = "updater")]
     if !cfg!(debug_assertions) {
         platform::claim_app_id(update::APP_ID);
     }
@@ -342,7 +340,6 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id.as_ref() {
                     "open" => show_main(app),
                     "quit" => request_quit(app),
-                    #[cfg(feature = "updater")]
                     "update" => update::open_offer(app),
                     _ => {}
                 })
@@ -364,9 +361,8 @@ pub fn run() {
                 log::warn!("couldn't follow the foreground window; a kept-open popup pastes where it was summoned");
             }
 
-            // The GitHub build's update check: startup + daily, wired up
-            // once the tray exists so it has somewhere to offer a find. A
-            // store build's `start` is a no-op — no plugin, no request.
+            // The update check: startup + daily, wired up once the tray
+            // exists so it has somewhere to offer a find.
             update::start(handle);
 
             // Shutdown, restart and sign-out get the same flush as Quit, and

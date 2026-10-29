@@ -21,7 +21,7 @@
 //   library            the current { snippets, revision }
 //   pasteResult        what paste_snippet answers: "pasted" (default) or
 //                      "copied" (the manager was in front, copy-only)
-//   update             { supported, autoCheck, available, next } — `next` is
+//   update             { autoCheck, available, next } — `next` is
 //                      what the next check_for_updates finds; set it before
 //                      calling to stage a discovered version
 //   fail               a Set of command names; each of them rejects with
@@ -32,11 +32,8 @@
 //
 // `?mock=library-error` is an install upgraded from 0.2.16 whose library
 // can't be read: get_snippets throws, and get_config still answers with the
-// hotkey it kept, ctrl+shift+v.
-//
-// `?mock=store` is a store build: `update.supported` is false, same as
-// `--no-default-features`. It still seeds the normal library — only
-// `mode === "empty"` empties it, `mode === "showcase"` is unchanged.
+// hotkey it kept, ctrl+shift+v. Only `mode === "empty"` empties the
+// library; `mode === "showcase"` seeds the demo one.
 
 import type { Library, PackMeta, Snippet } from "@/lib/core"
 import { C } from "@/lib/core"
@@ -161,7 +158,6 @@ export function installMock(mode: string | null) {
     pasteResult: "pasted" as "pasted" | "copied",
     fail: new Set<string>(),
     update: {
-      supported: mode !== "store",
       autoCheck: true,
       available: null as UpdateInfo | null,
       next: null as UpdateInfo | null,
@@ -274,7 +270,6 @@ export function installMock(mode: string | null) {
     open_data_dir: () => null,
     set_autostart: () => null,
     get_update_state: () => ({
-      supported: mock.update.supported,
       autoCheck: mock.update.autoCheck,
       available: mock.update.available,
     }),

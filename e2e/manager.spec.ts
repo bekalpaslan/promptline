@@ -663,12 +663,6 @@ test("Later closes the offer and silences that version", async ({ page }) => {
   expect(call.args).toEqual({ version: "9.9.9" })
 })
 
-test("a store build never opens an update offer", async ({ page }) => {
-  await open(page, "manager", "store")
-  await emit(page, "update-offer", V)
-  await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toHaveCount(0)
-})
-
 test("Check for updates opens the offer when a newer version is found", async ({ page }) => {
   await setUpdate(page, { next: V })
   await page.getByRole("button", { name: "Settings" }).click()
@@ -701,13 +695,6 @@ test("after Later the About card still offers the update", async ({ page }) => {
   await expect(updateButton).toBeVisible()
   await updateButton.click()
   await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toBeVisible()
-})
-
-test("a store build has no update controls in Settings", async ({ page }) => {
-  await open(page, "manager", "store")
-  await page.getByRole("button", { name: "Settings" }).click()
-  await expect(page.getByRole("button", { name: "Check for updates" })).toHaveCount(0)
-  await expect(page.getByRole("checkbox", { name: "Check for updates automatically" })).toHaveCount(0)
 })
 
 // ---- Hardening (edge cases a real library throws at the manager) ----
