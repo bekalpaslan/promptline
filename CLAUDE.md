@@ -46,7 +46,7 @@ backlog, not from another audit, unless asked.
   agents never edit it.
 - `docs/architecture/` — the architecture map, for the human managing the
   project (see *Architecture map* below).
-- `.claude/skills/` — the four project skills, tracked while the rest of
+- `.claude/skills/` — the five project skills, tracked while the rest of
   `.claude/` is ignored: `monthly-theme` (a theme from a Figma design,
   trialled as a skin over the mock, wired through the token pipeline and
   shelved on a `theme/<id>` branch; Promptline ships one theme a month
@@ -59,8 +59,13 @@ backlog, not from another audit, unless asked.
   agents, not the asker, choose the areas: blind discovery, a check of
   each proposal by an agent that didn't write it, one ranked report with
   the maintainer's decisions in their own section; read-only, with a
-  ready-made workflow script). `/monthly-theme <figma url>`, `/release`,
-  `/doc-audit [doc, area or "since vX.Y.Z"]` and `/fresh-eyes` run them.
+  ready-made workflow script) and `dependabot` (the monthly grouped PRs
+  and the security alerts triaged by the project's standing rules:
+  Windows is the only binary, the updater is the one network call,
+  majors and the Tauri pair move by hand; with a triage script).
+  `/monthly-theme <figma url>`, `/release`, `/doc-audit [doc, area or
+  "since vX.Y.Z"]`, `/fresh-eyes` and `/dependabot [PR, alert or
+  "config"]` run them.
 - `site/` — the website at https://promptline.cc (the home page, `posts/`
   and `code-signing/`), published to
   GitHub Pages by `.github/workflows/pages.yml` on every push to `master`

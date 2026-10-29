@@ -9,10 +9,13 @@ updates:
       interval: monthly
     open-pull-requests-limit: 2
     # Majors are taken by hand (typescript 7 and windows 0.62 broke the build
-    # on 2026-10-29); the grouped PR stays within declared ranges.
+    # on 2026-10-29); the grouped PR stays within declared ranges. The Tauri
+    # crate and its npm packages move together, by hand (dependabot skill).
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "@tauri-apps/*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       npm-all:
         patterns:
@@ -24,10 +27,15 @@ updates:
       interval: monthly
     open-pull-requests-limit: 2
     # Majors are taken by hand (typescript 7 and windows 0.62 broke the build
-    # on 2026-10-29); the grouped PR stays within declared ranges.
+    # on 2026-10-29); the grouped PR stays within declared ranges. The Tauri
+    # crate and its npm packages move together, by hand (dependabot skill).
     ignore:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
+      - dependency-name: "tauri"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      - dependency-name: "tauri-build"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       cargo-all:
         patterns:
