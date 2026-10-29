@@ -5,8 +5,9 @@ import { toast } from "sonner"
 export const say = (msg: string) => toast.success(msg, { duration: 3500 })
 export const sayErr = (msg: string) => toast.error(msg, { duration: 10000, closeButton: true })
 // For things that must not be missed (a quarantined data file, a dead hotkey):
-// stays until dismissed
-export const sayPersistent = (msg: string) => toast.error(msg, { duration: Infinity, closeButton: true })
+// stays until dismissed; `onDismiss` hears the close button
+export const sayPersistent = (msg: string, onDismiss?: () => void) =>
+  toast.error(msg, { duration: Infinity, closeButton: true, onDismiss })
 
 // The most recent Undo on offer, so Ctrl+Z can take it without aiming at the
 // toast; cleared when it is used or its toast has gone, whether it timed

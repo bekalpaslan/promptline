@@ -1,9 +1,54 @@
 //! The Windows-specific code: which window is in front (and which one
 //! outside Promptline was last), bringing one to the front, sending Ctrl+V,
 //! the mouse button for the resize-drag check, handing a URL to the shell,
-//! and hearing that Windows is ending the session. Everything else in the crate is
+//! what the hotkey would have typed on the user's keyboard layouts, and
+//! hearing that Windows is ending the session. Everything else in the crate is
 //! portable; a macOS port reimplements this file (CGEventPost, plus the
 //! Accessibility permission) and nothing else.
+
+use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut};
+
+/// The character `hotkey` types on one of the user's keyboard layouts, with
+/// that layout's name, when the layout reads Ctrl+Alt as AltGr: Czech,
+/// Slovak, Hungarian, Croatian and Slovenian type `@` with AltGr+V, and a
+/// Ctrl+Alt+V registration fires on that keystroke and swallows the
+/// character. None for a combination without both Ctrl and Alt, with Win,
+/// or whose key is not a letter or digit, and when no layout on the list
+/// types anything printable with it (a dead key counts as nothing).
+pub(crate) fn altgr_char_for(hotkey: &str) -> Option<(String, String)> {
+    let shortcut: Shortcut = hotkey.parse().ok()?;
+    let mods = shortcut.mods;
+    if !mods.contains(Modifiers::CONTROL)
+        || !mods.contains(Modifiers::ALT)
+        || mods.intersects(Modifiers::SUPER | Modifiers::META)
+    {
+        return None;
+    }
+    let vk = virtual_key(shortcut.key)?;
+    imp::altgr_char(vk, mods.contains(Modifiers::SHIFT))
+}
+
+/// The Windows virtual key of a letter or digit `Code` (`KeyV` → 0x56,
+/// `Digit1` → 0x31: the ASCII codes); None for every other key.
+fn virtual_key(code: Code) -> Option<u16> {
+    let name = code.to_string();
+    let key = name
+        .strip_prefix("Key")
+        .filter(|k| k.len() == 1 && k.as_bytes()[0].is_ascii_uppercase())
+        .or_else(|| {
+            name.strip_prefix("Digit")
+                .filter(|k| k.len() == 1 && k.as_bytes()[0].is_ascii_digit())
+        })?;
+    Some(key.as_bytes()[0] as u16)
+}
+
+/// Text a keystroke produced that the user would have seen typed: not
+/// empty, no control character (Ctrl+V alone yields U+0016) and no
+/// whitespace.
+#[cfg(any(windows, test))]
+fn is_printable(text: &str) -> bool {
+    !text.is_empty() && text.chars().all(|c| !c.is_control() && !c.is_whitespace())
+}
 
 /// Windows that come to the front without being somewhere a paste could go:
 /// the taskbar (primary and secondary), the desktop, and the Alt+Tab and
@@ -29,14 +74,25 @@ mod imp {
     use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
     use std::time::{Duration, Instant};
 
-    use windows::core::{w, HSTRING, PCWSTR};
+    use windows::core::{w, HSTRING, PCWSTR, PWSTR};
     use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::Globalization::{
+        GetLocaleInfoEx, LCIDToLocaleName, LOCALE_SLOCALIZEDDISPLAYNAME,
+    };
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_LOCAL_MACHINE,
+        KEY_READ, RRF_RT_REG_SZ,
+    };
     use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS,
-        KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_MENU, VK_RETURN, VK_SHIFT, VK_V,
+        GetAsyncKeyState, GetKeyboardLayoutList, MapVirtualKeyExW, SendInput, ToUnicodeEx, HKL,
+        INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYBD_EVENT_FLAGS, KEYEVENTF_KEYUP,
+        MAPVK_VK_TO_VSC, VIRTUAL_KEY, VK_CONTROL, VK_LBUTTON, VK_LCONTROL, VK_MENU, VK_RETURN,
+        VK_RMENU, VK_SHIFT, VK_V,
     };
-    use windows::Win32::UI::Shell::{DefSubclassProc, SetWindowSubclass, ShellExecuteW};
+    use windows::Win32::UI::Shell::{
+        DefSubclassProc, SHLoadIndirectString, SetWindowSubclass, ShellExecuteW,
+    };
     use windows::Win32::UI::WindowsAndMessaging::{
         DispatchMessageW, GetClassNameW, GetForegroundWindow, GetWindowThreadProcessId,
         MsgWaitForMultipleObjects, PeekMessageW, PostQuitMessage, SetForegroundWindow,
@@ -199,6 +255,194 @@ mod imp {
         sent as usize == inputs.len()
     }
 
+    // ---- What the hotkey would have typed ---------------------------------
+
+    /// ToUnicodeEx's "leave the keyboard state alone" flag (Windows 10 1607
+    /// and later): without it the probe could leave a dead key pending in
+    /// the thread's own state.
+    const NO_STATE_CHANGE: u32 = 0x4;
+
+    const LAYOUTS: &str = "SYSTEM\\CurrentControlSet\\Control\\Keyboard Layouts";
+
+    /// The first of the user's layouts on which `vk` with Ctrl and Alt held
+    /// (and Shift when `shift`) types printable text, with that text and the
+    /// layout's name. See `altgr_char_for`.
+    pub(crate) fn altgr_char(vk: u16, shift: bool) -> Option<(String, String)> {
+        keyboard_layouts()
+            .into_iter()
+            .find_map(|hkl| altgr_text_on(hkl, vk, shift).map(|text| (text, layout_name(hkl))))
+    }
+
+    /// Every input locale the user has installed, in Windows' order.
+    pub(crate) fn keyboard_layouts() -> Vec<HKL> {
+        let n = unsafe { GetKeyboardLayoutList(None) };
+        if n <= 0 {
+            return Vec::new();
+        }
+        let mut list = vec![HKL::default(); n as usize];
+        let got = unsafe { GetKeyboardLayoutList(Some(&mut list)) };
+        list.truncate(got.max(0) as usize);
+        list
+    }
+
+    /// What `vk` types on `hkl` with both Ctrl keys' and both Alt keys'
+    /// bits set (how Windows sees AltGr) and Shift's when `shift`, if that
+    /// is printable text. Nothing (0) and a dead key (negative) are None.
+    pub(crate) fn altgr_text_on(hkl: HKL, vk: u16, shift: bool) -> Option<String> {
+        let mut state = [0u8; 256];
+        for key in [VK_CONTROL, VK_LCONTROL, VK_MENU, VK_RMENU] {
+            state[key.0 as usize] = 0x80;
+        }
+        if shift {
+            state[VK_SHIFT.0 as usize] = 0x80;
+        }
+        let scan = unsafe { MapVirtualKeyExW(vk as u32, MAPVK_VK_TO_VSC, hkl) };
+        let mut buf = [0u16; 8];
+        let n = unsafe { ToUnicodeEx(vk as u32, scan, &state, &mut buf, NO_STATE_CHANGE, hkl) };
+        if n <= 0 {
+            return None;
+        }
+        let text = String::from_utf16_lossy(&buf[..n as usize]);
+        super::is_printable(&text).then_some(text)
+    }
+
+    /// The layout's name as the language bar shows it ("Czech", "United
+    /// States-International"), from the registry's Keyboard Layouts key;
+    /// the language's display name ("Czech (Czechia)") when the layout's id
+    /// isn't found there, and the raw handle as a last resort.
+    pub(crate) fn layout_name(hkl: HKL) -> String {
+        let raw = hkl.0 as usize;
+        let device = ((raw >> 16) & 0xFFFF) as u16;
+        let lang = (raw & 0xFFFF) as u16;
+        if let Some(name) = klid_for(device).and_then(|klid| registry_layout_name(&klid)) {
+            return name;
+        }
+        locale_display_name(lang).unwrap_or_else(|| format!("{raw:08X}"))
+    }
+
+    /// The eight-digit layout id (KLID) behind an HKL's device word: the
+    /// word itself for a language's first layout (0x0405 → "00000405"); for
+    /// the others Windows stores a 0xF0xx tag whose low bits match a
+    /// "Layout Id" value under the Keyboard Layouts key (US-International
+    /// is 0xF001 → "00020409", whose Layout Id is 0001).
+    fn klid_for(device: u16) -> Option<String> {
+        if device & 0xF000 != 0xF000 {
+            return Some(format!("{device:08X}"));
+        }
+        let wanted = device & 0x0FFF;
+        let mut key = HKEY::default();
+        unsafe {
+            RegOpenKeyExW(
+                HKEY_LOCAL_MACHINE,
+                &HSTRING::from(LAYOUTS),
+                0,
+                KEY_READ,
+                &mut key,
+            )
+        }
+        .ok()
+        .ok()?;
+        let mut found = None;
+        let mut index = 0;
+        loop {
+            let mut name = [0u16; 32];
+            let mut len = name.len() as u32;
+            let err = unsafe {
+                RegEnumKeyExW(
+                    key,
+                    index,
+                    PWSTR(name.as_mut_ptr()),
+                    &mut len,
+                    None,
+                    PWSTR::null(),
+                    None,
+                    None,
+                )
+            };
+            if err.is_err() {
+                break;
+            }
+            index += 1;
+            let klid = String::from_utf16_lossy(&name[..len as usize]);
+            let id = reg_string(&layout_key(&klid), w!("Layout Id"))
+                .and_then(|id| u16::from_str_radix(&id, 16).ok());
+            if id == Some(wanted) {
+                found = Some(klid);
+                break;
+            }
+        }
+        unsafe {
+            let _ = RegCloseKey(key);
+        }
+        found
+    }
+
+    fn layout_key(klid: &str) -> HSTRING {
+        HSTRING::from(format!("{LAYOUTS}\\{klid}"))
+    }
+
+    /// "Layout Display Name" is an indirect string into input.dll, localised
+    /// to the UI language; "Layout Text" is the English name.
+    fn registry_layout_name(klid: &str) -> Option<String> {
+        let subkey = layout_key(klid);
+        if let Some(indirect) = reg_string(&subkey, w!("Layout Display Name")) {
+            let mut buf = [0u16; 256];
+            if unsafe { SHLoadIndirectString(&HSTRING::from(indirect), &mut buf, None) }.is_ok() {
+                let text = utf16_until_nul(&buf);
+                if !text.is_empty() {
+                    return Some(text);
+                }
+            }
+        }
+        reg_string(&subkey, w!("Layout Text"))
+    }
+
+    /// A REG_SZ value under HKLM, or None when the key or value isn't there.
+    fn reg_string(subkey: &HSTRING, value: PCWSTR) -> Option<String> {
+        let mut buf = [0u16; 256];
+        let mut size = (buf.len() * 2) as u32;
+        let err = unsafe {
+            RegGetValueW(
+                HKEY_LOCAL_MACHINE,
+                subkey,
+                value,
+                RRF_RT_REG_SZ,
+                None,
+                Some(buf.as_mut_ptr() as *mut _),
+                Some(&mut size),
+            )
+        };
+        if err.is_err() {
+            return None;
+        }
+        let text = utf16_until_nul(&buf[..(size as usize / 2).min(buf.len())]);
+        (!text.is_empty()).then_some(text)
+    }
+
+    /// "Czech (Czechia)": the display name of the layout's language, for a
+    /// layout the registry doesn't describe.
+    fn locale_display_name(lang: u16) -> Option<String> {
+        // LOCALE_NAME_MAX_LENGTH
+        let mut name = [0u16; 85];
+        if unsafe { LCIDToLocaleName(lang as u32, Some(&mut name), 0) } <= 0 {
+            return None;
+        }
+        let mut display = [0u16; 256];
+        let n = unsafe {
+            GetLocaleInfoEx(
+                PCWSTR(name.as_ptr()),
+                LOCALE_SLOCALIZEDDISPLAYNAME,
+                Some(&mut display),
+            )
+        };
+        (n > 0).then(|| utf16_until_nul(&display))
+    }
+
+    fn utf16_until_nul(buf: &[u16]) -> String {
+        let end = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
+        String::from_utf16_lossy(&buf[..end])
+    }
+
     /// What to do when Windows asks whether the session may end: `ask`
     /// starts the work and says whether there is anything to wait for,
     /// `done` says when it has finished.
@@ -351,6 +595,9 @@ mod imp {
     pub(crate) fn left_button_down() -> bool {
         false
     }
+    pub(crate) fn altgr_char(_vk: u16, _shift: bool) -> Option<(String, String)> {
+        None
+    }
     pub(crate) struct SessionEnd {
         pub(crate) ask: Box<dyn Fn() -> bool>,
         pub(crate) done: Box<dyn Fn() -> bool>,
@@ -385,7 +632,49 @@ pub(crate) use imp::{
 
 #[cfg(test)]
 mod tests {
-    use super::is_shell_class;
+    use super::{is_printable, is_shell_class, virtual_key};
+
+    #[test]
+    fn only_a_visible_character_counts_as_what_the_hotkey_typed() {
+        // What AltGr+V types on a Czech, Hungarian or Slovak layout
+        assert!(is_printable("@"));
+        assert!(is_printable("€"));
+        assert!(is_printable("đ"));
+        // Ctrl+V on a layout without an AltGr column: the SYN control character
+        assert!(!is_printable("\u{16}"));
+        assert!(!is_printable(""));
+        assert!(!is_printable(" "));
+        assert!(!is_printable("\t"));
+    }
+
+    #[test]
+    fn letters_and_digits_map_to_their_virtual_keys_and_nothing_else_does() {
+        let vk = |s: &str| virtual_key(s.parse().unwrap());
+        assert_eq!(vk("KeyV"), Some(0x56));
+        assert_eq!(vk("KeyA"), Some(0x41));
+        assert_eq!(vk("Digit1"), Some(0x31));
+        assert_eq!(vk("Digit0"), Some(0x30));
+        for other in ["F1", "Space", "ArrowUp", "Comma", "Enter"] {
+            assert_eq!(vk(other), None, "{other}");
+        }
+    }
+
+    #[test]
+    fn only_a_ctrl_alt_letter_or_digit_can_be_an_altgr_character() {
+        // Nothing to look up: these never reach the layouts. (On Windows a
+        // Ctrl+Alt+letter does, and what it finds depends on the machine's
+        // layouts, so the positive case is the Czech-layout test below.)
+        for hotkey in [
+            "ctrl+shift+v",
+            "alt+v",
+            "ctrl+alt+super+v",
+            "ctrl+alt+f1",
+            "ctrl+alt+space",
+            "nonsense",
+        ] {
+            assert_eq!(super::altgr_char_for(hotkey), None, "{hotkey}");
+        }
+    }
 
     #[test]
     fn the_taskbar_desktop_and_switchers_are_never_a_paste_target() {
@@ -406,5 +695,64 @@ mod tests {
         ] {
             assert!(!is_shell_class(class), "{class}");
         }
+    }
+}
+
+/// Against the real layouts: loads Czech for this process (not activated,
+/// and `KLF_NOTELLSHELL` keeps the language bar out of it), probes it, and
+/// unloads it again unless the user had it already. Loading takes the
+/// layout into the session's list, which is why nothing asserts before
+/// the unload.
+#[cfg(all(test, windows))]
+mod windows_tests {
+    use windows::core::w;
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        LoadKeyboardLayoutW, UnloadKeyboardLayout, KLF_NOTELLSHELL,
+    };
+
+    use super::imp::{altgr_text_on, keyboard_layouts, layout_name};
+
+    #[test]
+    fn the_czech_layout_types_at_with_ctrl_alt_v() {
+        let before = keyboard_layouts();
+        let hkl = unsafe { LoadKeyboardLayoutW(w!("00000405"), KLF_NOTELLSHELL) }
+            .expect("the Czech layout ships with Windows");
+        let had_it = before.contains(&hkl);
+        let at = altgr_text_on(hkl, b'V' as u16, false);
+        let shifted = altgr_text_on(hkl, b'V' as u16, true);
+        let name = layout_name(hkl);
+        let for_hotkey = super::altgr_char_for("ctrl+alt+v");
+        if !had_it {
+            unsafe { UnloadKeyboardLayout(hkl) }.expect("unload the Czech layout again");
+        }
+        assert_eq!(at.as_deref(), Some("@"));
+        // Shift+AltGr+V has no character on the Czech layout
+        assert_eq!(shifted, None);
+        assert!(
+            !name.chars().all(|c| c.is_ascii_hexdigit()),
+            "the layout's name should come from the registry, not the handle: {name}"
+        );
+        eprintln!("Czech layout is named {name:?}");
+        // With Czech on the list, some layout (at least that one) types
+        // something with the default hotkey
+        assert!(for_hotkey.is_some(), "{for_hotkey:?}");
+    }
+
+    #[test]
+    fn a_layout_without_an_altgr_column_types_nothing_with_ctrl_alt_v() {
+        let before = keyboard_layouts();
+        let hkl = unsafe { LoadKeyboardLayoutW(w!("00000409"), KLF_NOTELLSHELL) }
+            .expect("the US layout ships with Windows");
+        let had_it = before.contains(&hkl);
+        let text = altgr_text_on(hkl, b'V' as u16, false);
+        let name = layout_name(hkl);
+        if !had_it {
+            unsafe { UnloadKeyboardLayout(hkl) }.expect("unload the US layout again");
+        }
+        assert_eq!(text, None);
+        assert!(
+            name.starts_with("US") || name.contains("United States"),
+            "{name}"
+        );
     }
 }

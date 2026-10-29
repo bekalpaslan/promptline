@@ -178,6 +178,46 @@ pub(crate) fn resolve_hotkey(configured: &str) -> Shortcut {
     parse_hotkey(configured).unwrap_or_else(|_| Config::default().hotkey.parse().unwrap())
 }
 
+/// "Ctrl+Alt+V" for the config's "ctrl+alt+v": each part capitalised, the
+/// way `fmtHotkey` in `ui/core.js` shows it.
+pub(crate) fn hotkey_label(hotkey: &str) -> String {
+    hotkey
+        .split('+')
+        .map(|part| {
+            let mut chars = part.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().chain(chars).collect(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<String>>()
+        .join("+")
+}
+
+/// The notice for a hotkey that is also how one of the user's keyboard
+/// layouts types a character (`platform::altgr_char_for`): on a Czech,
+/// Slovak, Hungarian, Croatian or Slovenian layout, AltGr+V is `@`, and a
+/// Ctrl+Alt+V registration fires on it and swallows the character.
+pub(crate) fn hotkey_layout_notice(hotkey: &str, character: &str, layout: &str) -> String {
+    format!(
+        "On your {layout} keyboard layout, {} is how you type {character}, and Promptline takes it while it runs. Choose another combination under Settings → Global hotkey.",
+        hotkey_label(hotkey)
+    )
+}
+
+/// Raise that notice if `hotkey`, just registered, types a character on
+/// one of the user's layouts. The manager shows it until dismissed and
+/// remembers the dismissal, so a launch with the same hotkey is quiet.
+pub(crate) fn warn_hotkey_layout(app: &AppHandle, hotkey: &str) {
+    if let Some((character, layout)) = platform::altgr_char_for(hotkey) {
+        notify(
+            app,
+            "hotkey-layout",
+            hotkey_layout_notice(hotkey, &character, &layout),
+        );
+    }
+}
+
 /// Change the global hotkey. The new combination is registered *before* the
 /// old one is released: if the OS refuses it (another program owns it), the
 /// old hotkey keeps working and the config is untouched, so the UI keeps
@@ -204,7 +244,9 @@ pub(crate) fn set_hotkey(
         gs.register(shortcut).map_err(|e| e.to_string())?;
     }
     config.hotkey = hotkey;
-    save_config(&app, &config)
+    save_config(&app, &config)?;
+    warn_hotkey_layout(&app, &config.hotkey);
+    Ok(())
 }
 
 #[tauri::command]
@@ -587,6 +629,26 @@ pub(crate) fn quit_now(app: AppHandle) {
 mod tests {
     use super::*;
     use crate::testing::temp_dir;
+
+    #[test]
+    fn the_hotkey_label_reads_like_the_settings_field() {
+        assert_eq!(hotkey_label("ctrl+alt+v"), "Ctrl+Alt+V");
+        assert_eq!(hotkey_label("ctrl+shift+f12"), "Ctrl+Shift+F12");
+        assert_eq!(hotkey_label(""), "");
+    }
+
+    #[test]
+    fn the_layout_notice_names_the_layout_the_hotkey_and_the_character() {
+        let text = hotkey_layout_notice("ctrl+alt+v", "@", "Czech");
+        assert_eq!(
+            text,
+            "On your Czech keyboard layout, Ctrl+Alt+V is how you type @, and Promptline takes it while it runs. Choose another combination under Settings → Global hotkey."
+        );
+        let text = hotkey_layout_notice("ctrl+alt+e", "€", "Hungarian");
+        assert!(
+            text.starts_with("On your Hungarian keyboard layout, Ctrl+Alt+E is how you type €,")
+        );
+    }
 
     #[test]
     fn only_files_under_the_data_folder_are_admitted() {
