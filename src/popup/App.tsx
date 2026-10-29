@@ -14,9 +14,10 @@ import {
 } from "@remixicon/react"
 import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
 import { applyPrefs, isCompact } from "@/lib/prefs"
+import { POPUP_FOLD_KEYS, toggleIn, useFolds } from "@/lib/folds"
 import { type Config, DEFAULT_PACK, MAX_PINS, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
 // Same key shape as the sidebar, so a group folds independently per pack
-const groupKey = (pack: string, group: string) => `${pack}\u0000${group}`
+const groupKey = C.groupKey
 // A stop in the arrow order: a row (its index in `visible`), or a pack's or
 // group's header
 type HeadStop = { pack: string; group?: string }
@@ -218,13 +219,11 @@ export function App() {
 
   // Browsing groups by pack (collapsible); searching stays a flat ranked list.
   // `visible` is what the keyboard navigates — collapsed packs drop out of it.
-  const [collapsed, setCollapsed] = useState<Set<string>>(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem("popupCollapsedPacks") || "[]"))
-    } catch {
-      return new Set()
-    }
-  })
+  // The folds are the shared hook's (lib/folds.ts), under the popup's own
+  // keys: packs by name, groups by pack + group so two packs' "Drafts" fold
+  // independently, the same key shape as the sidebar's.
+  const { folds: saved, togglePackFold, toggleGroupFold, setAll: setAllFolds } = useFolds(POPUP_FOLD_KEYS)
+  const { packs: collapsed, groups: collapsedGroups } = saved
   // Where the selection goes once the list has been rebuilt: a prompt to
   // follow — pinning, unpinning or restoring one moves its row between
   // sections — or the pack a collapse toggled. `visible` is a memo, so the
@@ -260,30 +259,14 @@ export function App() {
     packs: new Set(),
     groups: new Set(),
   })
-  // Groups fold the same way, keyed by pack + group so two packs' "Drafts"
-  // fold independently. Same key shape as the sidebar's collapsedGroups.
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
-    try {
-      return new Set(JSON.parse(localStorage.getItem("popupCollapsedGroups") || "[]"))
-    } catch {
-      return new Set()
-    }
-  })
   const folds = filterKey && filterFolds.key === filterKey ? filterFolds : null
   const effCollapsed = filterKey ? (folds?.packs ?? EMPTY) : collapsed
   const effCollapsedGroups = filterKey ? (folds?.groups ?? EMPTY) : collapsedGroups
   const toggleCollapsed = useCallback((name: string) => {
     const base = filterKey ? (folds?.packs ?? EMPTY) : collapsed
-    const next = new Set(base)
-    const expanding = next.has(name)
-    if (expanding) next.delete(name)
-    else next.add(name)
-    if (filterKey) {
-      setFilterFolds({ key: filterKey, packs: next, groups: folds?.groups ?? new Set() })
-    } else {
-      setCollapsed(next)
-      localStorage.setItem("popupCollapsedPacks", JSON.stringify([...next]))
-    }
+    const expanding = base.has(name)
+    if (filterKey) setFilterFolds({ key: filterKey, packs: toggleIn(base, name), groups: folds?.groups ?? new Set() })
+    else togglePackFold(name)
     // The selection moves only when its row is in the section that was
     // toggled (← on that row, which is how the keyboard folds). A click on
     // another section's header used to carry the selection there, so the
@@ -296,21 +279,14 @@ export function App() {
       const first = visibleRef.current.findIndex((e) => !e.s.pinned && (e.s.pack || DEFAULT_PACK) === name)
       pendingAnchor.current = { at: first < 0 ? 0 : first }
     }
-  }, [collapsed, filterKey, folds])
+  }, [collapsed, filterKey, folds, togglePackFold])
   // Same as a pack fold: the selection stays by the toggled group instead
   // of jumping to the top of the list
   const toggleCollapsedGroup = useCallback((key: string) => {
     const base = filterKey ? (folds?.groups ?? EMPTY) : collapsedGroups
-    const next = new Set(base)
-    const expanding = next.has(key)
-    if (expanding) next.delete(key)
-    else next.add(key)
-    if (filterKey) {
-      setFilterFolds({ key: filterKey, packs: folds?.packs ?? new Set(), groups: next })
-    } else {
-      setCollapsedGroups(next)
-      localStorage.setItem("popupCollapsedGroups", JSON.stringify([...next]))
-    }
+    const expanding = base.has(key)
+    if (filterKey) setFilterFolds({ key: filterKey, packs: folds?.packs ?? new Set(), groups: toggleIn(base, key) })
+    else toggleGroupFold(key)
     const [pack, group] = key.split("\u0000")
     const cur = visibleRef.current[selRef.current]
     if (cur && !(!cur.s.pinned && (cur.s.pack || DEFAULT_PACK) === pack && cur.s.group === group)) pendingAnchor.current = { follow: cur.s.id }
@@ -321,22 +297,16 @@ export function App() {
       )
       pendingAnchor.current = { at: first < 0 ? 0 : first }
     }
-  }, [collapsedGroups, filterKey, folds])
+  }, [collapsedGroups, filterKey, folds, toggleGroupFold])
   // Ctrl+→: every pack and group open again, the
   // selection on the row it was on
   const unfoldAll = useCallback(() => {
     const cur = visibleRef.current[selRef.current]
     // A selected header stays selected; a row is followed to its new place
     if (cur && !headSelRef.current) pendingAnchor.current = { follow: cur.s.id }
-    if (filterKey) {
-      setFilterFolds({ key: filterKey, packs: new Set(), groups: new Set() })
-    } else {
-      setCollapsed(new Set())
-      setCollapsedGroups(new Set())
-      localStorage.setItem("popupCollapsedPacks", "[]")
-      localStorage.setItem("popupCollapsedGroups", "[]")
-    }
-  }, [filterKey])
+    if (filterKey) setFilterFolds({ key: filterKey, packs: new Set(), groups: new Set() })
+    else setAllFolds(new Set(), new Set())
+  }, [filterKey, setAllFolds])
 
   // `count` is what the heading shows: for a pack, every prompt it holds,
   // pinned ones included, so the popup agrees with the manager's sidebar even
