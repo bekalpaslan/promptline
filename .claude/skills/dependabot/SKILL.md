@@ -63,8 +63,14 @@ comment when it decides the outcome.
   minors and majors on both sides, so a grouped PR never moves them; the
   2.12 / wry 0.57 / tao 0.37 jump is deferred to the macOS port branch
   (decided 2026-10-29), where the real-app check it needs is done anyway.
-  The `tauri-plugin-*` crates have their own minors and move within 2.x
-  in the grouped PR; a plugin that owns the hotkey, tray, window or
+  The `tauri-plugin-*` crates' minors are part of the jump: a plugin
+  minor requires Tauri's minor (every plugin minor of 2026-10 needs
+  `tauri ^2.12`), so the config ignores their minors too and only their
+  patches move in the grouped PR. The ignore governs the direct bump
+  Dependabot intends, not what Cargo resolves behind it, so a cargo PR is
+  judged by its lock, not its body: the triage script reads the PR's
+  `Cargo.lock` and flags a resolved `tauri` minor that differs from
+  master's. A plugin patch that owns the hotkey, tray, window or
   autostart (global-shortcut, single-instance, autostart) gets a run of
   the debug build and one hotkey press before merge when CI alone passed.
 - **The lock must install.** Node 24 / npm 11 is the floor, and even
@@ -230,3 +236,16 @@ release notes should carry.
   config; `@dependabot recreate` as a PR comment rebuilt it under the new
   one. Recreation after a close took under two minutes, not the monthly
   tick.
+- **2026-10-29, the recreated cargo group (#12).** Its body read as
+  eleven in-range moves with `tauri` 2.11.5 → 2.11.6, and CI was green,
+  but the lock resolved `tauri` 2.12.5, `tauri-build` 2.7.4, `wry` 0.57.1
+  and `tao` 0.37.2: every plugin minor it took requires `tauri ^2.12`.
+  The Tauri-pair ignore cannot stop a transitive move, and Dependabot's
+  body never mentions one. The config gained the `tauri-plugin-*` minor
+  ignore, `@dependabot recreate` closed #12 as "no longer being updated"
+  and opened #13 within a minute (five moves, lock still at 2.11), which
+  merged. `tauri` 2.11.6 carries GHSA-w28w-mhc8-qvjv (high: a hostile
+  webview could drain another webview's channel responses); Promptline
+  loads no remote content, so it was a free patch, not an exposure, and
+  no alert had been raised for it. The script now compares the PR lock's
+  `tauri` with master's.

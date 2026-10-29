@@ -17,11 +17,15 @@ const sh = (cmd) => {
 const gh = (args) => JSON.parse(sh(`gh ${args}`) || "null")
 
 const major = (from, to) => parseInt(from.split(".")[0], 10) !== parseInt(to.split(".")[0], 10)
-// The Tauri pair moves together and by hand; plugins have their own minors.
-const tauriPair = (name) => /^(tauri|tauri-build|@tauri-apps\/api|@tauri-apps\/cli)$/.test(name)
+// The Tauri pair moves together and by hand; a plugin minor requires a
+// Tauri minor, so the plugins' minors are part of the same jump.
+const tauriPair = (name) => /^(tauri|tauri-build|tauri-plugin-.*|@tauri-apps\/api|@tauri-apps\/cli)$/.test(name)
+const minor = (v) => v.split(".").slice(0, 2).join(".")
+const lockVersion = (lock, name) => new RegExp(`^name = "${name}"\\nversion = "([^"]+)"`, "m").exec(lock)?.[1]
 
 function prs() {
-  const list = gh(`pr list --repo ${slug} --author app/dependabot --state open --json number,title,headRefName,body,url`) || []
+  const list = gh(`pr list --repo ${slug} --author app/dependabot --state open --json number,title,headRefName,headRefOid,body,url`) || []
+  const masterLock = sh("git show origin/master:src-tauri/Cargo.lock")
   if (!list.length) { console.log("Open Dependabot PRs: none"); return }
   console.log("Open Dependabot PRs")
   console.log("| # | group | CI | moves | flags |")
@@ -33,7 +37,14 @@ function prs() {
     const flags = []
     for (const m of moves) {
       if (major(m.from, m.to)) flags.push(`major ${m.name} ${m.from}→${m.to}`)
-      if (tauriPair(m.name) && m.from.split(".").slice(0, 2).join(".") !== m.to.split(".").slice(0, 2).join(".")) flags.push(`tauri pair ${m.name} ${m.from}→${m.to}`)
+      if (tauriPair(m.name) && minor(m.from) !== minor(m.to)) flags.push(`tauri pair ${m.name} ${m.from}→${m.to}`)
+    }
+    // The body lists the direct bumps Dependabot intended; the lock holds
+    // what Cargo resolved behind them (a plugin minor drags tauri's minor).
+    if (/cargo/.test(pr.headRefName)) {
+      const lock = Buffer.from(gh(`api repos/${slug}/contents/src-tauri/Cargo.lock?ref=${pr.headRefOid} --jq .content`) || "", "base64").toString("utf8")
+      const was = lockVersion(masterLock, "tauri"), now = lockVersion(lock, "tauri")
+      if (was && now && minor(was) !== minor(now)) flags.push(`lock resolves tauri ${was}→${now}`)
     }
     const group = /^Bump the ([\w-]+) group/.exec(pr.title)?.[1] || pr.headRefName
     console.log(`| ${pr.number} | ${group} | ${ci} | ${moves.length} | ${flags.join("; ") || "in range"} |`)
