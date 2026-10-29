@@ -24,10 +24,17 @@ backlog, not from another audit, unless asked.
 - `README.md` — the app as a user sees it.
 - `BACKLOG.md` — deferred ideas. Add to it rather than widening a change.
 - `docs/MARKETING.md` — the marketing strategy and the decisions behind
-  it (donations only, source stays MIT; macOS before the pitch; community
-  packs as repo files first). Exported from a Claude doc; refresh the
-  export when a decision changes. Local only since 2026-09-26: untracked
-  and listed in `.git/info/exclude`, so a fresh clone doesn't have it.
+  it (donations only, source stays MIT; a Windows-only round once Certum
+  signs a release, Show HN held for the macOS port; community packs as
+  repo files first). Exported from a Claude doc; refresh the export when
+  a decision changes. Local only since 2026-09-26: untracked and listed
+  in `.git/info/exclude`, so a fresh clone doesn't have it. What success
+  means for Promptline, so a clone has it too: people reached and kept,
+  read from the GitHub and package-manager numbers `scripts/snapshot.mjs`
+  prints (downloads of the stable `Promptline-setup.exe` are people
+  reached; fetches of the versioned installers, minus the per-release
+  machinery floor, are people kept). The one-second copy-hotkey-paste
+  gesture is the means to that, not the measure.
 - `docs/history/` — the review, audit and benchmark trackers (`REVIEW.md`,
   `RELEASE-AUDIT.md`, `BUG-HUNT-*.md`) and the 2026-07 UI rework roadmap,
   each with its own rules at the top. Test names cite these files'
@@ -75,7 +82,8 @@ backlog, not from another audit, unless asked.
   and writes `docs/screenshots/<shot>-<light|dark>.png` at 2x and
   `docs/og.png`; rerun it once at the end of a session of visible UI
   changes, not per commit (the 2026-10-10 session regenerated every
-  image ten times and added 44 MB to history), and commit the images.
+  image ten times, and the repository's history stood near 69 MiB by
+  the day's end), and commit the images.
   The launch clip is made the same way: `npm run clip`
   (`e2e/clip.spec.ts` around `e2e/clip-terminal.html`, a Windows Terminal
   running Claude Code with the real popup over it) captures each state as
@@ -202,9 +210,11 @@ Two tests enforce the seams, so read their failure text before anything else:
 
 Housekeeping:
 
-- `npm run lint` walks the whole tree, `.claude/worktrees/` included: a
-  worktree left behind with broken files fails it. Remove finished
-  worktrees (`git worktree remove`); `npx eslint src` checks only the app.
+- Remove finished worktrees (`git worktree remove`): each holds its own
+  `node_modules` and Rust `target/`, and the harness leaves a lock on the
+  ones it created. `eslint.config.mjs` ignores `.claude/`, so a stale
+  worktree no longer fails `npm run lint` (it did until 86cdafc,
+  2026-10-03); `npx eslint src` is still the quick check of the app alone.
 - Line endings: the index is LF (`core.autocrlf=true`), working copies are
   mixed. Run `unix2dos` on the files you touch, and only those. Scripted
   edits should normalise `\r\n` before matching, or they silently miss.
@@ -214,13 +224,11 @@ Housekeeping:
 - Write multi-line edit scripts to a file with the Write tool and run
   them; a Python heredoc with quotes inside a Bash call trips the tool's
   parser.
-- `npm install <pkg>` here (npm 11) rewrites `package-lock.json` and drops
-  optional-peer entries (`@emnapi/runtime`, the nested
-  `oxide-wasm32-wasi` ones) that CI's npm 10 then reports as missing, and
-  `npm ci` fails before any check runs. After adding a dependency, diff
-  the lock against `HEAD`: only the new packages should appear. If entries
-  vanished, rebuild from the old lock plus the new entries (a script; the
-  Playwright commit did this) rather than committing the rewrite.
+- Node 24 (npm 11) is the supported floor, for CI and the maintainer
+  alike (`.nvmrc` and `engines` in `package.json` say so), so `npm
+  install <pkg>` and `npm update` are ordinary commands. After adding a
+  dependency, still diff `package-lock.json` against `HEAD`: only the new
+  packages should appear.
 
 ## Verifying UI changes
 
@@ -372,17 +380,30 @@ build is still what ships.
    file on the release rather than a local build (a code-signed installer
    has different bytes). Run from the maintainer's PowerShell with their
    own GitHub login; no token is stored in either repo.
-   - winget (`AlpaslanBek.Promptline`, moniker `promptline`), with komac
-     (`winget install RussellBanks.Komac` once; if it isn't on PATH in a
-     fresh shell, its exe is at
-     `%LOCALAPPDATA%\Programs\Komac\bin\komac.exe`):
+   - winget (`AlpaslanBek.Promptline`, moniker `promptline`). The
+     package's New-Package PR, microsoft/winget-pkgs#441945, is still
+     unmerged, so komac can't update it (`komac update` answers that the
+     package doesn't exist). Until it merges, move that PR to the new
+     version instead, from Bash:
+     `GITHUB_TOKEN=$(gh auth token) node .claude/skills/release/scripts/winget-pr-update.cjs 441945 X.Y.Z <sha256 of the released setup exe> <YYYY-MM-DD>`.
+     The script reads the PR's manifests through the Git Data API (no
+     clone: winget-pkgs has paths Windows can't check out), rewrites
+     version, url, hash, date and notes url, drops the old version's
+     folder, pushes one commit to the PR branch and retitles the PR;
+     validation reruns by itself. Never open a second PR or change the
+     publisher id: one PR carrying the latest version is what eventually
+     merges, and re-pushing it each release costs nothing. Moderators
+     take New-Package PRs by creation date; on 2026-10-29, 369 older
+     ready PRs were ahead of it, a queue measured in weeks, not hours or
+     days. Once it has merged, komac takes over (`winget install
+     RussellBanks.Komac` once; if it isn't on PATH in a fresh shell, its
+     exe is at `%LOCALAPPDATA%\Programs\Komac\bin\komac.exe`):
      `$env:GITHUB_TOKEN = gh auth token; komac update AlpaslanBek.Promptline --version X.Y.Z --urls https://github.com/bekalpaslan/promptline/releases/download/vX.Y.Z/Promptline_X.Y.Z_x64-setup.exe --release-notes-url https://github.com/bekalpaslan/promptline/releases/tag/vX.Y.Z --submit`.
      komac downloads the exe, hashes it, carries the rest of the manifest
      over from the last version and opens the PR on `microsoft/winget-pkgs`
      from the maintainer's fork (`gh repo fork microsoft/winget-pkgs
-     --clone=false` once, if it doesn't exist yet). Microsoft's validation
-     and a moderator merge it, in hours or days; nothing else waits on it.
-     A CLA-bot comment needs the maintainer's own
+     --clone=false` once, if it doesn't exist yet). Nothing else waits on
+     winget. A CLA-bot comment needs the maintainer's own
      `@microsoft-github-policy-service agree` reply before validation
      runs; a manifest-only validation error is fixed by pushing a
      corrected file to the PR's branch and commenting `@wingetbot run`.
