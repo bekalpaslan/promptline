@@ -144,9 +144,13 @@ kept here so a later edit doesn't undo it:
   novelty are gates; worth is advice.
 - **Capping by agreement cuts what only one agent could see first**, so
   every source gets its best area in before the rest fill by potential.
-- **The yardstick step is the one deliberate steer.** No tracked doc says
-  what success means for Promptline (the strategy lives in the local-only
-  `docs/MARKETING.md`), and without the step each agent ranks against a
-  yardstick it never states. Whether agents notice that gap unprompted is
-  untested: to find out, run discovery with step 1 cut to its first
-  sentence.
+- **The yardstick step is the one deliberate steer.** Until 2026-10-29 no
+  tracked doc said what success means for Promptline (the strategy lives
+  in the local-only `docs/MARKETING.md`), and without the step each agent
+  ranks against a yardstick it never states. Tested that day: all four
+  discoverers found a yardstick, but only through ignored files
+  (`PRODUCT.md`, `docs/MARKETING.md`), and three of the four read the two
+  as conflicting. CLAUDE.md now carries a tracked success statement
+  (people reached and kept, beside its `docs/MARKETING.md` bullet), so a
+  fresh clone has one to rank against; the step stays, because a stated
+  yardstick still beats a found one.

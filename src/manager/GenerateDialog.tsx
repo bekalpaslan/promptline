@@ -70,7 +70,7 @@ function chatInstruction(rules: string, topic: string): Segment[] {
 }
 
 // Where the agent should look before writing anything — shared by both agent variants
-const SURVEY = `Before writing anything, survey the project this session runs in: its agent instructions (CLAUDE.md, AGENTS.md or similar) and other contributor docs, roadmap or backlog files, recent git log, the test and build commands, and any workflow commands or skills available in this session (for example /gsd:next). Name real files, commands, and conventions from this project rather than generic ones. Where a workflow command already exists, write the prompt that wraps it with the context the user would otherwise type by hand.`
+const SURVEY = `Before writing anything, survey the project this session runs in: its agent instructions (CLAUDE.md, AGENTS.md or similar) and other contributor docs, roadmap or backlog files, recent git log, the test and build commands, and any slash commands or skills the project defines. Name real files, commands, and conventions from this project rather than generic ones. Where a workflow command already exists, write the prompt that wraps it with the context the user would otherwise type by hand.`
 
 // One practice = one group inside the project's pack; the agent skips
 // practices it has nothing specific to say about
@@ -371,7 +371,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         {path === "agent" && !topic.trim() && (
           <p className="-mt-2 text-xs text-muted-foreground">
             Empty topic: the agent surveys the project it's running in — its docs, git log, build commands, and
-            workflow commands like /gsd:next — and writes one pack named after the project, with a group per daily
+            any slash commands or skills the project defines — and writes one pack named after the project, with a group per daily
             practice: orientation, development, debugging, verification, review, documentation, housekeeping.
           </p>
         )}

@@ -30,8 +30,8 @@ releases taught. Read the Releasing section first, every time; it changes.
 6. [Package managers](#4-package-managers): winget with komac or the
    PR-update script, Scoop with checkver.
 7. [The post, the map, the report](#5-the-post-the-map-the-report): the
-   X dry run handed over, the architecture map remap, the report shape,
-   cleanup.
+   X dry run handed over, the architecture map remap, the snapshot row,
+   the report shape, cleanup.
 8. [What past releases taught](#what-past-releases-taught).
 
 Scripts in `scripts/`: `bump.cjs` (five places, patch step by default),
@@ -103,10 +103,20 @@ git diff --diff-filter=A --name-only <latest tag>..origin/master -- 'design/*.to
 Also in step 0, so the package-manager step is known before it comes:
 `gh pr list --repo microsoft/winget-pkgs --author "@me" --search
 Promptline --state open --json number,title`. An open "New package" PR
-means the package is still unmerged upstream and komac can't update it;
-the PR-update script will (step 4). `Validation-Completed` and
-`Azure-Pipeline-Passed` labels with no moderator merge mean waiting,
-not a problem.
+(#441945 since 0.2.17) means the package is still unmerged upstream and
+komac can't update it; the PR-update script will (step 4).
+`Validation-Completed` and `Azure-Pipeline-Passed` labels with no
+moderator merge are the queue, not a problem: moderators take
+New-Package PRs by creation date, and on 2026-10-29 369 older ready PRs
+were ahead of ours, a queue measured in weeks. How many are still ahead:
+
+```sh
+gh api -X GET search/issues -f q='repo:microsoft/winget-pkgs is:pr is:open label:New-Package label:Validation-Completed -label:Needs-Author-Feedback -label:Needs-Attention -label:Blocking-Issue -label:Needs-CLA -label:Changes-Requested -label:Moderator-Approved -label:Validation-Domain -label:Validation-Executable-Error created:<2026-09-27' --jq .total_count
+```
+
+(369 on 2026-10-29.) Never open a second PR or change the publisher id:
+re-pushing the one PR each release costs nothing and keeps the eventual
+merge at the current version.
 
 If `docs/RELEASE-NOTES-next.md` exists, it is the draft of the notes;
 start from it and delete it in the bump commit.
@@ -237,9 +247,10 @@ live feed, so it waits for that.
   `GITHUB_TOKEN=$(gh auth token) node .claude/skills/release/scripts/winget-pr-update.cjs <pr> X.Y.Z <sha256> <YYYY-MM-DD>`.
   It pushes one commit to the PR branch and retitles the PR; validation
   reruns by itself. One PR carrying the latest version beats two queued
-  ones; the moderators merge it in hours or days and nothing waits on
-  it. Never clone winget-pkgs on Windows: its paths are too long for the
-  checkout.
+  ones: a second PR would start at the back of a queue measured in weeks
+  (step 0 has the position check and the 2026-10-29 count), while
+  re-pushing this one costs nothing. Nothing waits on it. Never clone
+  winget-pkgs on Windows: its paths are too long for the checkout.
 - **Scoop.** `checkver.ps1 -App promptline -Dir ..\scoop-bucket\bucket
   -Update` once the live feed shows the version (it reads the version
   from the feed), then commit and push the bucket.
@@ -265,11 +276,23 @@ live feed, so it waits for that.
   visual-check (commands in CLAUDE.md → Architecture map), read the
   artifact URL once in the session, publish to it, commit the JSON
   alone, push.
+- **The snapshot row.** `node scripts/snapshot.mjs` (with `--donations
+  <n>` when the maintainer gives the number) prints one row of the
+  MARKETING doc's Snapshot table. Put it in the report under a heading
+  "Snapshot row for the MARKETING doc"; the maintainer pastes it into the
+  local doc, and no number lands in the repo. The row's download cell is
+  split by asset: the stable `Promptline-setup.exe` (the site's button,
+  so it reads as site downloads), the versioned exe and the msi, with the
+  latest release's age in days. The versioned count includes about seven
+  per-release machinery fetches (komac's hash, Scoop's checkver, winget
+  validation on each push, the maintainer's own copy), so retention
+  reads versioned(N+1) minus that floor, against stable(N).
 - **Report**, in this order: release URL; a table of the three assets
   with sizes; a table of every workflow run the pushes and the tag
   triggered with its outcome; downstream state (Scoop commit, winget PR
-  number and what happened to it, map republished); the X command for
-  the user; anything left in flight or skipped and why.
+  number and what happened to it, map republished); the snapshot row
+  under its heading; the X command for the user; anything left in flight
+  or skipped and why.
 - Delete the merged `theme/<id>` branch (local and origin), the session's
   merged work branch, and the release worktree, if any.
 
@@ -291,7 +314,10 @@ live feed, so it waits for that.
   before tagging, not after.
 - 0.2.17: the winget PR passed validation and sat for a week waiting for a
   moderator; komac can't update a package that isn't merged, hence the
-  PR-update script.
-- `npm install` of a new dependency rewrites the lockfile and drops
-  optional-peer entries CI's npm 10 needs; rebuild the lock from `HEAD`
-  plus the new entries (CLAUDE.md → Housekeeping) before the bump.
+  PR-update script. A month later it was still queued behind 369 older
+  New-Package PRs (step 0).
+- Cadence, an observation and not a rule: October 2026 shipped eight
+  releases, roughly weekly, five of them carrying gesture behaviour. The
+  one excess was three releases on 2026-10-03, three toasts to every
+  installed copy in a day. No floor is set; a quiet release class (a feed
+  flag that skips the toast) is deferred in BACKLOG.md.

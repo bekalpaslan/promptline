@@ -73,9 +73,10 @@ has two paths:
   cover an agent that took another route); then **Review & add** as before.
   There the topic is optional. Leave it empty and the agent surveys the
   project it is running in — contributor docs, roadmap, git log, build
-  commands, workflow commands like `/gsd:next` — and writes one pack named
-  after the project, with a group per daily practice (orientation,
-  development, debugging, verification, review, documentation, housekeeping).
+  commands, any slash commands or skills the project defines — and
+  writes one pack named after the project, with a group per daily
+  practice (orientation, development, debugging, verification, review,
+  documentation, housekeeping).
   Give a topic to narrow the pack to one area instead.
 
 Duplicate title+text pairs are skipped on import, so re-importing an updated
