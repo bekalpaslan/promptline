@@ -20,6 +20,20 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
   people ask to share packs. Prompt injection through a pack's text (an
   honest-looking instruction, not only hidden characters) needs its own
   design pass when it comes back.
+- **Linked pack file** (recorded 2026-10-29; the local half of shape C in
+  `docs/MARKETING.md`'s shelved community-packs plan). A pack linked to a
+  file the user chose on disk, say `<repo>\.promptline\<pack>.json`,
+  through a Rust-side `rfd` picker; the path stored on `PackMeta.path`
+  (`packs.rs` already keeps a path outside `packs/` absolute);
+  `read_pack_file` and `show_in_folder` widened from "under the data
+  folder" to "under the data folder or exactly a registered path"; a
+  watcher or mtime poll emitting a change event that opens the existing
+  import checklist, never a silent apply. **Hazards to design for:** two
+  writers on one file (the app's atomic rename landing over an agent's
+  half-written edit; a self-write guard and a debounce are needed), and
+  `retire_pack_file` must never move a file out of a user's repo into
+  `packs/deleted/`. **Why deferred:** 0 issues and one 0-comment
+  Discussion on 2026-10-29; reputation before features (2026-09-28).
 - **Community pack library** (parked 2026-09-24 over safety and legal
   concerns). Packs as `library/<slug>.json` in the repo (the pack format
   plus `description` and `author`, which `parsePacks` already ignores),
@@ -58,10 +72,18 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 
 ## Code structure
 
-- **Split the three largest components** — `Editor.tsx` (params panel + tag
-  strip), `GenerateDialog.tsx` (pure `generate-instructions.ts` + dialog),
-  `Settings.tsx` (hotkey recorder + the Packs card). Pure moves, no behaviour
-  change; deferred from the 2026-09 review (D6) to keep that diff readable.
+- **Split the largest components** (REVIEW D6, 2026-09-14; pure moves, no
+  behaviour change, deferred then to keep that diff readable). By size
+  today: `src/popup/App.tsx` (2,479 lines), `src/manager/Sidebar.tsx`
+  (1,165), then `Editor.tsx` (params panel + tag strip),
+  `GenerateDialog.tsx` (pure `generate-instructions.ts` + dialog) and
+  `Settings.tsx` (hotkey recorder + the Packs card). The popup's seams,
+  each with its reason: the derived mode (the keydown handler, the hint
+  bar, `announce` and `pick` each re-derive it; one derivation in one
+  place), folds (duplicated with `src/manager/folds.ts`; a shared
+  `useFolds` is scheduled), and the clipboard panel, preview card, action
+  panel and fill-in form as hooks to extract when a feature next touches
+  each, not before.
 
 ## Search
 
@@ -98,6 +120,13 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 - ~~**Real-library screenshot**~~ — **done 2026-09-25** differently: every
   screen is staged against a demo library (`npm run shots`), in both
   themes, for the site's tour and the README.
+- **Manager window residency** (noted 2026-10-29). Both windows are
+  declared in `tauri.conf.json`, so the hidden 1000×800 manager has a
+  WebView2 renderer alive from login for a user who only ever presses the
+  hotkey. Measure first: Task Manager after a `--hidden` launch, with and
+  without the window declared. If the difference is tens of MB, build the
+  manager lazily from the tray click (and the other places that open it)
+  instead.
 
 ## Popup
 
@@ -130,11 +159,26 @@ Ideas and deferred work, roughly ordered. Promote items into a milestone when pi
 - ~~**Auto-update**~~ — **shipped 0.2.17**: the Tauri
   updater reads `site/latest.json` on promptline.cc, written by the release
   step (CLAUDE.md, Releasing).
+- **Quiet release class** (deferred 2026-10-29). A `"quiet": true` field
+  in `site/latest.json`, read from `Update.raw_json` in `update.rs`
+  (tauri-plugin-updater 2.12 exposes it, and the feed struct has no
+  `deny_unknown_fields`, so the field is harmless to every installed
+  copy), that skips the toast while keeping the tray item and the About
+  line, for a release that changes nothing a user sees. **Why deferred:**
+  the toast is the retention instrument (a copy that updates is a copy
+  still in use), and visual-only releases have not recurred as a burst
+  since 2026-10-03, when three toasts in a day went to every copy.
 - ~~**Stable-named installer**~~ — **shipped 2026-09-24**: each release
   carries a `Promptline-setup.exe` copy, and the website links to it
   instead of asking the GitHub API from the visitor's browser.
 - ~~**security@promptline.cc**~~ — **shipped 0.2.17**: GoDaddy forwards
   it to the mailbox, and SECURITY.md names it instead of a personal
   address.
-- **macOS port** — reimplement the `platform` module (CGEventPost + Accessibility
-  permission); everything else is portable.
+- **macOS port** — reimplement the `platform` module (CGEventPost +
+  Accessibility permission). Everything else is meant to be portable, but
+  the non-Windows build has not compiled since f7e3813 (2026-09-22):
+  `src-tauri/src/paste.rs:321` calls `w.hwnd().ok()` ungated, and Tauri's
+  `hwnd` is `#[cfg(windows)]`; gate it with the rest when the port starts.
+  Since 2026-10-29 the port is no longer the launch gate: a Windows-only
+  round goes out once Certum signs a release, and Show HN is held for the
+  port, which has no date.
