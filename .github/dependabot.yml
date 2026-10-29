@@ -36,6 +36,11 @@ updates:
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
       - dependency-name: "tauri-build"
         update-types: ["version-update:semver-minor", "version-update:semver-major"]
+      # A plugin's minor requires Tauri's minor (every 2026-10 plugin minor
+      # needs tauri ^2.12), so a plugin minor in the grouped PR drags the
+      # whole Tauri jump in through the lock; patches still move here.
+      - dependency-name: "tauri-plugin-*"
+        update-types: ["version-update:semver-minor", "version-update:semver-major"]
     groups:
       cargo-all:
         patterns:
