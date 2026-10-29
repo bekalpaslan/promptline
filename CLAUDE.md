@@ -213,6 +213,13 @@ Housekeeping:
   ones it created. `eslint.config.mjs` ignores `.claude/`, so a stale
   worktree no longer fails `npm run lint` (it did until 86cdafc,
   2026-10-03); `npx eslint src` is still the quick check of the app alone.
+- History was rewritten once, on 2026-10-29: every superseded version of
+  `docs/screenshots/*`, `docs/clip/*` and `docs/og.png` was replaced by
+  the current blob (the pack went from about 99 MiB to 8), so every commit
+  since 2026-09-24 has a new SHA. A clone or worktree made before that
+  date must be re-cloned; SHAs quoted in docs or notes before it no
+  longer resolve. The tags were re-pointed and the releases kept their
+  assets. Harness clones take `--filter=blob:none` to skip the media.
 - Line endings: the index is LF (`core.autocrlf=true`), working copies are
   mixed. Run `unix2dos` on the files you touch, and only those. Scripted
   edits should normalise `\r\n` before matching, or they silently miss.
