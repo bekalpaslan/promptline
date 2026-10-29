@@ -114,7 +114,7 @@ export function Sidebar() {
   const { orderBy, setOrderBy } = m
   // Group-by-pack is the default view
   const { grouped, setGrouped } = m
-  // The folds are the manager's (folds.ts): a rename or a New from the
+  // The folds are the manager's (lib/folds.ts): a rename or a New from the
   // overview carries and opens them too
   const { packs: collapsed, groups: collapsedGroups } = m.folds
   const { togglePackFold: toggleCollapsed, toggleGroupFold: toggleCollapsedGroup, foldAll } = m

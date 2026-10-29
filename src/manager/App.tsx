@@ -9,7 +9,7 @@ import { C, isStoreError, type Library, type OrderBy, type PackMeta, type Snippe
 import { applyPrefs } from "@/lib/prefs"
 import { ManagerCtx, groupKey, type DeleteOpts, type LibraryFocus, type LibraryState, type ManagerApi, type Prefs, type Renaming, type View } from "./state"
 import { type Config, DEFAULT_PACK, defaultPackFor, isLockedIn, packNames as packNamesOf } from "@/lib/library"
-import { useFolds } from "./folds"
+import { MANAGER_FOLD_KEYS, POPUP_FOLD_KEYS, useFolds } from "@/lib/folds"
 import { say, sayErr, sayPersistent, sayUndo, undoLast } from "./status"
 import { Sidebar } from "./Sidebar"
 import { Editor, EditorCrumbs } from "./Editor"
@@ -177,7 +177,7 @@ export function App() {
 
   // The sidebar's folds and the inline-rename state live here, not in the
   // sidebar: a rename or a New from the overview has to reach them too
-  const { folds, togglePackFold, toggleGroupFold, setAll: setAllFolds, unfold, carryPackFolds, carryGroupFold } = useFolds()
+  const { folds, togglePackFold, toggleGroupFold, setAll: setAllFolds, unfold, carryPackFolds, carryGroupFold } = useFolds(MANAGER_FOLD_KEYS, POPUP_FOLD_KEYS)
   const [renaming, setRenaming] = useState<Renaming | null>(null)
   const [renamingGroup, setRenamingGroup] = useState<Renaming | null>(null)
 
