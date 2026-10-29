@@ -539,14 +539,14 @@ export function Settings() {
       <Card title="About">
         <Row label="Version">
           <span className="text-ui tabular-nums">{__APP_VERSION__}</span>
-          {/* Hidden entirely in a store build (UPD-03): the store updates that
-              copy on its own, and supported: false means Rust never checks */}
-          {m.update?.supported && (
+          {/* Nothing until get_update_state has answered: an old Rust that
+              lacks the command leaves `update` null and these hidden */}
+          {m.update && (
             <Button size="compact" variant="secondary" disabled={checking} onClick={() => void checkNow()}>
               {checking ? "Checking…" : "Check for updates"}
             </Button>
           )}
-          {m.update?.supported && m.update.available && (
+          {m.update?.available && (
             // D-07: Later silenced the toast, not the offer — the About card
             // keeps it on offer until it's installed
             <Button size="compact" variant="secondary" onClick={() => m.openUpdateOffer()}>
@@ -573,7 +573,7 @@ export function Settings() {
             Buy me a coffee
           </Button>
         </Row>
-        {m.update?.supported && (
+        {m.update && (
           <Row label="Updates">
             <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
               <Checkbox
@@ -584,7 +584,7 @@ export function Settings() {
             </label>
           </Row>
         )}
-        {m.update?.supported && (
+        {m.update && (
           <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
             At startup and once a day, Promptline fetches promptline.cc/latest.json to see whether there's a
             newer version. The request is the same for everyone and carries nothing about you. Turn it off

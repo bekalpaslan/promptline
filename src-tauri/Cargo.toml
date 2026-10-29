@@ -23,10 +23,10 @@ rfd = "0.15"
 tauri-plugin-single-instance = "2"
 tauri-plugin-log = "2"
 log = "0.4"
-tauri-plugin-updater = { version = "2", optional = true }
+tauri-plugin-updater = "2"
 
 [target."cfg(windows)".dependencies]
-tauri-winrt-notification = { version = "0.8", optional = true }
+tauri-winrt-notification = "0.8"
 windows = { version = "0.58", features = [
   "Win32_Foundation",
   "Win32_UI_WindowsAndMessaging",
@@ -36,10 +36,3 @@ windows = { version = "0.58", features = [
   "Win32_System_Registry",
   "Win32_Globalization",
 ] }
-
-[features]
-# The GitHub build: checks promptline.cc for a newer release and installs
-# it. A store build leaves it out (`--no-default-features`): the store
-# updates that copy, and it makes no network request at all.
-default = ["updater"]
-updater = ["dep:tauri-plugin-updater", "dep:tauri-winrt-notification"]

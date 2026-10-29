@@ -1538,9 +1538,8 @@ debounced would otherwise be lost — then calls `install_update`; both
 buttons read disabled and "Installing…" until it either restarts the app
 or fails, when it says why and re-enables them. **Later** calls
 `dismiss_update(version)` (silencing just that version, D-07) and closes,
-same as Escape or a click on the overlay. A store build's `supported:
-false` means `App.tsx` never opens the dialog at all, whatever event
-arrives.
+same as Escape or a click on the overlay. `App.tsx` opens the dialog only
+when the state holds a found version, whatever event arrives.
 
 **Settings → About mirrors the same state.** A *Check for updates* button
 beside the Version row (D-04, works with the automatic check off) calls
@@ -1552,8 +1551,9 @@ without asking again — the About card keeps offering what Later put off.
 A *Check for updates automatically* checkbox saves through
 `set_update_check`, optimistic with a revert and a toast on failure. All
 of this — the buttons, the checkbox, and its help paragraph naming
-`promptline.cc/latest.json` and how to turn the check off — is gated on
-`update?.supported`: a store build's Settings shows none of it (UPD-03).
+`promptline.cc/latest.json` and how to turn the check off — waits for
+`get_update_state` to answer; an old Rust without the command leaves
+`update` null and the card shows none of it.
 
 **The toast is a real Windows notification, not the webview.** Shown under
 the app's AUMID (`update::APP_ID`, the same string as `tauri.conf.json`'s
@@ -1583,13 +1583,14 @@ which relaunches Promptline once it's done — install itself is Rust
 awaiting `download_and_install`, then `app.restart()` for the platforms
 where the installer doesn't already relaunch it.
 
-**A store build has none of this.** `--no-default-features` (paired with
-`tauri.store.conf.json`, which also drops `plugins.updater` from the
-bundle) compiles the plugin, the loop, the toast and the tray item out
-entirely — not merely turned off at runtime — and `get_update_state`
-answers `supported: false`, so the manager shows no update controls at
-all. The store updates that copy on its own; Promptline never checks for
-itself there.
+**Every build carries this.** Until 2026-10-29 a store build
+(`--no-default-features` with `tauri.store.conf.json`) compiled the
+plugin, the loop, the toast and the tray item out and answered
+`supported: false`, for a Microsoft Store listing that would update the
+copy itself. The listing was cancelled — Promptline is donations only,
+nothing is sold — and the build, the Cargo feature and the flag went with
+it: the updater plugin is always compiled in and the daily check is the
+app's one network request.
 
 ## Content Security Policy
 
@@ -1854,7 +1855,7 @@ paths, the reconciler, the file sync, adoption, retirement, the pack
 commands' pure halves), `commands.rs` (what the webviews invoke, the
 hotkey parser included), `paste.rs` (`show_popup`, `paste_snippet`, the
 clamp, the popup's hide paths), `update.rs` (the update check, its loop,
-toast and offer, and the store build's stubs), `migrations.rs` (the v1
+toast and offer), `migrations.rs` (the v1
 folder, the pre-0.2.9 data folder, the v2 snippet shape, the
 default-hotkey pin), and `lib.rs` (`AppState`,
 the tray, the window events, `run`). One `first_free` numbers every file
@@ -1941,8 +1942,7 @@ Pack and New → Prompt, delete-with-Undo through `save_snippets`, the
 update offer (its title, notes and buttons, Install asking `install_update`,
 Later silencing through `dismiss_update`, and the About card still
 offering it afterward), the manual check finding a version and finding none, and the
-automatic-check switch through `set_update_check`, and a store build
-showing no update controls anywhere in the manager. What
+automatic-check switch through `set_update_check`. What
 the backend was asked is read from `window.__mock.calls`, so a case can
 say what would have been pasted without a paste happening.
 
