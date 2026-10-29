@@ -277,9 +277,12 @@ built-in or a field name the rest of your library already uses.
 ## Data
 
 Everything lives in `%APPDATA%\io.github.bekalpaslan.promptline\` as plain JSON — snippets,
-packs, and preferences. Pack format docs: [`packs/TEMPLATE.md`](packs/TEMPLATE.md);
-curated packs ship in [`packs/`](packs/). Older data formats migrate automatically,
-and a library from a release before 0.2.9 (which kept it under
+packs, and preferences. Pack format docs: [`packs/TEMPLATE.md`](packs/TEMPLATE.md).
+A fresh install starts with the Starter pack alone, compiled in from
+[`packs/starter.json`](packs/starter.json); the other curated packs in
+[`packs/`](packs/) (Everyday, Session Flow) are files to bring in through
+Settings → Backup and import → Import… → From file…. Older data formats
+migrate automatically, and a library from a release before 0.2.9 (which kept it under
 `%APPDATA%\com.promptline.app\`) is moved to the new folder on first start.
 
 Every pack owns a file under `…\packs\` from the moment it exists — however it

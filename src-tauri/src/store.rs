@@ -377,13 +377,38 @@ pub(crate) fn packs_dir(app: &AppHandle) -> PathBuf {
     dir
 }
 
-pub(crate) fn snip(title: &str, tag: &str, text: &str) -> Snippet {
+/// The Starter pack, compiled in from `packs/starter.json` so the seed and
+/// the repo file can't drift: a fresh install (`Loaded::Missing`) and the v1
+/// migration both start from this. Everyday and Session Flow stay files in
+/// `packs/` for Settings → Import.
+const STARTER_PACK: &str = include_str!("../../packs/starter.json");
+
+/// The shape of a pack file as the seed needs it (`packs/TEMPLATE.md`).
+#[derive(Deserialize)]
+struct SeedPack {
+    name: String,
+    prompts: Vec<SeedPrompt>,
+}
+
+#[derive(Deserialize)]
+struct SeedPrompt {
+    title: String,
+    #[serde(default)]
+    tags: Vec<String>,
+    text: String,
+}
+
+/// A seeded prompt. The id is `starter-<title lowercased, spaces to dashes>`,
+/// the rule the hand-written seed always used: the v1 migration
+/// (`apply_snippet_migrations`) recognises the `starter-` prefix, and a
+/// library out there carries these ids, so the rule must not change.
+fn starter_snippet(pack: &str, title: &str, tags: Vec<String>, text: &str) -> Snippet {
     Snippet {
         id: format!("starter-{}", title.to_lowercase().replace(' ', "-")),
         title: title.into(),
         text: text.into(),
-        tags: vec![tag.to_lowercase()],
-        pack: "Starter".into(),
+        tags,
+        pack: pack.into(),
         config_values: HashMap::new(),
         category: String::new(),
         group: String::new(),
@@ -394,41 +419,22 @@ pub(crate) fn snip(title: &str, tag: &str, text: &str) -> Snippet {
     }
 }
 
+/// A Starter-shaped prompt for tests: one tag, the seed's id rule.
+#[cfg(test)]
+pub(crate) fn snip(title: &str, tag: &str, text: &str) -> Snippet {
+    starter_snippet("Starter", title, vec![tag.to_lowercase()], text)
+}
+
 pub(crate) fn default_snippets() -> Vec<Snippet> {
-    vec![
-        snip("Root cause first", "Debug",
-            "Here's the error:\n\n{clipboard}\n\nFind the root cause before proposing any fix. Explain what's actually happening, then suggest the minimal fix."),
-        snip("Reproduce before fixing", "Debug",
-            "Before fixing, write a minimal reproduction or failing test for this bug: {bug}"),
-        snip("Diff review, bugs only", "Review",
-            "Review this diff for correctness bugs only — no style or naming comments:\n\n{clipboard}"),
-        snip("Security pass", "Review",
-            "Review this code for security issues (injection, authz, leaked secrets, unsafe deserialization):\n\n{clipboard}"),
-        snip("Plan before code", "Plan",
-            "Don't write code yet. Propose a short implementation plan for: {goal}\n\nList the files you'd touch and the main risks, then wait for my approval."),
-        snip("Options with tradeoffs", "Plan",
-            "Give me 2-3 approaches for {goal}, with tradeoffs, and recommend one."),
-        snip("Minimal refactor", "Refactor",
-            "Refactor this for clarity without changing behavior. Keep the diff small:\n\n{clipboard}"),
-        snip("Scope guard", "Guardrails",
-            "Constraints: don't refactor unrelated code, don't add new dependencies without asking, keep changes minimal, and ask before anything destructive.\n\n"),
-        snip("Ask, don't assume", "Guardrails",
-            "If anything is ambiguous, ask me instead of assuming."),
-        snip("Context handoff", "Meta",
-            "Summarize where we are: what's done, what's in progress, what's left, and any decisions made so far. I'll use this to continue in a fresh session."),
-        snip("Explain before edit", "Meta",
-            "Before editing, explain what the current code does and why your change is correct."),
-        snip("TLDR first", "Meta",
-            "Give me the TLDR first, then the details."),
-        snip("Test first", "Test",
-            "Write failing tests for {feature} first and show them to me. Only implement after I confirm."),
-        snip("Add tests for change", "Test",
-            "Add tests covering the change you just made, including edge cases."),
-        snip("Commit message", "General",
-            "Write a conventional commit message for these changes:\n\n{clipboard}"),
-        snip("Explain this code", "General",
-            "Explain what this code does, at a level for someone new to the codebase:\n\n{clipboard}"),
-    ]
+    let pack: SeedPack =
+        serde_json::from_str(STARTER_PACK).expect("packs/starter.json is not a valid pack file");
+    pack.prompts
+        .into_iter()
+        .map(|p| {
+            let tags = p.tags.iter().map(|t| t.to_lowercase()).collect();
+            starter_snippet(&pack.name, &p.title, tags, &p.text)
+        })
+        .collect()
 }
 
 /// The library as on disk. A missing file is a first run and yields the
@@ -1003,14 +1009,41 @@ mod tests {
     }
 
     #[test]
-    fn starter_pack_ids_are_unique_and_tagged() {
+    fn the_seed_is_packs_starter_json_with_the_ids_the_hand_written_seed_had() {
         let snippets = default_snippets();
+        assert_eq!(snippets.len(), 16);
         let mut ids: Vec<_> = snippets.iter().map(|s| s.id.clone()).collect();
         ids.sort();
         ids.dedup();
         assert_eq!(ids.len(), snippets.len());
         assert!(snippets
             .iter()
-            .all(|s| !s.tags.is_empty() && s.pack == "Starter"));
+            .all(|s| !s.tags.is_empty() && !s.text.is_empty() && s.pack == "Starter"));
+        assert!(snippets
+            .iter()
+            .all(|s| s.group.is_empty() && s.category.is_empty()));
+        // The ids the hand-written Rust vector produced through 0.2.25,
+        // which installed libraries carry and `apply_snippet_migrations`
+        // keys on.
+        for id in [
+            "starter-root-cause-first",
+            "starter-reproduce-before-fixing",
+            "starter-diff-review,-bugs-only",
+            "starter-security-pass",
+            "starter-plan-before-code",
+            "starter-options-with-tradeoffs",
+            "starter-minimal-refactor",
+            "starter-scope-guard",
+            "starter-ask,-don't-assume",
+            "starter-context-handoff",
+            "starter-explain-before-edit",
+            "starter-tldr-first",
+            "starter-test-first",
+            "starter-add-tests-for-change",
+            "starter-commit-message",
+            "starter-explain-this-code",
+        ] {
+            assert!(ids.contains(&id.to_string()), "seed lost {id}");
+        }
     }
 }

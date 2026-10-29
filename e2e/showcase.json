@@ -1,5 +1,5 @@
 {
-  "$comment": "The library the screenshots show (`?mock=showcase`, `npm run shots`): the shipped packs from packs/*.json plus the packs below, with pins, use counts, saved config values and a clipboard, so every shot is staged and nothing personal appears. Titles are the keys; a title here must exist in some pack.",
+  "$comment": "The library the screenshots show (`?mock=showcase`, `npm run shots`): the repo's packs from packs/*.json (only Starter ships compiled in; the rest are import files) plus the packs below, with pins, use counts, saved config values and a clipboard, so every shot is staged and nothing personal appears. Titles are the keys; a title here must exist in some pack.",
   "clipboard": "TypeError: Cannot read properties of undefined (reading 'map')\n    at OrderList (src/components/OrderList.tsx:42:23)",
   "order": ["Everyday", "Acme Shop", "Starter", "Session Flow"],
   "packs": [
