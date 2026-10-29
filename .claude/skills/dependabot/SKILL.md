@@ -80,8 +80,10 @@ comment when it decides the outcome.
   CLAUDE.md → site). A Vite major is a major.
 - **shadcn is a build-time dependency with a long tail.** Its CLI tree
   carries most npm advisories and none of it ships (Vite bundles the one
-  stylesheet). Its lows are left open with that comment; vendoring the
-  stylesheet is the recorded alternative if the tail ever bites.
+  stylesheet). An alert can carry no comment while open, so a low with no
+  fix under shadcn is dismissed `tolerable_risk` with the comment that it
+  is build-time only, after the maintainer's nod; vendoring the stylesheet
+  is the recorded alternative if the tail ever bites.
 - **Nothing paid, nothing phoning home.** A dependency that adds a
   network call, telemetry, a paid tier or a license other than MIT,
   Apache-2.0, BSD, ISC, Zlib or MPL-2.0 is refused and the maintainer
@@ -163,8 +165,9 @@ alerts, the config.
    dismissed `tolerable_risk` with the reason and the date the jump is
    expected, or left open if it is high or critical and the maintainer
    wants it visible; ask.
-4. No fix published: leave it open with a comment on reachability and
-   impact; `shadcn`'s lows carry the comment from the standing decision.
+4. No fix published: a reachable one stays open (visible is the point;
+   an open alert takes no comment); a build-time-only one under `shadcn`
+   is dismissed `tolerable_risk` with the standing decision's wording.
 5. Dismissal reasons GitHub accepts: `fix_started`, `inaccurate`,
    `no_bandwidth`, `not_used`, `tolerable_risk`. Use the one that is
    true; `no_bandwidth` is never true here.
@@ -183,8 +186,11 @@ changes, never to make a particular PR pass: add a `dependency-name`
 ignore for a package whose majors are never wanted (it is already `*`
 for majors), move a group's `schedule.interval` only with the maintainer,
 and keep `open-pull-requests-limit` small. A changed config makes
-Dependabot open new PRs within minutes, not at the next tick; close the
-stale ones first so the pair is not confused.
+Dependabot rerun within minutes, not at the next tick, but a PR built
+before the push keeps its old contents: comment `@dependabot recreate`
+on it (a PR comment; `@dependabot rebase` only rebases) and it is rebuilt
+under the current ignores. Closing it instead also works and a fresh PR
+follows within minutes.
 
 ## 5. The report
 
@@ -212,10 +218,9 @@ release notes should carry.
   update --package-lock-only` runs on Windows. Run `npm ci` after any
   local lock change before pushing, and copy vanished entries back from
   `HEAD` with a script.
-- **Closing after a config change waits for the tick.** Dependabot
-  reruns on a config push and updates the open PR in place; a PR closed
-  after that is not recreated until the next scheduled run (the first of
-  the month here). To get the regrouped PR now, use "Check for updates"
-  on the repo's Insights → Dependency graph → Dependabot page; there is
-  no CLI for it. The 2026-10-29 cargo group (plugins, serde, arboard,
-  log) waits that way.
+- **A config push does not rewrite an open PR.** The cargo group that was
+  open when the Tauri-pair ignore landed kept `tauri-build` 2.7 after a
+  close and recreate, because Dependabot had built it under the old
+  config; `@dependabot recreate` as a PR comment rebuilt it under the new
+  one. Recreation after a close took under two minutes, not the monthly
+  tick.

@@ -17,7 +17,8 @@ const sh = (cmd) => {
 const gh = (args) => JSON.parse(sh(`gh ${args}`) || "null")
 
 const major = (from, to) => parseInt(from.split(".")[0], 10) !== parseInt(to.split(".")[0], 10)
-const tauriHalf = (name) => /^(tauri|tauri-build|tauri-plugin-|@tauri-apps\/)/.test(name)
+// The Tauri pair moves together and by hand; plugins have their own minors.
+const tauriPair = (name) => /^(tauri|tauri-build|@tauri-apps\/api|@tauri-apps\/cli)$/.test(name)
 
 function prs() {
   const list = gh(`pr list --repo ${slug} --author app/dependabot --state open --json number,title,headRefName,body,url`) || []
@@ -32,7 +33,7 @@ function prs() {
     const flags = []
     for (const m of moves) {
       if (major(m.from, m.to)) flags.push(`major ${m.name} ${m.from}→${m.to}`)
-      if (tauriHalf(m.name)) flags.push(`tauri ${m.name} ${m.from}→${m.to}`)
+      if (tauriPair(m.name) && m.from.split(".").slice(0, 2).join(".") !== m.to.split(".").slice(0, 2).join(".")) flags.push(`tauri pair ${m.name} ${m.from}→${m.to}`)
     }
     const group = /^Bump the ([\w-]+) group/.exec(pr.title)?.[1] || pr.headRefName
     console.log(`| ${pr.number} | ${group} | ${ci} | ${moves.length} | ${flags.join("; ") || "in range"} |`)
@@ -46,9 +47,20 @@ function reachable(ecosystem, name) {
     return /\S/.test(out) && !/did not match/.test(out) ? "yes" : "no"
   }
   if (ecosystem === "npm") {
-    const out = sh(`npm ls ${name} --all --parseable`)
-    if (!/\S/.test(out)) return "no"
-    return /node_modules[\\/]shadcn[\\/]/.test(out) && !out.split("\n").some((l) => l && !/shadcn/.test(l)) ? "build-time (shadcn only)" : "yes"
+    // Every dependents chain from the package up to the root; a package
+    // reached only through shadcn (the CLI) never ships.
+    let explained
+    try { explained = JSON.parse(sh(`npm explain ${name} --json`) || "[]") } catch { explained = [] }
+    if (!explained.length) return "no"
+    const chains = []
+    const walk = (n, acc) => {
+      const here = [...acc, n.name || "(root)"]
+      const deps = n.dependents || []
+      if (!deps.length) chains.push(here)
+      for (const d of deps) walk(d.from, here)
+    }
+    for (const e of explained) walk(e, [])
+    return chains.every((c) => c.includes("shadcn")) ? "build-time (shadcn only)" : "yes"
   }
   return "?"
 }
