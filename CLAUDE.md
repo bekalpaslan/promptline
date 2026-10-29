@@ -225,10 +225,17 @@ Housekeeping:
   them; a Python heredoc with quotes inside a Bash call trips the tool's
   parser.
 - Node 24 (npm 11) is the supported floor, for CI and the maintainer
-  alike (`.nvmrc` and `engines` in `package.json` say so), so `npm
-  install <pkg>` and `npm update` are ordinary commands. After adding a
-  dependency, still diff `package-lock.json` against `HEAD`: only the new
-  packages should appear.
+  alike (`.nvmrc` and `engines` in `package.json` say so), so the npm 10
+  versus 11 lock mismatch is gone. One hole remains, seen again on
+  2026-10-29: on Windows, `npm update --package-lock-only` drops the
+  nested `@emnapi/*` entries that `@tailwindcss/oxide-wasm32-wasi`
+  declares, and even npm 11's own `npm ci` then refuses the lock
+  ("Missing: @emnapi/…"). After any lock change, run `npm ci` locally
+  before committing; if it fails that way, copy the vanished entries back
+  from the `HEAD` lock with a script (the 2026-10-29 deps commit did).
+  A plain `npm update` can also die in reify with EPERM here; lock-only
+  plus `npm ci` is the recipe that works. Diff the lock against `HEAD`
+  after adding a dependency: only the new packages should appear.
 
 ## Verifying UI changes
 
