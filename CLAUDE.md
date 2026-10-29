@@ -24,7 +24,7 @@ backlog, not from another audit, unless asked.
 - `README.md` — the app as a user sees it.
 - `BACKLOG.md` — deferred ideas. Add to it rather than widening a change.
 - `docs/MARKETING.md` — the marketing strategy and the decisions behind
-  it (sell the binary, source stays MIT; macOS before the pitch; community
+  it (donations only, source stays MIT; macOS before the pitch; community
   packs as repo files first). Exported from a Claude doc; refresh the
   export when a decision changes. Local only since 2026-09-26: untracked
   and listed in `.git/info/exclude`, so a fresh clone doesn't have it.

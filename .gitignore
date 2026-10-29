@@ -55,3 +55,6 @@ PRODUCT.md
 
 # Written by the Playwright MCP (logs, snapshots, its scratch scripts)
 .playwright-mcp/
+
+# Fresh-eyes review reports: proposals for the maintainer, not a tracker (see the fresh-eyes skill)
+docs/reviews/
