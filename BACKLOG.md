@@ -2,6 +2,29 @@
 
 Ideas and deferred work, roughly ordered. Promote items into a milestone when picked up.
 
+## Next
+
+The sequence from here to the first public step, set on 2026-10-29 (the
+fresh-eyes review's decisions). Each line moves down or out as it lands;
+the strategy behind it is in the local `docs/MARKETING.md`.
+
+1. **The Certum certificate** arrives (bought by the maintainer; no date).
+   Until then: quiet releases, the monthly Dependabot round
+   (`/dependabot`), the snapshot row in every release report.
+2. **Signing copy** in the same session the certificate lands: README →
+   Install, `site/code-signing/`, the release-notes closing in CLAUDE.md →
+   Releasing, the Code signing entry below. They still describe the
+   SignPath plan on purpose, one rewrite when the flow is real.
+3. **The first signed release**, whose notes carry the updater's TLS patch
+   (rustls, 2026-10-29) and the AltGr hotkey notice in their own bullets.
+4. **The Windows-only round**: r/ClaudeAI, r/ChatGPTCoding, the Claude Code
+   Discord, each with the GIF and honest about "Windows for now". Show HN
+   waits for the port.
+5. **Later, undated: the macOS port** on its own branch (it takes the Tauri
+   2.12 / wry 0.57 / tao 0.37 jump and the `@tauri-apps` 2.12 packages
+   together; `paste.rs:321` is the first thing that does not compile), then
+   Show HN and the launch-week table.
+
 ## Import / export
 
 - ~~**Import pack from file**~~ — **shipped 2026-07-12** (`rfd` picker +
