@@ -110,9 +110,12 @@ the strategy behind it is in the local `docs/MARKETING.md`.
 
 ## Search
 
-- **Word-wise fuzzy matching** — "root fix" should match "Root cause first"
-  on title; today a multi-word query is one subsequence including the space
-  (review L5). A ranking change that deserves its own discussion.
+- ~~**Word-wise fuzzy matching**~~ — **shipped 2026-10-31**: each word of
+  a query matches on its own in a title or tag list, in any order, scored
+  by its worst word (+500 out of the typed order); single words and whole
+  phrases rank as before (BEHAVIOR.md, the search passage). The old
+  example "root fix" still reaches "Root cause first" through its body,
+  since the title has no x; "cause root" is the gain.
 - **Virtualize the popup list** only when a real library shows the need
   (memoized rows handle ~1k today).
 
@@ -120,10 +123,12 @@ the strategy behind it is in the local `docs/MARKETING.md`.
 
 - ~~**Popup groups in the manager's order**~~ — **shipped 0.2.15**
   (`C.groupOrder`).
-- **Pack colour, as a setting** — a colour per pack (a swatch on its header,
-  in both windows) for telling packs
-  apart where their prompts mix. Direction B of the 2026-09-22 sidebar
-  mockups; the ink hierarchy (A) shipped instead, colour-free by default.
+- ~~**Pack colour, as a setting**~~ — **shipped 2026-10-31**: six named
+  theme-token colours from the pack menu's Colour submenu, an 8 px dot at
+  the right of the header in both trees, `color` on `PackMeta` in
+  `config.json` (absent while unset, never exported). Colour-free by
+  default, as the ink hierarchy of 2026-09-22 stays. A swatch glyph on
+  the menu items would need an icon slot on `CtxItem`; not done.
 
 - ~~**Flush the editor on Windows shutdown**~~ — **shipped 0.2.15**
   (`platform::on_session_end`, BEHAVIOR.md "Launching and quitting").
@@ -155,9 +160,12 @@ the strategy behind it is in the local `docs/MARKETING.md`.
 
 ## Popup
 
-- **Hotkey toggles the popup closed** — a press while the popup is open
-  currently only re-focuses it (deliberate, see BEHAVIOR.md); Raycast/Alfred
-  hide on a second press. Revisit once the repeat guard has settled.
+- ~~**Hotkey toggles the popup closed**~~ — **shipped 2026-10-31**: a
+  second tap while the popup is in front hides it through the Esc path
+  (Keep open ends); a held key only re-focuses, since the hotkey plugin
+  registers with no-repeat and reports the key's release
+  (`hotkey_action` in `paste.rs`). A press while the popup is up but
+  behind the work brings it forward.
 
 ## Distribution
 
