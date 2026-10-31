@@ -1,5 +1,5 @@
 import type { ComponentProps, ReactNode } from "react"
-import { RiArrowDownSLine, RiArrowRightSLine, RiPushpinLine } from "@remixicon/react"
+import { RiArrowDownSLine, RiArrowRightSLine, RiPushpin2Line } from "@remixicon/react"
 
 import { cn } from "@/lib/utils"
 import { SELECTED_BAR } from "@/components/menu-styles"
@@ -11,7 +11,7 @@ import { SELECTED_BAR } from "@/components/menu-styles"
 // card, with a legend at the sidebar's foot, until 2026-10-10, when the
 // user found the bar a glow and asked for a colourless pin instead.
 export function PinMark() {
-  return <RiPushpinLine data-pin aria-hidden className="size-3 shrink-0 text-muted-foreground opacity-70" />
+  return <RiPushpin2Line data-pin aria-hidden className="size-3 shrink-0 text-muted-foreground opacity-70" />
 }
 
 // The library tree, one look in both windows. The manager's sidebar and

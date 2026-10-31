@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { RiAddLine, RiArrowDownSLine, RiCheckLine, RiErrorWarningLine, RiFileCopyLine, RiFileTextLine, RiMoreLine, RiPushpinFill, RiPushpinLine } from "@remixicon/react"
+import { RiAddLine, RiArrowDownSLine, RiCheckLine, RiErrorWarningLine, RiFileCopyLine, RiFileTextLine, RiMoreLine, RiPushpin2Fill, RiPushpin2Line } from "@remixicon/react"
 import { Button } from "@/components/ui/button"
 import { EmptyState } from "./EmptyState"
 import { Textarea } from "@/components/ui/textarea"
@@ -178,7 +178,7 @@ export function EditorCrumbs() {
           className={snippet.pinned ? "text-(--warn) hover:text-(--warn)" : "text-muted-foreground"}
           onClick={() => menus.togglePin([snippet.id])}
         >
-          {snippet.pinned ? <RiPushpinFill aria-hidden /> : <RiPushpinLine aria-hidden />}
+          {snippet.pinned ? <RiPushpin2Fill aria-hidden /> : <RiPushpin2Line aria-hidden />}
           {snippet.pinned ? "Pinned" : "Pin"}
         </Button>
         <Button

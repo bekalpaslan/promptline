@@ -577,7 +577,7 @@ test("a hover card leaves the hint bar and the keys to the selected row", async 
   await expect(card).toBeVisible()
   await expect(card).toContainText(thirdTitle)
   // The bar still speaks for the selected row: no "back", no page keys
-  await expect(page.getByText("preview", { exact: true })).toBeVisible()
+  await expect(page.getByText("actions", { exact: true })).toBeVisible()
   await expect(page.getByText("back", { exact: true })).toHaveCount(0)
   await expect(first).toHaveAttribute("aria-selected", "true")
   // Its Copy button carries no key (Ctrl+↵ copies the selected row), and
@@ -899,38 +899,62 @@ test("the hint bar is the window's handle: a press on it moves the popup", async
   // Not with the other button
   await bar.dispatchEvent("pointerdown", { button: 2 })
   expect(await calls(page, "plugin:window|start_dragging")).toHaveLength(1)
-  // The hand sits in the corner without taking the hints' width: the
-  // resting bar stays one line at the default size, five hints and all
+  // The pin sits in its gutter without running under a hint: the resting
+  // bar stays one line at the default size, four hints and the pin; the
+  // fifth (preview) comes with a touch more room
   const [first, last] = await Promise.all([page.getByText("paste", { exact: true }).boundingBox(), bar.boundingBox()])
   expect(Math.abs(first!.y - last!.y)).toBeLessThan(2)
+  await expect(page.getByText("actions", { exact: true })).toBeVisible()
+  await expect(page.getByText("preview", { exact: true })).toBeHidden()
+  await page.setViewportSize({ width: 416, height: 600 })
   await expect(page.getByText("preview", { exact: true })).toBeVisible()
+  const [a, b] = await Promise.all([page.getByText("paste", { exact: true }).boundingBox(), page.getByText("close", { exact: true }).boundingBox()])
+  expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
+  // A press on the pin toggles Keep open and never starts a drag
+  await page.getByRole("button", { name: "Keep open (Ctrl K)" }).dispatchEvent("pointerdown", { button: 0 })
+  expect(await calls(page, "plugin:window|start_dragging")).toHaveLength(1)
 })
 
-test("the hint bar keeps the strips' insets: kept open, the hand mirrors the first hint, on one line", async ({ page }) => {
+test("the hint bar keeps the strips' insets: the Keep open pin at its right mirrors the first hint, filled while on, on one line", async ({ page }) => {
   const W = 400
   const edge = async (sel: string, side: "left" | "right") => {
     const box = (await page.locator(sel).first().boundingBox())!
     return side === "left" ? box.x : W - (box.x + box.width)
   }
-  // At rest there is no hand, and the hints start on the strips' edge:
-  // the bar is the sidebar's foot (components/foot.tsx), edge to edge
-  // with the strips' 12 px inset, so its first item lands where the
-  // search box starts, as the sidebar's legend does under its filter
+  // The hints start on the strips' edge: the bar is the sidebar's foot
+  // (components/foot.tsx), edge to edge with the strips' 12 px inset, so
+  // its first item lands where the search box starts, as the sidebar's
+  // legend does under its filter; the pin's right edge mirrors it, as
+  // the sidebar's Settings gear does, a 24 px button with a 16 px icon
   const left = await edge('[role="search"]', "left")
-  await expect(page.locator('[title="Drag here to move the popup"]')).toHaveCount(0)
   const boxRight = await edge('[role="search"]', "right")
   const firstHint = await page.getByText("paste", { exact: true }).evaluate((el) => el.parentElement!.getBoundingClientRect().left)
-  // Kept open, the hand's right edge mirrors the first hint's left edge
-  await search(page).press("Control+k")
-  const hand = page.locator('[title="Drag here to move the popup"]')
-  await expect(hand).toBeVisible()
-  const handRight = await edge('[title="Drag here to move the popup"]', "right")
-  expect(Math.abs(handRight - firstHint)).toBeLessThanOrEqual(1)
-  expect(Math.abs(boxRight - handRight)).toBeLessThanOrEqual(1)
+  const pin = page.getByRole("button", { name: "Keep open (Ctrl K)" })
+  await expect(pin).toBeVisible()
+  const pinBox = (await pin.boundingBox())!
+  expect(Math.round(pinBox.width)).toBe(24)
+  const pinRight = W - (pinBox.x + pinBox.width)
+  expect(Math.abs(pinRight - firstHint)).toBeLessThanOrEqual(1)
+  expect(Math.abs(boxRight - pinRight)).toBeLessThanOrEqual(1)
   expect(Math.abs(firstHint - left)).toBeLessThanOrEqual(1)
-  // …and the hints stay on one line beside it
+  // The pin sits on the bar's line, and no hint runs under it
+  const bar = (await page.getByText("close", { exact: true }).boundingBox())!
+  expect(pinBox.y).toBeLessThan(bar.y + bar.height)
+  expect(pinBox.y + pinBox.height).toBeGreaterThan(bar.y)
+  expect(bar.x + bar.width).toBeLessThanOrEqual(pinBox.x)
+  // Off, the pin is outlined; kept open, it is pressed and filled (the
+  // same thumbtack a pinned prompt wears), and the hints stay on one line
+  const pathCount = () => pin.locator("svg path").first().evaluate((p) => p.getAttribute("d")!.length)
+  const outlined = await pathCount()
+  await search(page).press("Control+k")
+  await expect(pin).toHaveAttribute("aria-pressed", "true")
+  expect(await pathCount()).toBeLessThan(outlined)
   const [a, b] = await Promise.all([page.getByText("paste", { exact: true }).boundingBox(), page.getByText("kept open", { exact: true }).boundingBox()])
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
+  // The search box kept the keyboard through a click on the pin
+  await pin.click()
+  await expect(pin).toHaveAttribute("aria-pressed", "false")
+  await expect(search(page)).toBeFocused()
 })
 
 test("a slot key with the clipboard panel open puts the panel away and pastes nothing", async ({ page }) => {
@@ -1214,7 +1238,7 @@ test("the preview card keeps Copy in view, starts at the clipboard and scrolls f
   // ← closes it and the bar goes back to the list's hints
   await page.keyboard.press("ArrowLeft")
   await expect(card).toBeHidden()
-  await expect(page.getByText("preview", { exact: true })).toBeVisible()
+  await expect(page.getByText("actions", { exact: true })).toBeVisible()
 })
 
 test("typing closes the preview card: it never shows one prompt while Enter pastes another", async ({ page }) => {
@@ -1227,7 +1251,7 @@ test("typing closes the preview card: it never shows one prompt while Enter past
   // row it described, and the bar is the list's again
   await page.keyboard.type("bisect")
   await expect(card).toBeHidden()
-  await expect(page.getByText("preview", { exact: true })).toBeVisible()
+  await expect(page.getByText("actions", { exact: true })).toBeVisible()
   await expect(rows(page).first()).toHaveAttribute("aria-selected", "true")
   await expect(page.locator('[aria-describedby~="popup-preview"]')).toHaveCount(0)
   // Reopened, it is the selected row's card, and Enter pastes that row
@@ -1248,9 +1272,11 @@ test("at the 320×280 minimum the card takes the list's place, Save prompt stays
   expect(Math.abs(cardBox!.y - listBox!.y)).toBeLessThan(2)
   expect(cardBox!.y + cardBox!.height).toBeLessThanOrEqual(barBox!.y)
   await expect(card.getByRole("button", { name: /^Copy/ })).toBeInViewport({ ratio: 1 })
-  // The bar's hints for the card fit on one line here too
-  const [scrollBox, closeBox] = await Promise.all([page.getByText("scroll", { exact: true }).boundingBox(), page.getByText("close", { exact: true }).boundingBox()])
-  expect(Math.abs(scrollBox!.y - closeBox!.y)).toBeLessThan(2)
+  // The bar's hints for the card fit on one line here too (Esc gave way
+  // to the pin's gutter; ← is the card's own key)
+  const [scrollBox, backBox] = await Promise.all([page.getByText("scroll", { exact: true }).boundingBox(), page.getByText("back", { exact: true }).boundingBox()])
+  expect(Math.abs(scrollBox!.y - backBox!.y)).toBeLessThan(2)
+  await expect(page.getByText("close", { exact: true })).toBeHidden()
   await page.keyboard.press("ArrowLeft")
   // The whole message, including how to recover
   await emit(page, "paste-failed", { message: "Couldn't paste into that window. The prompt is on your clipboard: press Ctrl+V there to paste it yourself." })
@@ -1272,8 +1298,9 @@ test("at 125% UI scale the hint bar drops hints instead of wrapping", async ({ p
   await expect(hint("actions")).toBeHidden()
   const [a, b] = await Promise.all([hint("paste").boundingBox(), hint("close").boundingBox()])
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
-  // A window widened to match shows all five again
-  await page.setViewportSize({ width: 500, height: 600 })
+  // A window widened to match shows all five again (the pin's gutter
+  // takes 42 px of it; 500 px did before the pin moved to the bar)
+  await page.setViewportSize({ width: 520, height: 600 })
   await expect(hint("actions")).toBeVisible()
   await expect(hint("preview")).toBeVisible()
   await page.evaluate(() => localStorage.removeItem("scale"))

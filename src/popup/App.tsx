@@ -7,9 +7,8 @@ import {
   RiClipboardLine,
   RiFileCopyLine,
   RiFilterLine,
-  RiHand,
-  RiPictureInPicture2Line,
-  RiPushpinLine,
+  RiPushpin2Fill,
+  RiPushpin2Line,
   RiSearchLine,
 } from "@remixicon/react"
 import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
@@ -60,28 +59,33 @@ type Notice = { text: string; kind: "error" | "info" | "success"; undo?: "fresh"
 
 // window (125% scale, the mono font) wraps between hints instead of being
 // clipped by the shell's overflow, and never splits a key from its label.
-// A `minor` hint is dropped below 360 px: at the 320 px minimum the bar
-// wrapped to two lines and ate a row (L20). A `wide` one shows only from
-// 440 px, in a window the user has widened: the five resting hints fill
-// the default 400 px, and a sixth wrapped the bar the same way.
+// A `minor` hint is dropped below 400 px: at the 320 px minimum the bar
+// wrapped to two lines and ate a row (L20). A `mid` one shows from 416 px:
+// the resting bar's fifth hint (preview), which fit the default 400 px
+// until the Keep open pin took the bar's right (2026-10-31) and left room for
+// four. A `wide` one shows only from 480 px, in a window the user has
+// widened: a sixth hint (fold) wrapped the bar the same way.
 // Those widths are the window's at 100% UI scale. The breakpoints are
 // container queries on the bar, in rem (the window's width less the
-// shell's 18 px of padding and border), so they grow with the UI scale:
-// as viewport pixels they kept showing five hints at 125%, where the type
-// is a quarter wider, and the bar wrapped at every width.
+// shell's 18 px of padding and border and the pin's 42 px gutter, 56 px
+// in all; 18 through 0.2.26, before the pin moved to the bar), so they
+// grow with the UI scale: as viewport pixels they kept showing five hints
+// at 125%, where the type is a quarter wider, and the bar wrapped at
+// every width.
 // A `warn` hint says what the key is about to do wrong, in Warn: text only,
 // as every warning in DESIGN.md.
-// A `wider` one waits for 500 px: beside the warning's long label, actions
-// and preview fit on the line only there (at 440 px they wrapped the bar).
+// A `wider` one waits for 540 px: beside the warning's long label, actions
+// and preview fit on the line only there (at 480 px they wrapped the bar).
 // `tiny`: gives way only in the narrowest bar there is, the 320 px minimum
-// at a 125% UI scale (about 15 rem), where a Warn hint and one more hint
-// wrapped the bar to two lines and took a row from the window
-// `widest`: waits for 560 px, where a resting bar has room for a seventh
+// at a 125% UI scale (about 13 rem beside the pin's gutter; 16.5 rem at
+// 100%, which keeps it), where a Warn hint and one more hint wrapped the
+// bar to two lines and took a row from the window
+// `widest`: waits for 580 px, where a resting bar has room for a seventh
 // hint (the clipboard panel's key; the six before it fill about 400 px of
 // a 528 px line)
-function Hint({ k, tiny, minor, wide, wider, widest, warn, children }: { k: string; tiny?: boolean; minor?: boolean; wide?: boolean; wider?: boolean; widest?: boolean; warn?: boolean; children: React.ReactNode }) {
+function Hint({ k, tiny, minor, mid, wide, wider, widest, warn, children }: { k: string; tiny?: boolean; minor?: boolean; mid?: boolean; wide?: boolean; wider?: boolean; widest?: boolean; warn?: boolean; children: React.ReactNode }) {
   return (
-    <span className={cn("flex shrink-0 items-center gap-1", tiny && "hidden @min-[17rem]:flex", minor && "hidden @min-[21.375rem]:flex", wide && "hidden @min-[26.375rem]:flex", wider && "hidden @min-[30.125rem]:flex", widest && "hidden @min-[33rem]:flex")}>
+    <span className={cn("flex shrink-0 items-center gap-1", tiny && "hidden @min-[16.25rem]:flex", minor && "hidden @min-[21.375rem]:flex", mid && "hidden @min-[22.5rem]:flex", wide && "hidden @min-[26.375rem]:flex", wider && "hidden @min-[30.125rem]:flex", widest && "hidden @min-[33rem]:flex")}>
       <Keys combo={k} />
       <span className={cn(warn && "text-(--warn)")}>{children}</span>
     </span>
@@ -1373,8 +1377,10 @@ export function App() {
     // panel is where the user checks what is on the clipboard, which is
     // the prompt that did not land. The page keys only from 440 px. Beside
     // the recovery Ctrl N leaves the bar (its key cap is on the clipboard
-    // line, above the panel), the page keys wait for 500 px and scrolling
-    // gives way below 360, so the bar is one line at every width.
+    // line, above the panel), and below 400 px too, where it wrapped the
+    // bar beside the pin's gutter; the page keys wait for 540 px and
+    // scrolling gives way below 400, so the bar is one line at every
+    // width.
     <>
       {notice?.recover && <Hint k="Ctrl V" tiny>in the target</Hint>}
       {clipScrolls && (
@@ -1383,7 +1389,7 @@ export function App() {
           <Hint k="PgUp PgDn" wide={!notice?.recover} wider={!!notice?.recover}>page</Hint>
         </>
       )}
-      {!notice?.recover && <Hint k="Ctrl N">new prompt</Hint>}
+      {!notice?.recover && <Hint k="Ctrl N" minor>new prompt</Hint>}
       <Hint k="Esc ↵">back</Hint>
     </>
   ) : notice?.recover ? (
@@ -1436,18 +1442,25 @@ export function App() {
       <Hint k="↵">paste</Hint>
       {previewScrolls && <Hint k="PgUp PgDn">scroll</Hint>}
       <Hint k="←">back</Hint>
-      <Hint k="Esc">{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
+      {/* Esc gives way below 400 px: at the 320 px minimum the four
+          wrapped the bar beside the pin's gutter, and ← is the card's key */}
+      <Hint k="Esc" minor={previewScrolls}>{notice?.kind === "error" ? "dismiss" : "close"}</Hint>
     </>
   ) : (
     <>
       {/* "paste and enter" and "Ctrl K kept open" are the long labels: while
           either shows, the bar is crowded and the optional hints wait for
-          more room (actions 500 px, preview 560, fold and clipboard leave
-          it), and with both, copy goes below 360, so it stays one line */}
+          more room (actions 540 px, preview 580, fold and clipboard leave
+          it), and beside "paste and enter" copy goes below 400 (at the
+          320 px minimum it wrapped the bar beside the pin's gutter), so
+          it stays one line.
+          At rest, four hints fill the default 400 px beside the pin's
+          gutter (the five before it did without one, through 0.2.26), so
+          preview waits for a window a touch wider (`mid`, 416 px) */}
       <Hint k="↵">{selSends ? "paste and enter" : "paste"}</Hint>
-      <Hint k="Ctrl ↵" minor={selSends && keepOpen}>copy</Hint>
+      <Hint k="Ctrl ↵" minor={selSends}>copy</Hint>
       <Hint k="Tab" minor={!crowded} wider={crowded}>actions</Hint>
-      <Hint k="→" minor={!crowded} widest={crowded}>preview</Hint>
+      <Hint k="→" mid={!crowded} widest={crowded}>preview</Hint>
       {/* ← folds the row's pack or group (Ctrl+→ unfolds all); it was the
           one key with no mention on screen. Room for it only in a widened
           window; the pack and group headers name it in their tooltip */}
@@ -1556,7 +1569,7 @@ export function App() {
   // --- Create-from-clipboard confirmation --------------------------------------
   if (create) {
     return (
-      <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys}>
+      <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys} keepOpen={keepOpen} onKeepOpen={toggleKeepOpen}>
         {/* The fields scroll; Save does not. At the minimum height the
             button used to be the last thing in the scroller, below the fold
             of a form whose hint bar said Enter saves. */}
@@ -1661,7 +1674,7 @@ export function App() {
     const submitLabel =
       emptyCount === 0 ? verb : `${verb} with ${C.plural(emptyCount, "field")} empty`
     return (
-      <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys}>
+      <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys} keepOpen={keepOpen} onKeepOpen={toggleKeepOpen}>
         {/* Fields and preview scroll; the button stays in reach below them */}
         <div className="-mx-1 flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-1">
           <SectionHeader name>{form.snippet.title}</SectionHeader>
@@ -1770,7 +1783,7 @@ export function App() {
   )
 
   return (
-    <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys} movable={keepOpen}>
+    <Shell hint={hint} notice={notice} announce={announce} onUndo={onUndo} undoKeys={undoKeys} keepOpen={keepOpen} onKeepOpen={toggleKeepOpen}>
       {/* Search: the same box as the manager's filter */}
       <div role="search" className={searchBoxClass()}>
         <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
@@ -1801,26 +1814,6 @@ export function App() {
             }}
           />
         )}
-        {/* Keep open: pressed, it reads as a control that is on (the
-            Settings gear's treatment), not as the accent, which is the
-            selected row's. The window then moves by its frame. */}
-        <button
-          type="button"
-          tabIndex={-1}
-          aria-pressed={keepOpen}
-          aria-label="Keep open (Ctrl K)"
-          title={keepOpen ? "Kept open: pastes go to the last window you used. Drag the frame to move it; Ctrl+K or Esc ends it" : "Keep open: stays up beside your work and pastes into the last window you used (Ctrl+K)"}
-          className={cn(
-            "focus-ring flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-sm hover:bg-hover hover:text-foreground",
-            keepOpen ? "bg-secondary text-foreground" : "text-muted-foreground"
-          )}
-          onClick={() => {
-            toggleKeepOpen()
-            inputRef.current?.focus()
-          }}
-        >
-          <RiPictureInPicture2Line className="size-3.5" aria-hidden />
-        </button>
       </div>
 
       {/* The clipboard, as the expandable panel the packs fold open with
@@ -1967,7 +1960,7 @@ export function App() {
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!, underPinned))
           // The section's glyph sits in the rows' icon column: the tree's
           // chevron on a pack, a pin on Pinned, a magnifier on Results
-          const Lead = underPinned ? RiPushpinLine : RiSearchLine
+          const Lead = underPinned ? RiPushpin2Line : RiSearchLine
           const filtered = sec.collapsible && packActive(sec.name)
           // The keyboard is on this pack's header
           const packSel = !!headSel && headSel.pack === sec.name && headSel.group === undefined
@@ -2290,7 +2283,7 @@ export function App() {
 }
 
 // A press with the main button moves the window (the hint bar's handle).
-// Never from a control inside, should one be added there. Says whether it
+// Never from a control inside (the Keep open pin). Says whether it
 // started, so the handle can show its grip.
 function startWindowDrag(e: React.PointerEvent) {
   if (e.button !== 0 || (e.target as HTMLElement).closest("button, a, input, textarea")) return false
@@ -2307,13 +2300,16 @@ function Shell({
   announce,
   onUndo,
   undoKeys,
-  movable,
+  keepOpen,
+  onKeepOpen,
 }: {
   children: React.ReactNode
   hint: React.ReactNode
   notice: Notice | null
-  /** Kept open: the hint bar shows the move cursor, as the handle it is */
-  movable?: boolean
+  /** Keep open is on: the pin at the bar's right is pressed and filled */
+  keepOpen: boolean
+  /** The pin's click: Ctrl+K's toggle */
+  onKeepOpen: () => void
   /** Puts the last deleted prompt back; the strip's Undo button */
   onUndo?: () => void
   /** The keys that undo right now, drawn on the button; none while a view has the keyboard */
@@ -2321,8 +2317,8 @@ function Shell({
   /** What a screen reader should hear about the current state (results, mode) */
   announce: string
 }) {
-  // The hand's grip, for a moment on a press: Windows runs the move itself,
-  // so the release never reaches the page, and a timer lets go instead
+  // The grabbing cursor, for a moment on a press: Windows runs the move
+  // itself, so the release never reaches the page, and a timer lets go
   const [gripping, setGripping] = useState(false)
   const gripTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const grip = () => {
@@ -2403,15 +2399,18 @@ function Shell({
           strips) was too thin to find, and a kept-open popup is moved
           often. The drag is started here rather than by Tauri's
           data-tauri-drag-region, which answers only a press on the element
-          itself, and the hints are spans inside it. It holds no control. */}
+          itself, and the hints are spans inside it. Its one control, the
+          Keep open pin, keeps its own press (startWindowDrag skips it). */}
       <div
         className={cn(
           // The sidebar's foot (components/foot.tsx), with the hints in mono
           // and 6 px apart; it breaks out of the shell's side padding to
-          // run edge to edge like the sidebar's
+          // run edge to edge like the sidebar's. The 42 px of right padding
+          // are the pin's gutter (the inset, the 24 px button, a hint gap),
+          // so a hint never runs under it; the bar's hints have that much
+          // less room than the window, and the tiers below allow for it
           footClass,
-          "group/bar relative @container -mx-3 gap-x-1.5 font-mono",
-          movable && "pr-7",
+          "group/bar relative @container -mx-3 gap-x-1.5 pr-[42px] font-mono",
           gripping ? "cursor-grabbing" : "cursor-grab"
         )}
         onPointerDown={(e) => {
@@ -2419,30 +2418,34 @@ function Shell({
         }}
       >
         {hint}
-        {/* The handle's own mark while kept open, the mode in which the
-            popup is moved: an open hand at the bar's right, its right edge
-            on the strips' edge, where the first hint starts on the left
-            (the foot's 12 px inset, the sidebar's), in a gutter of its own
-            (the bar's 28 px of right padding: the inset, the hand, a hint
-            gap) so it never covers a hint. The
-            kept-open bar's hints are fewer and leave the room; the resting
-            bar's fill its line at 400 px, so there the hand is left out
-            (the bar drags either way). Under the pointer it darkens, and
-            for a moment on a press it closes, smaller and tilted, the hand
-            taking hold of the window as the drag starts. Decoration: the
-            bar itself is the handle. */}
-        {movable && (
-          <span
-            aria-hidden
-            title="Drag here to move the popup"
-            className={cn(
-              "absolute inset-y-0 right-3 my-auto flex size-3.5 items-center justify-center opacity-80 transition-[transform,color,opacity] duration-150 ease-out group-hover/bar:text-foreground group-hover/bar:opacity-100",
-              gripping && "-rotate-12 scale-75 text-foreground opacity-100"
-            )}
-          >
-            <RiHand className="size-3.5" />
-          </span>
-        )}
+        {/* Keep open, as a pin at the bar's right: the same thumbtack a
+            pinned prompt wears, outlined while off and filled while on,
+            and the sidebar's Settings gear in every other way (a 24 px
+            button with a 16 px icon on the foot's 12 px inset, pressed in
+            the secondary fill, not the accent, which is the selected
+            row's): the two feet end in the same control. It replaced a
+            toggle beside the search box and the open hand that marked the
+            bar while kept open (2026-10-31): the pin says what the bar is
+            for, a palette kept beside the work and moved by this bar. Tab
+            never lands on it: the search box keeps the keyboard, and
+            Ctrl+K is its key. */}
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-pressed={keepOpen}
+          aria-label="Keep open (Ctrl K)"
+          title={keepOpen ? "Kept open: pastes go to the last window you used. Drag this bar to move it; Ctrl+K or Esc ends it" : "Keep open: stays up beside your work and pastes into the last window you used (Ctrl+K)"}
+          className={cn(
+            "focus-ring absolute inset-y-0 right-3 my-auto flex size-6 cursor-pointer items-center justify-center rounded-md hover:bg-hover hover:text-foreground",
+            keepOpen ? "bg-secondary text-foreground" : "text-muted-foreground"
+          )}
+          // The press stays off the button (a click would focus it), so
+          // the search box keeps the keyboard, as the old toggle refocused it
+          onPointerDown={(e) => e.preventDefault()}
+          onClick={onKeepOpen}
+        >
+          {keepOpen ? <RiPushpin2Fill className="size-4" aria-hidden /> : <RiPushpin2Line className="size-4" aria-hidden />}
+        </button>
       </div>
     </div>
   )

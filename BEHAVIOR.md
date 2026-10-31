@@ -505,7 +505,9 @@ as much as a word, and "1 prompt matches".
 **The hint bar's breakpoints follow the UI scale.** Which hints the bar
 shows is decided by container queries on the bar, in rem, so at 125% the
 default window shows three hints on one line and a window widened to
-500 px shows all five. As viewport pixels they kept showing five at 125%,
+520 px shows all five (the Keep open pin's gutter takes 42 px of the bar;
+500 px did before it moved there, 2026-10-31). As viewport pixels they
+kept showing five at 125%,
 where the type is a quarter wider, and the bar wrapped at every width
 (critique popup, 2026-10-03). At 125% in the 320 px minimum the warning
 and the preview bars still take two lines. The clipboard's text on its
@@ -611,7 +613,7 @@ signal. Enter still pastes at once; a second Enter to confirm would add a
 step to the one gesture the popup exists for, and a prompt pasted without
 its clipboard is sometimes what the user wants. The longer label takes the
 room of the hints it displaces, so the bar stays one line: `Ctrl ↵ copy`
-shows from 360 px, `Tab actions` and `→ preview` from 500 px, `← fold` not
+shows from 400 px, `Tab actions` and `→ preview` from 540 px, `← fold` not
 at all. The action panel (Tab) replaces the bar's hints with its
 own, so on such a row its first two items read "Paste without clipboard"
 and "Copy without clipboard".
@@ -832,8 +834,9 @@ blank lines kept, controls shown as ⟨RLO⟩ in Warn rather than obeyed
 (`clipboardLines` in core), at most 400 lines with a note that the rest
 still paste. It reaches down to the list's bottom edge and no further, so
 the hint bar under it says what the keys do: ↑ ↓ scroll and PgUp PgDn
-page (when it overflows; the page keys from 440 px), Ctrl N saves it as
-a prompt, Esc and Enter put it away. Enter closes rather than pastes
+page (when it overflows; the page keys from 480 px), Ctrl N saves it as
+a prompt (named from 400 px; below that its key cap on the clipboard
+line says it), Esc and Enter put it away. Enter closes rather than pastes
 because the row it would paste is under the panel, and Ctrl+1..5 close
 it for the same reason without pasting: both pick a row the user can't
 see. After a failed paste the bar keeps "Ctrl V in the target" first
@@ -841,7 +844,7 @@ while the panel is up, since the panel then shows the prompt that did
 not land; Ctrl N leaves the bar to make room (its key cap is on the
 line). A clipboard of two lines or more prints `Ctrl ↓` on its strip at
 every width, and the bar leaves it out; for a single line the resting bar
-names Ctrl ↓ from about 580 px, where a seventh hint fits on its line, and
+names Ctrl ↓ from about 585 px, where a seventh hint fits on its line, and
 below that the line's chevron and tooltip carry it. A wrapped line hangs
 under its own first character (`indentColumns`), so a long `at …` frame
 continues under "at" and not at the margin, and the panel sits on the
@@ -864,10 +867,11 @@ than the whole window turning into a form whose only content was that
 sentence; a search with no match points at Ctrl+N the same way while the
 clipboard holds something. The action panel's hint counts its own items
 ("1-5 pick"; it said 1-9). ← for folding was the one key with no mention
-on screen: the hint bar names it from 440 px, in a window the user has
-widened (the five resting hints fill the default 400 px, and a sixth
-wrapped the bar and ate a row), and the pack and group headers name it in
-their tooltip at every width. The `{N}` badge on a row is named "Asks for
+on screen: the hint bar names it from 480 px, in a window the user has
+widened (four resting hints and the Keep open pin fill the default
+400 px, `→ preview` joins from 416, and a sixth hint wrapped the bar and
+ate a row), and the pack and group headers name it in their tooltip at
+every width. The `{N}` badge on a row is named "Asks for
 N values before pasting" for a screen reader, which read its braces out.
 
 **The action panel's items take focus.** Tab opens it with focus on the
@@ -905,7 +909,9 @@ of its own under the text, always in view, carrying `Ctrl ↵`; it used to
 trail the prompt's last word like part of the sentence and scroll away
 with it. While the card is open the hint bar reads `↵ paste · PgUp PgDn
 scroll · ← back · Esc close`, the page keys only when there is more than
-fits. The card is a `note`, not a `tooltip`, which may not hold a button.
+fits, and `Esc close` from 400 px (at the 320 px minimum the four wrapped
+the bar beside the Keep open pin; ← is the card's own key). The card is
+a `note`, not a `tooltip`, which may not hold a button.
 
 **The card is always the selected row's, or closed.** Typing a query moves
 the selection to the top result, and the card used to stay open on its old
@@ -924,14 +930,14 @@ two: the failed paste's message ends with how to recover, and two lines
 cut it off before that at 320 px. The action panel is capped to the
 window above the hint bar and scrolls, for a larger UI scale. The hint
 bar drops its least-used hints
-(actions, preview, newline) below 360 px, because at the 320 px minimum
+(actions, preview, newline) below 400 px, because at the 320 px minimum
 width it wrapped to two lines and ate a row. Ctrl+N's pre-filled title is
 the clipboard's first line cut at a word boundary within 40 characters
 (`titleFromClipboard`), not mid-word. Title ties everywhere — the popup's
 ranking and the manager's orders — compare numerically, so "Bulk prompt
 2" comes before "Bulk prompt 10".
 
-**Keep open** (Ctrl+K, or the toggle at the right of the search box) turns
+**Keep open** (Ctrl+K, or the pin at the right of the hint bar) turns
 the popup from a one-shot into a palette beside the work, for runs of short
 replies to an agent. While it is on (`AppState.keep_open`):
 
@@ -955,27 +961,38 @@ replies to an agent. While it is on (`AppState.keep_open`):
 - The **hint bar** is the window's handle: a press anywhere on it moves the
   popup (`startDragging`, started in code because Tauri's
   `data-tauri-drag-region` answers only a press on the element itself and
-  the hints are spans inside it), with the grab cursor. While kept open,
-  the mode in which the popup is moved, its mark is an open hand at the
-  bar's right, its right edge on the strips' edge (the search box's, as the
-  first hint is on the left), in
-  a gutter of its own so it covers no hint. The bar is the sidebar's foot
+  the hints are spans inside it), with the grab cursor, and the grabbing
+  cursor for 260 ms on a press (Windows runs the move itself, so the
+  release never reaches the page and a timer lets go). The bar is the
+  sidebar's foot
   (`components/foot.tsx`: 32 px, a rule above, the strips' 12 px inset,
   edge to edge on the window, the micro size in the muted ink), since the
   two say the same kind of thing, what the marks and keys on the screen
-  mean; the hints are the popup's own, in mono and 6 px apart, as the
-  gear is the sidebar's. The shell's insets are the
+  mean; the hints are the popup's own, in mono and 6 px apart. The shell's
+  insets are the
   sidebar's too: 12 px at the sides and the top and 8 px between strips
   (the user wanted the two windows' margins the same, 2026-10-10; it was
-  8 px all round with the bar inside). The resting bar's hints fill
-  their line at 400 px, so there the hand is left out (it sat in the frame
-  2 px from the window first, then cut the divider; both broke the insets).
-  Under the pointer it darkens, and for 260 ms on a press it closes, smaller
-  and tilted, with the grabbing cursor, as the drag starts (Windows runs the
-  move itself, so the release never reaches the page and a timer lets go). The
+  8 px all round with the bar inside). The
   frame (the shell's padding and the gaps between strips) drags too, but it
   was too thin to find. The popup stays where it is dragged until
   Keep open ends, and a later summon opens at the cursor again.
+- The **Keep open pin** ends the bar as the Settings gear ends the
+  sidebar's foot: a 24 px button with a 16 px icon, its right edge on the
+  strips' edge (the search box's, as the first hint is on the left), the
+  same thumbtack a pinned prompt wears, outlined while off and filled and
+  pressed (the secondary fill, the gear's, not the accent, which is the
+  selected row's) while on. A click toggles it like Ctrl+K and leaves the
+  keyboard in the search box (the press is prevented, so the button never
+  takes focus; Tab skips it); the bar's drag skips a press on it. It has a
+  gutter of its own, 42 px of the bar's right padding (the inset, the
+  button, a hint gap), so no hint runs under it; the hints' breakpoints
+  allow for the room it takes (the bar is the window less 56 px, not 18),
+  which is why the resting bar's fifth hint waits for 416 px since
+  2026-10-31. It replaced a toggle at the right of the search box and an
+  open hand that marked the bar while kept open (the user's call,
+  2026-10-31: the pin says what the bar is for, a palette kept beside the
+  work and moved by this bar, and the popup's pin and a prompt's are one
+  icon).
 - The hint bar shows `Ctrl K kept open` where `Esc close` was.
 
 **Auto enter** is a switch on a prompt (the editor's footer under the
@@ -995,8 +1012,8 @@ last prompt` in Warn, where the paste would carry a hole or wrap itself),
 the action panel's "Paste and enter", the form's "paste and enter", and
 "Pasted and entered …" in a kept-open popup. The longer Enter label, like
 Keep open's `Ctrl K kept open`, crowds the bar: while either shows, actions
-wait for 500 px, preview for about 580, fold and the clipboard key leave it, and
-with both, copy goes below 360.
+wait for 540 px, preview for about 585, fold and the clipboard key leave it, and
+beside `paste and enter`, copy goes below 400.
 It is **personal state**, like `pinned`: `snippet.autoEnter` lives in
 `snippets.json` only (left out while false), never in a pack file, an
 export or an import, so a shared or agent-written pack can't arrive set to
