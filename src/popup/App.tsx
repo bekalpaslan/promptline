@@ -26,6 +26,7 @@ const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { Shell, type Notice } from "@/popup/Shell"
+import { SectionHeader } from "@/popup/SectionHeader"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { panelBodyClass, panelClass } from "@/components/panel"
 import { PackSwatch, TREE_GLYPH, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
@@ -76,16 +77,6 @@ function Hint({ k, tiny, minor, mid, wide, wider, widest, warn, children }: { k:
       <Keys combo={k} />
       <span className={cn(warn && "text-(--warn)")}>{children}</span>
     </span>
-  )
-}
-
-// `name`: the text is the user's (a prompt title), shown as typed; uppercase
-// is for the app's own labels only
-function SectionHeader({ children, name }: { children: React.ReactNode; name?: boolean }) {
-  return (
-    <div className={cn(name ? "name-label truncate" : "section-label", "px-2 pb-0.5 pt-1.5")}>
-      {children}
-    </div>
   )
 }
 
