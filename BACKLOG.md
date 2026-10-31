@@ -95,18 +95,22 @@ the strategy behind it is in the local `docs/MARKETING.md`.
 
 ## Code structure
 
-- **Split the largest components** (REVIEW D6, 2026-09-14; pure moves, no
-  behaviour change, deferred then to keep that diff readable). By size
-  today: `src/popup/App.tsx` (2,479 lines), `src/manager/Sidebar.tsx`
-  (1,165), then `Editor.tsx` (params panel + tag strip),
-  `GenerateDialog.tsx` (pure `generate-instructions.ts` + dialog) and
-  `Settings.tsx` (hotkey recorder + the Packs card). The popup's seams,
-  each with its reason: the derived mode (the keydown handler, the hint
-  bar, `announce` and `pick` each re-derive it; one derivation in one
-  place), folds (duplicated with `src/manager/folds.ts`; a shared
-  `useFolds` is scheduled), and the clipboard panel, preview card, action
-  panel and fill-in form as hooks to extract when a feature next touches
-  each, not before.
+- ~~**Split the largest components**~~ — **done 2026-10-31** (REVIEW D6)
+  as pure moves, thirteen commits, the e2e suite untouched and green: the
+  popup's Shell, hint bar, list headers and SectionHeader are siblings
+  under `src/popup/`, and `popupMode()` in `src/popup/mode.ts` is the one
+  derivation the hint bar, the status text and the Undo keys read; the
+  sidebar's QueryMirror, foot and resize handle, the editor's tag strip
+  and Placeholders panel, the Generate dialog's instruction builders and
+  Settings' hotkey recorder and Packs card are siblings under
+  `src/manager/`. Folds were already shared (`src/lib/folds.ts`). Seams
+  seen and left, each a small behaviour-touching change rather than a
+  move: the popup's key handler still derives its own mode (it asks
+  about the clipboard panel before the form, `popupMode` the other way
+  round; they differ in one render); `formEmpty` and `emptyCount` count
+  the same thing; four inline `r.left, r.bottom + 4` could call
+  `atButton`; `marked()` in the sidebar and `HighlightedTitle` both mark
+  hits; `paramName` restates `isValidParam`'s rule.
 
 ## Search
 
