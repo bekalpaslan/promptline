@@ -336,12 +336,33 @@ The one flow everything else exists to serve. Hotkey to pasted text:
 1. **`show_popup`** records the foreground window in `AppState.prev_window`
    *before* showing anything — once the popup takes focus, the window the user
    came from is unrecoverable.
-   A hotkey press while the popup is already up — keyboard autorepeat while
-   the keys are held, or a second tap — only re-focuses it. `RegisterHotKey`
-   has no repeat suppression, and recording the foreground window on the
-   repeat would make the popup its own paste target: Ctrl+V would land on a
-   window that has just been hidden. Toggling the popup closed on a repeat is
-   a possible follow-up (BACKLOG).
+   The hotkey is answered by `on_hotkey` (`paste.rs`), which calls
+   `show_popup` only while the popup is hidden. A press while it is already
+   up never records the foreground window again — that would make the popup
+   its own paste target, and Ctrl+V would land on a window that has just
+   been hidden — and does one of two things instead. A **second tap** while
+   the popup is in front hides it (`dismiss_popup`, the path Esc takes:
+   Keep open ends, the size is persisted under the store lock, the lock is
+   released, then the window hides), the way Raycast and Alfred put theirs
+   away. A press while the popup is up but **not in front** (kept open
+   beside the work, after a paste handed the focus to the target) brings
+   it to the front, as every press did before the toggle: from the work the
+   gesture means "give me the palette", from inside it "put it away".
+   In front is `GetForegroundWindow() == the popup's HWND`, not tao's
+   focus bookkeeping: the webview child holds the keyboard focus, and the
+   foreground window is the top level either way.
+   Keys **held down** must not hide what they just summoned. Two guards:
+   `global-hotkey` registers with `MOD_NOREPEAT`, so Windows sends no
+   repeat notification while the keys stay down; and the hide is taken
+   only once the plugin has reported the key *released* since the summon
+   (`ShortcutState::Released`, which `global-hotkey` derives by polling
+   `GetAsyncKeyState` every 50 ms on a thread of its own; `lib.rs` routes it
+   to `note_hotkey_released`, an atomic that `show_popup` clears on every
+   real summon). A press with no release before it is a repeat and only
+   re-focuses. The release was chosen over a time window because autorepeat
+   has no upper bound (a key held for a second repeats for a second) while
+   a window short enough not to swallow a real double tap lets a long hold
+   through; a release the poll missed costs one extra tap, nothing worse.
    A summon while the **manager** is the foreground window records no
    target at all (`paste_target` answers 0 for any of our own HWNDs): the
    user is editing prompt X, presses the hotkey to look at Y and hits
@@ -955,9 +976,13 @@ replies to an agent. While it is on (`AppState.keep_open`):
   popup doesn't become the target. Until another window has come to the
   front, the summon's window is used. A target that refuses (elevated)
   fails as any paste does.
-- The hotkey only focuses the popup (it is already visible), so no
-  `popup-shown` refreshes it; the clipboard is read again whenever the
-  window gets the focus instead, and typing lands in the search box.
+- The hotkey pressed from the work brings the popup to the front (it is
+  already visible), so no `popup-shown` refreshes it; the clipboard is
+  read again whenever the window gets the focus instead, and typing lands
+  in the search box. Pressed again while the popup is in front, it hides
+  the popup and ends Keep open, as Esc does (*The paste pipeline*, step
+  1); the popup's own pin state is reset by the next summon's
+  `popup-shown`, the same as after Esc.
 - The **hint bar** is the window's handle: a press anywhere on it moves the
   popup (`startDragging`, started in code because Tauri's
   `data-tauri-drag-region` answers only a press on the element itself and
@@ -1737,6 +1762,17 @@ then a letter, digit, F1–F12, punctuation or named key such as `space` or
 every modifier. A keydown whose key the parser has no name for — Shift+1
 arrives as `!`, a dead key as `Dead` — is refused at the recorder with a
 message; it used to be recorded and fail at Apply.
+
+**A second tap hides the popup; a held key does not.** The hotkey toggles:
+pressed while the popup is hidden it summons it, pressed while the popup
+is in front it hides it through the path Esc takes (Keep open ends too),
+and pressed while the popup is up but behind the work (kept open) it
+brings it to the front. Every press and release reaches the one handler
+in `lib.rs` (`with_handler`), which routes `Pressed` to `paste::on_hotkey`
+and `Released` to `paste::note_hotkey_released`; the release arrives on
+`global-hotkey`'s polling thread, so what it sets is an atomic and the
+handler touches no window on that event. The repeat guard and the reasons
+for it are in *The paste pipeline*, step 1.
 
 ## Theming
 

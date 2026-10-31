@@ -186,7 +186,8 @@ built-in or a field name the rest of your library already uses.
 
 ## The popup
 
-- **Enter** pastes · **Ctrl+Enter / Ctrl+click** copies only · **Esc** closes
+- **Enter** pastes · **Ctrl+Enter / Ctrl+click** copies only · **Esc** (or
+  the hotkey again) closes
 - **Ctrl+1..5** pastes the top results instantly — pins (max 5) always sit on
   top, so they become stable muscle-memory slots
 - **Tab** opens an action panel: paste / copy / pin / edit in manager / delete
@@ -216,7 +217,8 @@ built-in or a field name the rest of your library already uses.
 - **Ctrl+K** (or the pin at the right of the hint bar) keeps the popup open
   beside your work: it stays up after a paste and pastes into the last
   window you used, so a run of short replies to an agent is one click each.
-  Drag the hint bar to move it; **Esc** closes it and ends Keep open
+  Drag the hint bar to move it; **Esc** (or the hotkey, while the popup is
+  in front) closes it and ends Keep open
 - **Auto enter** (a toggle under a prompt's text in the editor) presses
   Enter for you after the paste, for quick replies like "LGTM" or `/clear`.
   The popup marks those rows with ↵ and its hint bar says "paste and

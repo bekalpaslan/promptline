@@ -1,10 +1,11 @@
-//! The paste pipeline: `show_popup` records the window to paste into and
-//! places the popup, `paste_snippet` writes the clipboard and sends Ctrl+V
-//! from a detached thread, and the popup's hide paths persist its size.
-//! The two commands here are the pipeline's own; the rest are in
-//! `commands.rs`.
+//! The paste pipeline: `on_hotkey` answers the global hotkey (a summon, a
+//! re-focus, or a hide on the second tap), `show_popup` records the window
+//! to paste into and places the popup, `paste_snippet` writes the clipboard
+//! and sends Ctrl+V from a detached thread, and the popup's hide paths
+//! persist its size. The two commands here are the pipeline's own; the
+//! rest are in `commands.rs`.
 
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
@@ -61,18 +62,94 @@ pub(crate) fn persist_popup_size(app: &AppHandle) {
 }
 
 #[tauri::command]
-pub(crate) fn hide_popup(app: AppHandle, state: State<AppState>) {
+pub(crate) fn hide_popup(app: AppHandle) {
+    dismiss_popup(&app);
+}
+
+/// Hide the popup on purpose: Esc and a copy's confirmation (the
+/// `hide_popup` command) and the hotkey's second tap (`on_hotkey`) all
+/// come through here.
+pub(crate) fn dismiss_popup(app: &AppHandle) {
+    let state = app.state::<AppState>();
     // Every way the popup is closed on purpose ends Keep open
     state.keep_open.store(false, Ordering::SeqCst);
     {
         let _guard = state.store.lock().unwrap();
-        persist_popup_size(&app);
+        persist_popup_size(app);
     }
     // Hidden with the store lock released: hiding fires Focused(false), whose
     // handler takes the same lock. That the event arrives asynchronously is
     // what kept this from deadlocking; it is not something to rely on.
     if let Some(w) = app.get_webview_window("popup") {
         let _ = w.hide();
+    }
+}
+
+// Whether the hotkey's key has come up since the popup was last summoned.
+// `global-hotkey` registers with MOD_NOREPEAT, so Windows sends no repeat
+// notifications while the keys stay down; this is the second line, for a
+// press that arrives without a release before it. Written from the plugin's
+// Released event, which `global-hotkey` derives by polling GetAsyncKeyState
+// on a thread of its own, so an atomic rather than a field behind
+// AppState's mutexes.
+static HOTKEY_RELEASED: AtomicBool = AtomicBool::new(false);
+
+/// The hotkey's key came up (`ShortcutState::Released`): the next press is
+/// a deliberate tap, not a key held down. Called on the plugin's polling
+/// thread; it touches no window.
+pub(crate) fn note_hotkey_released() {
+    HOTKEY_RELEASED.store(true, Ordering::SeqCst);
+}
+
+/// What a hotkey press does.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum HotkeyAction {
+    /// The popup is hidden: summon it
+    Show,
+    /// The popup is up but the key never came up since the summon (a held
+    /// key), or the popup is not in front (kept open beside the work):
+    /// bring it to the front
+    Focus,
+    /// The popup is up, in front, and its key was released since the
+    /// summon: a second tap puts it away
+    Hide,
+}
+
+/// `visible`: the popup is shown; `focused`: it is the foreground window;
+/// `released`: the hotkey's key came up since the last summon.
+fn hotkey_action(visible: bool, focused: bool, released: bool) -> HotkeyAction {
+    if !visible {
+        HotkeyAction::Show
+    } else if focused && released {
+        HotkeyAction::Hide
+    } else {
+        HotkeyAction::Focus
+    }
+}
+
+/// The global hotkey was pressed (`ShortcutState::Pressed`, on the main
+/// thread): summon the popup, bring it to the front, or hide it, by
+/// `hotkey_action`. Hiding takes the same path as Esc (`dismiss_popup`),
+/// so Keep open ends and the size is persisted with the store lock
+/// released before the window hides. Never records `prev_window`: only a
+/// real summon (`show_popup`) does.
+pub(crate) fn on_hotkey(app: &AppHandle) {
+    let Some(w) = app.get_webview_window("popup") else {
+        return;
+    };
+    let visible = w.is_visible().unwrap_or(false);
+    // The foreground window rather than tao's focus bookkeeping: the
+    // webview child holds the keyboard focus, GetForegroundWindow answers
+    // with the top-level window either way
+    let hwnd = w.hwnd().map(|h| h.0 as isize).unwrap_or(0);
+    let focused = hwnd != 0 && platform::foreground_window() == hwnd;
+    let released = HOTKEY_RELEASED.load(Ordering::SeqCst);
+    match hotkey_action(visible, focused, released) {
+        HotkeyAction::Show => show_popup(app),
+        HotkeyAction::Focus => {
+            let _ = w.set_focus();
+        }
+        HotkeyAction::Hide => dismiss_popup(app),
     }
 }
 
@@ -302,15 +379,16 @@ pub(crate) fn show_popup(app: &AppHandle) {
     let Some(w) = app.get_webview_window("popup") else {
         return;
     };
-    // The hotkey fires again while the popup is already up whenever the keys
-    // are held (RegisterHotKey has no autorepeat suppression) or tapped twice.
-    // Recording the foreground window then would make the popup its own paste
-    // target, so a repeat only makes sure the popup has focus (D1: ignore,
-    // not toggle).
+    // `on_hotkey` only calls this for a hidden popup; a visible one here is
+    // a race with a hide. Recording the foreground window then would make
+    // the popup its own paste target, so it is only given the focus.
     if w.is_visible().unwrap_or(false) {
         let _ = w.set_focus();
         return;
     }
+    // A real summon: the hotkey's key is down right now, and only its
+    // release arms the second tap that hides (`on_hotkey`)
+    HOTKEY_RELEASED.store(false, Ordering::SeqCst);
     // Summoned over one of our own windows (the manager, or the popup itself
     // in a race), there is nothing to paste into: Ctrl+V would land in the
     // editor's textarea and autosave would keep it. Record "no target" and
@@ -427,6 +505,24 @@ mod tests {
             clamp_to_area(0.0, 0.0, 3000.0, 3000.0, area),
             (-1920.0, 0.0)
         );
+    }
+
+    #[test]
+    fn a_second_hotkey_tap_hides_the_popup_but_a_held_key_does_not() {
+        use HotkeyAction::*;
+        // Hidden: a press summons it, whatever the key did before
+        assert_eq!(hotkey_action(false, false, false), Show);
+        assert_eq!(hotkey_action(false, true, true), Show);
+        // Up and in front, the key released since the summon: a deliberate
+        // second tap puts it away
+        assert_eq!(hotkey_action(true, true, true), Hide);
+        // Up, but the key never came up since the summon (held down, a
+        // repeat that got past MOD_NOREPEAT): only re-focus, never hide
+        assert_eq!(hotkey_action(true, true, false), Focus);
+        // Up but not in front (kept open beside the work, a paste handed
+        // the focus to the target): bring it to the front, released or not
+        assert_eq!(hotkey_action(true, false, true), Focus);
+        assert_eq!(hotkey_action(true, false, false), Focus);
     }
 
     #[test]

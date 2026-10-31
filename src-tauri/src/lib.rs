@@ -25,7 +25,7 @@ mod update;
 use commands::{resolve_hotkey, warn_hotkey_layout};
 use migrations::{migrate_data_dir, migrate_v1_data, session_hotkey, settle_default_hotkey};
 use packs::ensure_packs_backed;
-use paste::{is_resize_drag, persist_popup_size, show_popup};
+use paste::{is_resize_drag, note_hotkey_released, on_hotkey, persist_popup_size};
 use store::{data_dir, load_config_from_disk, notify, Notice};
 
 #[derive(Default)]
@@ -209,10 +209,12 @@ pub fn run() {
         ))
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
-                .with_handler(|app, _shortcut, event| {
-                    if event.state() == ShortcutState::Pressed {
-                        show_popup(app);
-                    }
+                // A press summons, re-focuses or hides the popup; the
+                // release (reported by the plugin from a polling thread of
+                // its own) only arms the hide, see `paste::on_hotkey`
+                .with_handler(|app, _shortcut, event| match event.state() {
+                    ShortcutState::Pressed => on_hotkey(app),
+                    ShortcutState::Released => note_hotkey_released(),
                 })
                 .build(),
         )
