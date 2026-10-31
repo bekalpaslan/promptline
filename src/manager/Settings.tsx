@@ -143,7 +143,7 @@ export function Settings() {
       if (found) m.openUpdateOffer(found)
       else say("You're on the latest version")
     } catch (e) {
-      sayErr(`Couldn't check for updates: ${e}`)
+      sayErr(`Couldn't check for updates: ${String(e)}`)
     } finally {
       setChecking(false)
     }
@@ -372,7 +372,7 @@ export function Settings() {
                             onClick={() =>
                               void invoke("set_clipboard_text", { text: meta.path }).then(
                                 () => say("Path copied"),
-                                (e) => sayErr(`Couldn't copy the path: ${e}`)
+                                (e) => sayErr(`Couldn't copy the path: ${String(e)}`)
                               )
                             }
                           >
@@ -383,7 +383,7 @@ export function Settings() {
                             variant="secondary"
                             onClick={() =>
                               void invoke("show_in_folder", { path: meta.path }).catch((e) =>
-                                sayErr(`Couldn't open the folder: ${e}`)
+                                sayErr(`Couldn't open the folder: ${String(e)}`)
                               )
                             }
                           >
@@ -395,7 +395,7 @@ export function Settings() {
                             onClick={() =>
                               void invoke<string>("read_pack_file", { path: meta.path })
                                 .then(setImportRaw)
-                                .catch((e) => sayErr(`Couldn't read the pack file: ${e}`))
+                                .catch((e) => sayErr(`Couldn't read the pack file: ${String(e)}`))
                             }
                           >
                             Import from this file…
@@ -416,7 +416,7 @@ export function Settings() {
                           onClick={() =>
                             void m.addPackFile(name).then(
                               () => say(`"${name}" now has a file`),
-                              (e) => sayErr(`Couldn't create a file for "${name}": ${e}`)
+                              (e) => sayErr(`Couldn't create a file for "${name}": ${String(e)}`)
                             )
                           }
                         >
@@ -504,7 +504,7 @@ export function Settings() {
                   kind: "item",
                   label: "From clipboard",
                   run: () =>
-                    void invoke<string>("get_clipboard_text").then(setImportRaw, (e) => sayErr(`Couldn't read the clipboard: ${e}`)),
+                    void invoke<string>("get_clipboard_text").then(setImportRaw, (e) => sayErr(`Couldn't read the clipboard: ${String(e)}`)),
                 },
                 {
                   kind: "item",
@@ -514,7 +514,7 @@ export function Settings() {
                       .then((raw) => {
                         if (raw !== null) setImportRaw(raw) // null = user cancelled the picker
                       })
-                      .catch((e) => sayErr(`Couldn't read the file: ${e}`)),
+                      .catch((e) => sayErr(`Couldn't read the file: ${String(e)}`)),
                 },
               ])
             }}
@@ -525,7 +525,7 @@ export function Settings() {
             size="compact"
             variant="secondary"
             title="The data folder in Explorer: library, packs and the log file"
-            onClick={() => void invoke("open_data_dir").catch((e) => sayErr(`Couldn't open the folder: ${e}`))}
+            onClick={() => void invoke("open_data_dir").catch((e) => sayErr(`Couldn't open the folder: ${String(e)}`))}
           >
             Open folder
           </Button>
@@ -565,7 +565,7 @@ export function Settings() {
             className="ml-auto"
             onClick={() => {
               void invoke("open_url", { url: "https://buymeacoffee.com/hurryupbob" }).catch((e) =>
-                sayErr(`Couldn't open the link: ${e}`)
+                sayErr(`Couldn't open the link: ${String(e)}`)
               )
             }}
           >

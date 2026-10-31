@@ -92,7 +92,7 @@ export function App() {
     try {
       applyLibrary(await invoke<Library>("get_snippets"))
     } catch (e) {
-      sayErr(`Couldn't reload the library: ${e}`)
+      sayErr(`Couldn't reload the library: ${String(e)}`)
     }
   }, [applyLibrary])
 
@@ -133,7 +133,7 @@ export function App() {
         // known here: a refusal means the change event has not landed yet
         sayErr("The library changed meanwhile — reloaded it; please redo that change")
       } else {
-        sayErr(`Couldn't save: ${isStoreError(e) && e.kind === "failed" ? e.message : e}`)
+        sayErr(`Couldn't save: ${isStoreError(e) && e.kind === "failed" ? e.message : String(e)}`)
       }
       throw e
     }
@@ -145,7 +145,7 @@ export function App() {
       await refreshPacks()
     } catch (e) {
       await reloadLibrary()
-      sayErr(`Couldn't save: ${e}`)
+      sayErr(`Couldn't save: ${String(e)}`)
       throw e
     }
   }, [applyLibrary, reloadLibrary, refreshPacks])
@@ -169,7 +169,7 @@ export function App() {
     try {
       await applyPacks(invoke<PackMeta[]>("set_pack_locked", { name, locked }))
     } catch (e) {
-      sayErr(`Couldn't ${locked ? "lock" : "unlock"} the pack: ${e}`)
+      sayErr(`Couldn't ${locked ? "lock" : "unlock"} the pack: ${String(e)}`)
       throw e
     }
   }, [applyPacks])
@@ -178,7 +178,7 @@ export function App() {
     try {
       await applyPacks(invoke<PackMeta[]>("set_pack_color", { name, color }))
     } catch (e) {
-      sayErr(`Couldn't colour the pack: ${e}`)
+      sayErr(`Couldn't colour the pack: ${String(e)}`)
       throw e
     }
   }, [applyPacks])
@@ -190,7 +190,7 @@ export function App() {
       await applyPacks(invoke<PackMeta[]>("arrange_packs", { names: order }))
       setPacksArranged(true)
     } catch (e) {
-      sayErr(`Couldn't move the pack: ${e}`)
+      sayErr(`Couldn't move the pack: ${String(e)}`)
       throw e
     }
   }, [applyPacks])
@@ -213,7 +213,7 @@ export function App() {
       setView((v) => (v.kind === "overview" && v.focus.pack === from ? { ...v, focus: { ...v.focus, pack: to } } : v))
       carryPackFolds(from, to)
     } catch (e) {
-      sayErr(`Couldn't rename the pack: ${e}`)
+      sayErr(`Couldn't rename the pack: ${String(e)}`)
       throw e
     } finally {
       await refreshPacks()
@@ -256,7 +256,7 @@ export function App() {
     try {
       await applyPacks(invoke<PackMeta[]>("delete_pack", { name }))
     } catch (e) {
-      sayErr(`Couldn't delete the pack: ${e}`)
+      sayErr(`Couldn't delete the pack: ${String(e)}`)
     }
   }, [packMeta, deleteWithUndo, applyPacks])
 
@@ -333,7 +333,7 @@ export function App() {
       applyLibrary(await invoke<Library>("add_snippet", { snippet: s }))
       await refreshPacks()
     } catch (e) {
-      sayErr(`Couldn't create the prompt: ${e}`)
+      sayErr(`Couldn't create the prompt: ${String(e)}`)
       return
     }
     setSelectionState(new Set([s.id]))
@@ -393,7 +393,7 @@ export function App() {
           font: merged.font,
         })
       } catch (e) {
-        sayErr(`Couldn't save the preferences: ${e}`)
+        sayErr(`Couldn't save the preferences: ${String(e)}`)
       }
     },
     [prefs]
@@ -413,7 +413,7 @@ export function App() {
       await setUpdateCheck(enabled)
     } catch (e) {
       setUpdate((u) => (u ? { ...u, autoCheck: !enabled } : u))
-      sayErr(`Couldn't save the setting: ${e}`)
+      sayErr(`Couldn't save the setting: ${String(e)}`)
     }
   }, [])
 
@@ -440,7 +440,7 @@ export function App() {
         // The pane says so too (Editor): an empty list here is not an empty
         // library, and "No prompts yet" with a New button would read as one
         setLibraryState("failed")
-        sayPersistent(`Couldn't load the library: ${e}`)
+        sayPersistent(`Couldn't load the library: ${String(e)}`)
       }
       // Its own try: a library that won't load must not leave the hotkey,
       // the packs' registry and the preferences unset
@@ -469,7 +469,7 @@ export function App() {
         if (!config.popupSeen) setFirstRun("show")
       } catch (e) {
         if (cancelled) return
-        sayPersistent(`Couldn't load your settings: ${e}`)
+        sayPersistent(`Couldn't load your settings: ${String(e)}`)
       }
       // Anything Rust hit before this window was listening (a quarantined
       // file, a refused hotkey) is shown now and stays until dismissed

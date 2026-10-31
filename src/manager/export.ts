@@ -26,7 +26,7 @@ const text = (data: unknown) => JSON.stringify(data, null, 2)
 export function exportToClipboard(data: unknown, what: string) {
   return invoke("set_clipboard_text", { text: text(data) }).then(
     () => say(`${what} copied to clipboard`),
-    (e) => sayErr(`Couldn't copy: ${e}`)
+    (e) => sayErr(`Couldn't copy: ${String(e)}`)
   )
 }
 
@@ -36,6 +36,6 @@ export function exportToFile(data: unknown, name: string, what: string) {
     (path) => {
       if (path) say(`${what} saved to ${path}`)
     },
-    (e) => sayErr(`Couldn't save the file: ${e}`)
+    (e) => sayErr(`Couldn't save the file: ${String(e)}`)
   )
 }

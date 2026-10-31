@@ -236,7 +236,7 @@ export function useLibraryMenus(opts: {
           run: () => {
             void m.addPackFile(name).then(
               () => say(`"${name}" now has a file`),
-              (e) => sayErr(`Couldn't create a file for "${name}": ${e}`)
+              (e) => sayErr(`Couldn't create a file for "${name}": ${String(e)}`)
             )
           },
         },
@@ -251,14 +251,14 @@ export function useLibraryMenus(opts: {
         run: () => {
           void invoke("set_clipboard_text", { text: meta.path }).then(
             () => say("Path copied"),
-            (e) => sayErr(`Couldn't copy the path: ${e}`)
+            (e) => sayErr(`Couldn't copy the path: ${String(e)}`)
           )
         },
       },
       {
         kind: "item",
         label: "Show in folder",
-        run: () => void invoke("show_in_folder", { path: meta.path }).catch((e) => sayErr(`Couldn't open the folder: ${e}`)),
+        run: () => void invoke("show_in_folder", { path: meta.path }).catch((e) => sayErr(`Couldn't open the folder: ${String(e)}`)),
       },
     ]
   }
@@ -518,7 +518,7 @@ export function useLibraryMenus(opts: {
           )
           void invoke("set_clipboard_text", { text: JSON.stringify(pack, null, 2) }).then(
             () => say(`Copied ${C.plural(n, "prompt")} to clipboard`),
-            (e) => sayErr(`Couldn't copy: ${e}`)
+            (e) => sayErr(`Couldn't copy: ${String(e)}`)
           )
         },
       },

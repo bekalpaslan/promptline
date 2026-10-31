@@ -37,7 +37,7 @@ export function UpdateOffer({
       await flush()
       await installUpdate()
     } catch (e) {
-      sayErr(`Couldn't install the update: ${e}`)
+      sayErr(`Couldn't install the update: ${String(e)}`)
       setInstalling(false)
     }
   }

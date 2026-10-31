@@ -241,7 +241,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       await invoke("set_clipboard_text", { text: segmentsToText(chatInstruction(rules, topic.trim())) })
     } catch (e) {
       // Step 1 stays open: nothing was copied, so nothing to paste
-      sayErr(`Couldn't copy the instruction: ${e}`)
+      sayErr(`Couldn't copy the instruction: ${String(e)}`)
       return
     }
     setCopied(true)
@@ -277,7 +277,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       setWatchedFor(0)
       say("Instructions copied — paste them to your agent")
     } catch (e) {
-      sayErr(`Couldn't prepare the pack file: ${e}`)
+      sayErr(`Couldn't prepare the pack file: ${String(e)}`)
     }
   }
 
@@ -310,7 +310,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
       setImportRaw(await invoke<string>("read_pack_file", { path: agentFilePath }))
       setWatching(false)
     } catch (e) {
-      sayErr(`Couldn't read the pack file: ${e}`)
+      sayErr(`Couldn't read the pack file: ${String(e)}`)
     }
   }
 
@@ -318,7 +318,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     try {
       setImportRaw(await invoke<string>("get_clipboard_text"))
     } catch (e) {
-      sayErr(`Couldn't read the clipboard: ${e}`)
+      sayErr(`Couldn't read the clipboard: ${String(e)}`)
     }
   }
 

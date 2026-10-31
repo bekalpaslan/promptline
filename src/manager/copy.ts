@@ -18,7 +18,7 @@ export async function copyPrompt(p: { title: string; text: string; configValues?
     say(asks ? `Copied ${title}; fill in ${C.plural(asks, "field")} where you paste it` : `Copied ${title}`)
     return true
   } catch (e) {
-    sayErr(`Couldn't copy: ${e}`)
+    sayErr(`Couldn't copy: ${String(e)}`)
     return false
   }
 }
