@@ -134,10 +134,11 @@ the strategy behind it is in the local `docs/MARKETING.md`.
   (`platform::on_session_end`, BEHAVIOR.md "Launching and quitting").
 - ~~**"Saving… / Saved" caption in the editor**~~ — **shipped 0.2.9**
   (release audit M9).
-- **Type-checked lint** — `recommendedTypeChecked` on `src/**` gives 24
-  errors (`restrict-template-expressions` 12, `unbound-method` 3,
-  `no-unsafe-argument` 3, …); fix them in one pass, then enable it
-  (release audit L13, declined for 0.2.9).
+- ~~**Type-checked lint**~~ — **shipped 2026-10-31**: `recommendedTypeChecked`
+  on `src/**` (it had grown to 40 findings in five rule classes), cleared
+  in four commits with no behaviour change and no inline disable;
+  `only-throw-error` is off for `dev-mock.ts` alone, which rejects with
+  the bare values the real backend sends (release audit L13).
 - ~~**Three config re-reads per write**~~ — **shipped 0.2.15**: a write
   hands `sync_pack_files` the library it just wrote, and config.json is
   read once.

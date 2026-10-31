@@ -182,7 +182,10 @@ read, publish, commit.
 Seven, and CI runs all of them on every push and PR (`.github/workflows/ci.yml`):
 
 - `npx tsc -b --noEmit` (the app, the Vite config and `e2e/`)
-- `npm run lint` (`eslint . --max-warnings 0`: a warning fails)
+- `npm run lint` (`eslint . --max-warnings 0`: a warning fails; `src/` is
+  type-checked, typescript-eslint's `recommendedTypeChecked` through
+  `projectService`, so it needs `node_modules` and runs several seconds
+  longer than the untyped set `scripts/`, `e2e/` and `design/` keep)
 - `npm test` (node, `tests/*.test.js`: core, tokens, the two parity tests
   below, and the site, README, clip and release-script tests)
 - `npm run test:e2e` (Playwright: both windows in Chromium against the
