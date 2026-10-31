@@ -1,5 +1,6 @@
 // Minimal, honest lint: the rules the codebase already annotates for
-// (react-hooks) plus TypeScript's recommended set. `npm run lint`.
+// (react-hooks) plus TypeScript's recommended set, type-checked where the
+// app lives. `npm run lint`.
 import js from "@eslint/js"
 import tseslint from "typescript-eslint"
 import reactHooks from "eslint-plugin-react-hooks"
@@ -13,9 +14,16 @@ export default tseslint.config(
   ...tseslint.configs.recommended,
   { files: ["scripts/**/*.mjs", "design/vite.config.ts"], languageOptions: { globals: { ...globals.node } } },
   {
+    // The app alone is linted with type information (release audit L13):
+    // the typed rules need a tsconfig behind every file, which `src/` has in
+    // tsconfig.app.json; scripts, e2e and design stay on the untyped set
     files: ["src/**/*.{ts,tsx}"],
+    extends: [...tseslint.configs.recommendedTypeChecked],
     plugins: { "react-hooks": reactHooks },
-    languageOptions: { globals: { ...globals.browser } },
+    languageOptions: {
+      globals: { ...globals.browser },
+      parserOptions: { projectService: true, tsconfigRootDir: import.meta.dirname },
+    },
     rules: {
       ...reactHooks.configs.recommended.rules,
       // Stale closures are the H1 class of bug; keep this loud but not fatal
@@ -30,5 +38,14 @@ export default tseslint.config(
       "react-hooks/set-state-in-effect": "off",
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
     },
+  },
+  {
+    // The fake backend rejects the way Tauri does: a Rust command's `Err(String)`
+    // arrives as a bare string and a refused write as the plain `StoreError`
+    // object (core.ts), and the UI's `String(e)` and `isStoreError(e)` read
+    // exactly that. An Error object would show as "Error: …" in every toast
+    // the mock stages, so the mock throws what the real backend sends.
+    files: ["src/lib/dev-mock.ts"],
+    rules: { "@typescript-eslint/only-throw-error": "off" },
   }
 )
