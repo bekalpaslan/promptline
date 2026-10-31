@@ -144,7 +144,7 @@ export const Row = memo(function Row({
         picked && "bg-primary/20"
       )}
       onClick={(e) => {
-        const pill = (e.target as HTMLElement).closest?.("[data-tag]") as HTMLElement | null
+        const pill = (e.target as HTMLElement).closest<HTMLElement>("[data-tag]")
         if (pill?.dataset.tag) onTag(pill.dataset.tag)
         else onPick(s, !e.ctrlKey)
       }}

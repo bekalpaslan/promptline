@@ -267,10 +267,10 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         // never swept — BEHAVIOR.md) but no empty pack in the sidebar.
         filePath = await invoke<string>("create_pack_file", { name: t })
       }
-      setAgentFilePath(filePath!)
+      setAgentFilePath(filePath)
       dismissedRaw.current = null
       await invoke("set_clipboard_text", {
-        text: segmentsToText(agentInstruction(tags, t, filePath!)),
+        text: segmentsToText(agentInstruction(tags, t, filePath)),
       })
       setCopied(true)
       setWatching(true)
