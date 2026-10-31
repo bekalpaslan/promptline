@@ -329,15 +329,19 @@ export function installMock(mode: string | null) {
       },
       unregisterCallback: (id: number) => callbacks.delete(id),
       convertFileSrc: (path: string) => path,
-      async invoke(cmd: string, args?: Record<string, unknown>) {
+      // A promise either way, as the real invoke answers: a command's throw
+      // arrives as the rejection the UI's catch blocks read
+      invoke(cmd: string, args?: Record<string, unknown>): Promise<unknown> {
         calls.push({ cmd, args })
-        if (mock.fail.has(cmd)) throw `mock: ${cmd} refused`
-        const run = commands[cmd]
-        if (!run) {
-          console.info(`[mock] unhandled command ${cmd}`, args)
-          return null
-        }
-        return run(args ?? {})
+        return Promise.resolve().then(() => {
+          if (mock.fail.has(cmd)) throw `mock: ${cmd} refused`
+          const run = commands[cmd]
+          if (!run) {
+            console.info(`[mock] unhandled command ${cmd}`, args)
+            return null
+          }
+          return run(args ?? {})
+        })
       },
     },
     __TAURI_EVENT_PLUGIN_INTERNALS__: {
