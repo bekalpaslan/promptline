@@ -230,6 +230,17 @@ has moved it, focus, a search hit), not structure, per the design system's "ink 
 `heading` tokens are ink colours. In the overview a group is a heading over
 a hairline, not a panel.
 
+**The one colour a tree may carry is a pack's own**, and it is the user's
+choice, not the app's: a pack given a colour (*Packs and their files*)
+shows an 8 px dot (`PackSwatch`, `components/tree.tsx`) at the right of
+its header, before the lock and the count, in both windows. At the right,
+with the header's other marks, rather than before the name: the name
+column is the rule above (24 px a level), and a dot before the name would
+push a coloured pack's name 12 px off its rows'. A pack without one
+draws nothing, so the levels still tell themselves apart by size, weight,
+ink and step alone, and a library that never chose a colour is the tree
+described above.
+
 **The expandable panel.** One look wherever the app folds a thing open
 to something other than a run of rows (`components/panel.tsx`): the
 editor's Prompt panel (its title line over the field), Settings' pack
@@ -1176,10 +1187,12 @@ second (`delete_pack`), for the same reason. And because the reconciler can
 add metadata on any write, the manager re-reads pack metadata after every
 write rather than trusting its own copy.
 
-**Pack metadata is written by intent, never as a list.** Lock, delete, add
+**Pack metadata is written by intent, never as a list.** Lock, colour
+(below), delete, add
 and "Create pack file…" (once "Give this pack a file…", which named the
 mechanism rather than what the file is for: sharing, or an agent to write
-into; the hint says so) are `set_pack_locked`, `delete_pack`, `add_pack` and
+into; the hint says so) are `set_pack_locked`, `set_pack_color`,
+`delete_pack`, `add_pack` and
 `add_pack_file`, each a read-modify-write of `config.json` under the store
 lock that answers with the registry as `get_config` returns it, which the
 manager takes as its copy. The manager used to hand back its whole pack
@@ -1194,6 +1207,39 @@ tries the file again. Locking a pack that exists only as a name on prompts
 gives it metadata, as renaming does. The Undo of a pack delete restores
 the prompts (which conjures the pack again, with a fresh file) and then
 puts its lock back with `set_pack_locked`.
+
+**A pack can carry a colour** (2026-10-31): a small dot on its header in
+both windows, at the right before the lock and the count, for telling
+packs apart where their prompts mix (a filtered sidebar, the popup's list
+under a query, where every pack with a hit draws its header over its
+hits). Colour-free by default: a pack with no colour draws nothing, so a
+library that never set one looks as it did and the screenshots don't
+move. The palette is six named colours (`PACK_COLORS` in `ui/core.js`:
+Red, Orange, Amber, Green, Blue, Purple), each one of the theme's own
+tokens (Danger, Warn, the field placeholder's gold, Success, the
+clipboard placeholder's blue, the config placeholder's plum) rather than
+a hue of its own, so the dot follows the theme and the mode and clears
+the floors those tokens already clear; never a free picker, which would
+need its own contrast work on six theme sides and make two libraries
+look nothing alike. `config.json` stores the id (`"color": "red"`) on
+the pack's `PackMeta` beside `locked`, left out while unset, so a config
+from before it reads and writes the same; an id a build doesn't know
+draws nothing rather than a wrong hue. It is personal state like `pinned`
+and `autoEnter`: never in a pack file or an export, and an import never
+sets one. It is set from the pack's menu (right-click or ⋯ on its header
+in the sidebar) under *Colour*, a submenu of the names with *None* first
+and the current one checked, as Move to lists a pack's groups: names
+rather than a row of swatches because the menu's items are text, a name
+is what a screen reader can say, and the header shows the colour itself
+the moment the choice lands. The write is `set_pack_color`, a
+read-modify-write of `config.json` like `set_pack_locked` (a pack that
+exists only as a name on prompts gets its metadata by it, unlocked), and
+the Undo of a pack delete puts the colour back after the lock. The dot is
+decoration (`aria-hidden`): the sidebar header's label says the colour
+after the count and the lock ("Work, 12 prompts, locked, red"), so a
+screen-reader user can check the choice there as well as in the menu;
+the popup's headers are hidden from assistive tech and its options say
+nothing of it.
 
 That is why file backing is reconciled rather than handled at creation.
 **`ensure_packs_backed`** runs at startup and before every sync, giving every

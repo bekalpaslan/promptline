@@ -1020,3 +1020,34 @@ test("focus returns to the row that opened a menu, even after another menu was u
   await page.getByRole("dialog").getByRole("button", { name: "Cancel" }).click()
   await expect(pack).toBeFocused()
 })
+
+test("a pack takes a colour from its menu: the backend is asked by intent, the header shows the swatch and names the colour, and None takes it back", async ({ page }) => {
+  const header = tree(page).getByRole("treeitem", { name: /^Mock Groups, / })
+  await expect(header.locator("[data-swatch]")).toHaveCount(0)
+  await header.click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Colour" }).hover()
+  await expect(page.getByRole("menuitemradio", { name: "None" })).toHaveAttribute("aria-checked", "true")
+  await page.getByRole("menuitemradio", { name: "Red" }).click()
+  expect((await calls(page, "set_pack_color")).map((c) => c.args)).toEqual([{ name: "Mock Groups", color: "red" }])
+  // The registry the backend answers with is what the header draws: the
+  // dot, filled from the theme's token, and the colour's name after the
+  // count for a screen reader
+  const coloured = tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts, red" })
+  await expect(coloured).toBeVisible()
+  const swatch = coloured.locator("[data-swatch]")
+  await expect(swatch).toBeVisible()
+  const fill = await swatch.evaluate((el) => getComputedStyle(el).backgroundColor)
+  expect(fill).not.toBe("rgba(0, 0, 0, 0)")
+  // Every other pack is as it was
+  await expect(tree(page).locator("[data-swatch]")).toHaveCount(1)
+  await coloured.click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Colour" }).hover()
+  await expect(page.getByRole("menuitemradio", { name: "Red" })).toHaveAttribute("aria-checked", "true")
+  await page.getByRole("menuitemradio", { name: "None" }).click()
+  expect((await calls(page, "set_pack_color")).map((c) => c.args)).toEqual([
+    { name: "Mock Groups", color: "red" },
+    { name: "Mock Groups", color: null },
+  ])
+  await expect(tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })).toBeVisible()
+  await expect(tree(page).locator("[data-swatch]")).toHaveCount(0)
+})

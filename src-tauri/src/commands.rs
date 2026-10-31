@@ -13,7 +13,7 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 use crate::packs::{
     arrange_packs_in, back_pack_in, export_file_name, new_pack_file, packs_after_sync,
     relativize_pack_path, remove_pack_in, rename_pack_file, rename_pack_in, resolve_pack_path,
-    retire_pack_file, set_pack_locked_in, sync_pack_files, validate_pack_name,
+    retire_pack_file, set_pack_color_in, set_pack_locked_in, sync_pack_files, validate_pack_name,
     with_resolved_pack_paths, PackMeta,
 };
 use crate::store::{
@@ -263,6 +263,24 @@ pub(crate) fn set_pack_locked(
     packs_after_sync(&app)
 }
 
+/// Give a pack its colour, or take it away (`None`). The colour is one of
+/// the frontend's named ones by id (`PACK_COLORS` in ui/core.js); Rust
+/// stores the id and never draws it, so an id a build doesn't know is
+/// simply not shown. Personal state like the lock: never in a pack file.
+#[tauri::command]
+pub(crate) fn set_pack_color(
+    app: AppHandle,
+    state: State<AppState>,
+    name: String,
+    color: Option<String>,
+) -> Result<Vec<PackMeta>, String> {
+    let _guard = state.store.lock().unwrap();
+    let mut config = load_config_from_disk(&app)?;
+    set_pack_color_in(&mut config, &name, color);
+    save_config(&app, &config)?;
+    packs_after_sync(&app)
+}
+
 /// The user's order of the packs, as the manager's sidebar drew it after a
 /// drag. An order, not a registry: locks and files stay as they are on
 /// disk (`arrange_packs_in`). The popup reads it on its next show.
@@ -330,6 +348,7 @@ pub(crate) fn add_pack(
     config.packs.push(PackMeta {
         name,
         locked: false,
+        color: None,
         path,
     });
     save_config(&app, &config)?;

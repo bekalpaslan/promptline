@@ -14,7 +14,7 @@ export interface Prefs {
 
 /** Extras a delete can carry so Undo brings back everything it removed. */
 export interface DeleteOpts {
-  /** A pack's metadata (lock flag) to restore with its prompts (set_pack_locked); its file is re-created */
+  /** A pack's metadata (lock flag, colour) to restore with its prompts (set_pack_locked, set_pack_color); its file is re-created */
   pack?: PackMeta
 }
 
@@ -105,6 +105,8 @@ export interface ManagerApi {
    */
   /** Lock or unlock a pack (set_pack_locked); a pack that is only a name on prompts gets metadata */
   setPackLocked(name: string, locked: boolean): Promise<void>
+  /** Colour a pack, or clear its colour with null (set_pack_color); personal state like the lock */
+  setPackColor(name: string, color: string | null): Promise<void>
   /** Put the packs in this order, the whole list as drawn (arrange_packs); packNames follows it from then on */
   arrangePacks(order: string[]): Promise<void>
   /** Delete a pack: its prompts first, with Undo, then its metadata (delete_pack retires the file) */
