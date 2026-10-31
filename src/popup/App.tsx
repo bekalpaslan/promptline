@@ -27,6 +27,7 @@ import { cn } from "@/lib/utils"
 import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { Shell, type Notice } from "@/popup/Shell"
 import { SectionHeader } from "@/popup/SectionHeader"
+import { type CreateState, type FormState, popupMode } from "@/popup/mode"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { panelBodyClass, panelClass } from "@/components/panel"
 import { PackSwatch, TREE_GLYPH, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
@@ -35,14 +36,9 @@ import { MENU_ITEM, MENU_PANEL, SELECTED_BAR } from "@/components/menu-styles"
 import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
 
 
-// `configFields`: the fields that are really unset {{config}} parameters,
-// downgraded to ask (BEHAVIOR.md); the form says so under each, since one
-// asked for every day is one the user never learned could be set once
-type FormState = { snippet: Snippet; base: string; fields: string[]; configFields: Set<string>; paste: boolean }
 type PanelAction = { label: string; danger?: boolean; run: () => void }
 // Where Delete sits in the action panel (its digit is this plus one)
 const DELETE_AT = 4
-type CreateState = { title: string; pack: string; group: string; prefilled: string }
 
 
 // window (125% scale, the mono font) wraps between hints instead of being
@@ -1295,6 +1291,10 @@ export function App() {
     </button>
   )
 
+  // Which view is up (mode.ts): what the hint bar says and what the status
+  // region announces both follow it
+  const mode = popupMode({ panelFor, deleteArmed, form, create, clipOpen })
+
   // --- Hint bar (kit kbd-chip idiom) -------------------------------------------
   const headFolded =
     !!headSel &&
@@ -1322,12 +1322,12 @@ export function App() {
   // The selected row is set to Auto enter: the bar's Enter says so
   const selSends = !!selEntry?.s.autoEnter
   const crowded = selSends || keepOpen
-  const hint = panelFor && deleteArmed ? (
+  const hint = mode.kind === "panel" && mode.armed ? (
     // The question on screen, answered in the bar: what Enter does now
     <><Hint k="↵">delete</Hint><Hint k="Esc">cancel</Hint></>
-  ) : panelFor ? (
+  ) : mode.kind === "panel" ? (
     <><Hint k="↵">run</Hint><Hint k={`1-${panelActions.length}`}>pick</Hint><Hint k="Esc">back</Hint></>
-  ) : form ? (
+  ) : mode.kind === "form" ? (
     // Enter in a field goes to the next empty one and sends only when none
     // is left ahead; the bar says which, since it is where the eye checks
     // what Enter does
@@ -1342,13 +1342,13 @@ export function App() {
       ) : (
         <Hint k="↵">{formVerb}</Hint>
       )}
-      {form.paste && <Hint k="Ctrl ↵" minor={formSends && formEmpty > 0}>copy</Hint>}
+      {mode.form.paste && <Hint k="Ctrl ↵" minor={formSends && formEmpty > 0}>copy</Hint>}
       <Hint k="⇧ ↵" minor={!(formSends && formEmpty > 0)} wider={formSends && formEmpty > 0}>newline</Hint>
       <Hint k="Esc" tiny={formSends && formEmpty > 0}>back</Hint>
     </>
-  ) : create ? (
+  ) : mode.kind === "create" ? (
     <><Hint k="↵">save</Hint><Hint k="Esc">back</Hint></>
-  ) : clipOpen ? (
+  ) : mode.kind === "clipboard" ? (
     // The clipboard panel: scroll when there is more of it than fits, save
     // it as a prompt, or put it away (Enter too: the row it would paste is
     // under the panel). After a failed paste the recovery stays first: the
@@ -1516,19 +1516,19 @@ export function App() {
     inputRef.current?.focus()
   }
   const undoKeys =
-    panelFor || form || create ? [] : notice?.undo === "fresh" && query === "" ? ["U", "Ctrl+Z"] : ["Ctrl+Z"]
+    mode.kind === "panel" || mode.kind === "form" || mode.kind === "create" ? [] : notice?.undo === "fresh" && query === "" ? ["U", "Ctrl+Z"] : ["Ctrl+Z"]
 
   // The armed item keeps focus and only changes its label, which a screen
   // reader does not re-read; the status region says the question
-  const announce = panelFor
-    ? deleteArmed
-      ? `Really delete ${panelFor.title}? Enter deletes it, Escape cancels`
-      : `Actions for ${panelFor.title}`
-    : form
-      ? `Fill in ${C.plural(form.fields.length, "field")} for ${form.snippet.title}`
-      : create
+  const announce = mode.kind === "panel"
+    ? mode.armed
+      ? `Really delete ${mode.snippet.title}? Enter deletes it, Escape cancels`
+      : `Actions for ${mode.snippet.title}`
+    : mode.kind === "form"
+      ? `Fill in ${C.plural(mode.form.fields.length, "field")} for ${mode.form.snippet.title}`
+      : mode.kind === "create"
         ? "New prompt from clipboard"
-        : clipOpen
+        : mode.kind === "clipboard"
           ? `Clipboard, ${C.plural(C.lineCount(clip), "line")}`
         : keepOpen && !query.trim() && visible.length
           ? `Kept open, ${C.plural(visible.length, "prompt")}`
