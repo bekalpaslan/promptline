@@ -40,6 +40,12 @@ type OpenState = { x: number; y: number; items: CtxItem[] } | null
 const focusables = (root: HTMLElement | null): HTMLElement[] =>
   root ? [...root.querySelectorAll<HTMLElement>('[role^="menuitem"]:not(:disabled), input')] : []
 
+// Where a menu opened from a button lands: under its left edge
+export const atButton = (e: React.MouseEvent<HTMLElement>) => {
+  const r = e.currentTarget.getBoundingClientRect()
+  return [r.left, r.bottom + 4] as const
+}
+
 export function useCtxMenu() {
   const [state, setState] = useState<OpenState>(null)
   // Open submenu: which top-level index, and where its panel anchors
