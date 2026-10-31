@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "18e9c902adc8156aacbc41d2f861b9e1bc0ceeac"
+      "revision": "1b272dc15e9b63902930022b2fe587a147eed26a"
     },
     "viewBox": [
       1300,
@@ -79,12 +79,12 @@
       "sources": [
         {
           "path": "src/popup/App.tsx",
-          "line": 98,
+          "line": 41,
           "label": "Popup App"
         },
         {
           "path": "src/popup/App.tsx",
-          "line": 490,
+          "line": 409,
           "label": "invoke paste_snippet"
         }
       ]
@@ -106,12 +106,12 @@
       "sources": [
         {
           "path": "ui/core.js",
-          "line": 277,
+          "line": 329,
           "label": "rankSnippets"
         },
         {
           "path": "ui/core.js",
-          "line": 622,
+          "line": 698,
           "label": "packTree"
         },
         {
@@ -138,12 +138,12 @@
       "sources": [
         {
           "path": "src/manager/App.tsx",
-          "line": 29,
+          "line": 44,
           "label": "Manager App"
         },
         {
           "path": "src/manager/App.tsx",
-          "line": 496,
+          "line": 521,
           "label": "snippets-changed"
         },
         {
@@ -169,7 +169,7 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 214,
+          "line": 215,
           "end_line": 218,
           "label": "shortcut handler"
         }
@@ -191,8 +191,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 333,
-          "end_line": 355,
+          "line": 338,
+          "end_line": 359,
           "label": "TrayIconBuilder"
         },
         {
@@ -218,20 +218,20 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 186,
-          "end_line": 430,
+          "line": 185,
+          "end_line": 433,
           "label": "run()"
         },
         {
           "path": "src-tauri/src/paste.rs",
-          "line": 301,
-          "end_line": 375,
+          "line": 378,
+          "end_line": 453,
           "label": "show_popup"
         },
         {
           "path": "src-tauri/src/paste.rs",
-          "line": 108,
-          "end_line": 209,
+          "line": 185,
+          "end_line": 286,
           "label": "paste_snippet"
         }
       ]
@@ -252,8 +252,8 @@
       "sources": [
         {
           "path": "src-tauri/src/paste.rs",
-          "line": 108,
-          "end_line": 209,
+          "line": 185,
+          "end_line": 286,
           "label": "paste_snippet"
         }
       ]
@@ -274,7 +274,7 @@
       "sources": [
         {
           "path": "src-tauri/src/platform.rs",
-          "line": 178,
+          "line": 234,
           "label": "send_ctrl_v"
         }
       ]
@@ -306,9 +306,9 @@
         },
         {
           "path": "src-tauri/src/store.rs",
-          "line": 307,
+          "line": 298,
           "end_line": 334,
-          "label": "theme · palette · updateCheck fields"
+          "label": "packs · theme · palette · updateCheck fields"
         }
       ]
     },
@@ -328,12 +328,12 @@
       "sources": [
         {
           "path": "src-tauri/src/packs.rs",
-          "line": 273,
+          "line": 282,
           "label": "sync_pack_files"
         },
         {
           "path": "src-tauri/src/packs.rs",
-          "line": 375,
+          "line": 384,
           "label": "write_pack_files"
         }
       ]
@@ -360,13 +360,13 @@
         },
         {
           "path": "src-tauri/src/update.rs",
-          "line": 238,
+          "line": 221,
           "label": "auto_check"
         },
         {
           "path": "src-tauri/src/update.rs",
-          "line": 181,
-          "end_line": 194,
+          "line": 164,
+          "end_line": 177,
           "label": "install"
         }
       ]
@@ -396,7 +396,7 @@
       "id": "hotkey-press",
       "from": "hotkey",
       "to": "rust",
-      "label": "pressed",
+      "label": "pressed · released",
       "variant": "emphasis"
     },
     {
