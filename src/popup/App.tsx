@@ -5,8 +5,6 @@ import {
   RiArrowDownSLine,
   RiClipboardLine,
   RiFileCopyLine,
-  RiFilterLine,
-  RiPushpin2Line,
   RiSearchLine,
 } from "@remixicon/react"
 import { C, type Library, type PackMeta, type Snippet, type SnippetPatch } from "@/lib/core"
@@ -20,8 +18,6 @@ const groupKey = C.groupKey
 type HeadStop = { pack: string; group?: string }
 type Stop = { row: number } | HeadStop
 const sameStop = (a: Stop, b: HeadStop) => !("row" in a) && a.pack === b.pack && a.group === b.group
-// The option a selected header is announced as (the header itself is hidden)
-const HEAD_OPTION_ID = "header-stop"
 const EMPTY: ReadonlySet<string> = new Set()
 import { cn } from "@/lib/utils"
 import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
@@ -29,9 +25,10 @@ import { Shell, type Notice } from "@/popup/Shell"
 import { SectionHeader } from "@/popup/SectionHeader"
 import { type CreateState, type FormState, popupMode } from "@/popup/mode"
 import { HintBar } from "@/popup/HintBar"
-import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
+import { GroupHeader, HEAD_OPTION_ID, HeadOption, PackHeader } from "@/popup/headers"
+import { ClipboardMarks, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { panelBodyClass, panelClass } from "@/components/panel"
-import { PackSwatch, TREE_GLYPH, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
+import { TreeChildren, TreeGroup, TreeSection } from "@/components/tree"
 import { Button } from "@/components/ui/button"
 import { MENU_ITEM, MENU_PANEL, SELECTED_BAR } from "@/components/menu-styles"
 import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
@@ -1231,30 +1228,6 @@ export function App() {
   const activeTags = parsed.tags
   const packActive = (name: string) => parsed.packs.includes(name.toLowerCase())
   const groupActive = (name: string) => parsed.groups.includes(name.toLowerCase())
-  // Funnel at the right of a pack / group header: shown on hover, or always
-  // while its filter is on
-  const funnel = (prefix: "@" | ">", name: string, active: boolean) => (
-    <button
-      type="button"
-      tabIndex={-1}
-      aria-pressed={active}
-      title={active ? `Clear ${prefix}${name} filter` : `Filter by ${prefix}${name}`}
-      aria-label={active ? `Clear ${prefix}${name} filter` : `Filter by ${prefix}${name}`}
-      // Off, it waits over the count (shown on the header's hover) instead
-      // of holding a 24 px slot: the slot put every header count 26 px in
-      // from the rows' keys and chips, two right edges where one should be
-      // (critique popup, 2026-10-09). On, it is a state and takes the slot.
-      className={cn(
-        "flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md",
-        active
-          ? "bg-(--focus)/20 text-(--focus)"
-          : "absolute right-0 top-0 bg-inherit text-muted-foreground opacity-0 hover:bg-hover hover:text-foreground focus-visible:opacity-100 group-hover/hdr:opacity-100"
-      )}
-      onClick={() => toggleFilter(prefix, name)}
-    >
-      <RiFilterLine className="size-3.5" />
-    </button>
-  )
 
   // Which view is up (mode.ts): what the hint bar says and what the status
   // region announces both follow it
@@ -1787,35 +1760,9 @@ export function App() {
           // (a pack is collapsible)
           const underPinned = flat && sec.name === "Pinned"
           const rows = (es: Entry[]) => es.map((entry) => row(entry, rowIndex.get(entry.s.id)!, underPinned))
-          // The section's glyph sits in the rows' icon column: the tree's
-          // chevron on a pack, a pin on Pinned, a magnifier on Results
-          const Lead = underPinned ? RiPushpin2Line : RiSearchLine
           const filtered = sec.collapsible && packActive(sec.name)
           // The keyboard is on this pack's header
           const packSel = !!headSel && headSel.pack === sec.name && headSel.group === undefined
-          // What a screen reader hears of a selected header: the header is
-          // hidden, so an option says it in its place
-          const headOption = (label: string, n: number, folded: boolean) => (
-            <div id={HEAD_OPTION_ID} role="option" aria-selected className="sr-only">
-              {`${label}, ${folded ? "folded" : "open"}, ${C.plural(n, "prompt")}`}
-            </div>
-          )
-          // The headers are the shared tree's (components/tree.tsx): the
-          // sidebar's pack and group headers, drawn here on buttons. The
-          // 2026-10-09 band and hairline went with the one-edge layout
-          // (2026-10-10): the two lists are one tree on two windows.
-          const headerClass = cn(treeHeaderClass("pack"), "flex-1 text-left", !sec.collapsible && "cursor-default")
-          const headerBody = (
-            <>
-              <span className={cn(TREE_GLYPH, "text-muted-foreground")}>
-                {sec.collapsible ? <TreeChevron open={!sec.isCollapsed} /> : <Lead className="size-4" />}
-              </span>
-              <TreeName>{sec.name}</TreeName>
-              {/* The pack's colour, as in the sidebar; Pinned and Results are not packs */}
-              {sec.collapsible && <PackSwatch color={packMeta.find((p) => p.name === sec.name)?.color} />}
-              <Count>{sec.count}</Count>
-            </>
-          )
           return (
             // Rhythm: 2 px between rows (the rounded fill already parts
             // them) and, since 2026-10-22, 2 px between packs too (16 from
@@ -1823,52 +1770,25 @@ export function App() {
             // for a 44 px row, which showed seven prompts in the default
             // window; the same window now shows nine or ten.
             <TreeSection key={sec.name} role="group" aria-label={sec.name}>
-              {/* Pack title, as in the sidebar: a disclosure button (← / Ctrl+→
-                  from a row do the same); Pinned / Results are plain headings.
-                  Hidden from assistive tech: a listbox may hold only options
-                  and groups of them, and these buttons inside it had the tree
-                  reported as malformed (audit popup P1). The group above
-                  carries the name; the fold and the filter are reachable by
-                  keyboard (← / Ctrl+→, typing @pack), and the buttons are
-                  tabIndex -1 so nothing hidden is in the tab order. */}
-              {/* Sticky, so the pack a row belongs to stays named while it
-                  scrolls; the shell's own ground behind it hides rows passing
-                  under it and the 2 px below it (painted here, pulled back by
-                  the children's own 2 px). The shell's ground, so a folded
-                  pack stays a plain row, as in the sidebar (the frame's card
-                  ground made it a filled bar, 2026-10-10; the frame itself
-                  went 2026-10-16). */}
-              <div aria-hidden className="sticky top-0 z-10 -mb-0.5 bg-sidebar pb-0.5">
-              {sec.collapsible ? (
-                <div
-                  data-selected={packSel || undefined}
-                  className={cn(
-                    "group/hdr relative flex items-center rounded-md",
-                    packSel && navigated ? SELECTED_BAR : filtered ? "bg-(--focus)/10" : treeFillClass(false)
-                  )}
-                >
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    aria-expanded={!sec.isCollapsed}
-                    title={sec.isCollapsed ? "Unfold (Ctrl+→ unfolds all)" : "Fold (← on a row folds its pack or group)"}
-                    className={headerClass}
-                    onClick={() => {
-                      toggleCollapsed(sec.name)
-                      // A mouse click focuses the button even at tabIndex -1;
-                      // typing must keep landing in the search box
-                      inputRef.current?.focus()
-                    }}
-                  >
-                    {headerBody}
-                  </button>
-                  {funnel("@", sec.name, filtered)}
-                </div>
-              ) : (
-                <div className={headerClass}>{headerBody}</div>
-              )}
-              </div>
-              {packSel && headOption(sec.name, sec.count, sec.isCollapsed)}
+              <PackHeader
+                name={sec.name}
+                count={sec.count}
+                collapsible={sec.collapsible}
+                collapsed={sec.isCollapsed}
+                underPinned={underPinned}
+                selected={packSel}
+                bar={navigated}
+                filtered={filtered}
+                color={packMeta.find((p) => p.name === sec.name)?.color}
+                onToggle={() => {
+                  toggleCollapsed(sec.name)
+                  // A mouse click focuses the button even at tabIndex -1;
+                  // typing must keep landing in the search box
+                  inputRef.current?.focus()
+                }}
+                onFilter={() => toggleFilter("@", sec.name)}
+              />
+              {packSel && <HeadOption label={sec.name} count={sec.count} folded={sec.isCollapsed} />}
               {!sec.isCollapsed && (
                 <TreeChildren level="pack">
                   {rows(ungrouped)}
@@ -1884,35 +1804,20 @@ export function App() {
                       // keeps a header clear of the sticky pack header above
                       // it (28 px and the 2 px gap).
                       <TreeGroup key={g} role="group" aria-label={g}>
-                        <div
-                          aria-hidden
-                          data-selected={gSel || undefined}
-                          className={cn(
-                            "group/hdr relative flex scroll-mt-[30px] items-center rounded-md",
-                            gSel && navigated ? SELECTED_BAR : gf ? "bg-(--focus)/10" : treeFillClass(false)
-                          )}
-                        >
-                          <button
-                            type="button"
-                            tabIndex={-1}
-                            aria-expanded={!gc}
-                            title={gc ? "Unfold (Ctrl+→ unfolds all)" : "Fold (← on a row folds its pack or group)"}
-                            // A group name is the user's words: shown as typed, never uppercased
-                            className={cn(treeHeaderClass("group"), "flex-1 text-left")}
-                            onClick={() => {
-                              toggleCollapsedGroup(key)
-                              inputRef.current?.focus()
-                            }}
-                          >
-                            <span className={cn(TREE_GLYPH, "text-muted-foreground")}>
-                              <TreeChevron open={!gc} />
-                            </span>
-                            <TreeName>{g}</TreeName>
-                            <Count>{es.length}</Count>
-                          </button>
-                          {funnel(">", g, gf)}
-                        </div>
-                        {gSel && headOption(g, es.length, gc)}
+                        <GroupHeader
+                          name={g}
+                          count={es.length}
+                          collapsed={gc}
+                          selected={gSel}
+                          bar={navigated}
+                          filtered={gf}
+                          onToggle={() => {
+                            toggleCollapsedGroup(key)
+                            inputRef.current?.focus()
+                          }}
+                          onFilter={() => toggleFilter(">", g)}
+                        />
+                        {gSel && <HeadOption label={g} count={es.length} folded={gc} />}
                         {!gc && <TreeChildren level="group">{rows(es)}</TreeChildren>}
                       </TreeGroup>
                     )
