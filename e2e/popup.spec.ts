@@ -1519,3 +1519,16 @@ test("counts end on the rows' right edge, and a group stands 2 px off what is ab
   const [a, b] = await Promise.all([stuck.boundingBox(), starting.boundingBox()])
   expect(b!.y - (a!.y + a!.height)).toBeCloseTo(2, 0)
 })
+
+test("each word of a query matches on its own: \"first root\" finds Root cause first and underlines both", async ({ page }) => {
+  // The words out of the title's order; until 2026-10-31 the query was one
+  // subsequence, space included, and reached nothing (review L5)
+  await search(page).fill("first root")
+  await expect(rows(page)).toHaveCount(1)
+  const row = page.getByRole("option", { name: "Root cause first", exact: true })
+  await expect(row.locator("[data-match]")).toHaveText(["Root", "first"])
+  // Every word has to be there, all in one field: a word nothing holds
+  // is a miss, however well the other one fits
+  await search(page).fill("first zebra")
+  await expect(rows(page)).toHaveCount(0)
+})
