@@ -148,6 +148,83 @@ test('fuzzyScore: no match returns null; empty query matches everything', () => 
   assert.deepEqual(core.fuzzyScore('', 'anything'), { score: 0, indices: [] });
 });
 
+test('search: each word of a query matches on its own (L5)', () => {
+  const title = 'Root cause first';
+  // Both words whole and in the order typed: the hit scores as its worst
+  // word (first@11) and underlines both
+  const inOrder = core.fuzzyScore('root first', title);
+  assert.deepEqual(inOrder, { score: 11, indices: [0, 1, 2, 3, 11, 12, 13, 14, 15] });
+  // The same words the other way round still hit, 500 behind
+  assert.deepEqual(core.fuzzyScore('first root', title), { score: 511, indices: inOrder.indices });
+  // Until 2026-10-31 the query was one subsequence with its space in it,
+  // so a word before an earlier one never matched a title
+  assert.equal(core.fuzzyScore('cause root', title).score, 505);
+  // Each word may be an abbreviation, as a single word may
+  assert.ok(core.fuzzyScore('rt frst', title).score >= 1000);
+  // Every word has to be there: "fix" has no x in this title (the
+  // backlog's example reaches the prompt through its body, where "fix" is)
+  assert.equal(core.fuzzyScore('root fix', title), null);
+  // Stray whitespace is not a word
+  assert.deepEqual(core.fuzzyScore('  root   first ', title), inOrder);
+  assert.deepEqual(core.fuzzyScore('   ', title), { score: 0, indices: [] });
+});
+
+test('search: a multi-word hit ranks whole words over abbreviations, in order over out of order', () => {
+  const t = 'Root cause first';
+  const ladder = ['root first', 'first root', 'rt frst', 'frst rt'].map(q => core.fuzzyScore(q, t).score);
+  for (let i = 1; i < ladder.length; i++) assert.ok(ladder[i - 1] < ladder[i], `${ladder.join(' < ')}`);
+  // Every rung stays under the tag tier's 3000, so three abbreviated words
+  // in a title still beat a tag match
+  assert.ok(core.fuzzyScore('rt cs frst', t).score < 3000);
+  // A query typed whole and found whole scores its position, as every
+  // query did before, so phrases rank exactly as they did
+  assert.deepEqual(core.fuzzyScore('cause first', t), { score: 5, indices: [5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15] });
+});
+
+test('rankSnippets: a multi-word query keeps the tiers, and its words stay in one field', () => {
+  const lib = [
+    { id: 'body', title: 'Nothing here', text: 'Find the root cause before the first fix', tags: [], uses: 50 },
+    { id: 'tag', title: 'Other', text: '', tags: ['root', 'first'], uses: 50 },
+    { id: 'title', title: 'Root cause first', text: '', tags: [], uses: 0 },
+    { id: 'split', title: 'Root cause', text: 'first find it', tags: [], uses: 99 },
+    { id: 'abbrev', title: 'Reboot the first step', text: '', tags: [], uses: 99 },
+  ];
+  const r = core.rankSnippets('root first', lib);
+  // Whole words in the title, then an abbreviated title (r-o-o-t in
+  // "Reboot"), then the tag list, then the body; uses never lift a tier
+  assert.deepEqual(r.map(e => e.s.id), ['title', 'abbrev', 'tag', 'body']);
+  assert.deepEqual(r[0].indices, [0, 1, 2, 3, 11, 12, 13, 14, 15]);
+  assert.equal(r[2].indices, null);
+  // One word in the title and the other in the body is no hit: a row has
+  // one place to say why it is listed
+  assert.ok(!r.some(e => e.s.id === 'split'));
+  // Two free-text words find a prompt tagged with both, like `#a #b`
+  const tagged = [{ id: 'both', title: 'X', text: '', tags: ['debug', 'review'] }, { id: 'one', title: 'Y', text: '', tags: ['debug'] }];
+  assert.deepEqual(core.rankSnippets('review debug', tagged).map(e => e.s.id), ['both']);
+});
+
+test('search: whatever the popup lists for whole words, the sidebar filter shows too (L5)', () => {
+  const lib = [
+    { id: 'body', title: 'Nothing here', text: 'Find the root cause before the first fix', tags: ['debug'], pack: 'P', group: '' },
+    { id: 'tag', title: 'Other', text: '', tags: ['root', 'first'], pack: 'P', group: '' },
+    { id: 'title', title: 'Root cause first', text: '', tags: [], pack: 'Q', group: 'g' },
+    { id: 'split', title: 'Root cause', text: 'first find it', tags: [], pack: 'Q', group: '' },
+    { id: 'none', title: 'Unrelated', text: 'nothing', tags: [], pack: 'Q', group: '' },
+  ];
+  for (const raw of ['root first', 'first root', 'cause   first', 'root fix', '#debug root first', '@q first root', 'before fix']) {
+    const popup = core.rankSnippets(raw, lib).map(e => e.s.id);
+    const sidebar = lib.filter(s => core.matchesQuery(s, core.parseQuery(raw))).map(s => s.id);
+    for (const id of popup) assert.ok(sidebar.includes(id), `${raw}: the popup lists ${id}, the sidebar hides it`);
+    assert.ok(!popup.includes('none') && !sidebar.includes('none'), raw);
+  }
+  // The sidebar is wider on purpose: it only narrows, so its words may land
+  // in different fields, and a word may be a pack or group name
+  const q = core.parseQuery('root first');
+  assert.ok(core.matchesQuery(lib[3], q), 'title word plus body word');
+  assert.ok(core.matchesQuery(lib[2], core.parseQuery('g root')), 'group word plus title word');
+  assert.deepEqual(core.rankSnippets('g root', lib), []);
+});
+
 // ---- ranking -------------------------------------------------------------------------
 
 test('rankSnippets: pins lead with no query, then uses, then title', () => {

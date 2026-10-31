@@ -467,13 +467,48 @@ expands the second from the first one's output.
 still be physically holding the hotkey's modifiers, and a stray Shift turns the
 paste into something else entirely.
 
-**Search matches titles and tags fuzzily, bodies strictly.** `rankSnippets`
-ranks title matches above tag matches above body matches, and the first two
-accept a subsequence (`rvw` finds "Review"). The body tier does not: a
-four-letter query is a subsequence of almost any paragraph, so that fallback
-matched nearly every prompt and search stopped narrowing anything. A body has
-to contain the query (`bodyScore`), or, for a multi-word query, start a word
-with each of its words.
+**Search matches titles and tags fuzzily, bodies strictly, and a query's
+words one by one.** `rankSnippets` ranks title matches above tag matches
+above body matches, and the first two accept a subsequence (`rvw` finds
+"Review"). The body tier does not: a four-letter query is a subsequence of
+almost any paragraph, so that fallback matched nearly every prompt and
+search stopped narrowing anything. A body has to contain the query
+(`bodyScore`), or, for a multi-word query, start a word with each of its
+words.
+
+A query with a space in it is its words (`queryWords` in core, the one
+definition of a word for every matcher, the sidebar's `matchesQuery`
+included), and each word matches on its own, in any order: `cause root`,
+`first root` and `rt frst` all find "Root cause first", and `debug review`
+finds a prompt tagged with both. Until 2026-10-31 the query was one
+subsequence with its space in it, so a title was found only by a prefix
+typed in the title's own order and anything else fell through to the body
+tier (review L5). All of a hit's words have to be in the one field: in the
+title, else in the tag list, else each starting a word in the body. A word
+in the title and the other in the body is no hit, because a row has one
+place to say why it is listed (the underline in the title, or the body's
+excerpt on its second line) and a hit spread over two fields has none. The
+manager's filter does let words land in different fields, and in a pack
+or group name: it only narrows a list that keeps its own order and shows
+no reason, so it can afford to be wider. The two agree the one way that
+matters: whatever the popup lists for a query of whole words, the sidebar
+shows too (`tests/core.test.js`, the L5 cases).
+
+How a multi-word hit ranks: as its worst word, the rule the body tier has
+always had (its score is the furthest of its words), plus 500 when the
+words are not met in the order typed. A word scores its position when
+whole and 1000 plus the letters skipped when abbreviated, and titles and
+tag lists are short, so that is one ladder: whole words in order, whole
+words out of order, abbreviations in order, abbreviations out of order,
+all under the next tier's 3000. The sum of the words' scores was the other
+candidate, and was dropped because it lets two whole words late in a long
+title fall behind one abbreviation and three abbreviated words climb into
+the tag tier. Order is a secondary signal rather than a requirement
+because people type the word they remember first, and a cheap lever
+("type them in the title's order") is worth more than a miss. A query
+typed whole and found whole still scores its position, as every query did
+before, so a one-word query and a phrase rank exactly as they did, and the
+Ctrl+1..5 slots on them have not moved.
 
 **Delete asks, and the answer is Enter.** In the action panel, Delete (its
 digit `5`, a click, or Enter on it) relabels to "Really delete?" and takes

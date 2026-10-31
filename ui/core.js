@@ -156,11 +156,20 @@
   }
 
   // ---- Fuzzy matching -----------------------------------------------------
-  // Lower score = better. Returns {score, indices} or null on no match.
-  // indices are the matched character positions (for highlighting).
-  function fuzzyScore(query, text) {
-    const q = query.toLowerCase(), t = text.toLowerCase();
-    if (!q) return { score: 0, indices: [] };
+  // The words of a free-text query: whitespace-separated, lowercased. The
+  // one definition of a word for every matcher here (fuzzyScore, bodyScore,
+  // bodyExcerpt and the manager's matchesQuery), so the popup and the
+  // sidebar never disagree on what a multi-word query is.
+  function queryWords(text) {
+    return (text || '').toLowerCase().split(/\s+/).filter(Boolean);
+  }
+
+  // One word against one text, both lowercased. Lower score = better: a
+  // whole word scores its position, an abbreviation (a subsequence) 1000
+  // plus the letters skipped, so any whole word beats any abbreviation;
+  // null when a letter is missing. indices are the matched character
+  // positions (for highlighting).
+  function fuzzyWord(q, t) {
     const idx = t.indexOf(q);
     if (idx >= 0) {
       return { score: idx, indices: Array.from({ length: q.length }, (_, i) => idx + i) };
@@ -174,7 +183,45 @@
       gaps += found - ti;
       ti = found + 1;
     }
-    return { score: 1000 + gaps, indices }; // subsequence ranks below contiguous
+    return { score: 1000 + gaps, indices };
+  }
+
+  // A query against a title or a tag list. One word is fuzzyWord. Several
+  // words each match on their own, in any order ("cause root" and "rt frst"
+  // find "Root cause first"; before 2026-10-31 the query was one
+  // subsequence with its space in it, so a title was found only by letters
+  // in its own order and "cause root" fell through to the body, review L5),
+  // and the hit scores as its worst word, the rule the body tier has always
+  // had (bodyScore), plus OUT_OF_ORDER when the words are not met in the
+  // order typed. Titles and tag lists being short, that is one ladder:
+  // whole words in order (0..), whole words out of order (500..),
+  // abbreviations in order (1000..), abbreviations out of order (1500..),
+  // all under the tag tier's 3000. A sum was the other candidate; it lets
+  // two whole words late in a long title fall behind one abbreviation, and
+  // three abbreviated words climb into the next tier. A query typed whole
+  // and found whole scores its position, as every query did before, so
+  // one-word queries and phrases rank exactly as they did.
+  // Returns {score, indices} or null on no match.
+  const OUT_OF_ORDER = 500;
+  function fuzzyScore(query, text) {
+    const t = (text || '').toLowerCase();
+    const words = queryWords(query);
+    if (!words.length) return { score: 0, indices: [] };
+    if (words.length === 1) return fuzzyWord(words[0], t);
+    const phrase = words.join(' ');
+    const at = t.indexOf(phrase);
+    if (at >= 0) return { score: at, indices: Array.from({ length: phrase.length }, (_, i) => at + i) };
+    let worst = 0, last = -1, inOrder = true;
+    const hits = new Set();
+    for (const w of words) {
+      const m = fuzzyWord(w, t);
+      if (!m) return null;
+      worst = Math.max(worst, m.score);
+      if (m.indices[0] < last) inOrder = false;
+      last = m.indices[0];
+      for (const i of m.indices) hits.add(i);
+    }
+    return { score: worst + (inOrder ? 0 : OUT_OF_ORDER), indices: [...hits].sort((a, b) => a - b) };
   }
 
   // Body matching is deliberately stricter than title and tag matching: a
@@ -182,14 +229,15 @@
   // matching over bodies let nearly every prompt through and search stopped
   // narrowing the list. A body qualifies when it contains the query outright
   // (which also covers a word prefix — `plan` in "planning"), or, for a
-  // multi-word query, when every word starts a word in it. Lower is better,
-  // like fuzzyScore; null is no match.
+  // multi-word query, when every word (queryWords) starts a word in it,
+  // scoring as the furthest of them. Lower is better, like fuzzyScore; null
+  // is no match.
   function bodyScore(query, text) {
     const q = (query || '').toLowerCase(), t = (text || '').toLowerCase();
     if (!q) return { score: 0 };
     const idx = t.indexOf(q);
     if (idx >= 0) return { score: idx };
-    const words = q.split(/\s+/).filter(Boolean);
+    const words = queryWords(q);
     if (words.length < 2) return null;
     let worst = 0;
     for (const w of words) {
@@ -216,7 +264,7 @@
     const at = low.indexOf(q);
     if (at >= 0) hits.push([at, q.length]);
     else {
-      const words = q.split(/\s+/).filter(Boolean);
+      const words = queryWords(q);
       if (words.length < 2) return null;
       for (const w of words) {
         const i = wordStartIndex(low, w);
@@ -270,8 +318,12 @@
   // in pin order (oldest pin first — a pin is a fixed Ctrl+digit slot, so use
   // counts must never move it), then the rest by most used, then title. With
   // text: title matches rank above tag matches above body matches, each tier
-  // by score, ties by uses. Titles and tags match fuzzily (subsequence);
-  // bodies have to hold the query itself (see bodyScore).
+  // by score, ties by uses. Titles and tags match fuzzily (fuzzyScore: each
+  // word of the query on its own, a subsequence if need be, all of them in
+  // the one field); bodies have to hold the query itself (see bodyScore).
+  // A hit never spans fields (a word in the title, another in the body):
+  // a row has one place to say why it is listed. The sidebar's
+  // matchesQuery, which only narrows, is wider there.
   // Returns [{s, indices}] where indices are title-highlight positions
   // (UTF-16 offsets into the title; null for tag/body matches).
   function rankSnippets(rawQuery, snippets) {
@@ -376,7 +428,7 @@
   // sidebar keeps in its own order, so it matches rather than ranks.
   function matchesQuery(snippet, query) {
     if (!matchesFilters(snippet, query)) return false;
-    const words = query.text.toLowerCase().split(/\s+/).filter(Boolean);
+    const words = queryWords(query.text);
     if (!words.length) return true;
     const hay = [snippet.title, (snippet.tags || []).join(' '), snippet.pack, snippet.group, snippet.text]
       .join(' ')
