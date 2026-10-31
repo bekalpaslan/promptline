@@ -6,21 +6,18 @@ import { Textarea } from "@/components/ui/textarea"
 import { C, type Snippet } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { DEFAULT_PACK, useManager } from "./state"
-import { commitKey, fieldVariants } from "@/components/field"
-import { Chip, TagPill, chipVariants } from "@/components/prompt-bits"
+import { fieldVariants } from "@/components/field"
+import { Chip } from "@/components/prompt-bits"
 import { Switch } from "@/components/ui/switch"
 import { useLibraryMenus } from "./menus"
 import { useCtxMenu, type CtxItem } from "./ctx-menu"
 import { say, sayErr } from "./status"
 import { copyPrompt } from "./copy"
+import { TagStrip, storedTags } from "./TagStrip"
 
 const BUILTIN_PARAMS = ["clipboard", "date", "time"]
 // Library names the insert menu lists before the typed name covers the rest
 const MAX_INSERT_NAMES = 6
-// The stored form of the tags field, so a save and the refresh that follows it
-// compare the same way
-// One tag rule for the editor, the menus and imports: core's normalizeTag
-const storedTags = (raw: string) => raw.split(",").map((t) => C.normalizeTag(t)).filter(Boolean)
 
 // A parameter name is lowercase letters, digits and underscores, never
 // starting with a digit (isValidParam in core); what the user typed is folded
@@ -400,30 +397,6 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
     ])
   }
 
-  // ---- Tags ----
-  const tagList = storedTags(tags)
-  // "review, plan" in the + tag box is two tags, the way the field itself
-  // reads commas — stripping them made one "reviewplan"
-  const addTags = (raw: string) => {
-    const next = [...tagList]
-    const added: string[] = []
-    for (const t of storedTags(raw))
-      if (!next.includes(t)) {
-        next.push(t)
-        added.push(t)
-      }
-    if (!added.length) return
-    editTags(next.join(", "))
-    // A tag is lowercase letters, digits, _ and - (normalizeTag): when the
-    // fold changed what was typed ("Review, PLAN"), say what landed
-    const typed = raw.split(",").map((t) => t.trim()).filter(Boolean)
-    if (added.some((t) => !typed.includes(t))) say(`Added ${added.map((t) => `#${t}`).join(", ")}`)
-  }
-  const removeTag = (t: string) => editTags(tagList.filter((x) => x !== t).join(", "))
-  // Every other tag in the library completes in the "+ tag…" box as it is
-  // typed (allTags is by count, most first)
-  const otherTags = m.allTags().filter((t) => !tagList.includes(t))
-
   return (
     <div className="flex min-w-0 flex-1 flex-col gap-3 overflow-y-auto p-3">
       {/* The title, alone on its line at the heading size nothing else in
@@ -556,36 +529,7 @@ function EditorInner({ snippet }: { snippet: Snippet }) {
         )}
       </div>
 
-      {/* Tags: the prompt's own as chips with an inline ×, and a box that
-          completes every other tag in the library as it is typed */}
-      <div className="module flex flex-col gap-3">
-        <span className="flex flex-wrap items-baseline gap-x-1.5 text-xs text-muted-foreground">
-          <span className="section-title">Tags</span>
-          <span>· #tag narrows the popup's list</span>
-        </span>
-        <div className="flex flex-wrap items-center gap-1.5">
-          {tagList.map((t) => (
-            <TagPill key={t} tag={t} size="md" title={`#${t}`} onRemove={() => removeTag(t)} />
-          ))}
-          <input
-            placeholder="+ tag…"
-            aria-label="Add a tag"
-            list={`tags-${snippet.id}`}
-            spellCheck={false}
-            className={cn(chipVariants({ tone: "neutral", size: "md" }), "w-24 focus-ring placeholder:text-muted-foreground")}
-            onKeyDown={(e) => {
-              if (!commitKey(e)) return
-              addTags(e.currentTarget.value)
-              e.currentTarget.value = ""
-            }}
-          />
-          <datalist id={`tags-${snippet.id}`}>
-            {otherTags.map((t) => (
-              <option key={t} value={t} />
-            ))}
-          </datalist>
-        </div>
-      </div>
+      <TagStrip snippetId={snippet.id} tags={tags} onChange={editTags} />
 
       {/* Placeholders: only what this prompt's text holds, each a chip of
           its kind with an inline × that takes the token out of the text,
