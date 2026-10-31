@@ -4,15 +4,19 @@
 // `komac update` says it doesn't exist. No clone: winget-pkgs has paths
 // Windows can't check out.
 //
-//   node .claude/skills/release/scripts/winget-pr-update.cjs <pr-number> <version> <sha256-of-setup-exe> [YYYY-MM-DD]
+//   node .claude/skills/release/scripts/winget-pr-update.cjs <pr-number> <version> <sha256-of-setup-exe> [YYYY-MM-DD] [manifest-version]
 //
 // Reads the PR's current manifests (whatever version they carry), rewrites
 // the version, URL, hash, date and notes URL, drops the old folder, adds the
 // new one, pushes to the PR branch, retitles the PR. Validation reruns by itself.
+// The optional fifth argument moves the manifests' schema too (ManifestVersion
+// and the $schema comment in all three files): the repository deprecates old
+// schema versions and the bot then asks for the current one (1.28.0 on
+// 2026-10-30, when 1.10.0 was retired under our PR).
 const { execSync } = require("child_process")
-const [pr, version, sha256, date = new Date().toISOString().slice(0, 10)] = process.argv.slice(2)
-if (!pr || !/^\d+\.\d+\.\d+$/.test(version || "") || !/^[0-9a-f]{64}$/i.test(sha256 || "")) {
-  console.error("usage: winget-pr-update.cjs <pr-number> <version> <sha256> [date]")
+const [pr, version, sha256, date = new Date().toISOString().slice(0, 10), manifestVersion] = process.argv.slice(2)
+if (!pr || !/^\d+\.\d+\.\d+$/.test(version || "") || !/^[0-9a-f]{64}$/i.test(sha256 || "") || (manifestVersion && !/^\d+\.\d+\.\d+$/.test(manifestVersion))) {
+  console.error("usage: winget-pr-update.cjs <pr-number> <version> <sha256> [date] [manifest-version]")
   process.exit(2)
 }
 const id = "AlpaslanBek.Promptline"
@@ -40,6 +44,8 @@ for (const oldPath of oldFiles) {
     .replace(/InstallerUrl: .*/, `InstallerUrl: https://github.com/bekalpaslan/promptline/releases/download/v${version}/Promptline_${version}_x64-setup.exe`)
     .replace(/InstallerSha256: [0-9A-Fa-f]{64}/, `InstallerSha256: ${sha256.toUpperCase()}`)
     .replace(/ReleaseNotesUrl: .*/, `ReleaseNotesUrl: https://github.com/bekalpaslan/promptline/releases/tag/v${version}`)
+    .replace(/ManifestVersion: \d+\.\d+\.\d+/, (m) => (manifestVersion ? `ManifestVersion: ${manifestVersion}` : m))
+    .replace(/(\$schema=https:\/\/aka\.ms\/winget-manifest\.\w+\.)\d+\.\d+\.\d+(\.schema\.json)/, (m, a, b) => (manifestVersion ? `${a}${manifestVersion}${b}` : m))
   if (/InstallerSha256:/.test(content) && !next.includes(sha256.toUpperCase())) throw new Error("hash did not land in " + oldPath)
   tree.push({ path: oldPath, mode: "100644", type: "blob", sha: null })
   const blob = api("POST", `repos/${owner}/${repo}/git/blobs`, { content: next, encoding: "utf-8" })
