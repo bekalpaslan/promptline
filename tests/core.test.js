@@ -438,6 +438,25 @@ test('known tags get fixed colors; unknown tags get a stable hashed color', () =
   assert.ok(Object.values(core.TAG_COLORS).includes(a));
 });
 
+test('packColor: every pack colour is a theme token by id; none and an unknown id draw nothing', () => {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const tokens = require('../design/tokens.json').color.tokens.map(t => t.name);
+  const css = fs.readFileSync(path.join(__dirname, '..', 'src', 'index.css'), 'utf8');
+  assert.ok(core.PACK_COLORS.length >= 6);
+  assert.equal(new Set(core.PACK_COLORS.map(c => c.id)).size, core.PACK_COLORS.length, 'ids are unique');
+  for (const c of core.PACK_COLORS) {
+    assert.match(c.id, /^[a-z]+$/, `${c.id}: the id is what config.json stores`);
+    assert.ok(tokens.includes(c.token), `${c.id}: ${c.token} is not a token in design/tokens.json`);
+    assert.ok(css.includes(`${c.cssVar}:`), `${c.id}: ${c.cssVar} is not rendered in src/index.css`);
+    assert.equal(core.packColor(c.id), c);
+  }
+  assert.equal(core.packColor(null), null);
+  assert.equal(core.packColor(undefined), null);
+  assert.equal(core.packColor(''), null);
+  assert.equal(core.packColor('#ff0000'), null, 'never a free hex');
+});
+
 // ---- pack parsing -----------------------------------------------------------------
 
 test('parsePacks: single pack object', () => {

@@ -265,6 +265,12 @@ export function useLibraryMenus(opts: {
 
   const openPackCtx = (x: number, y: number, name: string, count: number) => {
     const locked = m.isLocked(name)
+    const color = m.packMeta.find((p) => p.name === name)?.color ?? null
+    const setColor = (next: string | null, label: string) =>
+      void m.setPackColor(name, next).then(
+        () => say(next ? `Pack "${name}" coloured ${label.toLowerCase()}` : `Colour removed from "${name}"`),
+        () => {} // already toasted
+      )
     ctx.open(x, y, [
       { kind: "header", text: name, name: true },
       // The keyboard's drag, where the surface lists packs
@@ -284,6 +290,23 @@ export function useLibraryMenus(opts: {
             () => {} // already toasted
           )
         },
+      },
+      {
+        // The swatch on the header (BEHAVIOR.md "Packs and their files"):
+        // the named colours as radio items, None first, the current one
+        // checked, the way Move to lists groups. Names rather than a row
+        // of swatches: a menu item here is text (ctx-menu.tsx draws no
+        // glyph of its own), a name is what a screen reader can say, and
+        // the header shows the colour itself the moment the choice lands
+        kind: "submenu",
+        label: "Colour",
+        items: [
+          { kind: "header", text: "Colour" },
+          { kind: "item", label: "None", checked: color === null, run: () => setColor(null, "") },
+          ...C.PACK_COLORS.map(
+            (c): CtxItem => ({ kind: "item", label: c.label, checked: color === c.id, run: () => setColor(c.id, c.label) })
+          ),
+        ],
       },
       {
         kind: "item",

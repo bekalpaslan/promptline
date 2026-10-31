@@ -28,6 +28,14 @@ pub(crate) struct PackMeta {
     // hands one back. Empty = not file-backed.
     #[serde(default)]
     pub(crate) path: String,
+    // The pack's colour, the swatch on its header in both windows: one of
+    // the frontend's named colours by id (`PACK_COLORS` in ui/core.js), so
+    // the dot follows the theme rather than carrying a hue of its own. Rust
+    // stores the id and never reads it. Personal state like `locked`: never
+    // in a pack file or an export. Left out of config.json while unset, so
+    // a config from before it reads and writes the same.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(crate) color: Option<String>,
 }
 
 /// The file a `PackMeta.path` points at, as a path to open: a relative
@@ -252,6 +260,7 @@ fn back_packs(app: &AppHandle, config: &mut Config, snippets: &[Snippet]) {
                 config.packs.push(PackMeta {
                     name,
                     locked: false,
+                    color: None,
                     path,
                 });
                 changed = true;
@@ -470,6 +479,24 @@ pub(crate) fn set_pack_locked_in(config: &mut Config, name: &str, locked: bool) 
         None => config.packs.push(PackMeta {
             name: name.into(),
             locked,
+            color: None,
+            path: String::new(),
+        }),
+    }
+}
+
+/// Colour a pack, or clear its colour with `None` (an empty id clears it
+/// too, so the frontend can send what a select answers). A pack that
+/// exists only as a name on prompts gets its metadata here, as
+/// `set_pack_locked_in` gives it one: the colour needs somewhere to live.
+pub(crate) fn set_pack_color_in(config: &mut Config, name: &str, color: Option<String>) {
+    let color = color.filter(|c| !c.is_empty());
+    match config.packs.iter_mut().find(|p| p.name == name) {
+        Some(p) => p.color = color,
+        None => config.packs.push(PackMeta {
+            name: name.into(),
+            locked: false,
+            color,
             path: String::new(),
         }),
     }
@@ -489,6 +516,7 @@ pub(crate) fn back_pack_in(config: &mut Config, name: &str, path: String) {
         None => config.packs.push(PackMeta {
             name: name.into(),
             locked: false,
+            color: None,
             path,
         }),
     }
@@ -573,6 +601,7 @@ pub(crate) fn rename_pack_in(
         config.packs.push(PackMeta {
             name: to.to_string(),
             locked: false,
+            color: None,
             path: String::new(),
         });
     }
@@ -743,16 +772,19 @@ mod tests {
             PackMeta {
                 name: "P".into(),
                 locked: false,
+                color: None,
                 path: "p.json".into(),
             },
             PackMeta {
                 name: "Empty".into(),
                 locked: false,
+                color: None,
                 path: dir.join("empty.json").to_string_lossy().into_owned(),
             },
             PackMeta {
                 name: "Unbacked".into(),
                 locked: false,
+                color: None,
                 path: String::new(),
             },
         ];
@@ -784,6 +816,7 @@ mod tests {
         let packs = vec![PackMeta {
             name: "D".into(),
             locked: false,
+            color: None,
             path: "d.json".into(),
         }];
         let mut draft = snip("New prompt", "", "");
@@ -814,6 +847,7 @@ mod tests {
             PackMeta {
                 name: "Gone".into(),
                 locked: false,
+                color: None,
                 path: dir
                     .join("missing")
                     .join("gone.json")
@@ -823,6 +857,7 @@ mod tests {
             PackMeta {
                 name: "Fine".into(),
                 locked: false,
+                color: None,
                 path: "fine.json".into(),
             },
         ];
@@ -899,21 +934,25 @@ mod tests {
         config.packs.push(PackMeta {
             name: "Work".into(),
             locked: false,
+            color: None,
             path: packs.join("work.json").to_string_lossy().into_owned(),
         });
         config.packs.push(PackMeta {
             name: "Team".into(),
             locked: true,
+            color: None,
             path: elsewhere.into(),
         });
         config.packs.push(PackMeta {
             name: "Already".into(),
             locked: false,
+            color: None,
             path: "already.json".into(),
         });
         config.packs.push(PackMeta {
             name: "None".into(),
             locked: false,
+            color: None,
             path: String::new(),
         });
         // A config from before 0.2.9: the path under packs/ becomes relative,
@@ -992,6 +1031,7 @@ mod tests {
         config.packs.push(PackMeta {
             name: "Work".into(),
             locked: false,
+            color: None,
             path: String::new(),
         });
         let mut draft = snip("New prompt", "", "");
@@ -1024,6 +1064,7 @@ mod tests {
         config.packs.push(PackMeta {
             name: "General".into(),
             locked: false,
+            color: None,
             path: String::new(),
         });
         let mut s = snip("A", "", "x");
@@ -1042,11 +1083,13 @@ mod tests {
         config.packs.push(PackMeta {
             name: "Old".into(),
             locked: true,
+            color: None,
             path: "C:\\old.json".into(),
         });
         config.packs.push(PackMeta {
             name: "Other".into(),
             locked: false,
+            color: None,
             path: String::new(),
         });
         let mut snippets = vec![sample("a"), sample("b"), sample("c")];
@@ -1082,6 +1125,7 @@ mod tests {
         config.packs.push(PackMeta {
             name: "Work".into(),
             locked: false,
+            color: None,
             path: "work.json".into(),
         });
         set_pack_locked_in(&mut config, "Work", true);
@@ -1097,16 +1141,53 @@ mod tests {
     }
 
     #[test]
+    fn colour_is_set_by_intent_and_left_out_of_the_file_while_unset() {
+        let mut config = Config::default();
+        config.packs.push(PackMeta {
+            name: "Work".into(),
+            locked: true,
+            color: None,
+            path: "work.json".into(),
+        });
+        set_pack_color_in(&mut config, "Work", Some("red".into()));
+        assert_eq!(config.packs[0].color.as_deref(), Some("red"));
+        assert!(config.packs[0].locked, "the lock is kept");
+        assert_eq!(config.packs[0].path, "work.json", "the file is kept");
+        // A pack that was only a name on prompts gets metadata, unlocked
+        set_pack_color_in(&mut config, "Nameless", Some("blue".into()));
+        assert_eq!(config.packs.len(), 2);
+        assert!(!config.packs[1].locked && config.packs[1].path.is_empty());
+        assert_eq!(config.packs[1].color.as_deref(), Some("blue"));
+        // None and "" both clear it, and a cleared colour is not written
+        set_pack_color_in(&mut config, "Work", Some(String::new()));
+        assert_eq!(config.packs[0].color, None);
+        let json = serde_json::to_string(&config.packs[0]).unwrap();
+        assert!(!json.contains("color"), "{json}");
+        set_pack_color_in(&mut config, "Nameless", None);
+        assert_eq!(config.packs[1].color, None);
+        // A config from before the field reads as uncoloured; one with it keeps it
+        let old: PackMeta = serde_json::from_str(r#"{"name":"Work"}"#).unwrap();
+        assert_eq!(old.color, None);
+        let new: PackMeta = serde_json::from_str(r#"{"name":"Work","color":"green"}"#).unwrap();
+        assert_eq!(new.color.as_deref(), Some("green"));
+        assert!(serde_json::to_string(&new)
+            .unwrap()
+            .contains(r#""color":"green""#));
+    }
+
+    #[test]
     fn removing_a_pack_drops_its_metadata_and_names_the_file_to_retire() {
         let mut config = Config::default();
         config.packs.push(PackMeta {
             name: "Work".into(),
             locked: true,
+            color: None,
             path: "work.json".into(),
         });
         config.packs.push(PackMeta {
             name: "Unbacked".into(),
             locked: false,
+            color: None,
             path: String::new(),
         });
         assert_eq!(
@@ -1125,6 +1206,7 @@ mod tests {
         config.packs.push(PackMeta {
             name: "General".into(),
             locked: false,
+            color: None,
             path: String::new(),
         });
         let mut s = snip("A", "", "x");
@@ -1153,6 +1235,7 @@ mod tests {
         config.packs.push(PackMeta {
             name: "Work".into(),
             locked: true,
+            color: None,
             path: String::new(),
         });
         back_pack_in(&mut config, "Work", "work.json".into());
@@ -1170,6 +1253,7 @@ mod tests {
         let meta = |name: &str, locked: bool| PackMeta {
             name: name.into(),
             locked,
+            color: None,
             path: format!("{}.json", name.to_lowercase()),
         };
         let mut config = Config {
@@ -1197,6 +1281,7 @@ mod tests {
         config.packs.push(PackMeta {
             name: name.into(),
             locked: false,
+            color: None,
             path: path.into(),
         });
         config

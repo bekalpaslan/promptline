@@ -174,6 +174,15 @@ export function App() {
     }
   }, [applyPacks])
 
+  const setPackColor = useCallback(async (name: string, color: string | null) => {
+    try {
+      await applyPacks(invoke<PackMeta[]>("set_pack_color", { name, color }))
+    } catch (e) {
+      sayErr(`Couldn't colour the pack: ${e}`)
+      throw e
+    }
+  }, [applyPacks])
+
   // The order the sidebar drew after a drag; Rust keeps locks and files
   // as they are on disk and answers with the registry in that order
   const arrangePacks = useCallback(async (order: string[]) => {
@@ -228,6 +237,7 @@ export function App() {
           // set_pack_locked puts the lock back, and gives an empty pack its
           // metadata (and, through the sync, its file) again
           if (opts?.pack) await setPackLocked(opts.pack.name, opts.pack.locked)
+          if (opts?.pack?.color) await setPackColor(opts.pack.name, opts.pack.color)
         } catch {
           return // already toasted
         }
@@ -235,7 +245,7 @@ export function App() {
       })()
     })
     return removed.length
-  }, [persist, setPackLocked])
+  }, [persist, setPackLocked, setPackColor])
 
   // Prompts first, then metadata: while any prompt still names the pack,
   // the reconciler inside every save would put its metadata straight back
@@ -598,6 +608,7 @@ export function App() {
       persist,
       updateSnippet,
       setPackLocked,
+      setPackColor,
       arrangePacks,
       deletePack,
       addPackFile,
@@ -627,7 +638,7 @@ export function App() {
       openUpdateOffer,
       setAutoUpdateCheck,
     }),
-    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, openAll, grouped, setGrouped, query, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, unfold, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
+    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, openAll, grouped, setGrouped, query, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, setPackColor, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, unfold, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
   )
 
   // null until the config has loaded: the banner, the tooltip and the hints

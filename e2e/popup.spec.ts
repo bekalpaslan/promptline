@@ -1532,3 +1532,23 @@ test("each word of a query matches on its own: \"first root\" finds Root cause f
   await search(page).fill("first zebra")
   await expect(rows(page)).toHaveCount(0)
 })
+
+test("a coloured pack's header carries its swatch in the popup too, and the rest draw none", async ({ page }) => {
+  // The popup reads pack metadata with the config on each show; the colour
+  // is set through the mock's backend here, as the manager's menu would
+  await page.evaluate(() =>
+    (window as unknown as { __TAURI_INTERNALS__: { invoke(cmd: string, args: unknown): Promise<unknown> } }).__TAURI_INTERNALS__.invoke(
+      "set_pack_color",
+      { name: "Mock Groups", color: "green" }
+    )
+  )
+  await emit(page, "popup-shown")
+  const header = page.locator("button[aria-expanded]", { hasText: "Mock Groups" }).first()
+  await expect(header.locator("[data-swatch]")).toBeVisible()
+  await expect(page.locator("[data-swatch]")).toHaveCount(1)
+  // The dot sits before the count and the name keeps its column: a coloured
+  // pack's rows still stand 24 px past its chevron slot
+  const packRow = page.getByRole("option", { name: "Loose prompt", exact: true }).locator("bdi").first()
+  const slot = header.locator("svg").first().locator("xpath=..")
+  expect((await packRow.boundingBox())!.x - (await slot.boundingBox())!.x).toBeCloseTo(24, 0)
+})

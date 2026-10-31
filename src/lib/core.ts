@@ -50,6 +50,20 @@ export interface PackMeta {
   name: string
   locked: boolean
   path?: string
+  /** The swatch on its header: a `PackColor` id; absent while unset. Personal state like `locked`. */
+  color?: string
+}
+
+/** One of the colours a pack can take: a theme token, named (`PACK_COLORS` in ui/core.js) */
+export interface PackColor {
+  /** What config.json stores */
+  id: string
+  /** The menu's word for it */
+  label: string
+  /** The token in design/tokens.json */
+  token: string
+  /** The CSS variable that token renders to, what the swatch is filled with */
+  cssVar: string
 }
 
 export interface ParsedQuery {
@@ -184,6 +198,10 @@ interface PromptlineCore {
   matchesQuery(snippet: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">, query: ParsedQuery): boolean
   TAG_COLORS: Record<string, string>
   tagColor(tag: string): string
+  /** The colours a pack's header swatch can take, each a theme token */
+  PACK_COLORS: readonly PackColor[]
+  /** The colour behind a stored id; null for none and for an id this build doesn't know */
+  packColor(id: string | null | undefined): PackColor | null
   stripFences(raw: string): string
   /** Throws on garbage; prefer `diagnosePack` for user-facing errors */
   parsePacks(raw: string): ParsedPack[]

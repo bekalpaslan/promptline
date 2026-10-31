@@ -11,7 +11,7 @@ import { C, type OrderBy, type Snippet, type TreeRow } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { Chip, Count, MATCH_HIT } from "@/components/prompt-bits"
 import { footClass } from "@/components/foot"
-import { PinMark, TREE_FOCUS, TREE_GLYPH, TREE_SELECTED, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeHeaderClass, treeRowClass } from "@/components/tree"
+import { PackSwatch, PinMark, TREE_FOCUS, TREE_GLYPH, TREE_SELECTED, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeHeaderClass, treeRowClass } from "@/components/tree"
 import { SearchClear, commitKey, searchBoxClass } from "@/components/field"
 import { DEFAULT_PACK, useManager, type LibraryFocus } from "./state"
 import { useCtxMenu } from "./ctx-menu"
@@ -858,13 +858,16 @@ export function Sidebar() {
     const selected = shown?.pack === name && !shown.group
     const total = packTotals.get(name) ?? count
     const dropHere = dropAt?.pack === name && dropAt.group === ""
+    // The pack's colour, if any: the swatch at the right, and its name
+    // after the lock's for a screen reader, which hears what the dot shows
+    const color = C.packColor(m.packMeta.find((p) => p.name === name)?.color)
     return (
       <div
         {...treeitemProps(rowByKey.get(`pack:${name}`)!)}
         data-drop-target={dropHere || undefined}
         aria-expanded={!isCollapsed}
         aria-selected={selected}
-        aria-label={`${name}, ${q ? `${count} of ${total}` : count} prompt${total === 1 ? "" : "s"}${m.isLocked(name) ? ", locked" : ""}`}
+        aria-label={`${name}, ${q ? `${count} of ${total}` : count} prompt${total === 1 ? "" : "s"}${m.isLocked(name) ? ", locked" : ""}${color ? `, ${color.label.toLowerCase()}` : ""}`}
         // Short: a native tooltip cuts around 80 characters, and the keys
         // are in the menu's hints and BEHAVIOR.md rather than every row
         title={`${name} — right-click or ⋯ for actions`}
@@ -923,6 +926,7 @@ export function Sidebar() {
           decorative
           onOpen={(x, y) => openPackCtx(x, y, name, count)}
         />
+        <PackSwatch color={color?.id} />
         {m.isLocked(name) && <RiLock2Fill className="size-3 shrink-0 text-(--warn)" aria-hidden />}
         {/* While searching: the hits out of the pack's size */}
         <Count>{q ? `${count} / ${total}` : count}</Count>

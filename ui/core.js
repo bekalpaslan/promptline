@@ -457,6 +457,30 @@
     return palette[h % palette.length];
   }
 
+  // ---- Pack colours ---------------------------------------------------------
+  // The swatch a pack may carry on its header in both windows (BEHAVIOR.md
+  // "Packs and their files"): a fixed set of named colours, each one of the
+  // theme's own tokens (design/tokens.json, by the CSS variable it renders
+  // to), never a hue of its own, so the dot follows the theme and the mode
+  // the way the placeholder chips and the lock do, and clears the same
+  // contrast floors. The id is what config.json stores; the label is the
+  // menu's word and what a screen reader hears.
+  const PACK_COLORS = [
+    { id: 'red', label: 'Red', token: 'danger', cssVar: '--destructive' },
+    { id: 'orange', label: 'Orange', token: 'warn', cssVar: '--warn' },
+    { id: 'amber', label: 'Amber', token: 'param-field', cssVar: '--param-field' },
+    { id: 'green', label: 'Green', token: 'success', cssVar: '--success' },
+    { id: 'blue', label: 'Blue', token: 'param-builtin', cssVar: '--param-builtin' },
+    { id: 'purple', label: 'Purple', token: 'param-config', cssVar: '--param-config' },
+  ];
+
+  // The colour behind a stored id: null for none, and for an id this build
+  // doesn't know (a hand-edited config, a colour a later build dropped),
+  // which then draws nothing rather than a wrong hue
+  function packColor(id) {
+    return PACK_COLORS.find(c => c.id === id) || null;
+  }
+
   // ---- Prompt packs ---------------------------------------------------------
   // Strip markdown code fences that LLMs wrap around generated JSON, and a
   // UTF-8 byte-order mark (Notepad and older PowerShell write one), which
@@ -1238,6 +1262,8 @@
     filterTerm,
     TAG_COLORS,
     tagColor,
+    PACK_COLORS,
+    packColor,
     stripFences,
     parsePacks,
     diagnosePack,

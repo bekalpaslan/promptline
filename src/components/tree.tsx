@@ -1,6 +1,7 @@
 import type { ComponentProps, ReactNode } from "react"
 import { RiArrowDownSLine, RiArrowRightSLine, RiPushpin2Line } from "@remixicon/react"
 
+import { C } from "@/lib/core"
 import { cn } from "@/lib/utils"
 import { SELECTED_BAR } from "@/components/menu-styles"
 
@@ -12,6 +13,23 @@ import { SELECTED_BAR } from "@/components/menu-styles"
 // user found the bar a glow and asked for a colourless pin instead.
 export function PinMark() {
   return <RiPushpin2Line data-pin aria-hidden className="size-3 shrink-0 text-muted-foreground opacity-70" />
+}
+
+// A pack's colour, when it has one (BEHAVIOR.md "Packs and their files"):
+// an 8 px dot at the right of its header, before the lock and the count,
+// filled with the theme token the colour names (`C.packColor`), so it
+// follows the theme and the mode and is never a hue of its own. At the
+// right, with the header's other marks, rather than before the name: the
+// name column is the tree's one rule for telling levels apart (24 px per
+// level, above), and a dot before the name would push a coloured pack's
+// name 12 px off its rows'. Decoration: a screen reader hears the pack's
+// name on every header already, and the sidebar's label adds the colour's
+// name after it (the popup's headers are hidden from it). A pack with no
+// colour draws nothing, so a library that never set one looks as it did.
+export function PackSwatch({ color }: { color?: string | null }) {
+  const c = C.packColor(color)
+  if (!c) return null
+  return <span data-swatch={c.id} aria-hidden className="size-2 shrink-0 rounded-full" style={{ backgroundColor: `var(${c.cssVar})` }} />
 }
 
 // The library tree, one look in both windows. The manager's sidebar and

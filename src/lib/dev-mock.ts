@@ -215,6 +215,21 @@ export function installMock(mode: string | null) {
         : [...packs, { name, locked, path: "" }]
       return packs
     },
+    // The colour is left out while unset, as Rust leaves it out of config.json
+    set_pack_color: (a) => {
+      const name = String(a.name)
+      const color = typeof a.color === "string" && a.color ? a.color : undefined
+      const recolour = (p: PackMeta): PackMeta => {
+        const next = { ...p }
+        delete next.color
+        if (color) next.color = color
+        return next
+      }
+      packs = packs.some((p) => p.name === name)
+        ? packs.map((p) => (p.name === name ? recolour(p) : p))
+        : [...packs, recolour({ name, locked: false, path: "" })]
+      return packs
+    },
     // Rust keeps only the names it has metadata for; the mock has no
     // reconciler, so a pack named only on prompts gets an entry here
     arrange_packs: (a) => {

@@ -293,6 +293,7 @@ mod tests {
             packs: vec![PackMeta {
                 name: "Work".into(),
                 locked: false,
+                color: None,
                 path: old_pack.to_string_lossy().to_string(),
             }],
             ..Config::default()

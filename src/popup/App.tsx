@@ -30,7 +30,7 @@ import { CLIP_LINE_ID, type Entry, Row, derive, rowIcon } from "@/popup/Row"
 import { ClipboardMarks, Count, Kbd, Keys, PREVIEW_BOX, PromptTokens } from "@/components/prompt-bits"
 import { footClass } from "@/components/foot"
 import { panelBodyClass, panelClass } from "@/components/panel"
-import { TREE_GLYPH, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
+import { PackSwatch, TREE_GLYPH, TreeChevron, TreeChildren, TreeGroup, TreeName, TreeSection, treeFillClass, treeHeaderClass } from "@/components/tree"
 import { Button } from "@/components/ui/button"
 import { MENU_ITEM, MENU_PANEL, SELECTED_BAR } from "@/components/menu-styles"
 import { SearchClear, Select, fieldVariants, searchBoxClass } from "@/components/field"
@@ -1982,6 +1982,8 @@ export function App() {
                 {sec.collapsible ? <TreeChevron open={!sec.isCollapsed} /> : <Lead className="size-4" />}
               </span>
               <TreeName>{sec.name}</TreeName>
+              {/* The pack's colour, as in the sidebar; Pinned and Results are not packs */}
+              {sec.collapsible && <PackSwatch color={packMeta.find((p) => p.name === sec.name)?.color} />}
               <Count>{sec.count}</Count>
             </>
           )
