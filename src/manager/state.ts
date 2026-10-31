@@ -64,29 +64,29 @@ export interface ManagerApi {
   prefs: Prefs
   view: View
   /** Show a pack's or a group's prompts in the pane; the prompt selection clears */
-  openOverview(focus: LibraryFocus): void
+  openOverview: (focus: LibraryFocus) => void
   /** Show every prompt in the pane (the One list display's overview); the prompt selection clears */
-  openAll(): void
+  openAll: () => void
   /**
    * The sidebar's Display: packs (true) or one list (false); persisted in
    * localStorage. Owned here because the pane follows it: in one list there
    * are no pack titles to select, so the overview is of every prompt.
    */
   grouped: boolean
-  setGrouped(on: boolean): void
+  setGrouped: (on: boolean) => void
   /**
    * The sidebar's filter text, owned here so the overview can show only the
    * hits: the two used to disagree in one frame (two rows in the tree, all
    * twelve cards in the pane)
    */
   query: string
-  setQuery(query: string): void
+  setQuery: (query: string) => void
   /** How the sidebar and the overview order prompts; persisted in localStorage */
   orderBy: OrderBy
-  setOrderBy(order: OrderBy): void
-  isLocked(name: string): boolean
-  packNames(extra?: string): string[]
-  allTags(): string[]
+  setOrderBy: (order: OrderBy) => void
+  isLocked: (name: string) => boolean
+  packNames: (extra?: string) => string[]
+  allTags: () => string[]
   /**
    * Replace the snippet list and persist it (save_snippets). Refused if the
    * library changed on disk since it was loaded (the popup wrote): the
@@ -95,54 +95,54 @@ export interface ManagerApi {
    * that outlives its render (menu actions, Undo callbacks): it is applied
    * to the latest library, so edits made in between are not reverted.
    */
-  persist(next: Snippet[] | ((current: Snippet[]) => Snippet[])): Promise<void>
+  persist: (next: Snippet[] | ((current: Snippet[]) => Snippet[])) => Promise<void>
   /** Save one prompt's editable fields by id, merged on disk (update_snippet). */
-  updateSnippet(id: string, edit: SnippetEdit): Promise<void>
+  updateSnippet: (id: string, edit: SnippetEdit) => Promise<void>
   /**
    * Pack metadata is written by intent, never as a list (a stale list
    * retired and re-created pack files): each of these is one read-modify-
    * write in Rust that answers with the registry, which replaces `packMeta`.
    */
   /** Lock or unlock a pack (set_pack_locked); a pack that is only a name on prompts gets metadata */
-  setPackLocked(name: string, locked: boolean): Promise<void>
+  setPackLocked: (name: string, locked: boolean) => Promise<void>
   /** Colour a pack, or clear its colour with null (set_pack_color); personal state like the lock */
-  setPackColor(name: string, color: string | null): Promise<void>
+  setPackColor: (name: string, color: string | null) => Promise<void>
   /** Put the packs in this order, the whole list as drawn (arrange_packs); packNames follows it from then on */
-  arrangePacks(order: string[]): Promise<void>
+  arrangePacks: (order: string[]) => Promise<void>
   /** Delete a pack: its prompts first, with Undo, then its metadata (delete_pack retires the file) */
-  deletePack(name: string): Promise<void>
+  deletePack: (name: string) => Promise<void>
   /** Give a pack without a file one (add_pack_file), filled from the library; resolves with the path */
-  addPackFile(name: string): Promise<string>
+  addPackFile: (name: string) => Promise<string>
   /** Rename a pack on its metadata and every prompt, atomically in Rust (rename_pack). */
-  renamePack(from: string, to: string): Promise<void>
+  renamePack: (from: string, to: string) => Promise<void>
   /**
    * Remove prompts and offer Undo in the status bar. Both the delete and the
    * restore read the *latest* library, never a render's snapshot, so Undo
    * can't duplicate what it puts back. Clears selection/active if they were
    * among the removed. Resolves with the number removed.
    */
-  deleteWithUndo(ids: Iterable<string>, label: string, opts?: DeleteOpts): Promise<number>
-  select(id: string | null): void
-  setSelection(sel: Set<string>, anchor?: string | null): void
+  deleteWithUndo: (ids: Iterable<string>, label: string, opts?: DeleteOpts) => Promise<number>
+  select: (id: string | null) => void
+  setSelection: (sel: Set<string>, anchor?: string | null) => void
   selectionAnchor: string | null
   /**
    * Create a draft prompt and open it; `into` overrides the default
    * pack/group, and that pack (and group) is unfolded in the sidebar so the
    * draft is in view wherever it was asked for.
    */
-  newPrompt(into?: { pack: string; group?: string }): Promise<void>
+  newPrompt: (into?: { pack: string; group?: string }) => Promise<void>
   /**
    * The sidebar's folds: pack names and groupKeys that are closed. Owned
    * here so a rename from any surface carries them (`renamePack` does; the
    * menus' renameGroup calls `carryGroupFold`) and `newPrompt` can unfold.
    */
   folds: { packs: ReadonlySet<string>; groups: ReadonlySet<string> }
-  togglePackFold(name: string): void
-  toggleGroupFold(key: string): void
-  foldAll(fold: boolean): void
+  togglePackFold: (name: string) => void
+  toggleGroupFold: (key: string) => void
+  foldAll: (fold: boolean) => void
   /** Open a pack, and a group in it, in the tree: a title click shows what it holds, never hides it */
-  unfold(pack: string, group?: string): void
-  carryGroupFold(pack: string, from: string, to: string): void
+  unfold: (pack: string, group?: string) => void
+  carryGroupFold: (pack: string, from: string, to: string) => void
   /**
    * The pack, or the group (a groupKey), whose name is open for typing,
    * and on which surface: the sidebar row and the overview heading share
@@ -150,16 +150,16 @@ export interface ManagerApi {
    * overview it lands in.
    */
   renaming: Renaming | null
-  setRenaming(next: Renaming | null): void
+  setRenaming: (next: Renaming | null) => void
   renamingGroup: Renaming | null
-  setRenamingGroup(next: Renaming | null): void
+  setRenamingGroup: (next: Renaming | null) => void
   /** Create a pack with its file (add_pack); `quiet` skips the "created" toast (the caller announces it later) */
-  addPack(name: string, opts?: { quiet?: boolean }): Promise<void>
-  savePrefs(next: Partial<Prefs>): Promise<void>
-  setHotkey(hotkey: string): void
-  openGenerate(): void
+  addPack: (name: string, opts?: { quiet?: boolean }) => Promise<void>
+  savePrefs: (next: Partial<Prefs>) => Promise<void>
+  setHotkey: (hotkey: string) => void
+  openGenerate: () => void
   settingsOpen: boolean
-  showSettings(open: boolean): void
+  showSettings: (open: boolean) => void
   /**
    * Where the editor parks its pending autosave so a quit request can
    * flush it: set while a save is scheduled, cleared when it lands.
@@ -168,9 +168,9 @@ export interface ManagerApi {
   /** Support, the auto-check setting and any found version; null until `get_update_state` answers */
   update: UpdateState | null
   /** Open the offer dialog; `info` records a just-found version first (a manual check's answer) */
-  openUpdateOffer(info?: UpdateInfo): void
+  openUpdateOffer: (info?: UpdateInfo) => void
   /** Save the automatic-check setting (set_update_check), optimistic with a revert on failure */
-  setAutoUpdateCheck(enabled: boolean): Promise<void>
+  setAutoUpdateCheck: (enabled: boolean) => Promise<void>
 }
 
 export const ManagerCtx = createContext<ManagerApi | null>(null)

@@ -158,134 +158,134 @@ interface PromptlineCore {
   /** The built-in placeholder names: clipboard, date, time */
   RESERVED: readonly string[]
   /** Lowercase letters, digits and `_`, never starting with a digit */
-  isValidParam(name: string): boolean
-  tokenize(text: string): TokenPart[]
-  customFields(text: string): string[]
+  isValidParam: (name: string) => boolean
+  tokenize: (text: string) => TokenPart[]
+  customFields: (text: string) => string[]
   /** Another copy of a field with its own value: the next free `<stem>_<n>`, from 2 */
-  nextCopyName(name: string, text: string): string
-  dropNumberedCopies(names: Iterable<string>): string[]
-  removeParamToken(text: string, name: string): string
-  configNames(text: string): string[]
-  expandConfig(text: string, values?: Record<string, string>): string
-  downgradeUnsetConfig(text: string): string
-  requiredInputs(snippet: Pick<Snippet, "text" | "configValues">): string[]
+  nextCopyName: (name: string, text: string) => string
+  dropNumberedCopies: (names: Iterable<string>) => string[]
+  removeParamToken: (text: string, name: string) => string
+  configNames: (text: string) => string[]
+  expandConfig: (text: string, values?: Record<string, string>) => string
+  downgradeUnsetConfig: (text: string) => string
+  requiredInputs: (snippet: Pick<Snippet, "text" | "configValues">) => string[]
   /** Substitute runtime {field} values literally (safe for `$` patterns) */
-  fillFields(text: string, values?: Record<string, string>): string
+  fillFields: (text: string, values?: Record<string, string>) => string
   /** The fill-in form's Enter: the next empty field after `from`, or -1 to submit */
-  nextEmptyField(fields: string[], values: Record<string, string> | null | undefined, from: number): number
+  nextEmptyField: (fields: string[], values: Record<string, string> | null | undefined, from: number) => number
   /** {date} and {time} from `now` (the clock when omitted) */
-  expandBuiltins(text: string, now?: Date): string
-  fuzzyScore(query: string, target: string): FuzzyResult | null
+  expandBuiltins: (text: string, now?: Date) => string
+  fuzzyScore: (query: string, target: string) => FuzzyResult | null
   /** How well a prompt body answers a query: contiguous, or every word a word-prefix. Lower is better; null is no match. */
-  bodyScore(query: string, text: string): { score: number } | null
+  bodyScore: (query: string, text: string) => { score: number } | null
   /** A body-only search hit, as a row shows it: the body on one line from just before the first hit, and what to underline; null when the body didn't match */
-  bodyExcerpt(query: string, text: string, lead?: number): { text: string; indices: number[] } | null
+  bodyExcerpt: (query: string, text: string, lead?: number) => { text: string; indices: number[] } | null
   /** The title "+ New" gives a draft; with an empty body and no uses it is swept at startup */
   DRAFT_TITLE: "New prompt"
   /** An untouched "+ New" draft: the manager's to finish, never the popup's to paste */
-  isEmptyDraft(snippet: Pick<Snippet, "title" | "text" | "uses">): boolean
+  isEmptyDraft: (snippet: Pick<Snippet, "title" | "text" | "uses">) => boolean
   /** The popup's list order: filters, then pins/uses or title>tag>body fuzzy tiers */
-  rankSnippets(query: string, snippets: Snippet[]): { s: Snippet; indices: number[] | null }[]
+  rankSnippets: (query: string, snippets: Snippet[]) => { s: Snippet; indices: number[] | null }[]
   /** The Ctrl+1..5 slots: the first `max` (5) ranked entries that are on screen; drafts never */
-  slotEntries<E extends { s: Pick<Snippet, "id" | "title" | "text" | "uses"> }>(ranked: E[], visibleIds: Iterable<string>, max?: number): E[]
+  slotEntries: <E extends { s: Pick<Snippet, "id" | "title" | "text" | "uses"> }>(ranked: E[], visibleIds: Iterable<string>, max?: number) => E[]
   /** Title split into code-point runs marked hit/miss from UTF-16 match indices */
-  highlightSegments(title: string, indices: number[] | null): { text: string; hit: boolean }[]
-  parseQuery(raw: string): ParsedQuery
+  highlightSegments: (title: string, indices: number[] | null) => { text: string; hit: boolean }[]
+  parseQuery: (raw: string) => ParsedQuery
   /** `@name`, or `@"two words"` when the name has whitespace */
-  filterTerm(prefix: "#" | "@" | ">", name: string): string
-  matchesFilters(snippet: Pick<Snippet, "tags" | "pack" | "group">, query: Pick<ParsedQuery, "tags" | "packs" | "groups">): boolean
+  filterTerm: (prefix: "#" | "@" | ">", name: string) => string
+  matchesFilters: (snippet: Pick<Snippet, "tags" | "pack" | "group">, query: Pick<ParsedQuery, "tags" | "packs" | "groups">) => boolean
   /** The sidebar filter: filter terms, then every free-text word in title, tags, pack, group or body */
-  matchesQuery(snippet: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">, query: ParsedQuery): boolean
+  matchesQuery: (snippet: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">, query: ParsedQuery) => boolean
   TAG_COLORS: Record<string, string>
-  tagColor(tag: string): string
+  tagColor: (tag: string) => string
   /** The colours a pack's header swatch can take, each a theme token */
   PACK_COLORS: readonly PackColor[]
   /** The colour behind a stored id; null for none and for an id this build doesn't know */
-  packColor(id: string | null | undefined): PackColor | null
-  stripFences(raw: string): string
+  packColor: (id: string | null | undefined) => PackColor | null
+  stripFences: (raw: string) => string
   /** Throws on garbage; prefer `diagnosePack` for user-facing errors */
-  parsePacks(raw: string): ParsedPack[]
-  diagnosePack(raw: string): PackDiagnosis
+  parsePacks: (raw: string) => ParsedPack[]
+  diagnosePack: (raw: string) => PackDiagnosis
   /** Where a new prompt goes: last used → default → first unlocked → "Unsorted" */
-  defaultPackFor(lastPack: string | null, names: string[], isLocked: (name: string) => boolean, defaultPack: string): string
+  defaultPackFor: (lastPack: string | null, names: string[], isLocked: (name: string) => boolean, defaultPack: string) => string
   /** Whether pinning `ids` fits under `max`, counting only newly pinned rows */
-  pinPlan(snippets: Pick<Snippet, "id" | "pinned">[], ids: Iterable<string>, max: number): { ok: boolean; already: number; toPin: number; room: number }
+  pinPlan: (snippets: Pick<Snippet, "id" | "pinned">[], ids: Iterable<string>, max: number) => { ok: boolean; already: number; toPin: number; room: number }
   /** Pin or unpin one snippet, stamping the pin order that Ctrl+1..5 follows */
-  withPin<T extends Pick<Snippet, "pinned" | "pinnedAt">>(snippet: T, pinned: boolean, now?: number): T
+  withPin: <T extends Pick<Snippet, "pinned" | "pinnedAt">>(snippet: T, pinned: boolean, now?: number) => T
   /** Shareable pack JSON; group only when set, never personal state */
-  packToJson(name: string, prompts: Pick<Snippet, "title" | "text" | "tags" | "group">[]): { name: string; prompts: { title: string; text: string; tags: string[]; group?: string }[] }
-  removeByIds<T extends { id: string }>(list: T[], ids: Iterable<string>): { kept: T[]; removed: Removed<T>[] }
-  restoreRemoved<T extends { id: string }>(list: T[], removed: Removed<T>[]): T[]
+  packToJson: (name: string, prompts: Pick<Snippet, "title" | "text" | "tags" | "group">[]) => { name: string; prompts: { title: string; text: string; tags: string[]; group?: string }[] }
+  removeByIds: <T extends { id: string }>(list: T[], ids: Iterable<string>) => { kept: T[]; removed: Removed<T>[] }
+  restoreRemoved: <T extends { id: string }>(list: T[], removed: Removed<T>[]) => T[]
   /** A copy of `list` in the manager's order; "custom" keeps the array order */
-  sortPrompts<T extends Pick<Snippet, "title" | "uses" | "pinned">>(list: T[], orderBy: string): T[]
+  sortPrompts: <T extends Pick<Snippet, "title" | "uses" | "pinned">>(list: T[], orderBy: string) => T[]
   /** Pack names A–Z, or in the `arranged` order (the registry's) with any other after it A–Z */
-  orderPacks(names: string[], arranged: string[] | null): string[]
+  orderPacks: (names: string[], arranged: string[] | null) => string[]
   /** `order` with `name` moved before `target`, or after it when `after` */
-  movePack(order: string[], name: string, target: string, after: boolean): string[]
+  movePack: (order: string[], name: string, target: string, after: boolean) => string[]
   /** `list` (in display order) with `group` swapped past its neighbour in `pack`; null at the edge */
-  moveGroup<T extends Pick<Snippet, "pack" | "group">>(list: T[], pack: string, group: string, dir: -1 | 1, defaultPack: string): T[] | null
+  moveGroup: <T extends Pick<Snippet, "pack" | "group">>(list: T[], pack: string, group: string, dir: -1 | 1, defaultPack: string) => T[] | null
   /** Packs in `packNames` order (every one, even empty; others after by name) with their groups and prompts, in the given row order */
-  packTree<T extends Pick<Snippet, "pack" | "group">>(snippets: T[], packNames: string[], defaultPack: string): PackNode<T>[]
+  packTree: <T extends Pick<Snippet, "pack" | "group">>(snippets: T[], packNames: string[], defaultPack: string) => PackNode<T>[]
   /** A group's identity: its pack and its label */
-  groupKey(pack: string, group: string): string
+  groupKey: (pack: string, group: string) => string
   /** Each group's place in its pack (first appearance in the library array), keyed by `groupKey` */
-  groupOrder(snippets: Pick<Snippet, "pack" | "group">[], defaultPack: string): Map<string, number>
+  groupOrder: (snippets: Pick<Snippet, "pack" | "group">[], defaultPack: string) => Map<string, number>
   /** The library in the order the sidebar draws it (sorted, by pack when grouped); "custom" is the array itself */
-  displayOrder<T extends Pick<Snippet, "title" | "uses" | "pinned" | "pack" | "group">>(snippets: T[], orderBy: OrderBy, grouped: boolean, packNames: string[], defaultPack: string): T[]
+  displayOrder: <T extends Pick<Snippet, "title" | "uses" | "pinned" | "pack" | "group">>(snippets: T[], orderBy: OrderBy, grouped: boolean, packNames: string[], defaultPack: string) => T[]
   /** `list` with prompt `id` moved before `targetId` (after it when `after`), taking the target's group when `adoptGroup`; null when either id is missing */
-  placePrompt<T extends Pick<Snippet, "id" | "group">>(list: T[], id: string, targetId: string, after: boolean, adoptGroup: boolean): T[] | null
+  placePrompt: <T extends Pick<Snippet, "id" | "group">>(list: T[], id: string, targetId: string, after: boolean, adoptGroup: boolean) => T[] | null
   /** Every row of the grouped sidebar in order, folds applied (a search holds them all open) */
-  treeRows(tree: PackNode<Pick<Snippet, "id">>[], folds: Folds, searching: boolean): TreeRow[]
+  treeRows: (tree: PackNode<Pick<Snippet, "id">>[], folds: Folds, searching: boolean) => TreeRow[]
   /** `base`, then `base 2`, `base 3`, … : the first not in `taken`, case-insensitively */
-  freeName(base: string, taken: string[]): string
+  freeName: (base: string, taken: string[]) => string
   /** The groups in a pack, each once, A–Z */
-  groupsIn(snippets: Pick<Snippet, "pack" | "group">[], pack: string, defaultPack: string): string[]
+  groupsIn: (snippets: Pick<Snippet, "pack" | "group">[], pack: string, defaultPack: string) => string[]
   /** Every tag in the library, most used first */
-  tagsByCount(snippets: Pick<Snippet, "tags">[]): string[]
+  tagsByCount: (snippets: Pick<Snippet, "tags">[]) => string[]
   /** An import's review rows: a prompt the library already has (same title and text) is a dupe, unticked; one with hidden characters starts unticked too */
-  importRows(packs: ParsedPack[], library: Pick<Snippet, "title" | "text">[]): ImportRow[]
+  importRows: (packs: ParsedPack[], library: Pick<Snippet, "title" | "text">[]) => ImportRow[]
   /** The ticked rows as prompts to add, renamed into `targetName` when given, minus those bound for a locked pack */
-  curateImport(rows: ImportRow[], isLocked: (pack: string) => boolean, targetName?: string): { prompts: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">[]; skippedLocked: number }
+  curateImport: (rows: ImportRow[], isLocked: (pack: string) => boolean, targetName?: string) => { prompts: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">[]; skippedLocked: number }
   /** Tag characters, bidi controls, control characters and invisibles in `text`, by kind; [] when there are none */
-  hiddenChars(text: string | null | undefined): HiddenFound[]
+  hiddenChars: (text: string | null | undefined) => HiddenFound[]
   /** "14 tag characters and 2 direction controls" */
-  describeHidden(found: HiddenFound[]): string
+  describeHidden: (found: HiddenFound[]) => string
   /** A keydown's key in the hotkey vocabulary (" " is "space"), or null for one the parser has no name for */
-  hotkeyKeyName(key: string | undefined): string | null
+  hotkeyKeyName: (key: string | undefined) => string | null
   /** The combination a keydown stands for ("ctrl+shift+v"), or null: no key, a modifier alone, no modifier, or an unnameable key */
-  hotkeyFromEvent(e: HotkeyEvent): string | null
+  hotkeyFromEvent: (e: HotkeyEvent) => string | null
   /** `text` with bidi and control characters shown as ⟨RLO⟩, ⟨ESC⟩…, so a preview reads them instead of obeying them */
-  revealControls(text: string | null | undefined): string
+  revealControls: (text: string | null | undefined) => string
   /** A field's label to the user: "standing_instructions" as "Standing instructions", "goal_2" as "Goal 2" */
-  fieldLabel(name: string | null | undefined): string
+  fieldLabel: (name: string | null | undefined) => string
   /** How many lines `text` has, a trailing newline not counted; 0 when empty */
-  lineCount(text: string | null | undefined): number
+  lineCount: (text: string | null | undefined) => number
   /** The clipboard as the popup's panel shows it: its lines (as `lineCount` counts them) with controls revealed, at most `max` (400); `total` is how many there are */
-  clipboardLines(clip: string | null | undefined, max?: number): { lines: string[]; total: number }
+  clipboardLines: (clip: string | null | undefined, max?: number) => { lines: string[]; total: number }
   /** What a preview shows for {clipboard}: one line, controls revealed, cut at `max` (240), or "(clipboard is empty)" */
-  clipboardPreview(clip: string | null | undefined, max?: number): string
+  clipboardPreview: (clip: string | null | undefined, max?: number) => string
   /** A clipboard of two or more lines with text: its first and last such lines, each as `clipboardPreview` shows text, the number of lines between them, and `lineCount`; null otherwise */
-  clipboardEnds(clip: string | null | undefined, max?: number): { head: string; tail: string; between: number; total: number } | null
+  clipboardEnds: (clip: string | null | undefined, max?: number) => { head: string; tail: string; between: number; total: number } | null
   /** Columns a line's leading spaces and tabs take, tabs at `tabSize` (4) */
-  indentColumns(line: string | null | undefined, tabSize?: number): number
+  indentColumns: (line: string | null | undefined, tabSize?: number) => number
   /** The one icon a popup row shows: a hole first, then the pin (not under the Pinned heading), then the kind */
-  rowIcon(row: { pinned: boolean; asks: boolean; clip: boolean }, clipEmpty: boolean, underPinned: boolean): RowIconName
+  rowIcon: (row: { pinned: boolean; asks: boolean; clip: boolean }, clipEmpty: boolean, underPinned: boolean) => RowIconName
   /** What a paste would produce, minus the fill-in form: config and built-ins expanded, the clipboard substituted, {field}s kept */
-  expandForCopy(text: string, configValues: Record<string, string>, clip: string | null | undefined, now?: Date): string
+  expandForCopy: (text: string, configValues: Record<string, string>, clip: string | null | undefined, now?: Date) => string
   /** Ctrl+N's pre-filled title: the first line, cut at a word boundary within `max` (40); "" when empty */
-  titleFromClipboard(text: string | null | undefined, max?: number): string
+  titleFromClipboard: (text: string | null | undefined, max?: number) => string
   /** A tag as stored: lowercase, nothing outside [a-z0-9_-] */
-  normalizeTag(raw: string): string
+  normalizeTag: (raw: string) => string
   /** "1 prompt", "2 prompts"; pass the plural for an irregular word */
-  plural(n: number, word: string, pluralWord?: string): string
-  resolveTheme(pref: string | null | undefined, systemDark: boolean): "light" | "dark"
+  plural: (n: number, word: string, pluralWord?: string) => string
+  resolveTheme: (pref: string | null | undefined, systemDark: boolean) => "light" | "dark"
   /** The saved palette as `data-theme` on <html>: "indigo" or "clay", or "instrument" for anything else */
-  resolvePalette(pref: string | null | undefined): "instrument" | "indigo" | "clay"
+  resolvePalette: (pref: string | null | undefined) => "instrument" | "indigo" | "clay"
   /** The dragged sidebar width clamped to 13rem..min(32rem, window − 18rem); width null keeps the CSS default */
-  sidebarWidth(saved: string | number | null | undefined, windowWidth: number, rem: number): { width: number | null; min: number; max: number }
-  fmtHotkey(combo: string): string
+  sidebarWidth: (saved: string | number | null | undefined, windowWidth: number, rem: number) => { width: number | null; min: number; max: number }
+  fmtHotkey: (combo: string) => string
   /** Release notes (markdown) as blocks for the update offer: ### headings, - items, paragraphs; inline marks and link targets dropped */
-  releaseNotesBlocks(markdown: string | null | undefined): { kind: "heading" | "item" | "text"; text: string }[]
+  releaseNotesBlocks: (markdown: string | null | undefined) => { kind: "heading" | "item" | "text"; text: string }[]
 }
 
 export const C = (window as unknown as { PromptlineCore: PromptlineCore }).PromptlineCore
