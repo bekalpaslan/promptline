@@ -252,8 +252,11 @@ live feed, so it waits for that.
   It opens one update PR from the maintainer's fork and copies the
   release's notes into the manifest. Check the hash:
   `gh pr diff <pr> --repo microsoft/winget-pkgs | grep InstallerSha256`
-  must show the released one. Nothing waits on it. Never clone winget-pkgs
-  on Windows: its paths are too long for the checkout.
+  must show the released one. An update PR waits for a moderator after
+  validation too, so the policy bot's email saying so is normal (0.2.28):
+  don't ping anyone. Nothing waits on it, and installed copies get the
+  release through the feed meanwhile. Never clone winget-pkgs on Windows:
+  its paths are too long for the checkout.
 - **Scoop.** `checkver.ps1 -App promptline -Dir ..\scoop-bucket\bucket
   -Update` once the live feed shows the version (it reads the version
   from the feed), then commit and push the bucket.
