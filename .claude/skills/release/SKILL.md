@@ -164,7 +164,11 @@ start from it and delete it in the bump commit.
    four files exist (`…-setup.exe`, `…_en-US.msi`, both with `.sig`
    beside them, timestamps after the bump). No `.sig` means the build ran
    without the key; ask for it again. The feed can't be written without
-   them and installed copies would refuse the update. The build also
+   them and installed copies would refuse the update. Then
+   `Get-AuthenticodeSignature` on both installers must read `Valid`, with
+   `Open Source Developer Alpaslan Bek` as signer and a Certum timestamper;
+   anything else means SimplySign Desktop wasn't logged in, so ask for the
+   login and the build again. The build also
    rewrites `src-tauri/Cargo.toml` as LF, which `git status` shows as a
    modification with no content lines: when
    `git diff --ignore-cr-at-eol -- src-tauri/Cargo.toml` prints nothing,
@@ -199,8 +203,7 @@ Steps 4 to 6 of CLAUDE.md → Releasing, with these details:
   sha256sum /tmp/released-setup.exe <bundle>/nsis/Promptline_X.Y.Z_x64-setup.exe
   ```
 
-  The two must match (a code-signed installer would differ, and then
-  the released one is the truth). komac and Scoop's checkver each
+  The two must match: what's uploaded is the signed local build. komac and Scoop's checkver each
   compute this hash themselves and must agree with it. Keep it in the
   report.
 - `node scripts/latest-json.mjs --notes <notes> --bundle-dir <bundle>`:

@@ -53,6 +53,10 @@
     "homepage": "https://promptline.cc",
     "licenseFile": "../LICENSE",
     "windows": {
+      "certificateThumbprint": "4C7D0203C229394F456CEE9695281514D8BF5BB7",
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "http://time.certum.pl",
+      "tsp": true,
       "nsis": {
         "installMode": "currentUser"
       }

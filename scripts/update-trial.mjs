@@ -48,7 +48,7 @@ function buildOne(version, keyFile, pubkey) {
     JSON.stringify(
       {
         version,
-        bundle: { createUpdaterArtifacts: true },
+        bundle: { createUpdaterArtifacts: true, windows: { certificateThumbprint: null } },
         plugins: {
           updater: {
             pubkey,

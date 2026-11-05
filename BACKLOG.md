@@ -8,15 +8,12 @@ The sequence from here to the first public step, set on 2026-10-29 (the
 fresh-eyes review's decisions). Each line moves down or out as it lands;
 the strategy behind it is in the local `docs/MARKETING.md`.
 
-1. **The Certum certificate** arrives (bought by the maintainer; no date).
-   Until then: quiet releases, the monthly Dependabot round
-   (`/dependabot`), the snapshot row in every release report.
-2. **Signing copy** in the same session the certificate lands: README →
-   Install, `site/code-signing/`, the release-notes closing in CLAUDE.md →
-   Releasing, the Code signing entry below. They still describe the
-   SignPath plan on purpose, one rewrite when the flow is real.
-3. **The first signed release**, whose notes carry the updater's TLS patch
-   (rustls, 2026-10-29) and the AltGr hotkey notice in their own bullets.
+1. ~~**The Certum certificate**~~ issued 2026-11-05, valid to 2027-11-05:
+   renew before then (CLAUDE.md → Releasing has the custody).
+2. ~~**Signing copy**~~ done 2026-11-05 on `feat/certum-signing`, written
+   as "from 0.2.28", so it merges just before that release.
+3. **The first signed release**, 0.2.28. The TLS patch and the AltGr
+   notice this line used to wait for shipped in 0.2.26.
 4. **The Windows-only round**: r/ClaudeAI, r/ChatGPTCoding, the Claude Code
    Discord, each with the GIF and honest about "Windows for now". Show HN
    waits for the port.
@@ -53,8 +50,8 @@ domain renewal, with P2's Raycast fix alongside.
     endpoint loop. Pick: yes, disclosed first; if not, ask
     `raw.githubusercontent.com` first.
   - **Also:** confirm promptline.cc renews; it expires 2027-09-22.
-  - **Before 0.2.28:** trial the renamed asset with
-    `scripts/update-trial.mjs`.
+  - ~~**The trial**~~ passed 2026-11-05: an installed 0.2.17-1 fetched
+    the `-update.exe` copy, installed it and came back at 0.2.17-2.
 - **"Why not Raycast?" and the macOS line** (P2).
   - ~~**The Raycast answer**~~ done 2026-11-05: it now names where the
     library lives, the same words in the README and on the site, and a
@@ -78,19 +75,12 @@ domain renewal, with P2's Raycast fix alongside.
     buys at once is Smart App Control, which blocks the unsigned
     installer with no "Run anyway" and which nothing in the repo
     mentions.
-  - **Decision:** three dates and two calls.
-    - The order date.
-    - A date to chase Certum. Pick: now, if the order is more than a
-      week old.
-    - A fallback date about four weeks out.
-    - The fallback itself. Pick: SignPath or another OV vendor before an
-      unsigned round.
-    - A Smart App Control line in the README now. Pick: yes.
-  - **Into item 2's rewrite list:**
-    - "may still warn, naming the publisher";
-    - Smart App Control;
-    - `site/code-signing/`'s plug-in sentence goes once a signed build
-      shows the plug-ins signed (CLI 2.11.5 signs them).
+  - ~~**The dates, the fallback and the rewrite list**~~ closed 2026-11-05:
+    the certificate came 13 days after the order, so neither a chase nor
+    a fallback was needed, and the copy names the publisher, the
+    possible warning and Smart App Control. A signed test build showed
+    the plug-ins signed. Smart App Control itself wasn't tried on a
+    machine with it on.
   - **Local MARKETING:** :72 contradicts :81, and the awesome-list
     statuses at :120 are stale.
   - **Size:** hours, no code.
@@ -413,8 +403,8 @@ domain renewal, with P2's Raycast fix alongside.
   `build:unsigned` stay unsigned (`tauri.unsigned.conf.json` clears the
   thumbprint). Azure Artifact Signing is closed to EU individuals, and
   EV lost its SmartScreen bypass in 2024. SignPath Foundation, which
-  declined the first application, stays the free fallback. Waiting on
-  the certificate.
+  declined the first application, stays the free fallback. Wired
+  2026-11-05, first used by 0.2.28.
 - ~~**Auto-update**~~ — **shipped 0.2.17**: the Tauri
   updater reads `site/latest.json` on promptline.cc, written by the release
   step (CLAUDE.md, Releasing).
