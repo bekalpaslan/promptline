@@ -29,11 +29,11 @@ test('buildFeed with both signatures uses the installer-specific keys and versio
     platforms: {
       'windows-x86_64-nsis': {
         signature: sig('0.2.17', 'nsis'),
-        url: 'https://github.com/bekalpaslan/promptline/releases/download/v0.2.17/Promptline_0.2.17_x64-setup.exe',
+        url: 'https://github.com/bekalpaslan/promptline/releases/download/v0.2.17/Promptline_0.2.17_x64-update.exe',
       },
       'windows-x86_64-msi': {
         signature: sig('0.2.17', 'msi'),
-        url: 'https://github.com/bekalpaslan/promptline/releases/download/v0.2.17/Promptline_0.2.17_x64_en-US.msi',
+        url: 'https://github.com/bekalpaslan/promptline/releases/download/v0.2.17/Promptline_0.2.17_x64-update.msi',
       },
     },
   });
@@ -96,7 +96,7 @@ test('buildFeed baseUrl override is used verbatim, with only the given keys', as
     baseUrl: 'http://127.0.0.1:8765/',
   });
   assert.deepEqual(Object.keys(feed.platforms), ['windows-x86_64-nsis']);
-  assert.equal(feed.platforms['windows-x86_64-nsis'].url, 'http://127.0.0.1:8765/Promptline_9.9.9_x64-setup.exe');
+  assert.equal(feed.platforms['windows-x86_64-nsis'].url, 'http://127.0.0.1:8765/Promptline_9.9.9_x64-update.exe');
 });
 
 // ---- the signed version (fresh-eyes 2026-11-02, P1d) --------------------
@@ -132,6 +132,31 @@ test('every signature in the published feed names its version', async () => {
   const feed = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'site', 'latest.json'), 'utf8'));
   for (const [key, platform] of Object.entries(feed.platforms)) {
     assert.equal(signedVersion(platform.signature), feed.version, key);
+  }
+});
+
+// ---- the -update copies (fresh-eyes 2026-11-02, P1a) --------------------
+
+test('updateNames names copies snapshot.mjs counts as kept, and the feed links only those', async () => {
+  const { assetNames, buildFeed, updateNames } = await load();
+  const { classifyAsset } = await import('../scripts/snapshot.mjs');
+  const names = updateNames('0.2.28');
+  assert.deepEqual(names, {
+    nsis: 'Promptline_0.2.28_x64-update.exe',
+    msi: 'Promptline_0.2.28_x64-update.msi',
+  });
+  assert.equal(classifyAsset(names.nsis), 'kept');
+  assert.equal(classifyAsset(names.msi), 'kept');
+
+  const feed = buildFeed({
+    version: '0.2.28',
+    notes: '',
+    pubDate: 'x',
+    signatures: { nsis: sig('0.2.28', 'nsis'), msi: sig('0.2.28', 'msi') },
+  });
+  const urls = JSON.stringify(feed.platforms);
+  for (const installer of Object.values(assetNames('0.2.28'))) {
+    assert.ok(!urls.includes(installer), `the feed must not link ${installer}: a package manager fetches it too`);
   }
 });
 

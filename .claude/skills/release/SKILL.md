@@ -25,7 +25,7 @@ releases taught. Read the Releasing section first, every time; it changes.
    build handed over in set words, a worktree when the tree is dirty,
    the four files to verify before tagging.
 5. [Tag, release, feed](#3-tag-release-feed): tag, `gh release create`
-   with three assets, the released hash, the tag's CI, the feed with
+   with five assets, the released hash, the tag's CI, the feed with
    `--bundle-dir` and the exact url check.
 6. [Package managers](#4-package-managers): winget with komac, Scoop
    with checkver.
@@ -61,8 +61,8 @@ The feed and the X post use the repo's own `scripts/latest-json.mjs` and
 - **If CI fails:** fix, re-push and continue without asking, unless the
   fix changes behaviour; then stop and report.
 - **Skip repo chores** not listed here, however tempting.
-- **Report:** the release URL, both asset names and sizes, the stable-named
-  copy, and the outcome of every workflow the push and the tag triggered.
+- **Report:** the release URL, both asset names and sizes, the three
+  copies, and the outcome of every workflow the push and the tag triggered.
 
 ## 0. The shelf
 
@@ -180,9 +180,14 @@ Steps 4 to 6 of CLAUDE.md → Releasing, with these details:
   late, the worktree's checkout). CI must be green on that commit, not on
   an earlier one; `gh run list --branch master --limit 3` names the
   commit of each run.
-- `gh release create` with both installers and a copy of the setup exe
-  named `Promptline-setup.exe` (the site's Download button). Confirm with
-  `gh release view vX.Y.Z --json assets --jq '.assets[] | "\(.name) \(.size)"'`.
+- `gh release create` with both installers and three byte copies, made
+  beside them in the bundle folders (`gh` can't rename on upload):
+  `Promptline-setup.exe` (the site's Download button),
+  `Promptline_X.Y.Z_x64-update.exe` and `Promptline_X.Y.Z_x64-update.msi`
+  (the feed's urls, which is what counts "kept"). Confirm with
+  `gh release view vX.Y.Z --json assets --jq '.assets[] | "\(.digest) \(.size) \(.name)"'`:
+  five lines, each copy with its installer's digest. A copy that differs
+  fails every update at the signature check.
 - The tag triggers CI with the `installers` job, about ten minutes.
   Start watching it in the background right away (`gh run list --branch
   vX.Y.Z --limit 1` for the id) and report it with its artifact
@@ -266,15 +271,17 @@ live feed, so it waits for that.
   "Snapshot row for the MARKETING doc"; the maintainer pastes it into the
   local doc, and no number lands in the repo. The row's download cell is
   split by asset: the stable `Promptline-setup.exe` (the site's button,
-  so it reads as site downloads), the versioned exe and the msi, with the
-  latest release's age in days. The versioned count includes about seven
-  per-release machinery fetches (komac's hash, Scoop's checkver, winget
-  validation on each push, the maintainer's own copy), so retention
-  reads versioned(N+1) minus that floor, against stable(N). That is an
-  upper bound since 2026-11-04: a first install through winget fetches
-  the versioned exe too. Re-estimate the floor at 0.2.28, the first
+  so it reads as site downloads), the versioned exe, the msi and, from
+  0.2.28, kept, with the latest release's age in days. Kept is the two
+  `-update` copies only the feed links, so it is the retention reading;
+  `--releases` prints it against the site downloads of every release
+  before it. The versioned count includes about seven per-release
+  machinery fetches (komac's hash, Scoop's checkver, winget validation on
+  each push, the maintainer's own copy), and the updater no longer adds
+  to it from 0.2.28, so what stays above the floor is first installs
+  through Scoop and winget. Re-estimate the floor at 0.2.28, the first
   release through komac.
-- **Report**, in this order: release URL; a table of the three assets
+- **Report**, in this order: release URL; a table of the five assets
   with sizes; a table of every workflow run the pushes and the tag
   triggered with its outcome; downstream state (Scoop commit, winget PR
   number and what happened to it, map republished); the snapshot row

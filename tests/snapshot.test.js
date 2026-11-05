@@ -68,7 +68,7 @@ const NOW = '2026-09-29T00:00:00Z';
 const LATEST_CELL = 'v0.2.17: 3 site / 11 versioned / 1 msi (1.6 d latest)';
 const ROW = `| 2026-09-29 | 1 | 0 | 0 | 0 | ${LATEST_CELL} | 42 | 2 (1) | 412 (126) | none | 0 |`;
 const HEADER_LINE =
-  '| Date | Stars | Forks | Open issues | Discussions | Latest release: site / versioned / msi (days latest) | All releases: downloads | Views 14d (unique) | Clones 14d (unique) | Top referrers | Donations |';
+  '| Date | Stars | Forks | Open issues | Discussions | Latest release: site / versioned / msi / kept (days latest) | All releases: downloads | Views 14d (unique) | Clones 14d (unique) | Top referrers | Donations |';
 
 const write = (dir, name, value) => fs.writeFileSync(path.join(dir, name), JSON.stringify(value));
 
@@ -119,6 +119,8 @@ test('classifyAsset tells the site copy, the versioned installer, the msi, a .si
   assert.equal(classifyAsset('Promptline_0.2.25_x64_en-US.msi'), 'msi');
   assert.equal(classifyAsset('Promptline_0.2.25_x64-setup.exe.sig'), null, 'a .sig is never counted');
   assert.equal(classifyAsset('Promptline_0.2.25_x64_en-US.msi.sig'), null);
+  assert.equal(classifyAsset('Promptline_0.2.28_x64-update.exe'), 'kept');
+  assert.equal(classifyAsset('Promptline_0.2.28_x64-update.msi'), 'kept', 'kept, not the msi count');
   assert.equal(classifyAsset('Promptline-portable.zip'), 'other');
   assert.equal(classifyAsset('promptline-setup.exe'), 'other', 'the site name is exact, case included');
 });
@@ -269,6 +271,13 @@ test('formatCounts prints the three counts and adds other only when it is nonzer
   assert.equal(formatCounts({ site: 0, versioned: 7, msi: 0, other: 5 }), '0 site / 7 versioned / 0 msi / 5 other');
 });
 
+test('formatCounts prints kept on a release with the copies, a 0 included, and nothing without them', async () => {
+  const { formatCounts } = await load();
+  assert.equal(formatCounts({ site: 3, versioned: 7, msi: 0, other: 0, kept: 12 }), '3 site / 7 versioned / 0 msi / 12 kept');
+  assert.equal(formatCounts({ site: 3, versioned: 7, msi: 0, other: 0, kept: 0 }), '3 site / 7 versioned / 0 msi / 0 kept');
+  assert.equal(formatCounts({ site: 3, versioned: 7, msi: 0, other: 2, kept: 1 }), '3 site / 7 versioned / 0 msi / 1 kept / 2 other');
+});
+
 // ---- formatRow / HEADER / buildSnapshot ---------------------------------
 
 const SNAPSHOT = {
@@ -347,6 +356,39 @@ test('formatReleases prints one aligned line per release with the date, days as 
   assert.equal(lines[1], 'v0.2.17        2026-09-27    1.6 d latest  3 site / 11 versioned / 1 msi');
   assert.equal(lines[2], 'v0.3.0-beta.1  2026-09-28  prerelease      0 site / 0 versioned / 0 msi');
   assert.ok(lines.some((l) => l.includes('floor of about 7 per release')), lines.join('\n'));
+});
+
+test('kept sums both copies and reads against the site downloads of every release before it', async () => {
+  const { summarizeReleases, formatReleases } = await load();
+  const release = (tag, day, assets) => ({ tag_name: tag, published_at: `2026-11-${day}T00:00:00Z`, assets });
+  const list = summarizeReleases(
+    [
+      release('v0.2.26', '01', [{ name: 'Promptline-setup.exe', download_count: 10 }]),
+      release('v0.2.27', '02', [{ name: 'Promptline-setup.exe', download_count: 5 }]),
+      release('v0.2.28', '03', [
+        { name: 'Promptline-setup.exe', download_count: 4 },
+        { name: 'Promptline_0.2.28_x64-update.exe', download_count: 6 },
+        { name: 'Promptline_0.2.28_x64-update.msi', download_count: 1 },
+      ]),
+      release('v0.2.29', '04', [
+        { name: 'Promptline-setup.exe', download_count: 1 },
+        { name: 'Promptline_0.2.29_x64-update.exe', download_count: 0 },
+      ]),
+    ],
+    NOW,
+  ).releases;
+
+  assert.equal(list[1].counts.kept, undefined, 'before the copies it is unknown, not 0');
+  assert.equal(list[1].reached, undefined);
+  assert.equal(list[2].counts.kept, 7);
+  assert.equal(list[2].reached, 15, 'not its own site downloads: those copies are already on it');
+  assert.equal(list[3].counts.kept, 0);
+  assert.equal(list[3].reached, 19);
+
+  const lines = formatReleases(list).split('\n');
+  assert.ok(lines[1].endsWith('5 site / 0 versioned / 0 msi'), lines[1]);
+  assert.ok(lines[2].endsWith('4 site / 0 versioned / 0 msi / 7 kept (7 of 15 reached before it)'), lines[2]);
+  assert.ok(lines[3].endsWith('1 site / 0 versioned / 0 msi / 0 kept (0 of 19 reached before it)'), lines[3]);
 });
 
 test('formatReleases says none for an empty list', async () => {

@@ -7,6 +7,12 @@
 // feed carries one key per Windows installer: an NSIS install updates via
 // NSIS, an MSI install via MSI.
 //
+// The urls name the `-update` copies, not the installers: byte copies of them
+// that only this feed links, so their download counts are the updates copies
+// accepted (scripts/snapshot.mjs reads them as "kept"). The updater doesn't
+// care about the name: it picks the installer type from the bytes, and the
+// signature covers the bytes, not the `file:` field in its comment.
+//
 //   node scripts/latest-json.mjs --notes <notes.md> [--version X.Y.Z]
 //                                [--bundle-dir <dir>] [--out <file>]
 //                                [--pub-date <iso>]
@@ -33,6 +39,15 @@ export function assetNames(version) {
   return {
     nsis: `Promptline_${version}_x64-setup.exe`,
     msi: `Promptline_${version}_x64_en-US.msi`,
+  }
+}
+
+/** The byte copies of those installers the feed names. Each release uploads
+ *  them beside the installers (CLAUDE.md § Releasing step 5). */
+export function updateNames(version) {
+  return {
+    nsis: `Promptline_${version}_x64-update.exe`,
+    msi: `Promptline_${version}_x64-update.msi`,
   }
 }
 
@@ -66,7 +81,7 @@ export function buildFeed({ version, notes, pubDate, signatures, baseUrl }) {
   if (!signatures || !signatures.nsis || !signatures.nsis.trim()) {
     throw new Error("latest-json: signatures.nsis is required and cannot be empty")
   }
-  const names = assetNames(version)
+  const names = updateNames(version)
   const base = baseUrl ?? `https://github.com/${REPO}/releases/download/v${version}/`
   const platforms = {}
   for (const kind of ["nsis", "msi"]) {

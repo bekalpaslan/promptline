@@ -1713,6 +1713,15 @@ which relaunches Promptline once it's done — install itself is Rust
 awaiting `download_and_install`, then `app.restart()` for the platforms
 where the installer doesn't already relaunch it.
 
+**The feed links copies of the installers, not the installers.** From
+0.2.28 its urls name `Promptline_X.Y.Z_x64-update.exe` and `.msi`, byte
+copies only the feed links, so GitHub's download count on them says how
+many copies took that update, which nothing else could: package managers
+fetch the installers too, and the app reports nothing. The name means
+nothing to the updater: it picks the installer type from the bytes, and
+the signature covers those bytes, so the installer's `.sig` serves its
+copy. The request is the one the app already made, to the same host.
+
 **Every build carries this.** Until 2026-10-29 a store build
 (`--no-default-features` with `tauri.store.conf.json`) compiled the
 plugin, the loop, the toast and the tray item out and answered

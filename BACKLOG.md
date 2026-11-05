@@ -41,11 +41,11 @@ domain renewal, with P2's Raycast fix alongside.
     `requireSignedVersion` is on, and `scripts/latest-json.mjs` refuses
     a signature that doesn't name the feed's version. Copies at 0.2.27
     or earlier can't be protected after the fact.
-  - **(a), counting "kept":** upload byte copies
-    `Promptline_X.Y.Z_x64-update.exe` and `…-update.msi`. Only the feed
-    names them, so their downloads count accepted updates exactly.
-    `snapshot.mjs` reads them as "kept", measured against cumulative
-    site downloads rather than site(N).
+  - ~~**(a), counting "kept"**~~ done 2026-11-05, starts with 0.2.28: the
+    feed names byte copies `Promptline_X.Y.Z_x64-update.exe` and
+    `…-update.msi`, and `snapshot.mjs` reads their downloads as "kept",
+    against the site downloads of every release before it. Copies at
+    0.2.27 count too, since they read the same feed.
   - **(b) and (c), decision:** should the check ask
     `releases/latest/download/latest.json` before promptline.cc? It
     would give a daily count of checks, and a second endpoint if the
@@ -53,8 +53,8 @@ domain renewal, with P2's Raycast fix alongside.
     endpoint loop. Pick: yes, disclosed first; if not, ask
     `raw.githubusercontent.com` first.
   - **Also:** confirm promptline.cc renews; it expires 2027-09-22.
-  - **Size:** about a day. Before the release, trial the renamed asset
-    with `scripts/update-trial.mjs`.
+  - **Before 0.2.28:** trial the renamed asset with
+    `scripts/update-trial.mjs`.
 - **"Why not Raycast?" and the macOS line** (P2).
   - ~~**The Raycast answer**~~ done 2026-11-05: it now names where the
     library lives, the same words in the README and on the site, and a

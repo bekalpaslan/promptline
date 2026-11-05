@@ -32,9 +32,10 @@ backlog, not from another audit, unless asked.
   means for Promptline, so a clone has it too: people reached and kept,
   read from the GitHub and package-manager numbers `scripts/snapshot.mjs`
   prints (downloads of the stable `Promptline-setup.exe` are people
-  reached; fetches of the versioned installers, minus the per-release
-  machinery floor, are people kept, though since winget listed the
-  package on 2026-11-04 a first install through it counts there too). The
+  reached; from 0.2.28 downloads of the `-update` copies only the feed
+  links are people kept, read with `--releases` against the site
+  downloads of every release before it; older releases read versioned
+  fetches minus the per-release machinery floor instead). The
   one-second copy-hotkey-paste gesture is the means to that, not the
   measure.
 - `docs/history/` — the review, audit and benchmark trackers (`REVIEW.md`,
@@ -377,13 +378,16 @@ build is still what ships.
    never for a release.
 4. `git tag -a vX.Y.Z -m "Promptline X.Y.Z"`, then push `master` and the tag.
 5. `gh release create vX.Y.Z --title "Promptline X.Y.Z" --notes-file <notes> --latest`
-   with both installers and a copy of the setup exe named
+   with both installers and three byte copies: the setup exe as
    `Promptline-setup.exe` (the website's Download button links to
    `releases/latest/download/Promptline-setup.exe`; without the copy it
-   404s). Check with `gh release list` (`gh release view` has no "latest"
-   field), and confirm the assets landed with
-   `gh release view vX.Y.Z --json assets --jq '.assets[].name'` (both
-   installers and `Promptline-setup.exe`).
+   404s) and as `Promptline_X.Y.Z_x64-update.exe`, the msi as
+   `Promptline_X.Y.Z_x64-update.msi` (the feed's urls, and nothing else
+   links them, so their downloads count the updates copies took). Check
+   with `gh release list` (`gh release view` has no "latest" field), and
+   confirm the five assets landed with
+   `gh release view vX.Y.Z --json assets --jq '.assets[] | "\(.digest) \(.name)"'`:
+   each copy shows its installer's digest.
 6. The feed, after the release: `node scripts/latest-json.mjs --notes <notes>` (the
    same notes file as step 5) reads the `.sig` files from step 3 and
    writes `site/latest.json`. It refuses a `.sig` that doesn't name the
@@ -398,7 +402,7 @@ build is still what ships.
    (Pages caches up to 10 minutes). Why after: the feed must never point at
    a release or asset that doesn't exist yet, and its urls are the
    versioned `releases/download/vX.Y.Z/…` ones, never `latest/download`
-   (same reason as winget).
+   (same reason as winget), naming the `-update` copies.
 7. The package managers, once `curl -s https://promptline.cc/latest.json`
    shows X.Y.Z. Both point at the versioned setup exe, never
    `latest/download`, for the same reason as the feed, and both hash the

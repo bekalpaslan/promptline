@@ -19,17 +19,27 @@
 // the names tell two populations apart. `Promptline-setup.exe` (site) is
 // linked only from the website's Download button, so it is the one trace a
 // site visitor leaves anywhere. `Promptline_X.Y.Z_x64-setup.exe` (versioned)
-// is what the updater feed, Scoop, komac and winget fetch, and it carries a
-// floor of about seven per release that is machinery, not users: komac
-// hashes it, Scoop's checkver hashes it, winget validation fetches it on
-// every push to the PR, and the maintainer downloads a copy. The winget
-// New-Package PR merged on 2026-11-04: re-estimate the floor from 0.2.28, the
-// first release through komac. Retention reads versioned(N+1) minus the floor
-// against site(N): the previous release's visitors who stayed for the update.
-// It is an upper bound now, because a first install through winget fetches
-// the versioned exe too. `.msi` is the third count; `.sig`
-// files are left out, and any other name is listed as "other" when it has
-// downloads. Days as latest run from a release's publish time to the next
+// is what Scoop, komac and winget fetch, and it carries a floor of about
+// seven per release that is machinery, not users: komac hashes it, Scoop's
+// checkver hashes it, winget validation fetches it on every push to the PR,
+// and the maintainer downloads a copy. The winget New-Package PR merged on
+// 2026-11-04: re-estimate the floor from 0.2.28, the first release through
+// komac. `.msi` is the third count.
+//
+// `Promptline_X.Y.Z_x64-update.exe` and `.msi` (kept) are byte copies only
+// the updater feed links, from 0.2.28, so a fetch is a copy taking the update.
+// That is the retention reading: kept(N) against the site downloads of every
+// release before N, since a copy can come from any of them and a copy that
+// skipped N-1 still counts. A retried download counts twice, and it counts
+// copies installed through Scoop or winget, which the site count doesn't. The
+// release step's url check doesn't add to it: a HEAD left the count alone when
+// tried on 2026-11-05.
+// Before 0.2.28 the feed fetched the versioned exe, so an older release
+// reads versioned(N+1) minus the floor against site(N), an upper bound since
+// a first install through winget fetches that exe too.
+//
+// `.sig` files are left out, and any other name is listed as "other" when it
+// has downloads. Days as latest run from a release's publish time to the next
 // stable release's (to now for the latest one; `--date` moves that "now" to
 // midnight UTC of the given day), so a count is read per day, not raw.
 // `--releases` prints the same per release, oldest first.
@@ -44,7 +54,7 @@ import { pathToFileURL } from "node:url"
 export const REPO = "bekalpaslan/promptline"
 
 export const HEADER =
-  "| Date | Stars | Forks | Open issues | Discussions | Latest release: site / versioned / msi (days latest) | All releases: downloads | Views 14d (unique) | Clones 14d (unique) | Top referrers | Donations |\n" +
+  "| Date | Stars | Forks | Open issues | Discussions | Latest release: site / versioned / msi / kept (days latest) | All releases: downloads | Views 14d (unique) | Clones 14d (unique) | Top referrers | Donations |\n" +
   "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |"
 
 // issues(states: OPEN) leaves out pull requests, unlike REST open_issues_count;
@@ -59,22 +69,25 @@ const DAY_MS = 86_400_000
 const sumDownloads = (assets) => (assets ?? []).reduce((n, a) => n + (a.download_count ?? 0), 0)
 
 /** Which population an asset's downloads belong to: `site` (the stable-named
- *  copy the website links), `versioned` (what the feed, Scoop and winget
- *  fetch), `msi`, `other` for a name this script doesn't know, or null for a
- *  `.sig`, which is never counted. */
+ *  copy the website links), `versioned` (what Scoop and winget fetch), `msi`,
+ *  `kept` (the `-update` copies only the feed links), `other` for a name this
+ *  script doesn't know, or null for a `.sig`, which is never counted. */
 export function classifyAsset(name) {
   if (name === "Promptline-setup.exe") return "site"
   if (/^Promptline_.+_x64-setup\.exe$/.test(name)) return "versioned"
+  if (/^Promptline_.+_x64-update\.(exe|msi)$/.test(name)) return "kept"
   if (name.endsWith(".msi")) return "msi"
   if (name.endsWith(".sig")) return null
   return "other"
 }
 
+/** `kept` stays absent on a release without the copies: before 0.2.28 it is
+ *  unknown, which is not the 0 a release with them can honestly read. */
 function countAssets(assets) {
   const counts = { site: 0, versioned: 0, msi: 0, other: 0 }
   for (const a of assets ?? []) {
     const kind = classifyAsset(a.name)
-    if (kind) counts[kind] += a.download_count ?? 0
+    if (kind) counts[kind] = (counts[kind] ?? 0) + (a.download_count ?? 0)
   }
   return counts
 }
@@ -84,9 +97,10 @@ const daysBetween = (from, to) => Math.max(0, Math.round(((Date.parse(to) - Date
 
 /** Every non-draft release's downloads summed; every non-draft release,
  *  oldest first, with its counts and its days as latest (null for a
- *  prerelease, which is never latest); and the latest stable release
- *  (greatest published_at, prereleases and drafts excluded) with its assets.
- *  `now` closes the latest release's days-as-latest. */
+ *  prerelease, which is never latest), and `reached`, the site downloads of
+ *  every release before it, on one carrying the `-update` copies; and the
+ *  latest stable release (greatest published_at, prereleases and drafts
+ *  excluded) with its assets. `now` closes the latest release's days-as-latest. */
 export function summarizeReleases(releases, now = new Date()) {
   const nowIso = new Date(now).toISOString()
   const live = (releases ?? [])
@@ -94,16 +108,21 @@ export function summarizeReleases(releases, now = new Date()) {
     .sort((a, b) => String(a.published_at).localeCompare(String(b.published_at)))
   const total = live.reduce((n, r) => n + sumDownloads(r.assets), 0)
   const stable = live.filter((r) => !r.prerelease)
+  let siteSoFar = 0
   const list = live.map((r) => {
     const i = stable.indexOf(r)
     const next = i >= 0 ? stable[i + 1] : null
-    return {
+    const counts = countAssets(r.assets)
+    const entry = {
       tag: r.tag_name,
       publishedAt: r.published_at,
       prerelease: Boolean(r.prerelease),
       daysLatest: i < 0 ? null : daysBetween(r.published_at, next ? next.published_at : nowIso),
-      counts: countAssets(r.assets),
+      counts,
     }
+    if (counts.kept !== undefined) entry.reached = siteSoFar
+    siteSoFar += counts.site
+    return entry
   })
   const newest = stable[stable.length - 1]
   if (!newest) return { total, releases: list, latest: null }
@@ -149,10 +168,12 @@ export function formatReferrers(list) {
     .join(", ")
 }
 
-/** `3 site / 11 versioned / 1 msi`, plus ` / n other` only when n is nonzero. */
+/** `3 site / 11 versioned / 1 msi`, plus ` / n kept` on a release with the
+ *  `-update` copies and ` / n other` only when n is nonzero. */
 export function formatCounts(c) {
   const text = `${c.site} site / ${c.versioned} versioned / ${c.msi} msi`
-  return c.other ? `${text} / ${c.other} other` : text
+  const kept = c.kept === undefined ? text : `${text} / ${c.kept} kept`
+  return c.other ? `${kept} / ${c.other} other` : kept
 }
 
 const formatDays = (d) => `${d.toFixed(1)} d latest`
@@ -164,12 +185,14 @@ export function formatReleases(list) {
   const width = Math.max(...list.map((r) => r.tag.length))
   const lines = list.map((r) => {
     const when = r.daysLatest === null ? "prerelease".padEnd(14) : formatDays(r.daysLatest).padStart(14)
-    return `${r.tag.padEnd(width)}  ${String(r.publishedAt).slice(0, 10)}  ${when}  ${formatCounts(r.counts)}`
+    const kept = r.reached === undefined ? "" : ` (${r.counts.kept} of ${r.reached} reached before it)`
+    return `${r.tag.padEnd(width)}  ${String(r.publishedAt).slice(0, 10)}  ${when}  ${formatCounts(r.counts)}${kept}`
   })
   lines.push(
     "",
     "versioned carries a floor of about 7 per release that is machinery, not users",
-    "(komac, Scoop checkver, winget validation, the maintainer's copy); site is the website's Download button",
+    "(komac, Scoop checkver, winget validation, the maintainer's copy); site is the website's Download button;",
+    "kept is copies taking that update through the feed, from 0.2.28, and counts Scoop and winget copies too",
   )
   return lines.join("\n")
 }

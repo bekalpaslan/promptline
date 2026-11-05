@@ -16,7 +16,7 @@ import fs from "node:fs"
 import path from "node:path"
 import { spawnSync } from "node:child_process"
 import { fileURLToPath } from "node:url"
-import { buildFeed } from "./latest-json.mjs"
+import { buildFeed, updateNames } from "./latest-json.mjs"
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const DIR = path.join(root, "src-tauri", "target", "update-trial")
@@ -109,6 +109,8 @@ function main() {
     )
   }
 
+  // the feed names the -update copy, so serve one, as a release does
+  fs.copyFileSync(path.join(DIR, exeName(used.new)), path.join(DIR, updateNames(used.new).nsis))
   const sig = fs.readFileSync(path.join(DIR, `${exeName(used.new)}.sig`), "utf8")
   const feed = buildFeed({
     version: used.new,
