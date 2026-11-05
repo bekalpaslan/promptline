@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "1b272dc15e9b63902930022b2fe587a147eed26a"
+      "revision": "fe4f7dc9af667b9d4c9b458bb7a72e5b73785261"
     },
     "viewBox": [
       1300,
@@ -111,7 +111,7 @@
         },
         {
           "path": "ui/core.js",
-          "line": 698,
+          "line": 708,
           "label": "packTree"
         },
         {
@@ -191,8 +191,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 338,
-          "end_line": 359,
+          "line": 337,
+          "end_line": 358,
           "label": "TrayIconBuilder"
         },
         {
@@ -219,7 +219,7 @@
         {
           "path": "src-tauri/src/lib.rs",
           "line": 185,
-          "end_line": 433,
+          "end_line": 432,
           "label": "run()"
         },
         {
@@ -333,7 +333,7 @@
         },
         {
           "path": "src-tauri/src/packs.rs",
-          "line": 384,
+          "line": 397,
           "label": "write_pack_files"
         }
       ]
@@ -354,8 +354,8 @@
       "sources": [
         {
           "path": "src-tauri/tauri.conf.json",
-          "line": 75,
-          "end_line": 77,
+          "line": 80,
+          "end_line": 82,
           "label": "endpoint"
         },
         {
