@@ -1722,6 +1722,12 @@ nothing to the updater: it picks the installer type from the bytes, and
 the signature covers those bytes, so the installer's `.sig` serves its
 copy. The request is the one the app already made, to the same host.
 
+**The updater's signature is over the code-signed installer.** From
+0.2.28 `tauri build` signs the app and the installers with the Certum
+certificate first and makes the updater's `.sig` last, so Authenticode
+adds nothing after the updater signature is taken and neither invalidates
+the other.
+
 **Every build carries this.** Until 2026-10-29 a store build
 (`--no-default-features` with `tauri.store.conf.json`) compiled the
 plugin, the loop, the toast and the tray item out and answered

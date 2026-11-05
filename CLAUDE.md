@@ -367,7 +367,7 @@ build is still what ships.
    - `src-tauri/tauri.conf.json`
 3. The signed build, run by the human in their own PowerShell because the
    updater key's password lives in their password manager, never in this
-   session:
+   session, with SimplySign Desktop logged in (custody below):
    `$env:TAURI_SIGNING_PRIVATE_KEY = "$env:USERPROFILE\.tauri\promptline-updater.key"; $env:TAURI_SIGNING_PRIVATE_KEY_PASSWORD = [Net.NetworkCredential]::new('', (Read-Host -AsSecureString 'Updater key password')).Password; npm run build`
    (`tauri build`, several minutes; run it in the background). It writes
    `src-tauri/target/release/bundle/nsis/Promptline_X.Y.Z_x64-setup.exe`
@@ -375,7 +375,8 @@ build is still what ships.
    `Promptline_X.Y.Z_x64-setup.exe.sig` and
    `Promptline_X.Y.Z_x64_en-US.msi.sig` beside them. Without the key set,
    the build fails; `npm run build:unsigned` builds without it and is
-   never for a release.
+   never for a release. `Get-AuthenticodeSignature` on both installers
+   must read `Valid` with the Certum signer before tagging.
 4. `git tag -a vX.Y.Z -m "Promptline X.Y.Z"`, then push `master` and the tag.
 5. `gh release create vX.Y.Z --title "Promptline X.Y.Z" --notes-file <notes> --latest`
    with both installers and three byte copies: the setup exe as
@@ -467,6 +468,20 @@ it produces that binary). The public key is in `tauri.conf.json`
 it: every installed copy trusts only that key, and a new one strands
 every install that's already out.
 
+**Code-signing certificate custody.** A Certum Open Source Code Signing
+certificate in the cloud, RSA 4096, issued to the maintainer on 2026-11-05
+and valid until 2027-11-05: renew before then, and put the new thumbprint in
+`tauri.conf.json` `bundle.windows.certificateThumbprint`. A renewal changes
+the thumbprint and nothing an installed copy trusts, since the updater key
+is separate. The private key stays in Certum's SimplySign cloud; SimplySign
+Desktop exposes it in `CurrentUser\My` while logged in with a one-time code
+from the maintainer's phone, and `tauri build` signs through `signtool`,
+timestamped by `http://time.certum.pl` (the app, the NSIS plug-ins and
+uninstaller, both installers; the updater signature comes after, over the
+signed bytes, checked on 2026-11-05). Both unsigned paths clear the
+thumbprint: `tauri.unsigned.conf.json` for CI and `build:unsigned`, and
+`scripts/update-trial.mjs`, so a throwaway build never carries the name.
+
 **X credentials custody.** Step 8 reads `X_API_KEY`, `X_API_SECRET`,
 `X_ACCESS_TOKEN` and `X_ACCESS_SECRET`: the OAuth 1.0a keys of the
 maintainer's app in the X developer portal, generated with Read and
@@ -490,7 +505,8 @@ version filled in:
 ### Install
 
 `Promptline_X.Y.Z_x64-setup.exe` (NSIS) or `Promptline_X.Y.Z_x64_en-US.msi`.
-Still unsigned, so SmartScreen warns on first run: *More info → Run anyway*.
+Signed, so Windows names the publisher. SmartScreen can still warn while a
+new release builds its reputation: *More info → Run anyway*.
 Your prompts, packs and settings carry over untouched.
 ```
 
