@@ -3,6 +3,9 @@ import { toast } from "sonner"
 // Status channel semantics from the legacy UI: successes fade quickly,
 // errors stay long enough to be read, destructive actions offer Undo.
 export const say = (msg: string) => toast.success(msg, { duration: 3500 })
+// A success with a path or a route to read through: an error's time on screen
+export const sayLong = (msg: string, action?: { label: string; onClick: () => void }) =>
+  toast.success(msg, { duration: 10000, closeButton: true, action })
 export const sayErr = (msg: string) => toast.error(msg, { duration: 10000, closeButton: true })
 // For things that must not be missed (a quarantined data file, a dead hotkey):
 // stays until dismissed; `onDismiss` hears the close button

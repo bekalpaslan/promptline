@@ -16,6 +16,8 @@
 // `window.__mock` is the handle for a test driver:
 //   calls              every invoke as { cmd, args }, oldest first
 //   clipboard          what get_clipboard_text answers; set it to change it
+//   files              path → text of the files Generate made; read_pack_file
+//                      answers from it, so set one to stand in for an agent
 //   emit(event, data)  fire a backend event ("edit-prompt", "popup-shown",
 //                      "paste-failed" with { message }, …)
 //   library            the current { snippets, revision }
@@ -154,6 +156,7 @@ export function installMock(mode: string | null) {
   const mock = {
     calls,
     clipboard: showcase?.clipboard ?? "TypeError: cannot read properties of undefined (reading 'id')",
+    files: {} as Record<string, string>,
     library: lib,
     pasteResult: "pasted" as "pasted" | "copied",
     fail: new Set<string>(),
@@ -264,12 +267,18 @@ export function installMock(mode: string | null) {
     },
     save_prefs: (a) => void Object.assign(config, a),
     set_hotkey: (a) => void (config.hotkey = String(a.hotkey)),
-    create_pack_file: (a) => `C:\\mock\\packs\\${String(a.name)}.json`,
-    create_generated_file: () => `C:\\mock\\packs\\generated\\mock.json`,
+    create_generated_file: (a) => {
+      const path = `C:\\mock\\packs\\generated\\generated-${Object.keys(mock.files).length + 1}.json`
+      const prompts = lib.snippets
+        .filter((s) => s.pack === a.name)
+        .map(({ title, tags, text, group }) => ({ title, tags, text, ...(group ? { group } : {}) }))
+      mock.files[path] = a.name ? JSON.stringify({ name: a.name, prompts }, null, 2) : "[]"
+      return path
+    },
     // File readers answer with a small pack, so the import paths can be
-    // walked: Settings' "import from this pack's file" and the generate
-    // dialog's agent step both go through `read_pack_file`
-    read_pack_file: (a) => JSON.stringify(MOCK_FILE_PACK(String(a.path)), null, 2),
+    // walked: Settings' "import from this pack's file" reads it, and the
+    // generate dialog's agent step reads what `files` holds for its file
+    read_pack_file: (a) => mock.files[String(a.path)] ?? JSON.stringify(MOCK_FILE_PACK(String(a.path)), null, 2),
     import_pack_file: () => JSON.stringify(MOCK_FILE_PACK("picked.json"), null, 2),
     // The Save dialog "picks" a file named from `name`; `calls` holds the text
     export_pack_file: (a) => `C:\\mock\\export\\${String(a.name)}.json`,

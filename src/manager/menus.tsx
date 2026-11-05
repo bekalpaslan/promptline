@@ -232,7 +232,7 @@ export function useLibraryMenus(opts: {
         {
           kind: "item",
           label: "Create pack file…",
-          hint: "For sharing, or for an agent to write into",
+          hint: "For sharing",
           run: () => {
             void m.addPackFile(name).then(
               () => say(`"${name}" now has a file`),

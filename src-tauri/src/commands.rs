@@ -11,10 +11,10 @@ use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
 use crate::packs::{
-    arrange_packs_in, back_pack_in, export_file_name, new_pack_file, packs_after_sync,
-    relativize_pack_path, remove_pack_in, rename_pack_file, rename_pack_in, resolve_pack_path,
-    retire_pack_file, set_pack_color_in, set_pack_locked_in, sync_pack_files, validate_pack_name,
-    with_resolved_pack_paths, PackMeta,
+    arrange_packs_in, back_pack_in, export_file_name, new_pack_file, pack_copy_json,
+    packs_after_sync, relativize_pack_path, remove_pack_in, rename_pack_file, rename_pack_in,
+    resolve_pack_path, retire_pack_file, set_pack_color_in, set_pack_locked_in, sync_pack_files,
+    validate_pack_name, with_resolved_pack_paths, PackMeta,
 };
 use crate::store::{
     check_revision, current_revision, data_dir, first_free, library, load_config_from_disk,
@@ -410,18 +410,27 @@ pub(crate) fn rename_pack(
     })
 }
 
-/// Create a fresh file-backed pack file and return its absolute path.
+/// Create a scratch file under packs/generated/ for an agent to write into:
+/// empty without a name, for several packs at once (a JSON array), and a
+/// copy of the named pack with one (an empty pack document for a new name).
+/// An agent is never handed a live pack's file, which the next save would
+/// overwrite. It backs no pack of its own — the packs inside get their own
+/// files on import — so it lives outside the top-level packs/ that pack
+/// metadata points into.
 #[tauri::command]
-pub(crate) fn create_pack_file(app: AppHandle, name: String) -> Result<String, String> {
-    new_pack_file(&app, &name).map(|p| p.to_string_lossy().into_owned())
-}
-
-/// Create an empty scratch file under packs/generated/ for an agent to fill
-/// with several packs at once (a JSON array). It backs no pack of its own —
-/// the packs inside get their own files on import — so it lives outside the
-/// top-level packs/ that pack metadata points into.
-#[tauri::command]
-pub(crate) fn create_generated_file(app: AppHandle) -> Result<String, String> {
+pub(crate) fn create_generated_file(
+    app: AppHandle,
+    state: State<AppState>,
+    name: Option<String>,
+) -> Result<String, String> {
+    let body = match name {
+        Some(name) => {
+            let _guard = state.store.lock().unwrap();
+            let snippets = load_snippets_from_disk(&app)?;
+            pack_copy_json(&name, &snippets).map_err(|e| e.to_string())?
+        }
+        None => "[]".to_string(),
+    };
     let dir = packs_dir(&app).join("generated");
     fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let stamp = since_epoch().as_secs();
@@ -432,7 +441,7 @@ pub(crate) fn create_generated_file(app: AppHandle) -> Result<String, String> {
         },
         |p| p.exists(),
     );
-    write_atomic(&path, b"[]").map_err(|e| e.to_string())?;
+    write_atomic(&path, body.as_bytes()).map_err(|e| e.to_string())?;
     Ok(path.to_string_lossy().into_owned())
 }
 
@@ -452,7 +461,7 @@ fn path_within(base: &Path, path: &str) -> Result<PathBuf, String> {
 
 /// A path the frontend hands back, admitted only when it is under the data
 /// folder: every path it can know comes from there (`get_config`,
-/// `create_pack_file`, `create_generated_file`), and a webview that had
+/// `create_generated_file`), and a webview that had
 /// been compromised must not be able to read or reveal anything else.
 fn data_file(app: &AppHandle, path: &str) -> Result<PathBuf, String> {
     path_within(&data_dir(app), path)

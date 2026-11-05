@@ -518,6 +518,24 @@ test('stripFences drops a leading UTF-8 BOM, and a BOM file diagnoses ok (M7)', 
 
 // ---- pack diagnosis ----------------------------------------------------------------
 
+test('agentFileReady: a file that starts with prompts is not the agent\'s reply', () => {
+  const copy = JSON.stringify({ name: 'P', prompts: [{ title: 't', text: 'x' }] });
+  assert.equal(core.agentFileReady(copy, copy), false);
+});
+
+test('agentFileReady: the agent\'s change to the file is', () => {
+  const copy = JSON.stringify({ name: 'P', prompts: [{ title: 't', text: 'x' }] });
+  const written = JSON.stringify({ name: 'P', prompts: [{ title: 'new', text: 'y' }] });
+  assert.equal(core.agentFileReady(written, copy), true);
+  assert.equal(core.agentFileReady(written, '[]'), true);
+});
+
+test('agentFileReady: a change that holds no prompts yet keeps the watch going', () => {
+  assert.equal(core.agentFileReady('{"name":"P","pro', '[]'), false);
+  assert.equal(core.agentFileReady('{"name":"P","prompts":[]}', '[]'), false);
+  assert.equal(core.agentFileReady('', '[]'), false);
+});
+
 test('diagnosePack: valid pack parses ok', () => {
   const d = core.diagnosePack(JSON.stringify({ name: 'P', prompts: [{ title: 't', text: 'x' }] }));
   assert.ok(d.ok);

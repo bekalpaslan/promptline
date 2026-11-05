@@ -326,11 +326,11 @@ struct PackWrites {
     failed: Vec<String>,
 }
 
-/// The shareable JSON for one pack, or None when the pack is empty.
-fn pack_file_json(pm: &PackMeta, snippets: &[Snippet]) -> Option<String> {
-    let prompts: Vec<serde_json::Value> = snippets
+/// One pack's shareable prompts: title, tags, text and group, never usage.
+fn pack_prompts(name: &str, snippets: &[Snippet]) -> Vec<serde_json::Value> {
+    snippets
         .iter()
-        .filter(|s| s.pack == pm.name)
+        .filter(|s| s.pack == name)
         .map(|s| {
             let mut v = serde_json::json!({ "title": s.title, "tags": s.tags, "text": s.text });
             if !s.group.is_empty() {
@@ -338,10 +338,23 @@ fn pack_file_json(pm: &PackMeta, snippets: &[Snippet]) -> Option<String> {
             }
             v
         })
-        .collect();
-    // Never write an empty pack over its file: an agent may have just
-    // written prompts there that haven't been imported yet, and clobbering
-    // that with the library's (still empty) view would destroy them.
+        .collect()
+}
+
+/// A pack as a scratch document for an agent to work on, in place of its
+/// live file: an empty pack gives an empty document, unlike `pack_file_json`,
+/// since nothing here can be written over.
+pub(crate) fn pack_copy_json(name: &str, snippets: &[Snippet]) -> serde_json::Result<String> {
+    pack_doc_json(name, pack_prompts(name, snippets))
+}
+
+/// The shareable JSON for one pack, or None when the pack is empty.
+fn pack_file_json(pm: &PackMeta, snippets: &[Snippet]) -> Option<String> {
+    let prompts = pack_prompts(&pm.name, snippets);
+    // Never write an empty pack over its file: it may hold prompts that
+    // haven't been imported yet (an orphan adopted by name, one an earlier
+    // release's Generate left), and the library's (still empty) view would
+    // destroy them.
     if prompts.is_empty() {
         return None;
     }
@@ -689,6 +702,30 @@ mod tests {
         assert_eq!(sanitize_pack_filename("Rust + Tauri!!"), "rust-tauri");
         assert_eq!(sanitize_pack_filename("---"), "pack");
         assert_eq!(sanitize_pack_filename("Ünïcode Pack"), "ünïcode-pack");
+    }
+
+    #[test]
+    fn a_pack_copy_holds_its_prompts_and_none_of_its_usage() {
+        let mut mine = snip("Mine", "work", "text");
+        mine.pack = "Work".into();
+        mine.uses = 9;
+        let mut other = snip("Other", "home", "text");
+        other.pack = "Home".into();
+        let doc: serde_json::Value =
+            serde_json::from_str(&pack_copy_json("Work", &[mine, other]).unwrap()).unwrap();
+        assert_eq!(doc["name"], "Work");
+        let prompts = doc["prompts"].as_array().unwrap();
+        assert_eq!(prompts.len(), 1);
+        assert_eq!(prompts[0]["title"], "Mine");
+        assert!(prompts[0].get("uses").is_none());
+    }
+
+    #[test]
+    fn a_copy_of_an_empty_pack_still_names_the_pack() {
+        let doc: serde_json::Value =
+            serde_json::from_str(&pack_copy_json("Work", &[]).unwrap()).unwrap();
+        assert_eq!(doc["name"], "Work");
+        assert_eq!(doc["prompts"].as_array().unwrap().len(), 0);
     }
 
     #[test]

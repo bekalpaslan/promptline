@@ -206,6 +206,8 @@ interface PromptlineCore {
   /** Throws on garbage; prefer `diagnosePack` for user-facing errors */
   parsePacks: (raw: string) => ParsedPack[]
   diagnosePack: (raw: string) => PackDiagnosis
+  /** Whether an agent's file holds a pack with prompts that differs from `baseline`, what it held when made */
+  agentFileReady: (raw: string, baseline: string) => boolean
   /** Where a new prompt goes: last used → default → first unlocked → "Unsorted" */
   defaultPackFor: (lastPack: string | null, names: string[], isLocked: (name: string) => boolean, defaultPack: string) => string
   /** Whether pinning `ids` fits under `max`, counting only newly pinned rows */

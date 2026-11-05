@@ -118,7 +118,7 @@ export function PacksCard({
                       <Button
                         size="compact"
                         variant="secondary"
-                        title="For sharing, or for an agent to write into"
+                        title="For sharing"
                         onClick={() =>
                           void m.addPackFile(name).then(
                             () => say(`"${name}" now has a file`),
@@ -175,8 +175,8 @@ export function PacksCard({
       {importRaw !== null && <ImportCuration raw={importRaw} onClose={() => setImportRaw(null)} />}
       <p className="mt-3 text-ui leading-relaxed text-muted-foreground">
         Click a pack to see its file. Pack files under %APPDATA%\io.github.bekalpaslan.promptline\packs\ are always
-        current — copy one to share or back up, or point an agent at it. Imports are reviewed prompt-by-prompt
-        before anything is added.
+        current — copy one to share or back up. An edit made in a file is overwritten on the next save, so bring
+        changes in with Import. Imports are reviewed prompt-by-prompt before anything is added.
       </p>
     </Card>
   )

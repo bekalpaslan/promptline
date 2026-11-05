@@ -72,7 +72,7 @@ const PRACTICES = [
 // Both agent prompts share one skeleton: opening, file path, rules, survey,
 // scope, closing. Only the scope (a topic, or one group per practice) and the
 // two parameterized rules differ, so the two read as one instruction.
-export function agentInstruction(tags: string, topic: string, filePath: string): Segment[] {
+export function agentInstruction(tags: string, topic: string, filePath: string, existing = false): Segment[] {
   const survey = !topic
   const rules = packInstructionRules(
     tags,
@@ -92,7 +92,16 @@ export function agentInstruction(tags: string, topic: string, filePath: string):
         { chip: "one group per practice", kind: "topic" },
         `:\n${PRACTICES.map((p) => `- ${p}`).join("\n")}\n\nSkip a practice you have nothing project-specific to say about.`,
       ]
-    : [`Generate the pack for: `, { chip: topic, kind: "topic" }, `\n\nKeep "name" exactly as it is in the file.`]
+    : [
+        `Generate the pack for: `,
+        { chip: topic, kind: "topic" },
+        `\n\nKeep "name" exactly as it is in the file.`,
+        ...(existing
+          ? [
+              `\n\nThe file holds the pack's current prompts. Read them first, then replace them with new prompts only: importing adds to the pack, so a prompt you reword arrives beside the original.`,
+            ]
+          : []),
+      ]
   return [
     `${opening} Write it as a single JSON pack object directly into this file, replacing its contents:\n\n`,
     { chip: filePath || "(created at step 1)", kind: "path" },

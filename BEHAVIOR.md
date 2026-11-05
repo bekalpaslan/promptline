@@ -1250,8 +1250,8 @@ write rather than trusting its own copy.
 **Pack metadata is written by intent, never as a list.** Lock, colour
 (below), delete, add
 and "Create pack file…" (once "Give this pack a file…", which named the
-mechanism rather than what the file is for: sharing, or an agent to write
-into; the hint says so) are `set_pack_locked`, `set_pack_color`,
+mechanism rather than what the file is for, which is sharing; the hint
+says so) are `set_pack_locked`, `set_pack_color`,
 `delete_pack`, `add_pack` and
 `add_pack_file`, each a read-modify-write of `config.json` under the store
 lock that answers with the registry as `get_config` returns it, which the
@@ -1310,9 +1310,14 @@ name in play a `PackMeta` and a `.json` of its own. Handling it only in
 group, never `uses`/`pinned`/`configValues` — to its file on every save, but
 only when the bytes would actually change: an autosave touches one prompt,
 and rewriting every pack file each time only fed file watchers (the Generate
-dialog polls its file, editors and sync clients watch the folder). Pack files
-are a supported interchange surface: an agent can write one and the user
-imports it.
+dialog polls its file, editors and sync clients watch the folder). A pack's
+file is the app's output, not a two-way surface: nothing records what the app
+last wrote, so an edit made there, by hand or by an agent, is overwritten by
+the next save while the pack holds prompts. Changes come in through an import,
+which is why the Generate dialog never hands an agent a live pack's file
+(`packs/generated/`, below). Until 0.2.29 a topic naming an existing pack did:
+the next save lost the agent's work, and the dialog read the pack's own
+prompts as the agent's reply at its first poll.
 
 **One tag rule everywhere** (`normalizeTag` in `ui/core.js`): lowercase,
 with everything outside `[a-z0-9_-]` dropped. The editor's tag field, the
@@ -1325,8 +1330,9 @@ filter parses it as `#code`); on import such a tag now becomes
 Two guards follow from that:
 
 - **An empty pack never overwrites its file.** The library's view of a pack is
-  empty both when the user emptied it and when an agent has just written prompts
-  that haven't been imported yet. The two are indistinguishable here, and only
+  empty both when the user emptied it and when the file holds prompts that
+  haven't been imported yet (an orphan adopted by name, below, or one an earlier
+  release's Generate left). The two are indistinguishable here, and only
   one of them is safe to act on. The one exception is a file holding nothing but
   the manager's own swept "New prompt" drafts: that is the library's earlier
   output, not an agent's, and it is emptied so the draft doesn't linger.
@@ -1340,7 +1346,7 @@ Two guards follow from that:
   next free number) in the same `rename_pack` call, so a pack doesn't live
   on in `new-pack-3.json` forever. A file with any other name, one outside
   `packs/`, or one in `generated/` keeps its path: someone chose it, and a
-  colleague or an agent may be writing into it. A case-only rename names
+  colleague or a tool may rely on it. A case-only rename names
   the same file. If the registry then fails to save, the file is moved
   back. Until 0.2.22 every rename kept the file, so packs renamed before
   it keep their old file names until they are renamed again.
@@ -1392,21 +1398,38 @@ written is logged and raised as a notice once per session (the library
 itself is safe in `snippets.json`), not on every autosave.
 
 Orphans are never swept automatically. A file in `packs/` that no pack claims
-may be one an agent just dropped there for importing. **Backing a pack adopts
-such a file when it declares that very pack's name** (`pack_file_slot`): the
-Generate dialog creates a pack's file before the pack exists, so an import that
-conjures the pack used to find `<name>.json` taken and back the pack with
-`<name>-2.json`, leaving the agent's file orphaned beside it. An adopted file is
+may be one somebody just dropped there for importing. **Backing a pack adopts
+such a file when it declares that very pack's name** (`pack_file_slot`): until
+0.2.29 the Generate dialog created a new pack's file there before the pack
+existed, so an import that conjured the pack used to find `<name>.json` taken
+and back the pack with `<name>-2.json`, leaving the agent's file orphaned beside
+it. Generate no longer writes there; copies from those releases may still hold
+such a file. An adopted file is
 never written over on adoption — it may still hold prompts the library has not
 imported. A file claimed by another pack, or one that isn't a readable pack
 document, is never taken.
 
-**`packs/generated/`** holds scratch files for the Generate dialog's survey mode
-(agent path, empty topic). An agent writes the project's pack into one, with a
-group per practice, and the pack is created on import under whatever name the
-agent gave it. The scratch file backs no pack, so it lives below the top-level
-`packs/` that metadata points into, and it stays there afterwards as a record
-of what was generated.
+**`packs/generated/`** holds the scratch file of every run of the Generate
+dialog's agent path. In survey mode (empty topic) an agent writes the project's
+pack into one, with a group per practice, and the pack is created on import
+under whatever name the agent gave it. A new topic's file starts as an empty
+pack document of that name. A topic naming an existing pack, in any case, starts
+as a copy of it (`create_generated_file` with its name: title, tags, text and
+group), and the instruction asks for new prompts only, since an import adds: a
+reworded prompt arrives beside its original. A scratch file backs no pack, so it
+lives below the top-level `packs/` that metadata points into, and it stays there
+afterwards as a record of what was generated. Copy again keeps the file, since
+the first instruction may already be with the agent.
+
+**The dialog opens the review on a change, not on prompts.** It reads the file
+right after making it, and each 2 s poll asks `agentFileReady(raw, baseline)`:
+a readable pack with prompts that differs from that first read. The copy
+starts with prompts, and those aren't the agent's reply. An agent that writes
+exactly what was there never triggers it; "Import from file now" covers that.
+Closing the dialog without importing leaves the file, and the notice names it
+and Settings → Backup and import → Import… → From file…, the one route that
+reaches every file the dialog makes, with a Show file button because the picker
+doesn't start in that folder.
 
 ## State and where it lives
 
@@ -1421,9 +1444,9 @@ cannot touch stays where it is and raises a notice):
 |---|---|
 | `snippets.json` | `Vec<Snippet>` — the library |
 | `config.json` | Hotkey, pack metadata and order, prefs, popup size, first-run flag, the update check and the last version notified |
-| `packs/*.json` | Per-pack shareable content, derived from the library |
+| `packs/*.json` | Per-pack shareable content, derived from the library and overwritten from it |
 | `packs/deleted/*.json` | Files of deleted packs, retired rather than unlinked (numbered on repeats) |
-| `packs/generated/*.json` | Scratch files the Generate dialog's survey mode hands to an agent |
+| `packs/generated/*.json` | The scratch file of each Generate run on the agent path, some of them copies of existing packs |
 | `*.corrupt-<unix seconds>` | A data file that failed to parse, moved aside untouched |
 | `promptline.log` | Warnings and errors from the Rust side, the file to attach to a bug report |
 
