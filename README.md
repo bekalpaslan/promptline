@@ -135,9 +135,9 @@ Everything Promptline knows is in one folder,
 `%APPDATA%\io.github.bekalpaslan.promptline\` — copy it to back up, restore
 it to bring a library back. To share prompts rather than the whole library,
 use the pack files: every pack owns a `.json` under `…\packs\` that the app
-keeps current, so you can copy one to a colleague, commit it to a project,
-or let an agent write into it; the other side imports it from **Settings →
-Backup and import** (see [Data](#data)).
+keeps current, so you can copy one to a colleague or commit it to a project;
+the other side imports it from **Settings → Backup and import** (see
+[Data](#data)).
 
 ## Known limitations
 
@@ -304,7 +304,9 @@ migrate automatically, and a library from a release before 0.2.9 (which kept it 
 
 Every pack owns a file under `…\packs\` from the moment it exists — however it
 came about, including packs conjured by an import — and the app keeps it
-current, so it's always there to share, back up, or let an agent write into.
+current, so it's always there to share or back up. The file is the app's
+output: an edit made in it is overwritten on the next save, so changes come in
+through an import, and Generate gives an agent a file of its own to write.
 Deleting a pack moves its file to `…\packs\deleted\` rather than unlinking it:
 the file may hold prompts written there but never imported, and deleting a pack
 in the app shouldn't be able to destroy them.

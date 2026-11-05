@@ -554,6 +554,16 @@
     }
   }
 
+  // Whether the file handed to an agent now holds the agent's pack: a readable
+  // pack with prompts that differs from what the file held when it was made.
+  // A copy of an existing pack starts with prompts, and those are not the
+  // agent's reply.
+  function agentFileReady(raw, baseline) {
+    if (raw === baseline) return false;
+    const diag = diagnosePack(raw);
+    return diag.ok && diag.packs.some((p) => p.prompts.length > 0);
+  }
+
   // ---- Where a new prompt goes ---------------------------------------------------
   // The pack that last received a prompt if it still exists and is unlocked,
   // else the default pack if it exists and is unlocked, else the first
@@ -1267,6 +1277,7 @@
     stripFences,
     parsePacks,
     diagnosePack,
+    agentFileReady,
     defaultPackFor,
     pinPlan,
     withPin,

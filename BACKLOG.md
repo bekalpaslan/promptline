@@ -101,29 +101,15 @@ domain renewal, with P2's Raycast fix alongside.
     banner, so it has coverage before it changes.
   - **Knock-on:** this raises the priority of Manager window residency.
   - **Size:** about a day.
-- **Generate and live pack files** (P5).
-  - **Now:** `write_pack_files` (`packs.rs`) rewrites every non-empty
-    file-backed pack whose bytes differ from the library's view. An
-    agent's edit to a live pack's file is lost on the next save, even
-    though the README and the PacksCard copy invite such edits.
-  - **The false success:** Generate with an existing pack's name syncs
-    that pack's file first. So the poll in `GenerateDialog.tsx` reports
-    "The agent wrote the pack" within 2 s, before the agent has done
-    anything.
-  - **The broken recovery:** the recovery toast points at Settings →
-    Packs, which doesn't list the file.
-  - **Fix now:**
-    - read a baseline when the instruction is copied, and open the
-      review only once the file differs from it (a core helper with a
-      `node --test` case);
-    - give an existing pack's name a scratch file under
-      `packs/generated/`;
-    - make the toast name Import… → From file….
-  - **Decision:** may anything write a live pack's file? Pick: no;
-    reword the README, the tooltips and BEHAVIOR. The self-write guard
-    stays with Linked pack file.
-  - **Size:** about a day, plus the mock's per-path files and the first
-    e2e case on this path.
+- ~~**Generate and live pack files**~~ (P5) done 2026-11-05: nothing
+  writes a live pack's file. Every agent run gets a scratch file under
+  `packs/generated/`, a copy for an existing pack, and the review opens only
+  when the file differs from its first read (`agentFileReady`). The notice on
+  closing names the file and Import… → From file…, with a Show file button,
+  and the README, the tooltips and BEHAVIOR say a pack's file is the app's
+  output. **Left:** `packs/generated/` grows by one file per run and is never
+  swept; a locked pack goes through the whole agent run and is refused at
+  Add, where the review offers another name.
 - **Elevated windows: report instead of failing silently** (P6).
   - **Now:** the README's Known limitations says the popup tells you
     when it can't paste into an admin window. It doesn't: `SendInput`
@@ -266,7 +252,8 @@ domain renewal, with P2's Raycast fix alongside.
   writers on one file (the app's atomic rename landing over an agent's
   half-written edit; a self-write guard and a debounce are needed), and
   `retire_pack_file` must never move a file out of a user's repo into
-  `packs/deleted/`. **Why deferred:** 0 issues and one 0-comment
+  `packs/deleted/`. The guard would also cover edits to a pack's file in
+  `packs/`, which today the next save overwrites. **Why deferred:** 0 issues and one 0-comment
   Discussion on 2026-10-29; reputation before features (2026-09-28).
 - **Community pack library** (parked 2026-09-24 over safety and legal
   concerns). Packs as `library/<slug>.json` in the repo (the pack format

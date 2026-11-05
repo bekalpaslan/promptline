@@ -1,7 +1,7 @@
 // The manager against the fake backend: the tree, the editor's autosave,
 // the filter, the overview and Settings. BEHAVIOR.md "Shape" is the spec.
 import { expect, test } from "@playwright/test"
-import { calls, emit, failCommand, library, open, setClipboard, setUpdate } from "./mock"
+import { calls, emit, failCommand, library, open, readFile, setClipboard, setUpdate, writeFile } from "./mock"
 
 type P = Parameters<typeof open>[0]
 const tree = (page: P) => page.getByRole("tree", { name: "Library" })
@@ -13,6 +13,83 @@ const V = { version: "9.9.9", notes: NOTES }
 
 test.beforeEach(async ({ page }) => {
   await open(page, "manager")
+})
+
+// The Generate dialog's agent path up to the instruction being copied, and
+// the file it made; the poll has read it at least once more on the way out
+const generateForAgent = async (page: P, topic: string) => {
+  await page.getByRole("complementary", { name: "Prompts" }).getByRole("button", { name: "New" }).click()
+  await page.getByRole("menuitem", { name: /Generate/ }).click()
+  await page.getByRole("dialog").getByRole("textbox", { name: "Topic" }).fill(topic)
+  await page.getByRole("radio", { name: /Coding agent/ }).click()
+  await page.getByRole("button", { name: "Create file & copy instructions" }).click()
+  await expect.poll(async () => (await calls(page, "read_pack_file")).length, { timeout: 6000 }).toBeGreaterThan(1)
+  return String((await calls(page, "read_pack_file"))[0].args?.path)
+}
+const AGENT_PACK = JSON.stringify({ name: "Agent", prompts: [{ title: "Written by the agent", tags: [], text: "Fresh." }] })
+
+test("Generate for an existing pack hands the agent a copy, never the pack's own file", async ({ page }) => {
+  const [{ pack }] = await library(page)
+  const path = await generateForAgent(page, pack)
+  expect(await calls(page, "add_pack_file")).toEqual([])
+  expect((await calls(page, "create_generated_file"))[0].args).toMatchObject({ name: pack })
+  expect(path).toContain("generated")
+  expect((await calls(page, "set_clipboard_text"))[0].args?.text).toContain("importing adds to the pack")
+})
+
+test("Generate takes a topic in another case for the pack it names", async ({ page }) => {
+  const [{ pack }] = await library(page)
+  await generateForAgent(page, pack.toUpperCase())
+  expect((await calls(page, "create_generated_file"))[0].args).toMatchObject({ name: pack })
+})
+
+test("Generate for a new topic writes to a scratch file too, and asks nothing about current prompts", async ({ page }) => {
+  const path = await generateForAgent(page, "A new topic")
+  expect((await calls(page, "create_generated_file"))[0].args).toMatchObject({ name: "A new topic" })
+  expect((await calls(page, "set_clipboard_text"))[0].args?.text).not.toContain("importing adds to the pack")
+  await writeFile(page, path, AGENT_PACK)
+  await expect(page.getByRole("checkbox", { name: /^Written by the agent/ })).toBeVisible({ timeout: 6000 })
+})
+
+test("Generate's Copy again keeps the file the agent may already have", async ({ page }) => {
+  const path = await generateForAgent(page, "A new topic")
+  await page.getByRole("button", { name: "Copy again" }).click()
+  await expect.poll(async () => (await calls(page, "set_clipboard_text")).length).toBe(2)
+  expect(await calls(page, "create_generated_file")).toHaveLength(1)
+  expect((await calls(page, "set_clipboard_text"))[1].args?.text).toContain(path)
+})
+
+test("Generate waits for the agent's change, not the prompts the copy starts with", async ({ page }) => {
+  const [{ pack }] = await library(page)
+  const path = await generateForAgent(page, pack)
+  expect(JSON.parse(await readFile(page, path)).prompts.length).toBeGreaterThan(0)
+  await expect(page.getByRole("status").filter({ hasText: "Watching" })).toBeVisible()
+  await expect(page.getByRole("checkbox")).toHaveCount(0)
+
+  await writeFile(page, path, AGENT_PACK)
+  await expect(page.getByRole("checkbox", { name: /^Written by the agent/ })).toBeVisible({ timeout: 6000 })
+})
+
+test("Generate's survey still opens the review when the agent fills its scratch file", async ({ page }) => {
+  const path = await generateForAgent(page, "")
+  expect((await calls(page, "create_generated_file"))[0].args).toMatchObject({ name: null })
+  await writeFile(page, path, AGENT_PACK)
+  await expect(page.getByRole("checkbox", { name: /^Written by the agent/ })).toBeVisible({ timeout: 6000 })
+})
+
+test("closing Generate mid-watch names the file and the import that reaches it", async ({ page }) => {
+  const path = await generateForAgent(page, "A new topic")
+  await page.keyboard.press("Escape")
+  await expect(page.getByText(/Import… → From file…/)).toContainText(path)
+  await page.getByRole("button", { name: "Show file" }).click()
+  expect((await calls(page, "show_in_folder"))[0].args).toMatchObject({ path })
+})
+
+test("closing Generate after Stop still names the file", async ({ page }) => {
+  const path = await generateForAgent(page, "A new topic")
+  await page.getByRole("button", { name: "Stop" }).click()
+  await page.keyboard.press("Escape")
+  await expect(page.getByText(/Import… → From file…/)).toContainText(path)
 })
 
 test("the sidebar lists every pack with its count", async ({ page }) => {

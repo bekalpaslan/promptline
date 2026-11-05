@@ -49,6 +49,18 @@ export function setClipboard(page: Page, text: string) {
   return page.evaluate((text) => void ((window as unknown as { __mock: { clipboard: string } }).__mock.clipboard = text), text)
 }
 
+// Stands in for an agent writing the file Generate handed it
+export function writeFile(page: Page, path: string, text: string) {
+  return page.evaluate(
+    ([path, text]) => void ((window as unknown as { __mock: { files: Record<string, string> } }).__mock.files[path] = text),
+    [path, text]
+  )
+}
+
+export function readFile(page: Page, path: string): Promise<string> {
+  return page.evaluate((path) => (window as unknown as { __mock: { files: Record<string, string> } }).__mock.files[path], path)
+}
+
 // Makes every call of `cmd` reject from now on (the mock's `fail` set)
 export function failCommand(page: Page, cmd: string) {
   return page.evaluate((cmd) => void (window as unknown as { __mock: { fail: Set<string> } }).__mock.fail.add(cmd), cmd)

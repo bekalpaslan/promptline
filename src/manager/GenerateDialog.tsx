@@ -15,7 +15,7 @@ import { Chip, PREVIEW_BOX } from "@/components/prompt-bits"
 import { SEGMENT_TRACK, fieldVariants, segmentClass } from "@/components/field"
 import { useManager } from "./state"
 import { ImportCuration } from "./ImportCuration"
-import { say, sayErr } from "./status"
+import { say, sayErr, sayLong } from "./status"
 import { type Segment, agentInstruction, chatInstruction, packInstructionRules, segmentsToText } from "./generate-instructions"
 
 type Path = "chat" | "agent"
@@ -96,11 +96,17 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
   // The file content whose review was cancelled: watching resumes, but the
   // same content must not reopen the list two seconds later
   const dismissedRaw = useRef<string | null>(null)
+  // The agent's file as it was made: the review opens on a change from this,
+  // never on what the file already held
+  const baselineRaw = useRef<string | null>(null)
 
   const tags = m.allTags().slice(0, 12).join(", ") || "debug, review, plan"
   const rules = packInstructionRules(tags)
+  // Pack names are unique whatever their case, so "work" means the pack "Work"
+  const existingPack = m.packNames().find((p) => p.toLowerCase() === topic.trim().toLowerCase())
+  const named = existingPack ?? topic.trim()
   const segments =
-    path === "chat" ? chatInstruction(rules, topic.trim()) : agentInstruction(tags, topic.trim(), agentFilePath)
+    path === "chat" ? chatInstruction(rules, topic.trim()) : agentInstruction(tags, named, agentFilePath, !!existingPack)
 
   const reset = () => {
     setTopic("")
@@ -109,6 +115,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     setWatching(false)
     setImportRaw(null)
     dismissedRaw.current = null
+    baselineRaw.current = null
     setImported(false)
   }
 
@@ -148,29 +155,23 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
     say("Copied — paste it into your AI chat")
   }
 
-  // Agent mode: the agent writes the pack straight into a file-backed pack's
-  // .json — no clipboard transport, immune to terminal copy corruption.
+  // Agent mode: the agent writes the pack straight into a .json — no clipboard
+  // transport, immune to terminal copy corruption. Always a scratch file that
+  // backs no pack, never a live pack's file: the next save would overwrite the
+  // agent's work (BEHAVIOR.md). The pack itself is created on import (L8), so
+  // cancelling leaves a file but no empty pack in the sidebar.
   const copyAgentInstructions = async () => {
-    const t = topic.trim()
     try {
-      const meta = m.packMeta.find((p) => p.name === t)
-      let filePath = meta?.path
-      if (!t) {
-        // Survey mode: the project pack lands in a scratch file that backs no pack
-        filePath = await invoke<string>("create_generated_file")
-      } else if (meta) {
-        // An existing pack without a file: give it one, on its metadata
-        filePath = await m.addPackFile(t)
-      } else {
-        // A file for the agent to write into. The pack itself is created on
-        // import (L8): cancelling here leaves a file in packs/ (an orphan,
-        // never swept — BEHAVIOR.md) but no empty pack in the sidebar.
-        filePath = await invoke<string>("create_pack_file", { name: t })
+      // Copy again keeps the file: the first instruction may be with the agent
+      let filePath = copied ? agentFilePath : ""
+      if (!filePath) {
+        filePath = await invoke<string>("create_generated_file", { name: named || null })
+        baselineRaw.current = await invoke<string>("read_pack_file", { path: filePath })
+        dismissedRaw.current = null
+        setAgentFilePath(filePath)
       }
-      setAgentFilePath(filePath)
-      dismissedRaw.current = null
       await invoke("set_clipboard_text", {
-        text: segmentsToText(agentInstruction(tags, t, filePath)),
+        text: segmentsToText(agentInstruction(tags, named, filePath, !!existingPack)),
       })
       setCopied(true)
       setWatching(true)
@@ -183,15 +184,17 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
   // ---- Step 2 (agent): watch the pack file until the agent fills it ----
   useEffect(() => {
-    if (!watching || !agentFilePath || importRaw !== null) return
+    const baseline = baselineRaw.current
+    if (!watching || !agentFilePath || baseline === null || importRaw !== null) return
+    // A read still in flight when this watch ends answers for nothing
+    let ended = false
     const t = setInterval(() => {
       setWatchedFor((s) => s + 2)
       void (async () => {
         try {
           const raw = await invoke<string>("read_pack_file", { path: agentFilePath })
-          if (raw === dismissedRaw.current) return
-          const diag = C.diagnosePack(raw)
-          if (diag.ok && diag.packs.some((p) => p.prompts.length > 0)) {
+          if (ended || raw === dismissedRaw.current) return
+          if (C.agentFileReady(raw, baseline)) {
             setWatching(false)
             setImportRaw(raw)
             say("The agent wrote the pack — review it below")
@@ -201,7 +204,10 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
         }
       })()
     }, 2000)
-    return () => clearInterval(t)
+    return () => {
+      ended = true
+      clearInterval(t)
+    }
   }, [watching, agentFilePath, importRaw])
 
   // Import the agent's file by hand (after Stop, or when the poll missed it)
@@ -224,12 +230,24 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
 
   const close = (v: boolean) => {
     if (!v) {
-      // Closing mid-watch keeps nothing running; the file stays for a manual
-      // import from Settings → the pack's "Import from this file…"
-      if (watching) say("Stopped watching — the file is still there under Settings → Packs")
+      // Closing keeps nothing running; the file stays for a manual import, the
+      // one route that reaches every file this dialog makes
+      if (agentFilePath) {
+        const shown = agentFilePath
+        sayLong(`The agent's file stays. To bring it in later: Settings → Backup and import → Import… → From file…, then pick ${shown}`, {
+          label: "Show file",
+          onClick: () => void invoke("show_in_folder", { path: shown }).catch((e) => sayErr(`Couldn't open the folder: ${String(e)}`)),
+        })
+      }
       reset()
     }
     onOpenChange(v)
+  }
+
+  // An import ends the dialog with nothing left to point at
+  const finish = () => {
+    reset()
+    onOpenChange(false)
   }
 
   const step2Done = importRaw !== null || imported
@@ -333,10 +351,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                     raw={importRaw}
                     defaultName={topic.trim()}
                     onClose={() => setImportRaw(null)}
-                    onImported={() => {
-                      setImported(true)
-                      close(false)
-                    }}
+                    onImported={finish}
                   />
                 )}
               </Step>
@@ -345,15 +360,20 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
             <>
               <Step n={1} title="Create the pack file & copy instructions" done={copied} active={!copied}>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {topic.trim()
-                    ? "Creates a file-backed pack; the instruction contains its path so the agent writes it directly — no clipboard round-trip."
-                    : "Creates a scratch file; the agent writes the project's pack into it and you review it on import."}
+                  {existingPack
+                    ? "Creates a scratch copy of this pack; the agent writes new prompts there and your pack changes only when you import."
+                    : topic.trim()
+                      ? "Creates a scratch file; the instruction contains its path so the agent writes it directly — no clipboard round-trip."
+                      : "Creates a scratch file; the agent writes the project's pack into it and you review it on import."}
                 </p>
                 <Button size="sm" className="mt-1.5" onClick={() => void copyAgentInstructions()}>
                   {copied ? "Copy again" : "Create file & copy instructions"}
                 </Button>
               </Step>
               <Step n={2} title="Paste to your agent — the file reloads by itself" done={step2Done} active={copied && !step2Done}>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  The agent may ask before writing outside its project; the path in the instruction is the one to allow.
+                </p>
                 {watching && (
                   <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                     <RiLoader4Line className="size-4 animate-spin" aria-hidden />
@@ -382,7 +402,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                 {watching && watchedFor >= 90 && (
                   <p className="mt-1 text-xs text-muted-foreground" role="status">
                     Still nothing after {Math.floor(watchedFor / 60)} min — agents can take a while; you can also close
-                    this dialog and import the file later from Settings.
+                    this dialog and import the file later from Settings → Backup and import.
                   </p>
                 )}
               </Step>
@@ -396,10 +416,7 @@ export function GenerateDialog({ open, onOpenChange }: { open: boolean; onOpenCh
                       setImportRaw(null)
                       setWatching(true) // resume watching if they cancel — the agent may rewrite
                     }}
-                    onImported={() => {
-                      setImported(true)
-                      close(false)
-                    }}
+                    onImported={finish}
                   />
                 )}
               </Step>
