@@ -37,15 +37,10 @@ domain renewal, with P2's Raycast fix alongside.
 
 - **The updater: require the signed version, count "kept", survive a
   lapsed domain** (P1).
-  - **Now:** the feed signatures for 0.2.17 to 0.2.25 carry no
-    `version:`, and `tauri.conf.json` doesn't set
-    `requireSignedVersion`. So anyone who can serve the feed can offer
-    one of those old builds under a higher version number. The crate
-    says so itself: tauri-plugin-updater 2.12.0, `updater.rs:1568`.
-  - **(d), the version check:** set the flag, with a Rust config test.
-    `scripts/latest-json.mjs` then refuses a signature that lacks
-    `version:<feed version>`. In the same change, fix the two Phase 4
-    plans that sign without `--app-version`.
+  - ~~**(d), the version check**~~ done 2026-11-05, ships in 0.2.28:
+    `requireSignedVersion` is on, and `scripts/latest-json.mjs` refuses
+    a signature that doesn't name the feed's version. Copies at 0.2.27
+    or earlier can't be protected after the fact.
   - **(a), counting "kept":** upload byte copies
     `Promptline_X.Y.Z_x64-update.exe` and `…-update.msi`. Only the feed
     names them, so their downloads count accepted updates exactly.

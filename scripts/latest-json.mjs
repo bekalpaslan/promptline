@@ -44,10 +44,23 @@ export function feedNotes(markdown) {
   return cut.trim()
 }
 
+/** The version a .sig file was signed for, or null. A .sig is base64 of
+ *  minisign's text; `tauri build` writes `version:X.Y.Z` into its trusted
+ *  comment as a tab-separated field, the same reading the updater does. */
+export function signedVersion(signature) {
+  const text = Buffer.from(signature.trim(), "base64").toString("utf8")
+  const comment = /^trusted comment: (.*)$/m.exec(text)
+  if (!comment) return null
+  const field = comment[1].split("\t").find((f) => f.startsWith("version:"))
+  return field ? field.slice("version:".length).trim().replace(/^v/, "") : null
+}
+
 /** The static feed object tauri-plugin-updater reads.
  *  signatures: { nsis: string, msi?: string } — file contents, one platform
  *  key per signature given. baseUrl default is the versioned GitHub release
- *  asset URL (never `latest/download`, per the winget decision). */
+ *  asset URL (never `latest/download`, per the winget decision). Refuses a
+ *  signature that doesn't name `version`: `requireSignedVersion` makes every
+ *  copy from 0.2.28 fail at Install on one, so it must never reach the feed. */
 export function buildFeed({ version, notes, pubDate, signatures, baseUrl }) {
   if (!VERSION_RE.test(version || "")) throw new Error(`latest-json: not a version (X.Y.Z or X.Y.Z-pre): ${version}`)
   if (!signatures || !signatures.nsis || !signatures.nsis.trim()) {
@@ -60,6 +73,12 @@ export function buildFeed({ version, notes, pubDate, signatures, baseUrl }) {
     const sig = signatures[kind]
     if (sig == null) continue
     if (!sig.trim()) throw new Error(`latest-json: signatures.${kind} cannot be empty`)
+    const signed = signedVersion(sig)
+    if (signed !== version) {
+      throw new Error(
+        `latest-json: the ${kind} signature names ${signed ? `version ${signed}` : "no version"}, not ${version}. Rebuild, or re-sign with --app-version ${version}`,
+      )
+    }
     platforms[PLATFORM_KEYS[kind]] = { signature: sig.trim(), url: base + names[kind] }
   }
   return { version, notes, pub_date: pubDate, platforms }
@@ -107,12 +126,18 @@ function main(argv) {
     return usageError(`missing ${msiSig.missing} — build with TAURI_SIGNING_PRIVATE_KEY set (CLAUDE.md, Releasing step 3)`)
   }
 
-  const feed = buildFeed({
-    version,
-    notes,
-    pubDate,
-    signatures: { nsis: nsisSig.content, msi: msiSig.content },
-  })
+  let feed
+  try {
+    feed = buildFeed({
+      version,
+      notes,
+      pubDate,
+      signatures: { nsis: nsisSig.content, msi: msiSig.content },
+    })
+  } catch (e) {
+    console.error(e.message)
+    return 1
+  }
 
   fs.mkdirSync(path.dirname(out), { recursive: true })
   fs.writeFileSync(out, JSON.stringify(feed, null, 2) + "\n")

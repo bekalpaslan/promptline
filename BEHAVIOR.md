@@ -1700,8 +1700,15 @@ including "you're on the latest version".
 
 **Installing verifies the signature first, then runs the passive
 installer.** `tauri-plugin-updater` checks the download against
-`plugins.updater.pubkey` before anything runs; only then does it invoke
-the installer in passive mode (a small progress window, no clicks, D-08),
+`plugins.updater.pubkey` before anything runs, and from 0.2.28 it also
+refuses a signature that doesn't name the version the feed offers
+(`requireSignedVersion`). The feed itself isn't signed, so without that
+it could offer an old build, whose signature names no version, under a
+higher number; 0.2.17 to 0.2.25 were signed that way. `tauri build`
+writes the version in, and `scripts/latest-json.mjs` won't write a feed
+without it, since a signature that lacks it would fail at Install on
+every copy. Only then does the plugin invoke the installer in passive
+mode (a small progress window, no clicks, D-08),
 which relaunches Promptline once it's done — install itself is Rust
 awaiting `download_and_install`, then `app.restart()` for the platforms
 where the installer doesn't already relaunch it.

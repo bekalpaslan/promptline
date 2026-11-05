@@ -386,7 +386,10 @@ build is still what ships.
    installers and `Promptline-setup.exe`).
 6. The feed, after the release: `node scripts/latest-json.mjs --notes <notes>` (the
    same notes file as step 5) reads the `.sig` files from step 3 and
-   writes `site/latest.json`. Before committing,
+   writes `site/latest.json`. It refuses a `.sig` that doesn't name the
+   version, which `requireSignedVersion` would fail at Install; `tauri
+   build` writes it in, and anything signed by hand needs
+   `tauri signer sign --app-version X.Y.Z`. Before committing,
    `curl -sIL -o /dev/null -w "%{http_code}\n" <each url in it>` must print
    200 for every url the feed names. Commit it alone as
    `Site: update feed for X.Y.Z`, push `master`, wait for the Pages run

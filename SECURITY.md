@@ -33,7 +33,7 @@ machine:
   newer release exists; the request carries nothing about the user (no
   version, no ID, no usage). An update installs only after the user accepts
   it, and only if its signature verifies against the public key built into
-  the app. **Settings → About** turns the check off. The app opens one
+  the app and names the version on offer. **Settings → About** turns the check off. The app opens one
   link, the "Buy me a coffee" button in Settings, in your browser. The
   command behind it (`open_url`) takes an address from the page but
   opens it only when it is on a short list in the code (that one address

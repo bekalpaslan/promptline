@@ -52,7 +52,9 @@ comment when it decides the outcome.
   TLS library was patched"), per CLAUDE.md → Releasing's rule on
   network changes. Features that pull code the Windows path never runs
   stay off (`zip` is off since 2026-10-29: it unpacks macOS and Linux
-  archives).
+  archives). An opt-in that a changelog's Security section asks for gets
+  decided, not just merged: the bump that brought `requireSignedVersion`
+  left it off until the 2026-11-02 review caught it.
 - **Majors are taken by hand.** The npm and cargo groups ignore
   `version-update:semver-major`. A major is a branch of its own, read
   against its changelog, with the checks it needs (below). Do not lift

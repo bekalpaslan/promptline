@@ -310,4 +310,17 @@ mod tests {
             serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
         assert_eq!(conf["identifier"].as_str().unwrap(), super::APP_ID);
     }
+
+    // Fresh-eyes 2026-11-02, P1(d). The feed isn't signed, so without this it
+    // could offer an old build, whose signature names no version, under a
+    // higher number. Read through the plugin's own Config: a misspelt key
+    // would quietly default to off.
+    #[test]
+    fn an_update_must_be_signed_for_the_version_the_feed_offers() {
+        let conf: serde_json::Value =
+            serde_json::from_str(include_str!("../tauri.conf.json")).unwrap();
+        let updater: tauri_plugin_updater::Config =
+            serde_json::from_value(conf["plugins"]["updater"].clone()).unwrap();
+        assert!(updater.require_signed_version);
+    }
 }

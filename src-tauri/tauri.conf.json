@@ -71,6 +71,7 @@
   },
   "plugins": {
     "updater": {
+      "requireSignedVersion": true,
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDgwMDczNDY3QkYyMjg4OQpSV1NKS1BKN1JuTUFDTDEydUwxQzBma0pFajVhY3VHS0sxWTFzWUw2NFhCTzFhL0RwVUl0eDU3cQo=",
       "endpoints": [
         "https://promptline.cc/latest.json"
