@@ -25,6 +25,237 @@ the strategy behind it is in the local `docs/MARKETING.md`.
    together; `paste.rs:321` is the first thing that does not compile), then
    Show HN and the launch-week table.
 
+## Fresh-eyes review, 2026-11-02
+
+Recorded 2026-11-02 from the fresh-eyes review at `927d395`, none of it
+decided yet. Each item waits on the maintainer's call; where an item says
+"pick", that is the agents' recommendation. The full report, with its
+evidence and line references, is local only (gitignored, like the
+2026-10-29 one): `docs/reviews/fresh-eyes-2026-11-02.md`. The P numbers
+are the report's ids. The report suggests starting with P1(d) and the
+domain renewal, with P2's Raycast fix alongside.
+
+- **The updater: require the signed version, count "kept", survive a
+  lapsed domain** (P1).
+  - **Now:** the feed signatures for 0.2.17 to 0.2.25 carry no
+    `version:`, and `tauri.conf.json` doesn't set
+    `requireSignedVersion`. So anyone who can serve the feed can offer
+    one of those old builds under a higher version number. The crate
+    says so itself: tauri-plugin-updater 2.12.0, `updater.rs:1568`.
+  - **(d), the version check:** set the flag, with a Rust config test.
+    `scripts/latest-json.mjs` then refuses a signature that lacks
+    `version:<feed version>`. In the same change, fix the two Phase 4
+    plans that sign without `--app-version`.
+  - **(a), counting "kept":** upload byte copies
+    `Promptline_X.Y.Z_x64-update.exe` and `…-update.msi`. Only the feed
+    names them, so their downloads count accepted updates exactly.
+    `snapshot.mjs` reads them as "kept", measured against cumulative
+    site downloads rather than site(N).
+  - **(b) and (c), decision:** should the check ask
+    `releases/latest/download/latest.json` before promptline.cc? It
+    would give a daily count of checks, and a second endpoint if the
+    domain lapses. Today a 200 response that isn't JSON ends the
+    endpoint loop. Pick: yes, disclosed first; if not, ask
+    `raw.githubusercontent.com` first.
+  - **Also:** confirm promptline.cc renews; it expires 2027-09-22.
+  - **Size:** about a day. Before the release, trial the renamed asset
+    with `scripts/update-trial.mjs`.
+- **"Why not Raycast?" and the macOS line** (P2).
+  - **Now:** the README's "Why not…" answer and `site/index.html:626`
+    say Raycast is macOS only. Raycast for Windows has been public since
+    2025-11-27; it is free, and its snippets take clipboard placeholders.
+    Two tests require that false wording: `tests/site-content.test.js`
+    and `tests/readme-content.test.js`.
+  - **Fix now, as its own commit:** check the Raycast facts in the app
+    first, then name the real difference: packs are plain JSON files an
+    agent can write, and every import goes through the checklist.
+    Invert the two tests.
+  - **Decision:** the macOS line says "in progress" or "on the way" in
+    the README, the site, both posts, the repo description and dev.to,
+    while the record calls the port undated. Pick: mention macOS only
+    under Known limitations, as "planned, no date". That overturns Phase
+    6 D-11 and Phase 10 D-02, and `tests/posts.test.js` enforces "in
+    progress".
+  - **Also:** record the namesakes D1 doesn't list (dyne.org's
+    Promptline, `@jxtools/promptline`, promptline.vim). Homebrew's
+    notability bar (75 stars, or 225 for your own submission) means a
+    personal tap for now.
+  - **Size:** hours.
+- **The signing gate: dates, and what signing buys** (P3). This feeds
+  items 1, 2 and 4 under Next.
+  - **Now:** signing doesn't skip SmartScreen on day one; the warning
+    shows the publisher's name until reputation builds. What signing
+    buys at once is Smart App Control, which blocks the unsigned
+    installer with no "Run anyway" and which nothing in the repo
+    mentions.
+  - **Decision:** three dates and two calls.
+    - The order date.
+    - A date to chase Certum. Pick: now, if the order is more than a
+      week old.
+    - A fallback date about four weeks out.
+    - The fallback itself. Pick: SignPath or another OV vendor before an
+      unsigned round.
+    - A Smart App Control line in the README now. Pick: yes.
+  - **Into item 2's rewrite list:**
+    - "may still warn, naming the publisher";
+    - Smart App Control;
+    - `site/code-signing/`'s plug-in sentence goes once a signed build
+      shows the plug-ins signed (CLI 2.11.5 signs them).
+  - **Local MARKETING:** :72 contradicts :81, and the awesome-list
+    statuses at :120 are stale.
+  - **Size:** hours, no code.
+- **Start with Windows on a fresh install** (P4).
+  - **Now:** nothing has ever turned autostart on (`set_autostart` is
+    the only caller of `enable()`), and no decision on the default is
+    recorded. A copy that isn't running neither pastes nor checks for
+    updates. Scoop and winget installs never get the finish-page launch.
+  - **Decision:**
+    - (A) turn it on at the first launch of a fresh NSIS install, with a
+      one-click "Don't" in the first-run banner. Gate it on
+      `data_moved`, a fresh install, the NSIS bundle, and no
+      StartupApproved value marking it disabled.
+    - (B) the banner asks.
+
+    Pick: A.
+  - **First step:** add `?mock=first` and an e2e case for today's
+    banner, so it has coverage before it changes.
+  - **Knock-on:** this raises the priority of Manager window residency.
+  - **Size:** about a day.
+- **Generate and live pack files** (P5).
+  - **Now:** `write_pack_files` (`packs.rs`) rewrites every non-empty
+    file-backed pack whose bytes differ from the library's view. An
+    agent's edit to a live pack's file is lost on the next save, even
+    though the README and the PacksCard copy invite such edits.
+  - **The false success:** Generate with an existing pack's name syncs
+    that pack's file first. So the poll in `GenerateDialog.tsx` reports
+    "The agent wrote the pack" within 2 s, before the agent has done
+    anything.
+  - **The broken recovery:** the recovery toast points at Settings →
+    Packs, which doesn't list the file.
+  - **Fix now:**
+    - read a baseline when the instruction is copied, and open the
+      review only once the file differs from it (a core helper with a
+      `node --test` case);
+    - give an existing pack's name a scratch file under
+      `packs/generated/`;
+    - make the toast name Import… → From file….
+  - **Decision:** may anything write a live pack's file? Pick: no;
+    reword the README, the tooltips and BEHAVIOR. The self-write guard
+    stays with Linked pack file.
+  - **Size:** about a day, plus the mock's per-path files and the first
+    e2e case on this path.
+- **Elevated windows: report instead of failing silently** (P6).
+  - **Now:** the README's Known limitations says the popup tells you
+    when it can't paste into an admin window. It doesn't: `SendInput`
+    into an elevated window is dropped without an error, so nothing is
+    shown and nothing is logged. BEHAVIOR's paste pipeline and
+    `platform.rs` already say it's silent, and L2's resolution line in
+    RELEASE-AUDIT is wrong.
+  - **First step:** on 0.2.27, press Ctrl+Alt+V into an admin Windows
+    Terminal, once without and once with Keep open.
+  - **If it's silent:** add `platform::input_blocked(hwnd)`, comparing
+    integrity RIDs and treating access denied as blocked. `paste.rs`
+    then reports it through `report_paste_failed`, with a message of at
+    most about 110 characters, which is what the strip's three lines
+    hold at 320 px.
+  - **Size:** hours.
+- **Pin the zero scan code; PuTTY and Emacs** (P7).
+  - **Now:** the injected Ctrl+V carries `wScan: 0` (`key()` in
+    `platform.rs`), and mintty pastes exactly that key (wsltty#139). So
+    Git Bash works by an unrecorded accident, which filling in the scan
+    code would break.
+  - **First step:** Ctrl+Alt+V into Git Bash, once plain and once inside
+    `claude`. If the text lands, move the events into `ctrl_v_inputs()`,
+    add a Windows test that they carry no scan code, add a comment, and
+    add one BEHAVIOR sentence.
+  - **PuTTY, KiTTY and Emacs** paste on Shift+Insert. Add a Known
+    limitations bullet once a manual check confirms PuTTY misses.
+  - **Decision:** a paste key per window class? Pick: not until a user
+    asks. Shift+Insert gets dropped by Claude Code under the kitty
+    protocol in VS Code (claude-code#93782).
+  - **Size:** hours.
+- **Report a bug from About** (P8).
+  - **Now:** the app links to nothing but the coffee page
+    (`OPENABLE_URLS`). No issue has ever been opened, and the backlog's
+    demand gates read issues and Discussions that installed users can't
+    find.
+  - **Decision:** does 4e6d0fb's "the app gets no link until Discussions
+    shows life" cover the issue tracker? Pick: no.
+  - **The change, if so:**
+    - a "Report a bug" button in Settings → About, opening
+      `issues/new?template=bug_report.md`;
+    - the `wr04` test extended to admit it and refuse lookalikes;
+    - an e2e case asserting through `__mock.calls`;
+    - SECURITY.md's "one link" updated;
+    - `bug_report.md` pointing at About for the version.
+  - **Size:** hours.
+- **Hotkey collisions: Office and Visual Studio** (P9).
+  - **Now:** Ctrl+Alt+V is Paste Special in Excel and PowerPoint, and it
+    starts debugger chords in Visual Studio. The README and the Settings
+    help name only AltGr, JetBrains and Terminal.
+  - **The change:**
+    - a dated table in BEHAVIOR's hotkey passage, covering both
+      candidate defaults in each app (Ctrl+Alt+V still wins);
+    - a wider README bullet.
+  - **Decision:** add one clause to the Settings help, or keep the help
+    and narrow BEHAVIOR's rule that it names every known collision. The
+    checker picked narrowing.
+  - **Size:** hours.
+- **A gesture check before the feed goes live** (P10).
+  - **Now:** the e2e suite stops at `invoke("paste_snippet")`. Nothing
+    runs the built binary's hotkey, focus hand-back and paste before
+    every copy is offered the release.
+  - **The change:** `scripts/gesture-check.ps1` (a seeded data folder,
+    Notepad and a console as targets, a nonce, polls rather than sleeps)
+    and a `gesture` job on windows-latest.
+  - **First step:** a probe triggered only by `workflow_dispatch`, to
+    learn whether an injected hotkey fires and WebView2 renders on the
+    runner.
+  - **Decision:** does a red job block the tag? Pick: advisory, and
+    perhaps first a manual gesture step in the release skill before the
+    feed goes live.
+  - **Size:** about a day.
+- **Release cadence and the "kept" reading** (P11).
+  - **Now:** releases that stayed latest for six days or more read 9 to
+    15 versioned fetches; those latest for two days or less read 5 to 8.
+    The floor is about 4 to 7, so short windows hide "kept".
+  - **Decision:**
+    - a standing 7-day floor, with an exception for fixes users can't
+      work around;
+    - or the narrower form, the checker's pick: `snapshot.mjs --releases`
+      marks windows under 5 days as "kept not read", plus a week's hold
+      after the round's release.
+
+    Either way this reopens 10-29 P10.
+  - **Also open:** does the X post run for every quiet-phase release, and
+    should it link promptline.cc instead of the release page that
+    `post-x.mjs` links today?
+  - **Size:** hours.
+- **Clipboard history and cloud sync.** This is the orchestrator's note;
+  no second agent has checked it.
+  - **Now:** each paste writes the composed prompt with a plain
+    `set_text` (`paste.rs`). So it lands in Win+V history and, if sync is
+    on, in the cloud clipboard.
+  - **The risk (inferred, not run):** a secret copied from a password
+    manager carries an exclusion mark. Pasted through `{clipboard}`, it
+    loses that mark.
+  - **The fix exists:** arboard 3.7 has `exclude_from_history()` and
+    `exclude_from_cloud()`.
+  - **Before acting:** it needs a deep dive and a check.
+- **Not deepened in that review.** Each is one line in the report:
+  - Search Console and Bing Webmaster verification (a DNS TXT record, no
+    script);
+  - opening the popup at the target window rather than at the mouse;
+  - drift in the docs agents read (PRODUCT.md, MARKETING's "No network
+    code", dead SHAs);
+  - a retried paste wrapping the prompt in itself;
+  - a release-step check of the feed signature over the released bytes
+    (overlaps P1);
+  - library writes off the UI thread, and a panic hook that logs.
+
+  Angles no agent took: accessibility of both windows, and recovering
+  the library after a bad import.
+
 ## Import / export
 
 - ~~**Import pack from file**~~ — **shipped 2026-07-12** (`rfd` picker +
