@@ -61,15 +61,10 @@ domain renewal, with P2's Raycast fix alongside.
   - **Size:** about a day. Before the release, trial the renamed asset
     with `scripts/update-trial.mjs`.
 - **"Why not Raycast?" and the macOS line** (P2).
-  - **Now:** the README's "Why not…" answer and `site/index.html:626`
-    say Raycast is macOS only. Raycast for Windows has been public since
-    2025-11-27; it is free, and its snippets take clipboard placeholders.
-    Two tests require that false wording: `tests/site-content.test.js`
-    and `tests/readme-content.test.js`.
-  - **Fix now, as its own commit:** check the Raycast facts in the app
-    first, then name the real difference: packs are plain JSON files an
-    agent can write, and every import goes through the checklist.
-    Invert the two tests.
+  - ~~**The Raycast answer**~~ done 2026-11-05: it now names where the
+    library lives, the same words in the README and on the site, and a
+    test holds the two together. Checked against Raycast's Windows
+    changelog and manual, not in the app itself.
   - **Decision:** the macOS line says "in progress" or "on the way" in
     the README, the site, both posts, the repo description and dev.to,
     while the record calls the port undated. Pick: mention macOS only

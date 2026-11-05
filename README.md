@@ -93,9 +93,11 @@ trigger expands into text. They know nothing about your clipboard, packs or
 fill-in fields; Promptline is a library you search, with a preview, pins and
 your most used prompts first.
 
-**Why not Raycast snippets?** Raycast is a fine launcher, but it's
-macOS only, and its snippets have no packs, groups or files an agent can
-write. Promptline runs on Windows today, with a macOS version on the way.
+**Why not Raycast snippets?** Raycast is a fine launcher, on Windows too,
+and its snippets take the clipboard. The difference is where the library
+lives: a Promptline pack is a plain JSON file you can commit, an agent can
+write one through Generate, and every import goes through a checklist
+first.
 
 **Why not slash commands in Claude Code, or Cursor rules?** They're the
 right tool inside the one tool they belong to; Windows Terminal's snippets

@@ -114,15 +114,25 @@ test('the Advanced Paste answer follows the clipboard-manager one, and Windows T
   assert.equal(questions.some((q) => q.includes('Windows Terminal')), false);
 });
 
-test('the Raycast answer says macOS only, not "same on both platforms"', () => {
+// Fresh-eyes 2026-11-02, P2: Raycast has been on Windows since 2025-11-27, so
+// the answer names where the library lives and says nothing Raycast can
+// outdate by shipping
+test('the Raycast answer names where the library lives, the same on the site and in the README', () => {
   const html = read();
   const why = section(html, 'id="why-not"');
   const divMatch = /<div><h3>[^<]*Raycast[^<]*<\/h3>([\s\S]*?)<\/div>/.exec(why);
   assert.ok(divMatch, 'missing the Raycast answer');
-  const text = visibleText(divMatch[1]);
-  assert.match(text, /macOS only/);
-  assert.match(text, /Windows/);
+  const text = visibleText(divMatch[1]).replace(/\s+/g, ' ').trim();
+  assert.ok(!text.includes('macOS only'));
+  assert.ok(!text.includes('on the way'));
   assert.ok(!text.includes('same on both platforms'));
+  assert.match(text, /on Windows too/);
+  assert.match(text, /plain JSON file/);
+
+  const readme = fs.readFileSync(require('node:path').join(__dirname, '..', 'README.md'), 'utf8').replace(/\r\n/g, '\n');
+  const answer = /\*\*Why not Raycast snippets\?\*\* ([\s\S]*?)\n\n/.exec(readme);
+  assert.ok(answer, 'missing the README answer');
+  assert.equal(answer[1].replace(/\s+/g, ' ').trim(), text);
 });
 
 test('in the source, #tour comes before #why-not, which comes before #features', () => {

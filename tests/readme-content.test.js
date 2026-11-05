@@ -103,7 +103,8 @@ test('the Why not… section holds exactly six answers naming the expected tools
   // The Advanced Paste answer follows the clipboard-manager one and precedes Notion
   inOrder(section, ['**Why not a clipboard manager?**', '**Why not PowerToys Advanced Paste?**', '**Why not a Notion page of prompts?**']);
 
-  assert.ok(section.includes('macOS only'));
+  // Raycast has been on Windows since 2025-11-27 (fresh-eyes 2026-11-02, P2)
+  assert.equal(section.includes('macOS only'), false);
   assert.equal(section.includes('same on both platforms'), false);
 });
 
