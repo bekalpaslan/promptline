@@ -62,12 +62,12 @@ for all users under Program Files and asks for admin. If Microsoft Edge WebView2
 with Windows 11 and most Windows 10 machines), the installer downloads its
 bootstrapper, which is the one moment installation needs the network.
 
-The installers are not code-signed yet, so SmartScreen shows "Windows protected
-your PC" on first run — choose **More info → Run anyway**. SignPath
-Foundation's free signing programme for open-source projects didn't accept a
-first application, and the project will apply again; the
-[Code signing policy](https://promptline.cc/code-signing/) says what will be
-signed and who approves it.
+The installers are code-signed from 0.2.28, so Windows names the publisher
+(Open Source Developer Alpaslan Bek), and Smart App Control doesn't block
+them for being unsigned. SmartScreen can still show "Windows protected your
+PC" while a release builds its reputation — choose **More info → Run anyway**.
+The [Code signing policy](https://promptline.cc/code-signing/) says what is
+signed and who signs it.
 
 After installing, Promptline sits in the tray: left-click the icon for the
 manager, press the hotkey anywhere for the popup. Promptline checks for a
@@ -143,7 +143,7 @@ Backup and import** (see [Data](#data)).
 
 - **Windows only, for now.** A macOS version is on the way; it needs the
   Windows-specific parts rewritten (see [Stack](#stack)).
-- **Unsigned installers**, so SmartScreen warns once (above).
+- **SmartScreen can still warn** about a new release, signed or not (above).
 - **Elevated windows don't accept the paste.** Windows blocks keystrokes
   from a normal process into a window running as administrator (an elevated
   terminal, Regedit, an installer). The popup tells you when that happens;
@@ -331,8 +331,8 @@ npm run lint       # ESLint over the whole tree (`npx eslint src` for the app al
 CI (`.github/workflows/ci.yml`) runs lint, typecheck, the frontend build,
 `cargo fmt`/`clippy` and the three test suites (node, Playwright, Rust) on every push and pull request; a
 `v*` tag also builds both installers and keeps them as workflow artefacts
-(the release itself is still made by hand). See [Install](#install) for the
-unsigned-installer caveat.
+(the release itself is still made by hand, because the signing key needs a
+person). CI's installers are unsigned.
 
 The frontend is a two-entry Vite app (`index.html` → manager window,
 `popup.html` → popup window) under `src/`. Shared pure logic lives in
