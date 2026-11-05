@@ -22,8 +22,8 @@ releases taught. Read the Releasing section first, every time; it changes.
 3. [Before the bump](#1-before-the-bump): the work branch merged and
    checked, a clean tree, third-party notices, the notes file.
 4. [Bump, push, build](#2-bump-push-build): the bump script, the signed
-   build handed over in set words, a worktree when the tree is dirty,
-   the files and signatures to verify before tagging.
+   build handed over in set words, a worktree when a build input is
+   dirty, the files and signatures to verify before tagging.
 5. [Tag, release, feed](#3-tag-release-feed): tag, `gh release create`
    with five assets, the released hash, the tag's CI, the feed with
    `--bundle-dir` and the exact url check.
@@ -122,7 +122,7 @@ start from it and delete it in the bump commit.
   on, the bump landed first, and the tag had to move to the merge commit.
 - Check the working tree: `git status --short`. Modified files that this
   session didn't make belong to another session (it happens). Never
-  commit them, and don't build from a tree that has them (below).
+  commit them, and build around them when they reach the binary (below).
 - Shipping a new font or other bundled third-party work? It needs its
   entry in THIRD-PARTY-NOTICES.md before the bump; that is part of the
   release, not a chore.
@@ -158,16 +158,30 @@ start from it and delete it in the bump commit.
 
    Then wait; meanwhile watch CI in the background (`gh run watch <id>
    --exit-status` as a background call), since the tag needs it.
-3. **A dirty tree needs a clean worktree.** If the checkout has another
-   session's changes, the build must not come from it: a binary that
-   matches no commit can't be tagged honestly. Create
-   `git worktree add ..\promptline-X.Y.Z <bump commit>`, run `npm ci`
-   there, and have the user build in it. Remove the worktree after the
-   feed step (`git worktree remove --force`; the Rust target inside is
-   large).
+3. **A dirty build input needs a clean worktree.** A binary that matches
+   no commit can't be tagged honestly, so before the handover list what
+   another session's changes touch:
+
+   ```sh
+   git status --short | grep -vE ' (\.claude/|docs/|site/|tests/|e2e/|\.github/|\.gitignore$|[^/]*\.md$)'
+   ```
+
+   Nothing printed means the checkout builds the bump commit exactly,
+   whatever else is dirty, so build there: a worktree costs `npm ci` and a
+   full Rust compile for nothing. Anything printed needs
+   `git worktree add ..\promptline-X.Y.Z <bump commit>` and `npm ci` there.
+   Make the directory part of the one line the user pastes, as
+   `Set-Location <worktree> -ErrorAction Stop; <the build>`, because a
+   separate `cd` can be skipped and the build then lands in the checkout.
+   Remove the worktree after the feed step (`git worktree remove --force`;
+   the Rust target inside is large).
 4. When the user says the build is done, **verify before tagging**: the
    four files exist (`…-setup.exe`, `…_en-US.msi`, both with `.sig`
-   beside them, timestamps after the bump). No `.sig` means the build ran
+   beside them, timestamps after the bump). Missing from a worktree: look
+   in the checkout's bundle folders. That build stands only if step 3's
+   check prints nothing and no file under `src`, `ui` or `src-tauri/src`
+   is newer than the bump commit; otherwise ask for it again in the
+   worktree. No `.sig` means the build ran
    without the key; ask for it again. The feed can't be written without
    them and installed copies would refuse the update. Then
    `Get-AuthenticodeSignature` on both installers must read `Valid`, with
@@ -223,9 +237,13 @@ Steps 4 to 6 of CLAUDE.md → Releasing, with these details:
 
   Every line `ok`, then commit it alone as `Site: update feed for X.Y.Z`,
   push, `gh run list --workflow pages.yml --limit 1` for the Pages run,
-  and `gh run watch <id> --exit-status`. A cancelled run leaves the old
-  feed live, so `gh run rerun <id>` and watch again (0.2.28: a slow apt
-  mirror ran the `ffmpeg` install into the job's ten minutes). Then poll
+  and `gh run watch <id> --exit-status`, with nothing piped after it: a
+  pipe reports the last command's exit code, so a failed run reads as
+  success. A failed or cancelled run leaves the old feed live, so
+  `gh run rerun <id>` and watch again. A feed run takes the WebP from the
+  cache and installs nothing; the `ffmpeg` download only runs after seven
+  days without a Site run, and when it stalls the cure is that rerun,
+  which lands on another runner. Then poll
   the live feed (up to ten minutes of cache; 0.2.24 took about four). If
   the loop ends on the old version, look at Pages before going on:
 
@@ -284,7 +302,10 @@ live feed, so it waits for that.
   labels under 48 characters, then archify validate, deliver,
   visual-check (commands in CLAUDE.md → Architecture map), read the
   artifact URL once in the session, publish to it, commit the JSON
-  alone, push.
+  alone, push. `--repo-root` is `git rev-parse --show-toplevel`, letter
+  for letter: `C:/users/…` for `C:/Users/…` fails as `root-not-top-level`.
+  The verdict on the viewports is `containment.status` in
+  `promptline.architecture.visual-check.json`, beside the HTML.
 - **The snapshot row.** `node scripts/snapshot.mjs` (with `--donations
   <n>` when the maintainer gives the number) prints one row of the
   MARKETING doc's Snapshot table. Put it in the report under a heading
@@ -299,10 +320,12 @@ live feed, so it waits for that.
   machinery fetches (komac's hash, Scoop's checkver, winget validation on
   each push, the maintainer's own copy), and the updater no longer adds
   to it from 0.2.28, so what stays above the floor is first installs
-  through Scoop and winget. Re-estimate the floor from 0.2.29's report,
-  when 0.2.28's window has closed: it is the first through komac, and its
-  checkver read GitHub's digest rather than fetching the exe. Its kept
-  reads 2 high (the lesson below).
+  through Scoop and winget. Re-estimate the floor from the first report
+  after a release stayed latest five days or more: komac and a
+  digest-reading checkver changed what it holds, and 0.2.28 stayed 0.1
+  days. When the release before this one stayed under five days, say in
+  the report that its kept can't be read. 0.2.28's kept reads 2 high
+  (the lesson below).
 - **Report**, in this order: release URL; a table of the five assets
   with sizes; a table of every workflow run the pushes and the tag
   triggered with its outcome; downstream state (Scoop commit, winget PR
@@ -314,14 +337,20 @@ live feed, so it waits for that.
 
 ## What past releases taught
 
+- 0.2.29: the handover named a worktree and the build still ran in the
+  checkout, where only `.gitignore`, `CLAUDE.md` and a skill were dirty, so
+  the binary matched the commit and the worktree had been wasted. Hence
+  the check in step 3. The feed's Site run stalled on `ffmpeg` for the
+  second release running: 69 MB took 6 s on one runner, and three retries
+  on another got 30 MB. Retrying on the same runner doesn't help, so the
+  WebP are cached. A `gh run watch … | tail` reported that failed run as
+  success.
 - 0.2.28: the first signed release. The url check still used `curl -I`
   and put 2 on "kept" within minutes: a `HEAD` counts as a download, a few
   minutes later, which is why a probe of one old asset looked harmless
   when read at once. Hence the asset-list check. A notes section called
   `### Install` above the closing one would have cut the feed's notes;
-  `feedNotes` takes the last one now. The feed's Pages run was cancelled
-  at its ten minutes in `apt-get`, and the live feed stayed on the old
-  version.
+  `feedNotes` takes the last one now.
 - After 0.2.27: the New-Package PR merged on 2026-11-04, 38 days after it
   opened, carrying 0.2.27 because every release had re-pushed it. The
   PR-update script went then
