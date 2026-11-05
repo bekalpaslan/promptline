@@ -33,8 +33,10 @@ backlog, not from another audit, unless asked.
   read from the GitHub and package-manager numbers `scripts/snapshot.mjs`
   prints (downloads of the stable `Promptline-setup.exe` are people
   reached; fetches of the versioned installers, minus the per-release
-  machinery floor, are people kept). The one-second copy-hotkey-paste
-  gesture is the means to that, not the measure.
+  machinery floor, are people kept, though since winget listed the
+  package on 2026-11-04 a first install through it counts there too). The
+  one-second copy-hotkey-paste gesture is the means to that, not the
+  measure.
 - `docs/history/` — the review, audit and benchmark trackers (`REVIEW.md`,
   `RELEASE-AUDIT.md`, `BUG-HUNT-*.md`) and the 2026-07 UI rework roadmap,
   each with its own rules at the top. Test names cite these files'
@@ -53,7 +55,7 @@ backlog, not from another audit, unless asked.
   shelved on a `theme/<id>` branch; Promptline ships one theme a month
   since 0.2.18), `release` (the *Releasing* section below with the
   maintainer's standing decisions, the shelf check for the month's
-  theme, and the scripts: version bump, winget PR update, map remap),
+  theme, and the scripts: version bump, map remap),
   `doc-audit` (every checkable claim in the docs checked against the
   code and the doc fixed, one commit per doc, on a `chore/doc-audit-…`
   branch) and `fresh-eyes` (an open-ended improvement review where the
@@ -401,23 +403,12 @@ build is still what ships.
    has different bytes). Run from the maintainer's PowerShell with their
    own GitHub login; no token is stored in either repo.
    - winget (`AlpaslanBek.Promptline`, moniker `promptline`). The
-     package's New-Package PR, microsoft/winget-pkgs#441945, is still
-     unmerged, so komac can't update it (`komac update` answers that the
-     package doesn't exist). Until it merges, move that PR to the new
-     version instead, from Bash:
-     `GITHUB_TOKEN=$(gh auth token) node .claude/skills/release/scripts/winget-pr-update.cjs 441945 X.Y.Z <sha256 of the released setup exe> <YYYY-MM-DD>`.
-     The script reads the PR's manifests through the Git Data API (no
-     clone: winget-pkgs has paths Windows can't check out), rewrites
-     version, url, hash, date and notes url, drops the old version's
-     folder, pushes one commit to the PR branch and retitles the PR;
-     validation reruns by itself. Never open a second PR or change the
-     publisher id: one PR carrying the latest version is what eventually
-     merges, and re-pushing it each release costs nothing. Moderators
-     take New-Package PRs by creation date; on 2026-10-29, 369 older
-     ready PRs were ahead of it, a queue measured in weeks, not hours or
-     days. Once it has merged, komac takes over (`winget install
-     RussellBanks.Komac` once; if it isn't on PATH in a fresh shell, its
-     exe is at `%LOCALAPPDATA%\Programs\Komac\bin\komac.exe`):
+     package merged upstream on 2026-11-04 at 0.2.27
+     (microsoft/winget-pkgs#441945), so each release is one komac update
+     (`winget install RussellBanks.Komac` once, `winget upgrade` before
+     each run because the repository retires old manifest schemas; if it
+     isn't on PATH in a fresh shell, its exe is at
+     `%LOCALAPPDATA%\Programs\Komac\bin\komac.exe`):
      `$env:GITHUB_TOKEN = gh auth token; komac update AlpaslanBek.Promptline --version X.Y.Z --urls https://github.com/bekalpaslan/promptline/releases/download/vX.Y.Z/Promptline_X.Y.Z_x64-setup.exe --release-notes-url https://github.com/bekalpaslan/promptline/releases/tag/vX.Y.Z --submit`.
      komac downloads the exe, hashes it, carries the rest of the manifest
      over from the last version and opens the PR on `microsoft/winget-pkgs`

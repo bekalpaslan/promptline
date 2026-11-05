@@ -22,10 +22,12 @@
 // is what the updater feed, Scoop, komac and winget fetch, and it carries a
 // floor of about seven per release that is machinery, not users: komac
 // hashes it, Scoop's checkver hashes it, winget validation fetches it on
-// every push to the PR, and the maintainer downloads a copy. Re-estimate the
-// floor when the winget New-Package PR merges. Retention reads
-// versioned(N+1) minus the floor against site(N): the previous release's
-// visitors who stayed for the update. `.msi` is the third count; `.sig`
+// every push to the PR, and the maintainer downloads a copy. The winget
+// New-Package PR merged on 2026-11-04: re-estimate the floor from 0.2.28, the
+// first release through komac. Retention reads versioned(N+1) minus the floor
+// against site(N): the previous release's visitors who stayed for the update.
+// It is an upper bound now, because a first install through winget fetches
+// the versioned exe too. `.msi` is the third count; `.sig`
 // files are left out, and any other name is listed as "other" when it has
 // downloads. Days as latest run from a release's publish time to the next
 // stable release's (to now for the latest one; `--date` moves that "now" to

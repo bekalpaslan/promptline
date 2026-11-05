@@ -17,26 +17,25 @@ releases taught. Read the Releasing section first, every time; it changes.
    sources for the notes, overlapped waits, the CI failure path, what to
    skip, the report.
 2. [The shelf](#0-the-shelf): the month's theme, on a `theme/<id>` branch
-   or already merged, the tokens master added since it was shelved, the
-   winget PR's state, and the optional notes draft.
+   or already merged, the tokens master added since it was shelved, any
+   winget PR still open, and the optional notes draft.
 3. [Before the bump](#1-before-the-bump): the work branch merged and
    checked, a clean tree, third-party notices, the notes file.
 4. [Bump, push, build](#2-bump-push-build): the bump script, the signed
    build handed over in set words, a worktree when the tree is dirty,
    the four files to verify before tagging.
 5. [Tag, release, feed](#3-tag-release-feed): tag, `gh release create`
-   with three assets, the released hash (three steps use it), the tag's
-   CI, the feed with `--bundle-dir` and the exact url check.
-6. [Package managers](#4-package-managers): winget with komac or the
-   PR-update script, Scoop with checkver.
+   with three assets, the released hash, the tag's CI, the feed with
+   `--bundle-dir` and the exact url check.
+6. [Package managers](#4-package-managers): winget with komac, Scoop
+   with checkver.
 7. [The post, the map, the report](#5-the-post-the-map-the-report): the
    X dry run handed over, the architecture map remap, the snapshot row,
    the report shape, cleanup.
 8. [What past releases taught](#what-past-releases-taught).
 
 Scripts in `scripts/`: `bump.cjs` (five places, patch step by default),
-`winget-pr-update.cjs` (move an unmerged winget PR to a version, no
-clone), `remap-map.cjs` (the architecture map's line numbers to a commit).
+`remap-map.cjs` (the architecture map's line numbers to a commit).
 The feed and the X post use the repo's own `scripts/latest-json.mjs` and
 `scripts/post-x.mjs`.
 
@@ -100,23 +99,12 @@ git diff --diff-filter=A --name-only <latest tag>..origin/master -- 'design/*.to
   release without the month's theme is the user's call, but don't block
   on it unless they asked for the theme release specifically.
 
-Also in step 0, so the package-manager step is known before it comes:
-`gh pr list --repo microsoft/winget-pkgs --author "@me" --search
-Promptline --state open --json number,title`. An open "New package" PR
-(#441945 since 0.2.17) means the package is still unmerged upstream and
-komac can't update it; the PR-update script will (step 4).
-`Validation-Completed` and `Azure-Pipeline-Passed` labels with no
-moderator merge are the queue, not a problem: moderators take
-New-Package PRs by creation date, and on 2026-10-29 369 older ready PRs
-were ahead of ours, a queue measured in weeks. How many are still ahead:
-
-```sh
-gh api -X GET search/issues -f q='repo:microsoft/winget-pkgs is:pr is:open label:New-Package label:Validation-Completed -label:Needs-Author-Feedback -label:Needs-Attention -label:Blocking-Issue -label:Needs-CLA -label:Changes-Requested -label:Moderator-Approved -label:Validation-Domain -label:Validation-Executable-Error created:<2026-09-27' --jq .total_count
-```
-
-(369 on 2026-10-29.) Never open a second PR or change the publisher id:
-re-pushing the one PR each release costs nothing and keeps the eventual
-merge at the current version.
+Also in step 0: `gh pr list --repo microsoft/winget-pkgs --author "@me"
+--search Promptline --state open --json number,title,labels`. An open PR
+is the last release's update. `Needs-Author-Feedback`, `Needs-CLA`,
+`Changes-Requested` or any `Validation-*` label except
+`Validation-Completed` on it needs the maintainer; anything else is the
+queue, and the next release's komac run goes ahead regardless.
 
 If `docs/RELEASE-NOTES-next.md` exists, it is the draft of the notes;
 start from it and delete it in the bump commit.
@@ -207,9 +195,9 @@ Steps 4 to 6 of CLAUDE.md → Releasing, with these details:
   ```
 
   The two must match (a code-signed installer would differ, and then
-  the released one is the truth). Three steps use this hash: this
-  comparison, the winget PR-update script, and Scoop's manifest (which
-  checkver computes itself and must agree). Keep it in the report.
+  the released one is the truth). komac and Scoop's checkver each
+  compute this hash themselves and must agree with it. Keep it in the
+  report.
 - `node scripts/latest-json.mjs --notes <notes> --bundle-dir <bundle>`:
   `--bundle-dir` points at the worktree's `src-tauri/target/release/bundle`
   when the build came from one. Check the feed's own urls, not every
@@ -233,24 +221,20 @@ Steps 4 to 6 of CLAUDE.md → Releasing, with these details:
 ## 4. Package managers
 
 Both run from this machine with the maintainer's `gh` login. winget
-needs only the release and the released hash, so it can run while the
-feed is still propagating; Scoop's checkver reads the version from the
+needs only the release, so it can run while the feed is still
+propagating; Scoop's checkver reads the version from the
 live feed, so it waits for that.
 
-- **winget.** Step 0 said which case this is. The package merged
-  upstream: `komac update AlpaslanBek.Promptline --version X.Y.Z --urls
+- **winget.** `winget upgrade RussellBanks.Komac` first: the repository
+  retires old manifest schemas, and komac's version sets the one it
+  writes. Then `komac update AlpaslanBek.Promptline --version X.Y.Z --urls
   <versioned setup url> --release-notes-url <release page> --submit` with
   `$env:GITHUB_TOKEN = gh auth token` (komac's exe path is in CLAUDE.md).
-  The first package PR still open (since 0.2.17; komac would answer
-  "does not exist in microsoft/winget-pkgs"): move it to the
-  new version, from Bash, with
-  `GITHUB_TOKEN=$(gh auth token) node .claude/skills/release/scripts/winget-pr-update.cjs <pr> X.Y.Z <sha256> <YYYY-MM-DD>`.
-  It pushes one commit to the PR branch and retitles the PR; validation
-  reruns by itself. One PR carrying the latest version beats two queued
-  ones: a second PR would start at the back of a queue measured in weeks
-  (step 0 has the position check and the 2026-10-29 count), while
-  re-pushing this one costs nothing. Nothing waits on it. Never clone
-  winget-pkgs on Windows: its paths are too long for the checkout.
+  It opens one update PR from the maintainer's fork and copies the
+  release's notes into the manifest. Check the hash:
+  `gh pr diff <pr> --repo microsoft/winget-pkgs | grep InstallerSha256`
+  must show the released one. Nothing waits on it. Never clone winget-pkgs
+  on Windows: its paths are too long for the checkout.
 - **Scoop.** `checkver.ps1 -App promptline -Dir ..\scoop-bucket\bucket
   -Update` once the live feed shows the version (it reads the version
   from the feed), then commit and push the bucket.
@@ -286,7 +270,10 @@ live feed, so it waits for that.
   latest release's age in days. The versioned count includes about seven
   per-release machinery fetches (komac's hash, Scoop's checkver, winget
   validation on each push, the maintainer's own copy), so retention
-  reads versioned(N+1) minus that floor, against stable(N).
+  reads versioned(N+1) minus that floor, against stable(N). That is an
+  upper bound since 2026-11-04: a first install through winget fetches
+  the versioned exe too. Re-estimate the floor at 0.2.28, the first
+  release through komac.
 - **Report**, in this order: release URL; a table of the three assets
   with sizes; a table of every workflow run the pushes and the tag
   triggered with its outcome; downstream state (Scoop commit, winget PR
@@ -298,6 +285,15 @@ live feed, so it waits for that.
 
 ## What past releases taught
 
+- After 0.2.27: the New-Package PR merged on 2026-11-04, 38 days after it
+  opened, carrying 0.2.27 because every release had re-pushed it. The
+  PR-update script went then
+  (`git show 1b272dc:.claude/skills/release/scripts/winget-pr-update.cjs`
+  has it, should a new package ever need one). The bot had rejected
+  schema 1.10.0 on 2026-10-30, so the merged manifest is on 1.28.0.
+  A dry run on 2026-11-05 showed komac 2.16.0 writing 1.12.0, which
+  winget-pkgs still merges; komac 2.17.2 is the first with 1.28.0, hence
+  the upgrade in step 4.
 - 0.2.25: the work branch's merge ran inside a chained command with
   `-F -`, failed, and the chain went on, so the bump landed on master
   before the merge; the tag went on the merge commit the build ran from,
@@ -315,7 +311,7 @@ live feed, so it waits for that.
 - 0.2.17: the winget PR passed validation and sat for a week waiting for a
   moderator; komac can't update a package that isn't merged, hence the
   PR-update script. A month later it was still queued behind 369 older
-  New-Package PRs (step 0).
+  New-Package PRs.
 - Cadence, an observation and not a rule: October 2026 shipped eight
   releases, roughly weekly, five of them carrying gesture behaviour. The
   one excess was three releases on 2026-10-03, three toasts to every
