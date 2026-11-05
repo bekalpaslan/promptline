@@ -7,10 +7,11 @@
 // compress worse, and the lossless file comes out larger than the full one.)
 //
 // The Pages workflow runs this before it uploads site/; run it yourself
-// before previewing with `python -m http.server` in site/. Needs ffmpeg, unless
-// --reuse-webp finds every WebP already there: the workflow's cache is keyed on
-// the images, so what it restores is current. A local preview leaves the flag
-// off, since a WebP left in site/ may be older than its screenshot.
+// before previewing with `python -m http.server` in site/. Needs cwebp or
+// ffmpeg, unless --reuse-webp finds every WebP already there: the workflow's
+// cache is keyed on the images, so what it restores is current. A local preview
+// leaves the flag off, since a WebP left in site/ may be older than its
+// screenshot.
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -19,18 +20,22 @@ import { fileURLToPath } from 'node:url'
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const at = (...parts) => path.join(ROOT, ...parts)
 const REUSE_WEBP = process.argv.includes('--reuse-webp')
+// The workflow installs cwebp, a far smaller download; a machine with only
+// ffmpeg uses that. Both are lossless, so the pixels are the same either way
+const HAS_CWEBP = spawnSync('cwebp', ['-version']).status === 0
 
-function ffmpeg(args) {
-  const run = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', ...args], { stdio: 'inherit' })
+function encode(tool, args) {
+  const run = spawnSync(tool, args, { stdio: 'inherit' })
   if (run.error || run.status !== 0) {
-    console.error('site-assets: ffmpeg failed or is not installed (winget install Gyan.FFmpeg)')
+    console.error(`site-assets: ${tool} failed or is not installed (winget install Gyan.FFmpeg)`)
     process.exit(1)
   }
 }
 
 function webp(from, to) {
   if (REUSE_WEBP && fs.existsSync(to)) return
-  ffmpeg(['-i', from, '-c:v', 'libwebp', '-lossless', '1', to])
+  if (HAS_CWEBP) encode('cwebp', ['-quiet', '-lossless', '-exact', from, '-o', to])
+  else encode('ffmpeg', ['-loglevel', 'error', '-y', '-i', from, '-c:v', 'libwebp', '-lossless', '1', to])
 }
 
 function pngs(dir) {

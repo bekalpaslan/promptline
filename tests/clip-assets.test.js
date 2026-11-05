@@ -137,11 +137,12 @@ test('README.md leads with the clip GIF <picture>, not the popup screenshot', ()
   assert.match(readme, /<img src="docs\/clip\/clip-light\.gif"/);
 });
 
-test('a Pages run with cached WebP installs no ffmpeg, so a stalled mirror cannot hold up the feed', () => {
+test('a Pages run with cached WebP installs nothing, and a miss installs cwebp, so a stalled mirror cannot hold up the feed', () => {
   const pagesYml = readNormalized('.github/workflows/pages.yml');
   assert.match(pagesYml, /uses: actions\/cache@/, 'pages.yml should cache the WebP');
   assert.match(pagesYml, /key: site-webp-.*docs\/screenshots\/\*\.png.*docs\/clip\/\*-poster\.png.*scripts\/site-assets\.mjs/, 'the key should name every input of the WebP');
-  assert.match(pagesYml, /if: steps\.webp\.outputs\.cache-hit != 'true'\n\s+run: \|\n\s+command -v ffmpeg/, 'the ffmpeg install should run only on a miss');
+  assert.match(pagesYml, /if: steps\.webp\.outputs\.cache-hit != 'true'\n\s+run: \|\n\s+command -v cwebp/, 'the install should run only on a miss');
+  assert.doesNotMatch(pagesYml, /apt-get install[^\n]* ffmpeg/, 'the workflow should not fetch ffmpeg\'s 69 MB');
   assert.match(pagesYml, /node scripts\/site-assets\.mjs --reuse-webp/, 'the run should keep what the cache restored');
   assert.match(readNormalized('scripts/site-assets.mjs'), /REUSE_WEBP && fs\.existsSync\(to\)/, 'site-assets.mjs should skip a WebP that is there');
 });

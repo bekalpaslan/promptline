@@ -240,10 +240,9 @@ Steps 4 to 6 of CLAUDE.md → Releasing, with these details:
   and `gh run watch <id> --exit-status`, with nothing piped after it: a
   pipe reports the last command's exit code, so a failed run reads as
   success. A failed or cancelled run leaves the old feed live, so
-  `gh run rerun <id>` and watch again. A feed run takes the WebP from the
-  cache and installs nothing; the `ffmpeg` download only runs after seven
-  days without a Site run, and when it stalls the cure is that rerun,
-  which lands on another runner. Then poll
+  `gh run rerun <id>` and watch again; a rerun lands on another runner,
+  which is the cure for a stalled mirror. A feed run takes the WebP from
+  the cache and installs nothing, and a miss installs only `cwebp`. Then poll
   the live feed (up to ten minutes of cache; 0.2.24 took about four). If
   the loop ends on the old version, look at Pages before going on:
 
@@ -343,8 +342,8 @@ live feed, so it waits for that.
   the check in step 3. The feed's Site run stalled on `ffmpeg` for the
   second release running: 69 MB took 6 s on one runner, and three retries
   on another got 30 MB. Retrying on the same runner doesn't help, so the
-  WebP are cached. A `gh run watch … | tail` reported that failed run as
-  success.
+  WebP are cached and CI encodes with `cwebp`. A `gh run watch … | tail`
+  reported that failed run as success.
 - 0.2.28: the first signed release. The url check still used `curl -I`
   and put 2 on "kept" within minutes: a `HEAD` counts as a download, a few
   minutes later, which is why a probe of one old asset looked harmless
