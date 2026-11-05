@@ -40,14 +40,20 @@ Windows 10/11 only. Download an installer from the
   one to pick if in doubt
 - `Promptline_X.Y.Z_x64_en-US.msi` — the MSI, for those who prefer it
 
-Or from a terminal, with [Scoop](https://scoop.sh):
+Or from a terminal, with winget:
+
+```powershell
+winget install AlpaslanBek.Promptline
+```
+
+or [Scoop](https://scoop.sh):
 
 ```powershell
 scoop bucket add promptline https://github.com/bekalpaslan/scoop-bucket
 scoop install promptline
 ```
 
-Scoop runs the same setup exe from the release, so the install is the same
+Both run the same setup exe from the release, so the install is the same
 one and it updates itself the same way.
 
 The setup exe installs for the current user only, under
