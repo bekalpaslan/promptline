@@ -43,6 +43,7 @@ site/clip/
 !.claude/skills/doc-audit/
 !.claude/skills/fresh-eyes/
 !.claude/skills/dependabot/
+!.claude/skills/maintenance/
 
 # Copilot-style plugin installs (the impeccable skill): not the product
 .github/agents/

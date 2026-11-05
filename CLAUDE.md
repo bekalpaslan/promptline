@@ -49,7 +49,7 @@ backlog, not from another audit, unless asked.
   agents never edit it.
 - `docs/architecture/` — the architecture map, for the human managing the
   project (see *Architecture map* below).
-- `.claude/skills/` — the five project skills, tracked while the rest of
+- `.claude/skills/` — the six project skills, tracked while the rest of
   `.claude/` is ignored (each skill has its own `!.claude/skills/<name>/`
   line in `.gitignore`; a new skill is invisible to git without one): `monthly-theme` (a theme from a Figma design,
   trialled as a skin over the mock, wired through the token pipeline and
@@ -66,10 +66,14 @@ backlog, not from another audit, unless asked.
   ready-made workflow script) and `dependabot` (the monthly grouped PRs
   and the security alerts triaged by the project's standing rules:
   Windows is the only binary, the updater is the one network call,
-  majors and the Tauri pair move by hand; with a triage script).
+  majors and the Tauri pair move by hand; with a triage script) and
+  `maintenance` (a pass that keeps what exists healthy and true, no
+  features or behaviour changes: the baseline checks, `dependabot` and
+  `doc-audit`, the backlog, the map, then housekeeping, on a
+  `chore/maintenance-…` branch; it never releases).
   `/monthly-theme <figma url>`, `/release`, `/doc-audit [doc, area or
-  "since vX.Y.Z"]`, `/fresh-eyes` and `/dependabot [PR, alert or
-  "config"]` run them.
+  "since vX.Y.Z"]`, `/fresh-eyes`, `/dependabot [PR, alert or
+  "config"]` and `/maintenance [step]` run them.
 - `site/` — the website at https://promptline.cc (the home page, `posts/`
   and `code-signing/`), published to
   GitHub Pages by `.github/workflows/pages.yml` on every push to `master`
