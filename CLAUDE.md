@@ -394,11 +394,13 @@ build is still what ships.
    writes `site/latest.json`. It refuses a `.sig` that doesn't name the
    version, which `requireSignedVersion` would fail at Install; `tauri
    build` writes it in, and anything signed by hand needs
-   `tauri signer sign --app-version X.Y.Z`. Before committing,
-   `curl -sIL -o /dev/null -w "%{http_code}\n" <each url in it>` must print
-   200 for every url the feed names. Commit it alone as
-   `Site: update feed for X.Y.Z`, push `master`, wait for the Pages run
-   (`gh run list --workflow pages.yml --limit 1`), then
+   `tauri signer sign --app-version X.Y.Z`. Before committing, every url
+   the feed names must be an asset of the release, read from
+   `gh release view vX.Y.Z --json assets` and not fetched: even a `HEAD` on
+   an asset counts as a download, and these two counts are "kept". Commit
+   it alone as `Site: update feed for X.Y.Z`, push `master`, wait for the
+   Pages run (`gh run list --workflow pages.yml --limit 1`; a cancelled run
+   leaves the old feed live, so `gh run rerun <id>`), then
    `curl -s https://promptline.cc/latest.json` shows the new version
    (Pages caches up to 10 minutes). Why after: the feed must never point at
    a release or asset that doesn't exist yet, and its urls are the
@@ -407,9 +409,8 @@ build is still what ships.
 7. The package managers, once `curl -s https://promptline.cc/latest.json`
    shows X.Y.Z. Both point at the versioned setup exe, never
    `latest/download`, for the same reason as the feed, and both hash the
-   file on the release rather than a local build (a code-signed installer
-   has different bytes). Run from the maintainer's PowerShell with their
-   own GitHub login; no token is stored in either repo.
+   file on the release rather than a local build. Run from the
+   maintainer's PowerShell with their own GitHub login; no token is stored in either repo.
    - winget (`AlpaslanBek.Promptline`, moniker `promptline`). The
      package merged upstream on 2026-11-04 at 0.2.27
      (microsoft/winget-pkgs#441945), so each release is one komac update

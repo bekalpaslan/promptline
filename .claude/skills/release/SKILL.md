@@ -23,7 +23,7 @@ releases taught. Read the Releasing section first, every time; it changes.
    checked, a clean tree, third-party notices, the notes file.
 4. [Bump, push, build](#2-bump-push-build): the bump script, the signed
    build handed over in set words, a worktree when the tree is dirty,
-   the four files to verify before tagging.
+   the files and signatures to verify before tagging.
 5. [Tag, release, feed](#3-tag-release-feed): tag, `gh release create`
    with five assets, the released hash, the tag's CI, the feed with
    `--bundle-dir` and the exact url check.
@@ -35,7 +35,9 @@ releases taught. Read the Releasing section first, every time; it changes.
 8. [What past releases taught](#what-past-releases-taught).
 
 Scripts in `scripts/`: `bump.cjs` (five places, patch step by default),
-`remap-map.cjs` (the architecture map's line numbers to a commit).
+`remap-map.cjs` (the architecture map's line numbers to a commit),
+`verify-updater-sig.cjs` (a build's `.sig` files as an installed copy reads
+them).
 The feed and the X post use the repo's own `scripts/latest-json.mjs` and
 `scripts/post-x.mjs`.
 
@@ -136,16 +138,19 @@ start from it and delete it in the bump commit.
 2. **The signed build is the human's step**: the updater key's password
    lives in their password manager. Check first that the shell has no
    `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`; if it does, the user set it on
-   purpose and the build can run here. Otherwise hand it over with all
-   four facts, in this shape (0.2.24's handover said only "your own
-   PowerShell" and the user asked where and when):
+   purpose and the build can run here. Otherwise hand it over with where,
+   when, what must be ready first, what it asks for and how long it
+   takes, in this shape (0.2.24's handover said only "your own PowerShell"
+   and the user asked where and when):
 
    > The signed build is your step. **Where:** a PowerShell window of
    > your own, in the repo root `C:\Users\alpas\IdeaProjects\easypaste`
    > (the password prompt must stay out of this session). **When:** now;
    > it needs only the bump commit, which is pushed, and doesn't wait for
-   > CI. It asks for the updater key's password once and takes several
-   > minutes. Say "build done" when it finishes.
+   > CI. **First:** log in to SimplySign Desktop with a fresh code from
+   > your phone, and stay logged in until the build ends. It asks for the
+   > updater key's password once and takes several minutes. Say "build
+   > done" when it finishes.
    >
    > ```powershell
    > <the command from CLAUDE.md → Releasing step 3>
@@ -168,7 +173,11 @@ start from it and delete it in the bump commit.
    `Get-AuthenticodeSignature` on both installers must read `Valid`, with
    `Open Source Developer Alpaslan Bek` as signer and a Certum timestamper;
    anything else means SimplySign Desktop wasn't logged in, so ask for the
-   login and the build again. The build also
+   login and the build again. Then
+   `node .claude/skills/release/scripts/verify-updater-sig.cjs` (with
+   `--bundle-dir` for a worktree's build) must print `ok` twice: a `.sig`
+   from the wrong key, or a file changed after signing, otherwise fails
+   on every installed copy. The build also
    rewrites `src-tauri/Cargo.toml` as LF, which `git status` shows as a
    modification with no content lines: when
    `git diff --ignore-cr-at-eol -- src-tauri/Cargo.toml` prints nothing,
@@ -196,34 +205,32 @@ Steps 4 to 6 of CLAUDE.md → Releasing, with these details:
   Start watching it in the background right away (`gh run list --branch
   vX.Y.Z --limit 1` for the id) and report it with its artifact
   (`gh api repos/bekalpaslan/promptline/actions/runs/<id>/artifacts`).
-- **The released hash, once.** Right after the release exists:
-
-  ```sh
-  curl -sL -o /tmp/released-setup.exe https://github.com/bekalpaslan/promptline/releases/download/vX.Y.Z/Promptline_X.Y.Z_x64-setup.exe
-  sha256sum /tmp/released-setup.exe <bundle>/nsis/Promptline_X.Y.Z_x64-setup.exe
-  ```
-
-  The two must match: what's uploaded is the signed local build. komac and Scoop's checkver each
-  compute this hash themselves and must agree with it. Keep it in the
-  report.
+- **The released hash, once.** `sha256sum
+  <bundle>/nsis/Promptline_X.Y.Z_x64-setup.exe` must equal the digest the
+  confirm line above printed: what's uploaded is the signed local build.
+  Compare digests rather than download the file, which adds to the count
+  (so does a `HEAD`, a few minutes later). komac and Scoop's checkver must
+  agree with this hash. Keep it in the report.
 - `node scripts/latest-json.mjs --notes <notes> --bundle-dir <bundle>`:
   `--bundle-dir` points at the worktree's `src-tauri/target/release/bundle`
-  when the build came from one. Check the feed's own urls, not every
-  `https://` in the file (the notes field holds the previous release's
-  link, and a grep over the file "finds" it with the notes' text glued
-  on and reports a 404 that isn't one, 0.2.24):
+  when the build came from one. Check the feed's urls against the release's
+  asset list, never by fetching them: they are the `-update` copies, and a
+  fetch counts as "kept":
 
   ```sh
-  for u in $(node -e 'for (const p of Object.values(require("./site/latest.json").platforms)) console.log(p.url)'); do printf "%s %s\n" "$(curl -sIL -o /dev/null -w '%{http_code}' "$u")" "$u"; done
+  node -e 'const f=require("./site/latest.json"),a=JSON.parse(require("child_process").execSync("gh release view vX.Y.Z --json assets",{encoding:"utf8"})).assets.map(x=>x.name);for(const p of Object.values(f.platforms))console.log(p.url.includes("/vX.Y.Z/")&&a.includes(p.url.split("/").pop())?"ok":"MISSING",p.url)'
   ```
 
-  Every line 200, then commit it alone as `Site: update feed for X.Y.Z`,
+  Every line `ok`, then commit it alone as `Site: update feed for X.Y.Z`,
   push, `gh run list --workflow pages.yml --limit 1` for the Pages run,
-  `gh run watch <id>`, and poll until the live feed shows the version
-  (up to ten minutes of cache; 0.2.24 took about four):
+  and `gh run watch <id> --exit-status`. A cancelled run leaves the old
+  feed live, so `gh run rerun <id>` and watch again (0.2.28: a slow apt
+  mirror ran the `ffmpeg` install into the job's ten minutes). Then poll
+  the live feed (up to ten minutes of cache; 0.2.24 took about four). If
+  the loop ends on the old version, look at Pages before going on:
 
   ```sh
-  until [ "$(curl -s https://promptline.cc/latest.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).version))')" = "X.Y.Z" ]; do sleep 30; done
+  n=0; until [ "$(curl -s https://promptline.cc/latest.json | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>console.log(JSON.parse(s).version))')" = "X.Y.Z" ] || [ $n -ge 24 ]; do n=$((n+1)); sleep 30; done
   ```
 
 ## 4. Package managers
@@ -236,8 +243,12 @@ live feed, so it waits for that.
 - **winget.** `winget upgrade RussellBanks.Komac` first: the repository
   retires old manifest schemas, and komac's version sets the one it
   writes. Then `komac update AlpaslanBek.Promptline --version X.Y.Z --urls
-  <versioned setup url> --release-notes-url <release page> --submit` with
-  `$env:GITHUB_TOKEN = gh auth token` (komac's exe path is in CLAUDE.md).
+  <versioned setup url> --release-notes-url <release page> --dry-run`
+  with `$env:GITHUB_TOKEN = gh auth token` (komac's exe path is in
+  CLAUDE.md), and read `ManifestVersion`: the upgrade doesn't promise a
+  schema the repository still takes, so stop if it has retired that one.
+  An `ERROR invalid_entry` naming WebView2 in the output didn't stop
+  0.2.28. Then the same command with `--submit` instead.
   It opens one update PR from the maintainer's fork and copies the
   release's notes into the manifest. Check the hash:
   `gh pr diff <pr> --repo microsoft/winget-pkgs | grep InstallerSha256`
@@ -261,7 +272,10 @@ live feed, so it waits for that.
   `gh release view vX.Y.Z --json body --jq .body > notes-X.Y.Z.md`.
 - **The architecture map** needs a refresh when windows, commands, events
   or storage changed since its `meta.repository.revision` (a config
-  field counts). `node .claude/skills/release/scripts/remap-map.cjs
+  field counts): `git diff --stat $(node -p
+  "require('./docs/architecture/promptline.architecture.json').meta.repository.revision")..HEAD
+  -- src-tauri/src src` shows what moved, and a test-only diff needs
+  none. `node .claude/skills/release/scripts/remap-map.cjs
   <tagged commit>` shows every pointer's move; `--write` applies it. Fix
   any pointer flagged CHECK by hand, keep a box at three pointers with
   labels under 48 characters, then archify validate, deliver,
@@ -282,8 +296,10 @@ live feed, so it waits for that.
   machinery fetches (komac's hash, Scoop's checkver, winget validation on
   each push, the maintainer's own copy), and the updater no longer adds
   to it from 0.2.28, so what stays above the floor is first installs
-  through Scoop and winget. Re-estimate the floor at 0.2.28, the first
-  release through komac.
+  through Scoop and winget. Re-estimate the floor from 0.2.29's report,
+  when 0.2.28's window has closed: it is the first through komac, and its
+  checkver read GitHub's digest rather than fetching the exe. Its kept
+  reads 2 high (the lesson below).
 - **Report**, in this order: release URL; a table of the five assets
   with sizes; a table of every workflow run the pushes and the tag
   triggered with its outcome; downstream state (Scoop commit, winget PR
@@ -295,6 +311,14 @@ live feed, so it waits for that.
 
 ## What past releases taught
 
+- 0.2.28: the first signed release. The url check still used `curl -I`
+  and put 2 on "kept" within minutes: a `HEAD` counts as a download, a few
+  minutes later, which is why a probe of one old asset looked harmless
+  when read at once. Hence the asset-list check. A notes section called
+  `### Install` above the closing one would have cut the feed's notes;
+  `feedNotes` takes the last one now. The feed's Pages run was cancelled
+  at its ten minutes in `apt-get`, and the live feed stayed on the old
+  version.
 - After 0.2.27: the New-Package PR merged on 2026-11-04, 38 days after it
   opened, carrying 0.2.27 because every release had re-pushed it. The
   PR-update script went then
@@ -302,26 +326,20 @@ live feed, so it waits for that.
   has it, should a new package ever need one). The bot had rejected
   schema 1.10.0 on 2026-10-30, so the merged manifest is on 1.28.0.
   A dry run on 2026-11-05 showed komac 2.16.0 writing 1.12.0, which
-  winget-pkgs still merges; komac 2.17.2 is the first with 1.28.0, hence
-  the upgrade in step 4.
+  winget-pkgs still merges; komac 2.17.2 is the first with 1.28.0, but
+  winget offered only 2.17.1 that day, hence reading the schema in step 4.
 - 0.2.25: the work branch's merge ran inside a chained command with
   `-F -`, failed, and the chain went on, so the bump landed on master
   before the merge; the tag went on the merge commit the build ran from,
   and CI on the bump commit was cancelled as superseded. Hence the merge
   bullet before the bump and the tag named by the build, not the bump.
 - 0.2.24: the shelved theme was a week behind master's tokens and failed
-  the tokens test on merge (the shelf step above). A grep for `https://`
-  over `site/latest.json` reported a 404 from the notes field's link.
-  The build handover lacked where and when, and the user had to ask. The
-  winget PR from 0.2.17 was still open.
+  the tokens test on merge (the shelf step above). The build handover
+  lacked where and when, and the user had to ask.
 - 0.2.18: the first build came from a tree carrying another session's
   uncommitted popup work; it was rebuilt in a worktree at the tagged
   commit. The first build also ran without the key (no `.sig`); check
   before tagging, not after.
-- 0.2.17: the winget PR passed validation and sat for a week waiting for a
-  moderator; komac can't update a package that isn't merged, hence the
-  PR-update script. A month later it was still queued behind 369 older
-  New-Package PRs.
 - Cadence, an observation and not a rule: October 2026 shipped eight
   releases, roughly weekly, five of them carrying gesture behaviour. The
   one excess was three releases on 2026-10-03, three toasts to every
