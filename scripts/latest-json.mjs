@@ -51,10 +51,12 @@ export function updateNames(version) {
   }
 }
 
-/** Release notes with the `### Install` section (and everything after it)
- *  removed and the remainder trimmed; other `###` sections are kept. */
+/** Release notes with the closing `### Install` section (and everything after
+ *  it) removed and the remainder trimmed; other `###` sections are kept. The
+ *  last one, because the closing comes last: a section above it that shares
+ *  the name must not take the rest of the notes with it. */
 export function feedNotes(markdown) {
-  const at = markdown.indexOf("### Install")
+  const at = markdown.lastIndexOf("### Install")
   const cut = at < 0 ? markdown : markdown.slice(0, at)
   return cut.trim()
 }

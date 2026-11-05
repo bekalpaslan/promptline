@@ -31,9 +31,10 @@
 // That is the retention reading: kept(N) against the site downloads of every
 // release before N, since a copy can come from any of them and a copy that
 // skipped N-1 still counts. A retried download counts twice, and it counts
-// copies installed through Scoop or winget, which the site count doesn't. The
-// release step's url check doesn't add to it: a HEAD left the count alone when
-// tried on 2026-11-05.
+// copies installed through Scoop or winget, which the site count doesn't. A
+// HEAD on an asset counts as a download, a few minutes later, so the release
+// step reads the asset list instead of probing the urls; 0.2.28's kept carries
+// 2 from the probe it did run.
 // Before 0.2.28 the feed fetched the versioned exe, so an older release
 // reads versioned(N+1) minus the floor against site(N), an upper bound since
 // a first install through winget fetches that exe too.

@@ -173,6 +173,12 @@ test('feedNotes drops ### Install and everything after it', async () => {
   assert.equal(notes, notes.trim());
 });
 
+test('feedNotes cuts at the closing ### Install, not at an earlier section of that name', async () => {
+  const { feedNotes } = await load();
+  const md = 'Lead.\n\n### Install\n- on winget\n\n### Updates\n- a thing\n\n### Install\n\n`setup.exe`.\n';
+  assert.equal(feedNotes(md), 'Lead.\n\n### Install\n- on winget\n\n### Updates\n- a thing');
+});
+
 // ---- assetNames -----------------------------------------------------------
 
 test('assetNames names the nsis and msi installers for a version', async () => {
