@@ -37,9 +37,31 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       # The copies, and the WebP the page serves, come from one script so a
-      # local preview gets the same files; it needs ffmpeg
-      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)
-      - run: node scripts/site-assets.mjs
+      # local preview gets the same files. Only the WebP needs ffmpeg, and its
+      # 69 MB from Ubuntu's mirror took 6 s on one run and outlasted the job's
+      # ten minutes on the next (0.2.28 and 0.2.29, each leaving the old feed
+      # live). So a push that changes no image, which every feed update is,
+      # takes the WebP from the cache and installs nothing. GitHub drops a
+      # cache unused for seven days, and then the download runs again.
+      - id: webp
+        uses: actions/cache@v6
+        with:
+          path: |
+            site/shots/*.webp
+            site/clip/*.webp
+          key: site-webp-${{ hashFiles('docs/screenshots/*.png', 'docs/clip/*-poster.png', 'scripts/site-assets.mjs') }}
+      # A stalled download gets a fresh start, keeping the files it finished;
+      # the install itself is seconds and is never cut off halfway
+      - if: steps.webp.outputs.cache-hit != 'true'
+        run: |
+          command -v ffmpeg && exit 0
+          sudo apt-get update
+          for attempt in 1 2 3; do
+            sudo timeout 150 apt-get install -y --download-only ffmpeg && break
+            [ "$attempt" = 3 ] && exit 1
+          done
+          sudo apt-get install -y ffmpeg
+      - run: node scripts/site-assets.mjs --reuse-webp
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
         with:

@@ -7,7 +7,10 @@
 // compress worse, and the lossless file comes out larger than the full one.)
 //
 // The Pages workflow runs this before it uploads site/; run it yourself
-// before previewing with `python -m http.server` in site/. Needs ffmpeg.
+// before previewing with `python -m http.server` in site/. Needs ffmpeg, unless
+// --reuse-webp finds every WebP already there: the workflow's cache is keyed on
+// the images, so what it restores is current. A local preview leaves the flag
+// off, since a WebP left in site/ may be older than its screenshot.
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -15,6 +18,7 @@ import { fileURLToPath } from 'node:url'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const at = (...parts) => path.join(ROOT, ...parts)
+const REUSE_WEBP = process.argv.includes('--reuse-webp')
 
 function ffmpeg(args) {
   const run = spawnSync('ffmpeg', ['-loglevel', 'error', '-y', ...args], { stdio: 'inherit' })
@@ -25,6 +29,7 @@ function ffmpeg(args) {
 }
 
 function webp(from, to) {
+  if (REUSE_WEBP && fs.existsSync(to)) return
   ffmpeg(['-i', from, '-c:v', 'libwebp', '-lossless', '1', to])
 }
 
