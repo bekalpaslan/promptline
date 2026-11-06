@@ -41,6 +41,7 @@ export const PALETTES = [
   { id: "instrument", file: TOKENS_PATH, prefix: "" },
   { id: "indigo", file: path.join(root, "design", "indigo.tokens.json"), prefix: "indigo " },
   { id: "clay", file: path.join(root, "design", "clay.tokens.json"), prefix: "clay " },
+  { id: "moss", file: path.join(root, "design", "moss.tokens.json"), prefix: "moss " },
 ]
 
 /** Artifact token name → the CSS custom properties it feeds (shadcn's names
