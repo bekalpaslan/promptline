@@ -70,7 +70,11 @@ The [Code signing policy](https://promptline.cc/code-signing/) says what is
 signed and who signs it.
 
 After installing, Promptline sits in the tray: left-click the icon for the
-manager, press the hotkey anywhere for the popup. Promptline checks for a
+manager, press the hotkey anywhere for the popup. A setup exe install, which
+is what winget and Scoop run too, starts with Windows from its first launch,
+so the hotkey still works after a restart. The manager says so, with a
+**Don't** button, and **Settings → General** changes it later; an MSI install
+leaves it off. Promptline checks for a
 newer release at startup and once a day; when there is one, Windows shows a
 notification and the tray menu offers **Update to X.Y.Z**. Installing is a
 click, a small progress window and a restart, and your prompts, packs and

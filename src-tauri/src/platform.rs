@@ -1,8 +1,9 @@
 //! The Windows-specific code: which window is in front (and which one
 //! outside Promptline was last), bringing one to the front, sending Ctrl+V,
 //! the mouse button for the resize-drag check, handing a URL to the shell,
-//! what the hotkey would have typed on the user's keyboard layouts, and
-//! hearing that Windows is ending the session. Everything else in the crate is
+//! what the hotkey would have typed on the user's keyboard layouts, whether
+//! Windows' Startup page has turned an entry off, and hearing that Windows
+//! is ending the session. Everything else in the crate is
 //! portable; a macOS port reimplements this file (CGEventPost, plus the
 //! Accessibility permission) and nothing else.
 
@@ -69,19 +70,29 @@ fn is_shell_class(class: &str) -> bool {
     )
 }
 
+/// What a StartupApproved value says: Windows' Startup page and Task
+/// Manager write an odd first byte for off (03, then the time it was turned
+/// off) and an even one for on. The bytes after it are no guide: `03` with
+/// a zero time occurs, and auto-launch's `is_enabled`, which reads only
+/// those, takes that for on.
+#[cfg(any(windows, test))]
+fn startup_value_off(value: &[u8]) -> bool {
+    value.first().is_some_and(|b| b % 2 == 1)
+}
+
 #[cfg(windows)]
 mod imp {
     use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
     use std::time::{Duration, Instant};
 
     use windows::core::{w, HSTRING, PCWSTR, PWSTR};
-    use windows::Win32::Foundation::{HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, HWND, LPARAM, LRESULT, WPARAM};
     use windows::Win32::Globalization::{
         GetLocaleInfoEx, LCIDToLocaleName, LOCALE_SLOCALIZEDDISPLAYNAME,
     };
     use windows::Win32::System::Registry::{
-        RegCloseKey, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_LOCAL_MACHINE,
-        KEY_READ, RRF_RT_REG_SZ,
+        RegCloseKey, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER,
+        HKEY_LOCAL_MACHINE, KEY_READ, RRF_RT_REG_BINARY, RRF_RT_REG_SZ,
     };
     use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -419,6 +430,31 @@ mod imp {
         (!text.is_empty()).then_some(text)
     }
 
+    /// Whether the user has turned the startup entry `name` off in Windows'
+    /// Startup page or Task Manager. Windows keeps that answer after the
+    /// entry itself is gone, so it outlives an uninstall. Fails toward off:
+    /// only a plain "not found" says nobody has refused, and a wrong "off"
+    /// costs one checkbox while a wrong "on" overrides the user.
+    pub(crate) fn startup_entry_off(name: &str) -> bool {
+        let mut buf = [0u8; 64];
+        let mut size = buf.len() as u32;
+        let err = unsafe {
+            RegGetValueW(
+                HKEY_CURRENT_USER,
+                w!("Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\StartupApproved\\Run"),
+                &HSTRING::from(name),
+                RRF_RT_REG_BINARY,
+                None,
+                Some(buf.as_mut_ptr() as *mut _),
+                Some(&mut size),
+            )
+        };
+        if err == ERROR_FILE_NOT_FOUND {
+            return false;
+        }
+        err.is_err() || super::startup_value_off(&buf[..(size as usize).min(buf.len())])
+    }
+
     /// "Czech (Czechia)": the display name of the layout's language, for a
     /// layout the registry doesn't describe.
     fn locale_display_name(lang: u16) -> Option<String> {
@@ -596,6 +632,9 @@ mod imp {
     pub(crate) fn altgr_char(_vk: u16, _shift: bool) -> Option<(String, String)> {
         None
     }
+    pub(crate) fn startup_entry_off(_name: &str) -> bool {
+        false
+    }
     pub(crate) struct SessionEnd {
         pub(crate) ask: Box<dyn Fn() -> bool>,
         pub(crate) done: Box<dyn Fn() -> bool>,
@@ -621,13 +660,25 @@ mod imp {
 pub(crate) use imp::open_url;
 pub(crate) use imp::{
     claim_app_id, focus_window, foreground_window, last_foreign_window, left_button_down,
-    note_foreign, on_session_end, send_ctrl_v, send_enter, show_toast, track_foreground,
-    SessionEnd,
+    note_foreign, on_session_end, send_ctrl_v, send_enter, show_toast, startup_entry_off,
+    track_foreground, SessionEnd,
 };
 
 #[cfg(test)]
 mod tests {
-    use super::{is_printable, is_shell_class, virtual_key};
+    use super::{is_printable, is_shell_class, startup_value_off, virtual_key};
+
+    #[test]
+    fn an_odd_first_byte_is_a_startup_entry_turned_off() {
+        // Read from a real StartupApproved key: off with its time, off with
+        // none, and on
+        assert!(startup_value_off(&[
+            3, 0, 0, 0, 0x0A, 0x52, 0xF9, 0x9F, 0xA7, 0xBC, 0xD8, 1
+        ]));
+        assert!(startup_value_off(&[3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+        assert!(!startup_value_off(&[2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+        assert!(!startup_value_off(&[]));
+    }
 
     #[test]
     fn only_a_visible_character_counts_as_what_the_hotkey_typed() {

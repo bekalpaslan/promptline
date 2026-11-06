@@ -1,13 +1,18 @@
 //! What older installs carry over: the v1 EasyPaste folder, the
 //! pre-0.2.9 data folder and its absolute pack paths, the v2 snippet
 //! shape, and the hotkey default that changed after 0.2.16. Old data must
-//! keep opening.
+//! keep opening. What only a fresh install gets is decided here too, for
+//! the same reason: an upgrade must never be mistaken for one.
 
 use std::fs;
 use std::path::Path;
 
+use tauri::utils::config::BundleType;
+use tauri::utils::platform::bundle_type;
 use tauri::AppHandle;
+use tauri_plugin_autostart::ManagerExt;
 
+use crate::platform;
 use crate::store::{
     data_dir, default_snippets, notify, write_atomic, write_snippets, Config, Snippet,
 };
@@ -39,6 +44,32 @@ pub(crate) fn is_fresh_install(dir: &Path) -> bool {
                 .is_some_and(|ext| ext.eq_ignore_ascii_case("json"))
         }),
         Err(e) => e.kind() == std::io::ErrorKind::NotFound,
+    }
+}
+
+/// Whether a first launch turns Start with Windows on. Only a setup exe
+/// install does, which winget and Scoop run too: a debug build has no
+/// bundle type and would point the entry at `target/debug`, and the MSI's
+/// uninstaller would leave the entry behind. `refused` is Windows' Startup
+/// page having this entry off from an earlier install, which `enable`
+/// would overwrite.
+fn starts_with_windows(bundle: Option<BundleType>, refused: bool) -> bool {
+    matches!(bundle, Some(BundleType::Nsis)) && !refused
+}
+
+/// Turn Start with Windows on for a fresh install, once: a copy that isn't
+/// running neither pastes nor checks for updates, and nothing brings it
+/// back after a restart. The caller decides "fresh" before anything writes
+/// config.json, so no later launch gets here, and a choice made in Settings
+/// or the banner stands. The banner reads the entry itself, so a failure
+/// here is a log line and a banner that claims nothing.
+pub(crate) fn enable_autostart_once(app: &AppHandle) {
+    let refused = platform::startup_entry_off(&app.package_info().name);
+    if !starts_with_windows(bundle_type(), refused) {
+        return;
+    }
+    if let Err(e) = app.autolaunch().enable() {
+        log::warn!("couldn't turn on Start with Windows: {e}");
     }
 }
 
@@ -329,6 +360,18 @@ mod tests {
             "the skipped file stays put"
         );
         let _ = fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn only_a_setup_exe_install_starts_with_windows_by_default() {
+        assert!(starts_with_windows(Some(BundleType::Nsis), false));
+        assert!(!starts_with_windows(Some(BundleType::Msi), false));
+        assert!(!starts_with_windows(None, false), "a debug build");
+    }
+
+    #[test]
+    fn windows_startup_page_outranks_the_default() {
+        assert!(!starts_with_windows(Some(BundleType::Nsis), true));
     }
 
     #[test]

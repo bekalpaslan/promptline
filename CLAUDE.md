@@ -280,7 +280,8 @@ Open `http://localhost:5175/?mock` (manager) or `/popup.html?mock` (popup);
 payload)` for backend events such as `edit-prompt`, `library`, and
 `pasteResult`, `update` and `fail` (a set of command names that reject).
 `?mock=library-error` is an upgraded install whose library can't be read;
-`?mock=first` is a first launch, with the first-run banner up.
+`?mock=first` is a first launch, with the first-run banner up, and
+`?mock=first-off` the same with Start with Windows off.
 Each page has its own in-memory store; a reload starts over. Unknown
 commands resolve to null and log `[mock] unhandled command …`. When you add
 a Tauri command the UI depends on, add it to the mock too.

@@ -60,6 +60,8 @@ export function App() {
   const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", palette: "instrument", density: "comfortable", scale: "100", font: "system" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
   const [autostart, setAutostartState] = useState<boolean | null>(null)
+  // Whether the banner's startup line was answered with Don't
+  const [startupDeclined, setStartupDeclined] = useState(false)
   const [view, setView] = useState<View>({ kind: "prompt" })
   // The sidebar's filter; the overview reads it too
   const [query, setQuery] = useState("")
@@ -483,7 +485,10 @@ export function App() {
         localStorage.setItem("scale", loaded.scale)
         localStorage.setItem("font", loaded.font)
         applyPrefs()
-        if (!config.popupSeen) setFirstRun("show")
+        if (!config.popupSeen) {
+          setFirstRun("show")
+          void readAutostart()
+        }
       } catch (e) {
         if (cancelled) return
         sayPersistent(`Couldn't load your settings: ${String(e)}`)
@@ -497,7 +502,7 @@ export function App() {
     return () => {
       cancelled = true
     }
-  }, [applyLibrary])
+  }, [applyLibrary, readAutostart])
 
   // An old Rust answering null is fine: `update` stays null and the manager
   // shows no update controls
@@ -505,13 +510,30 @@ export function App() {
     getUpdateState().then(setUpdate).catch(() => {})
   }, [])
 
-  // The first-run banner's "done" state fades on its own; the timer lives
-  // here rather than inside a state updater, which must stay pure
+  // The startup line reads the entry rather than being told about it, so an
+  // MSI install or a refused enable claims nothing
+  const startupOn = firstRun !== "hidden" && autostart === true && !startupDeclined
+  const startupOff = firstRun !== "hidden" && autostart === false && startupDeclined
+
+  // The first-run banner's "done" state fades on its own, unless the startup
+  // line is still open: that one waits for an answer or the ×, since a
+  // startup entry nobody was told about is the way this default goes wrong.
+  // The timer lives here rather than inside a state updater, which must
+  // stay pure
   useEffect(() => {
-    if (firstRun !== "done") return
+    if (firstRun !== "done" || startupOn) return
     const t = setTimeout(() => setFirstRun("hidden"), 6000)
     return () => clearTimeout(t)
-  }, [firstRun])
+  }, [firstRun, startupOn])
+
+  const declineStartup = async () => {
+    try {
+      await setAutostart(false)
+      setStartupDeclined(true)
+    } catch (e) {
+      sayErr(`Couldn't turn off Start with Windows: ${String(e)}`)
+    }
+  }
 
   // ---- Events from the Rust side ----
   useEffect(() => {
@@ -670,14 +692,30 @@ export function App() {
       <div className="flex h-dvh flex-col bg-background text-foreground">
         {firstRun !== "hidden" && (firstRun === "done" || fmtHotkey) && (
           <div className="flex items-center gap-2 border-b border-border bg-primary/8 px-4 py-2 text-ui text-primary">
-            {firstRun === "done" ? (
-              <span className="text-(--success)">✓ That's it — pick a prompt and it pastes right where you were.</span>
-            ) : (
-              <span>
-                Press <Keys combo={fmtHotkey ?? ""} />{" "}
-                in any app to open your prompts — try it now
-              </span>
-            )}
+            <div className="flex min-w-0 flex-col gap-1">
+              {firstRun === "done" ? (
+                <span className="text-(--success)">✓ That's it — pick a prompt and it pastes right where you were.</span>
+              ) : (
+                <span>
+                  Press <Keys combo={fmtHotkey ?? ""} />{" "}
+                  in any app to open your prompts — try it now
+                </span>
+              )}
+              {startupOn && (
+                <span className="flex flex-wrap items-center gap-2">
+                  Promptline starts with Windows, so the hotkey still works after a restart.
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label="Don't start with Windows"
+                    onClick={() => void declineStartup()}
+                  >
+                    Don't
+                  </Button>
+                </span>
+              )}
+              {startupOff && <span>It won't start with Windows. Change that under Settings → General.</span>}
+            </div>
             <Button
               variant="ghost"
               size="icon-xs"

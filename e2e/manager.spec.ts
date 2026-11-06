@@ -1143,7 +1143,7 @@ test("Settings' Start with Windows sets the entry, and a refusal puts the box ba
 })
 
 test("the first-run banner names the hotkey until the popup is first seen, then fades", async ({ page }) => {
-  await open(page, "manager", "first")
+  await open(page, "manager", "first-off")
   const hint = page.getByText("in any app to open your prompts")
   await expect(hint).toContainText("CtrlAltV")
   await emit(page, "first-popup")
@@ -1157,6 +1157,63 @@ test("the first-run banner's × closes it", async ({ page }) => {
   await open(page, "manager", "first")
   await page.getByRole("button", { name: "Dismiss" }).click()
   await expect(page.getByText("in any app to open your prompts")).toBeHidden()
+})
+
+const startupLine = (page: P) => page.getByText("Promptline starts with Windows")
+const dont = (page: P) => page.getByRole("button", { name: "Don't start with Windows" })
+
+test("a fresh install's banner says it starts with Windows, and Don't turns that off", async ({ page }) => {
+  await open(page, "manager", "first")
+  await expect(startupLine(page)).toBeVisible()
+  await dont(page).click()
+  await expect(page.getByText("It won't start with Windows. Change that under Settings → General.")).toBeVisible()
+  await expect(startupLine(page)).toBeHidden()
+  expect((await calls(page, "set_autostart")).map((c) => c.args)).toEqual([{ enabled: false }])
+})
+
+test("the banner claims nothing when Start with Windows is off", async ({ page }) => {
+  await open(page, "manager", "first-off")
+  await expect(page.getByText("in any app to open your prompts")).toBeVisible()
+  await expect(startupLine(page)).toBeHidden()
+})
+
+test("the startup line outlasts the success line's fade until it's answered", async ({ page }) => {
+  await open(page, "manager", "first")
+  await page.clock.install()
+  await emit(page, "first-popup")
+  await expect(page.getByText("That's it")).toBeVisible()
+  await page.clock.fastForward(7000)
+  await expect(startupLine(page)).toBeVisible()
+  await dont(page).click()
+  await expect(page.getByText("It won't start with Windows")).toBeVisible()
+  await page.clock.fastForward(7000)
+  await expect(page.getByText("It won't start with Windows")).toBeHidden()
+})
+
+test("a refused Don't says so and leaves the startup line up", async ({ page }) => {
+  await open(page, "manager", "first")
+  await failCommand(page, "set_autostart")
+  await dont(page).click()
+  await expect(page.getByText("Couldn't turn off Start with Windows: mock: set_autostart refused")).toBeVisible()
+  await expect(startupLine(page)).toBeVisible()
+})
+
+test("the banner and Settings show one answer for Start with Windows", async ({ page }) => {
+  await open(page, "manager", "first")
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  const box = page.getByRole("checkbox", { name: "Start with Windows" })
+  await expect(box).toBeChecked()
+  await dont(page).click()
+  await expect(box).not.toBeChecked()
+  await box.click()
+  await expect(page.getByText("It won't start with Windows")).toBeHidden()
+})
+
+test("unticking Start with Windows in Settings takes the banner's claim down", async ({ page }) => {
+  await open(page, "manager", "first")
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  await page.getByRole("checkbox", { name: "Start with Windows" }).click()
+  await expect(startupLine(page)).toBeHidden()
 })
 
 test("a library whose popup has been seen shows no first-run banner", async ({ page }) => {

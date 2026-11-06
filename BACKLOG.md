@@ -84,23 +84,14 @@ domain renewal, with P2's Raycast fix alongside.
   - **Local MARKETING:** :72 contradicts :81, and the awesome-list
     statuses at :120 are stale.
   - **Size:** hours, no code.
-- **Start with Windows on a fresh install** (P4).
-  - **Now:** nothing has ever turned autostart on (`set_autostart` is
-    the only caller of `enable()`), and no decision on the default is
-    recorded. A copy that isn't running neither pastes nor checks for
-    updates. Scoop and winget installs never get the finish-page launch.
-  - **Decision:**
-    - (A) turn it on at the first launch of a fresh NSIS install, with a
-      one-click "Don't" in the first-run banner. Gate it on
-      `data_moved`, a fresh install, the NSIS bundle, and no
-      StartupApproved value marking it disabled.
-    - (B) the banner asks.
-
-    Pick: A.
-  - **First step:** add `?mock=first` and an e2e case for today's
-    banner, so it has coverage before it changes.
-  - **Knock-on:** this raises the priority of Manager window residency.
-  - **Size:** about a day.
+- ~~**Start with Windows on a fresh install**~~ (P4) done 2026-11-06 on
+  `feat/autostart-first-run`, option A: the first launch of a fresh setup
+  exe install turns the entry on, once, unless Windows' Startup page has it
+  off, and the first-run banner says so with a **Don't** button. BEHAVIOR,
+  "Launching and quitting", has the rules. **Left for its release:** a notes
+  bullet saying new installs make the update check from sign-in on, and a
+  note in the snapshot table where the kept series breaks. **Left:** Manager
+  window residency moves up, since every sign-in now carries both renderers.
 - ~~**Generate and live pack files**~~ (P5) done 2026-11-05: nothing
   writes a live pack's file. Every agent run gets a scratch file under
   `packs/generated/`, a copy for an existing pack, and the review opens only
@@ -351,7 +342,8 @@ domain renewal, with P2's Raycast fix alongside.
 - ~~**Real-library screenshot**~~ — **done 2026-09-25** differently: every
   screen is staged against a demo library (`npm run shots`), in both
   themes, for the site's tour and the README.
-- **Manager window residency** (noted 2026-10-29). Both windows are
+- **Manager window residency** (noted 2026-10-29; worth more since fresh
+  installs start with Windows, 2026-11-06). Both windows are
   declared in `tauri.conf.json`, so the hidden 1000×800 manager has a
   WebView2 renderer alive from login for a user who only ever presses the
   hotkey. Measured 2026-10-29 on the installed 0.2.25 with the manager

@@ -23,7 +23,10 @@ mod store;
 mod update;
 
 use commands::{resolve_hotkey, warn_hotkey_layout};
-use migrations::{migrate_data_dir, migrate_v1_data, session_hotkey, settle_default_hotkey};
+use migrations::{
+    enable_autostart_once, is_fresh_install, migrate_data_dir, migrate_v1_data, session_hotkey,
+    settle_default_hotkey,
+};
 use packs::ensure_packs_backed;
 use paste::{is_resize_drag, note_hotkey_released, on_hotkey, persist_popup_size};
 use store::{data_dir, load_config_from_disk, notify, Notice};
@@ -281,6 +284,9 @@ pub fn run() {
 
             let data_moved = migrate_data_dir(handle);
             migrate_v1_data(handle);
+            // Read before anything below saves config.json, which ends
+            // "fresh". A failed move leaves an empty folder that looks it
+            let first_launch = data_moved && is_fresh_install(&data_dir(handle));
             // Before anything saves config.json: an install that never
             // recorded a hotkey keeps the old default (the new one is for
             // fresh installs)
@@ -294,6 +300,9 @@ pub fn run() {
                 // its first save would write the new default over it, so
                 // this launch saves nothing here. Next launch tries again.
                 log::warn!("startup left config.json and pack backing for the next launch");
+            }
+            if first_launch {
+                enable_autostart_once(handle);
             }
 
             // Register the configured global hotkey (fall back to default on bad

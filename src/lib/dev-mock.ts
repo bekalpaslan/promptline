@@ -38,8 +38,10 @@
 // hotkey it kept, ctrl+shift+v. Only `mode === "empty"` empties the
 // library; `mode === "showcase"` seeds the demo one.
 //
-// `?mock=first` is a first launch: the popup has never been seen, so the
-// manager shows its first-run banner over the seeded library.
+// `?mock=first` is a first launch of a setup exe install: the popup has
+// never been seen, so the manager shows its first-run banner over the seeded
+// library, and Start with Windows has just been turned on. `?mock=first-off`
+// is the same launch with it off: an MSI install, or an enable that failed.
 
 import type { Library, PackMeta, Snippet } from "@/lib/core"
 import { C } from "@/lib/core"
@@ -164,7 +166,7 @@ export function installMock(mode: string | null) {
     library: lib,
     pasteResult: "pasted" as "pasted" | "copied",
     fail: new Set<string>(),
-    autostart: false,
+    autostart: mode === "first",
     update: {
       autoCheck: true,
       available: null as UpdateInfo | null,
@@ -180,7 +182,7 @@ export function installMock(mode: string | null) {
       if (mode === "library-error") throw "the library file couldn't be read"
       return snapshot()
     },
-    get_config: () => ({ ...config, packs, packsArranged, popupSeen: mode !== "first" }),
+    get_config: () => ({ ...config, packs, packsArranged, popupSeen: mode !== "first" && mode !== "first-off" }),
     take_notices: () => [],
     get_clipboard_text: () => mock.clipboard,
     set_clipboard_text: (a) => void (mock.clipboard = String(a.text)),

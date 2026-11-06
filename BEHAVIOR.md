@@ -1598,6 +1598,32 @@ The window is declared visible in `tauri.conf.json` so a normal launch shows
 the manager straight away; a login launch of a tray app that opened a
 1000×800 window over the desktop was the opposite of what autostart is for.
 
+**A fresh install starts with Windows.** A copy that isn't running neither
+pastes nor checks for updates, and nothing brings it back after a restart,
+so the first launch of a fresh install turns the entry on, once
+(`enable_autostart_once`, decided 2026-11-06). Fresh is `is_fresh_install`,
+read before anything saves `config.json`, and never after a failed folder
+move, whose empty folder only looks fresh. So an upgrade, a reinstall over a
+kept library and every later launch leave the entry alone, and a choice made
+in Settings or the banner stands. Only a setup exe install does this
+(`bundle_type()`; winget and Scoop run the same exe, and all three land in
+`%LOCALAPPDATA%\Promptline`): a debug build has no bundle type and would
+point the entry at `target/debug`, and the MSI's uninstaller would leave the
+entry behind. Windows' Startup page outranks the default. `enable` overwrites
+the StartupApproved value, so it is read first
+(`platform::startup_entry_off`), and an entry turned off there, which Windows
+remembers across an uninstall, stays off. A failed enable is a log line.
+
+**The first-run banner says so.** While `get_autostart` answers yes, the
+banner adds "Promptline starts with Windows" with a **Don't** button, which
+turns the entry off and points at Settings → General. It reads the entry
+rather than being told, so an MSI install or a failed enable claims nothing.
+The line doesn't fade with the success line: the banner waits for Don't or
+the ×, because a startup entry nobody was told about is the way this default
+goes wrong. The banner and Settings' checkbox share one `autostart` state, so
+either changes the other. This is not the onboarding dropped on 2026-09-26
+(FIRST-02), which taught the gesture; this keeps the app running.
+
 Tray Quit is a handshake, not an `app.exit`: Rust emits `quit-requested`,
 the manager runs the editor's pending autosave (the 600 ms debounce would
 otherwise lose the last edit) and answers with `quit_now`; Rust exits on
