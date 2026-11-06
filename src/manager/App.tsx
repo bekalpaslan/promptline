@@ -59,6 +59,7 @@ export function App() {
   const [hotkey, setHotkeyState] = useState<string | null>(null)
   const [prefs, setPrefs] = useState<Prefs>({ theme: "dark", palette: "instrument", density: "comfortable", scale: "100", font: "system" })
   const [firstRun, setFirstRun] = useState<"hidden" | "show" | "done">("hidden")
+  const [autostart, setAutostartState] = useState<boolean | null>(null)
   const [view, setView] = useState<View>({ kind: "prompt" })
   // The sidebar's filter; the overview reads it too
   const [query, setQuery] = useState("")
@@ -417,6 +418,22 @@ export function App() {
     }
   }, [])
 
+  // Unanswered (a registry read refused), it stays as it was: the toggle
+  // itself says what happened when it is tried
+  const readAutostart = useCallback(async () => {
+    await invoke<boolean>("get_autostart").then(setAutostartState, () => {})
+  }, [])
+
+  const setAutostart = useCallback(async (enabled: boolean) => {
+    setAutostartState(enabled)
+    try {
+      await invoke("set_autostart", { enabled })
+    } catch (e) {
+      setAutostartState(!enabled)
+      throw e
+    }
+  }, [])
+
   // ---- Init ----
   useEffect(() => {
     // StrictMode runs this twice in development; a run whose effect was
@@ -637,8 +654,11 @@ export function App() {
       update,
       openUpdateOffer,
       setAutoUpdateCheck,
+      autostart,
+      readAutostart,
+      setAutostart,
     }),
-    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, openAll, grouped, setGrouped, query, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, setPackColor, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, unfold, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck]
+    [snippets, libraryState, packMeta, activeId, selection, selectionAnchor, hotkey, prefs, view, openOverview, openAll, grouped, setGrouped, query, showSettings, orderBy, setOrderBy, isLocked, packNames, allTags, persist, updateSnippet, setPackLocked, setPackColor, arrangePacks, deletePack, addPackFile, renamePack, deleteWithUndo, select, setSelection, newPrompt, folds, togglePackFold, toggleGroupFold, foldAll, unfold, carryGroupFold, renaming, renamingGroup, addPack, savePrefs, settingsOpen, update, openUpdateOffer, setAutoUpdateCheck, autostart, readAutostart, setAutostart]
   )
 
   // null until the config has loaded: the banner, the tooltip and the hints

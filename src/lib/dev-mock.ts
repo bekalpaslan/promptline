@@ -23,6 +23,7 @@
 //   library            the current { snippets, revision }
 //   pasteResult        what paste_snippet answers: "pasted" (default) or
 //                      "copied" (the manager was in front, copy-only)
+//   autostart          what get_autostart answers; set_autostart changes it
 //   update             { autoCheck, available, next } — `next` is
 //                      what the next check_for_updates finds; set it before
 //                      calling to stage a discovered version
@@ -163,6 +164,7 @@ export function installMock(mode: string | null) {
     library: lib,
     pasteResult: "pasted" as "pasted" | "copied",
     fail: new Set<string>(),
+    autostart: false,
     update: {
       autoCheck: true,
       available: null as UpdateInfo | null,
@@ -182,7 +184,7 @@ export function installMock(mode: string | null) {
     take_notices: () => [],
     get_clipboard_text: () => mock.clipboard,
     set_clipboard_text: (a) => void (mock.clipboard = String(a.text)),
-    get_autostart: () => false,
+    get_autostart: () => mock.autostart,
     add_snippet: (a) => {
       const s = a.snippet as Snippet
       write([...lib.snippets.filter((x) => x.id !== s.id), s])
@@ -295,7 +297,7 @@ export function installMock(mode: string | null) {
     open_url: () => null,
     show_in_folder: () => null,
     open_data_dir: () => null,
-    set_autostart: () => null,
+    set_autostart: (a) => void (mock.autostart = a.enabled === true),
     get_update_state: () => ({
       autoCheck: mock.update.autoCheck,
       available: mock.update.available,

@@ -1129,6 +1129,19 @@ test("a pack takes a colour from its menu: the backend is asked by intent, the h
   await expect(tree(page).locator("[data-swatch]")).toHaveCount(0)
 })
 
+test("Settings' Start with Windows sets the entry, and a refusal puts the box back", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  const box = page.getByRole("checkbox", { name: "Start with Windows" })
+  await expect(box).not.toBeChecked()
+  await box.click()
+  await expect(box).toBeChecked()
+  expect((await calls(page, "set_autostart")).map((c) => c.args)).toEqual([{ enabled: true }])
+  await failCommand(page, "set_autostart")
+  await box.click()
+  await expect(page.getByText("mock: set_autostart refused")).toBeVisible()
+  await expect(box).toBeChecked()
+})
+
 test("the first-run banner names the hotkey until the popup is first seen, then fades", async ({ page }) => {
   await open(page, "manager", "first")
   const hint = page.getByText("in any app to open your prompts")
