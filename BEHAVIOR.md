@@ -435,10 +435,11 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    error would reach nobody, and a library a sync client or scanner is
    holding for a moment must not turn into a paste that never happens with
    the prompt sitting on the clipboard.
-5. A detached thread waits 80 ms, calls `SetForegroundWindow` on the remembered
-   window, waits another 80 ms, and sends Ctrl+V via `SendInput`. Both
-   results are checked: a refused `SetForegroundWindow` (an elevated
-   window, a foreground lock held by another process) sends no Ctrl+V at
+5. A detached thread waits 80 ms, asks whether the remembered window will
+   take input (`platform::input_block`, below), calls `SetForegroundWindow`
+   on it, waits another 80 ms, and sends Ctrl+V via `SendInput`. Both
+   results are checked: a refused `SetForegroundWindow` (a foreground lock
+   held by another process) sends no Ctrl+V at
    all, since it would land in whichever window is in front; that, or a
    `SendInput` that inserted fewer events than asked, brings the popup
    back where it was (`report_paste_failed`: shown and focused, without
@@ -459,9 +460,22 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    in itself. The Enter after that picks as usual. The guard is in
    `pick`, the one function every way of picking goes through, so a slot
    key, a click, the action panel and the card's Copy button obey it too:
-   it was on Enter alone, and each of the others re-sent the row. One case
-   still passes silently: UIPI drops input aimed at an elevated window
-   without reporting it, so `SendInput` returns success there.
+   it was on Enter alone, and each of the others re-sent the row.
+
+   **A window above our integrity level is asked about first.** UIPI drops
+   input aimed at an elevated window, and `SendInput` returns success, so
+   nothing after the Ctrl+V can tell; the popup used to vanish with nothing
+   pasted, nothing said and nothing logged (seen in an administrator Windows
+   Terminal, 2026-11-06). `input_block` compares the integrity level of the
+   window's process with Promptline's own, so a Promptline run as
+   administrator still pastes into administrator windows. A window above
+   ours gets no keystrokes, and the same recovery with "That window runs as
+   administrator." for its first sentence. A level we may not read counts as
+   blocked with the general message, since that is most likely another
+   account's administrator window and naming it would be a guess; a window
+   at our own level that lands there costs one Ctrl+V by hand. A window or
+   process that has gone counts as open. The check runs after the popup has
+   hidden, so it flickers on the way back, as every failed paste does.
 
 The sleeps are load-bearing. Focus changes are asynchronous on Windows; sending
 the keystroke immediately delivers it to whatever had focus a moment ago.
@@ -1020,8 +1034,8 @@ replies to an agent. While it is on (`AppState.keep_open`):
   the shell's (the taskbar, the desktop, the Alt+Tab and Task View
   switchers: `is_shell_class`), so a click on the taskbar to reach the
   popup doesn't become the target. Until another window has come to the
-  front, the summon's window is used. A target that refuses (elevated)
-  fails as any paste does.
+  front, the summon's window is used. A target that refuses (elevated,
+  say) fails as any paste does.
 - The hotkey pressed from the work brings the popup to the front (it is
   already visible), so no `popup-shown` refreshes it; the clipboard is
   read again whenever the window gets the focus instead, and typing lands
@@ -1498,7 +1512,7 @@ re-fetches:
 | `snippets-changed` | Another window wrote the library — re-fetch before saving over it; payload is the new revision |
 | `edit-prompt` | Popup asked the manager to open a prompt |
 | `popup-shown` / `first-popup` | Popup opened; the second only ever fires once |
-| `paste-failed` | The paste thread could not focus the target or send Ctrl+V; the popup is re-shown and shows the payload's `message` |
+| `paste-failed` | The target won't take input, or the paste thread could not focus it or send Ctrl+V; the popup is re-shown and shows the payload's `message` |
 | `notice` | Rust hit something the user must see (quarantined file, refused hotkey); shown until dismissed |
 | `quit-requested` | Quit or a Windows shutdown asks the manager to flush its autosave; it answers `quit_now` |
 | `update-available` | A check found a newer version; payload `{ version, notes }` |

@@ -467,6 +467,7 @@ Document the limitation in README (see L17).
 **Resolution:**
 - *Implementation:* `send_ctrl_v` reports whether all events went in; a refused `SetForegroundWindow` sends no Ctrl+V; either failure re-shows the popup without re-recording `prev_window` and emits `paste-failed` with a message the popup shows as a persistent error. UIPI drops input to elevated windows silently, so that case still passes; README's Known limitations says so.
 - *Docs:* `BEHAVIOR.md` step 5, events table.
+- *Correction, 2026-11-06:* the elevated case this finding names stayed silent, and README's line saying the popup reports it wasn't true: `SendInput` returns success there. Closed by `platform::input_block` on `fix/elevated-paste`.
 
 ### L3. `save_packs` trusts a full client-side list
 **Status:** DONE

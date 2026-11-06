@@ -24,6 +24,11 @@ machine:
   one Enter after it only for a prompt set to Auto enter. It never sends
   anything else and never reads what other windows type; the
   global hotkey is a `RegisterHotKey` registration, not a keyboard hook.
+- **That window's integrity level.** Before pasting it asks Windows for the
+  integrity level of the target window's process, with the least access
+  there is (`PROCESS_QUERY_LIMITED_INFORMATION`, `TOKEN_QUERY`), because
+  Windows drops input to an administrator's window without saying so. It
+  reads that one value, and reads nothing else from the process.
 - **Local JSON files** under `%APPDATA%\io.github.bekalpaslan.promptline\`:
   your prompts, packs and settings, plus `promptline.log`. Pack files are meant to
   be shared; they hold titles, tags and prompt text, never your fill-in

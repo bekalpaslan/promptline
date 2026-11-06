@@ -438,6 +438,16 @@ test("Escape with nothing open hides the popup", async ({ page }) => {
   await expect.poll(() => calls(page, "hide_popup")).toHaveLength(1)
 })
 
+test("the administrator message fits whole at the popup's narrowest", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 280 })
+  // Rust's message (paste.rs PASTE_ELEVATED_MESSAGE), the longer of the two
+  const message = "That window runs as administrator. The prompt is on your clipboard: press Ctrl+V there to paste it yourself."
+  await emit(page, "paste-failed", { message })
+  const alert = page.getByRole("alert")
+  await expect(alert).toHaveText(message)
+  expect(await alert.evaluate((el) => el.scrollHeight <= el.clientHeight)).toBe(true)
+})
+
 test("a failed paste stays in the strip until Escape, and the prompt is not re-picked", async ({ page }) => {
   await search(page).fill("Loose prompt")
   await page.keyboard.press("Enter")

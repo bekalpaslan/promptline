@@ -101,21 +101,13 @@ domain renewal, with P2's Raycast fix alongside.
   output. **Left:** `packs/generated/` grows by one file per run and is never
   swept; a locked pack goes through the whole agent run and is refused at
   Add, where the review offers another name.
-- **Elevated windows: report instead of failing silently** (P6).
-  - **Now:** the README's Known limitations says the popup tells you
-    when it can't paste into an admin window. It doesn't: `SendInput`
-    into an elevated window is dropped without an error, so nothing is
-    shown and nothing is logged. BEHAVIOR's paste pipeline and
-    `platform.rs` already say it's silent, and L2's resolution line in
-    RELEASE-AUDIT is wrong.
-  - **First step:** on 0.2.27, press Ctrl+Alt+V into an admin Windows
-    Terminal, once without and once with Keep open.
-  - **If it's silent:** add `platform::input_blocked(hwnd)`, comparing
-    integrity RIDs and treating access denied as blocked. `paste.rs`
-    then reports it through `report_paste_failed`, with a message of at
-    most about 110 characters, which is what the strip's three lines
-    hold at 320 px.
-  - **Size:** hours.
+- ~~**Elevated windows: report instead of failing silently**~~ (P6) done
+  2026-11-06 on `fix/elevated-paste`, after the maintainer saw an
+  administrator Windows Terminal take nothing with nothing said:
+  `platform::input_block` compares integrity levels before the Ctrl+V, and
+  the popup comes back with the recovery. **Left for its release:** a notes
+  bullet, since the app now queries the target process's integrity level
+  on each paste.
 - **Pin the zero scan code; PuTTY and Emacs** (P7).
   - **Now:** the injected Ctrl+V carries `wScan: 0` (`key()` in
     `platform.rs`), and mintty pastes exactly that key (wsltty#139). So
