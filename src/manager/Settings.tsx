@@ -18,27 +18,23 @@ import { checkForUpdates } from "@/lib/update"
 
 export function Settings() {
   const m = useManager()
-  const [autostart, setAutostart] = useState(false)
   const [importRaw, setImportRaw] = useState<string | null>(null)
   const [checking, setChecking] = useState(false)
   // The one delete dialog (menus.tsx), and the two-item menus behind Export and Import
   const menus = useLibraryMenus({ surface: "settings" })
   const files = useCtxMenu()
 
+  const { readAutostart } = m
   useEffect(() => {
-    // Unanswered (a registry read refused), the box stays off: the toggle
-    // itself says what happened when it is tried
-    void invoke<boolean>("get_autostart").then(setAutostart, () => {})
-  }, [])
+    void readAutostart()
+  }, [readAutostart])
 
   const toggleAutostart = async (enabled: boolean) => {
-    setAutostart(enabled)
     try {
-      await invoke("set_autostart", { enabled })
+      await m.setAutostart(enabled)
       say(enabled ? "Autostart enabled" : "Autostart disabled")
     } catch (e) {
       sayErr(String(e))
-      setAutostart(!enabled)
     }
   }
 
@@ -70,7 +66,7 @@ export function Settings() {
         </Row>
         <Row label="Startup">
           <label className="flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-            <Checkbox checked={autostart} onCheckedChange={(v) => void toggleAutostart(v === true)} />
+            <Checkbox checked={m.autostart === true} onCheckedChange={(v) => void toggleAutostart(v === true)} />
             Start with Windows
           </label>
         </Row>

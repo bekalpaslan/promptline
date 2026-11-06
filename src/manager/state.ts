@@ -171,6 +171,12 @@ export interface ManagerApi {
   openUpdateOffer: (info?: UpdateInfo) => void
   /** Save the automatic-check setting (set_update_check), optimistic with a revert on failure */
   setAutoUpdateCheck: (enabled: boolean) => Promise<void>
+  /** Whether Windows starts Promptline at sign-in; null until `get_autostart` first answers */
+  autostart: boolean | null
+  /** Ask Windows again: its Startup page can change the answer while the app runs */
+  readAutostart: () => Promise<void>
+  /** Turn it on or off (set_autostart), optimistic with a revert; rejects with the reason */
+  setAutostart: (enabled: boolean) => Promise<void>
 }
 
 export const ManagerCtx = createContext<ManagerApi | null>(null)

@@ -23,6 +23,7 @@
 //   library            the current { snippets, revision }
 //   pasteResult        what paste_snippet answers: "pasted" (default) or
 //                      "copied" (the manager was in front, copy-only)
+//   autostart          what get_autostart answers; set_autostart changes it
 //   update             { autoCheck, available, next } — `next` is
 //                      what the next check_for_updates finds; set it before
 //                      calling to stage a discovered version
@@ -36,6 +37,11 @@
 // can't be read: get_snippets throws, and get_config still answers with the
 // hotkey it kept, ctrl+shift+v. Only `mode === "empty"` empties the
 // library; `mode === "showcase"` seeds the demo one.
+//
+// `?mock=first` is a first launch of a setup exe install: the popup has
+// never been seen, so the manager shows its first-run banner over the seeded
+// library, and Start with Windows has just been turned on. `?mock=first-off`
+// is the same launch with it off: an MSI install, or an enable that failed.
 
 import type { Library, PackMeta, Snippet } from "@/lib/core"
 import { C } from "@/lib/core"
@@ -160,6 +166,7 @@ export function installMock(mode: string | null) {
     library: lib,
     pasteResult: "pasted" as "pasted" | "copied",
     fail: new Set<string>(),
+    autostart: mode === "first",
     update: {
       autoCheck: true,
       available: null as UpdateInfo | null,
@@ -175,11 +182,11 @@ export function installMock(mode: string | null) {
       if (mode === "library-error") throw "the library file couldn't be read"
       return snapshot()
     },
-    get_config: () => ({ ...config, packs, packsArranged, popupSeen: true }),
+    get_config: () => ({ ...config, packs, packsArranged, popupSeen: mode !== "first" && mode !== "first-off" }),
     take_notices: () => [],
     get_clipboard_text: () => mock.clipboard,
     set_clipboard_text: (a) => void (mock.clipboard = String(a.text)),
-    get_autostart: () => false,
+    get_autostart: () => mock.autostart,
     add_snippet: (a) => {
       const s = a.snippet as Snippet
       write([...lib.snippets.filter((x) => x.id !== s.id), s])
@@ -292,7 +299,7 @@ export function installMock(mode: string | null) {
     open_url: () => null,
     show_in_folder: () => null,
     open_data_dir: () => null,
-    set_autostart: () => null,
+    set_autostart: (a) => void (mock.autostart = a.enabled === true),
     get_update_state: () => ({
       autoCheck: mock.update.autoCheck,
       available: mock.update.available,

@@ -279,7 +279,9 @@ Open `http://localhost:5175/?mock` (manager) or `/popup.html?mock` (popup);
 `calls` (every invoke with its args), `clipboard` (settable), `emit(event,
 payload)` for backend events such as `edit-prompt`, `library`, and
 `pasteResult`, `update` and `fail` (a set of command names that reject).
-`?mock=library-error` is an upgraded install whose library can't be read.
+`?mock=library-error` is an upgraded install whose library can't be read;
+`?mock=first` is a first launch, with the first-run banner up, and
+`?mock=first-off` the same with Start with Windows off.
 Each page has its own in-memory store; a reload starts over. Unknown
 commands resolve to null and log `[mock] unhandled command …`. When you add
 a Tauri command the UI depends on, add it to the mock too.
@@ -311,6 +313,10 @@ show/hide and focus, file dialogs, and anything Rust does to the payload
   `WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS=--remote-debugging-port=9223` from a
   background Bash call (the PowerShell tool kills the child when the call
   ends). `http://127.0.0.1:9223/json` lists both pages.
+- Anything gated on `bundle_type()` (the updater's installer, Start with
+  Windows on a fresh install) needs the exe from inside the installer: the
+  bundler patches `target/release/promptline.exe`, then puts it back, so that
+  file reads as unknown, like a debug build. `7z e` the setup exe.
 - The document is never focused under CDP: `focus()`/`blur()` fire nothing,
   so dispatch `focusout`. Ctrl+Shift+V is taken by another tool on this
   machine; test hotkeys on a spare combination and restore the config.
