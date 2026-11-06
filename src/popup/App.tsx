@@ -724,9 +724,10 @@ export function App() {
 
   useEffect(() => {
     const un = listen("popup-shown", () => void reload())
-    // Rust re-shows the popup when it could not focus the target window or
-    // send Ctrl+V (an elevated window) and says why; the prompt is still on
-    // the clipboard. An error, so it stays until Esc or the next summon.
+    // Rust re-shows the popup when the target won't take input (it runs as
+    // administrator) or it could not focus the window or send Ctrl+V, and
+    // says why; the prompt is still on the clipboard. An error, so it stays
+    // until Esc or the next summon.
     const unFailed = listen<{ message: string }>("paste-failed", (e) => {
       setNotice({ text: e.payload.message, kind: "error", recover: true })
       setPicked(null)

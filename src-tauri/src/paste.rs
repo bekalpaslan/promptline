@@ -11,6 +11,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
 
 use crate::commands::notify_manager_snippets_changed;
+use crate::platform::InputBlock;
 use crate::store::{load_config_from_disk, load_snippets_from_disk, save_config, write_snippets};
 use crate::{platform, AppState};
 
@@ -253,6 +254,16 @@ pub(crate) fn paste_snippet(
         let app = app.clone();
         std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(80));
+            // Asked first: a Ctrl+V into a window above our level vanishes
+            // with SendInput reporting success, so nothing below would notice
+            let block = platform::input_block(prev_window);
+            if block != InputBlock::Open {
+                log::warn!(
+                    "window {prev_window:#x} won't take input ({block:?}); the paste was not sent"
+                );
+                report_paste_failed(&app, paste_failed_message(block));
+                return;
+            }
             // No Ctrl+V without the focus: it would land in whatever window
             // happens to be in front, which is not the one the user meant
             let focused = platform::focus_window(prev_window);
@@ -278,7 +289,7 @@ pub(crate) fn paste_snippet(
                 }
             }
             if !sent {
-                report_paste_failed(&app);
+                report_paste_failed(&app, PASTE_FAILED_MESSAGE);
             }
         });
     }
@@ -299,17 +310,31 @@ fn expand_clipboard(text: &str, clip: Option<&str>) -> String {
 const PASTE_FAILED_MESSAGE: &str =
     "Couldn't paste into that window. The prompt is on your clipboard: press Ctrl+V there to paste it yourself.";
 
+/// The same for a window known to run as administrator. The strip holds
+/// three lines at the popup's 320 px minimum, about 110 characters.
+const PASTE_ELEVATED_MESSAGE: &str =
+    "That window runs as administrator. The prompt is on your clipboard: press Ctrl+V there to paste it yourself.";
+
+/// Names administrator only when the window's level was read: a denied read
+/// is most likely one, but saying so would be a guess.
+fn paste_failed_message(block: InputBlock) -> &'static str {
+    match block {
+        InputBlock::Elevated => PASTE_ELEVATED_MESSAGE,
+        InputBlock::Open | InputBlock::Unreadable => PASTE_FAILED_MESSAGE,
+    }
+}
+
 /// The paste thread could not deliver (an elevated window, a foreground
 /// lock held elsewhere, a blocked input queue): bring the popup back where
 /// it was, without re-recording `prev_window` — the target is still the
 /// one the user came from — and tell it, so the user learns the prompt is
 /// on the clipboard rather than wondering why nothing happened.
-fn report_paste_failed(app: &AppHandle) {
+fn report_paste_failed(app: &AppHandle, message: &str) {
     if let Some(w) = app.get_webview_window("popup") {
         let _ = w.show();
         let _ = w.set_focus();
     }
-    let payload = serde_json::json!({ "message": PASTE_FAILED_MESSAGE });
+    let payload = serde_json::json!({ "message": message });
     if let Err(e) = app.emit_to("popup", "paste-failed", payload) {
         log::warn!("couldn't tell the popup the paste failed: {e}");
     }
@@ -455,6 +480,20 @@ pub(crate) fn show_popup(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn the_message_says_administrator_only_when_the_level_was_read() {
+        assert!(paste_failed_message(InputBlock::Elevated).contains("administrator"));
+        assert!(!paste_failed_message(InputBlock::Unreadable).contains("administrator"));
+    }
+
+    #[test]
+    fn both_failure_messages_fit_the_strip_and_name_the_recovery() {
+        for message in [PASTE_FAILED_MESSAGE, PASTE_ELEVATED_MESSAGE] {
+            assert!(message.chars().count() <= 110, "{message}");
+            assert!(message.contains("press Ctrl+V there"), "{message}");
+        }
+    }
 
     #[test]
     fn clipboard_expansion_is_one_pass_and_leaves_holes_when_empty() {

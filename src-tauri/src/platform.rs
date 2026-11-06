@@ -2,8 +2,9 @@
 //! outside Promptline was last), bringing one to the front, sending Ctrl+V,
 //! the mouse button for the resize-drag check, handing a URL to the shell,
 //! what the hotkey would have typed on the user's keyboard layouts, whether
-//! Windows' Startup page has turned an entry off, and hearing that Windows
-//! is ending the session. Everything else in the crate is
+//! Windows' Startup page has turned an entry off, whether a window will
+//! accept our keystrokes, and hearing that Windows is ending the session.
+//! Everything else in the crate is
 //! portable; a macOS port reimplements this file (CGEventPost, plus the
 //! Accessibility permission) and nothing else.
 
@@ -70,6 +71,43 @@ fn is_shell_class(class: &str) -> bool {
     )
 }
 
+/// Whether a window will take our keystrokes. Windows drops input sent to a
+/// process above our integrity level, and `SendInput` still reports success,
+/// so this has to be asked before the Ctrl+V and can't be learned after it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum InputBlock {
+    /// Send: at or below our level, or nothing to ask about
+    Open,
+    /// Above our level: an administrator's window, to a normal Promptline
+    Elevated,
+    /// We may not read its level, which most likely means another account's
+    /// administrator window. A window at our own level that lands here costs
+    /// one Ctrl+V by hand; a silent paste costs the user the reason
+    Unreadable,
+}
+
+/// What asking for a window's integrity level found.
+#[cfg(any(windows, test))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TargetLevel {
+    /// The level's RID: 0x2000 medium, 0x3000 high
+    Read(u32),
+    Denied,
+    /// The window or its process went away, so there is nothing to protect
+    Gone,
+}
+
+/// Compares levels rather than asking "elevated?", so a Promptline that was
+/// itself run as administrator still pastes into administrator windows.
+#[cfg(any(windows, test))]
+fn judge_input(target: TargetLevel, own: u32) -> InputBlock {
+    match target {
+        TargetLevel::Read(level) if level > own => InputBlock::Elevated,
+        TargetLevel::Read(_) | TargetLevel::Gone => InputBlock::Open,
+        TargetLevel::Denied => InputBlock::Unreadable,
+    }
+}
+
 /// What a StartupApproved value says: Windows' Startup page and Task
 /// Manager write an odd first byte for off (03, then the time it was turned
 /// off) and an even one for on. The bytes after it are no guide: `03` with
@@ -85,14 +123,25 @@ mod imp {
     use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
     use std::time::{Duration, Instant};
 
+    use super::{judge_input, InputBlock, TargetLevel};
     use windows::core::{w, HSTRING, PCWSTR, PWSTR};
-    use windows::Win32::Foundation::{ERROR_FILE_NOT_FOUND, HWND, LPARAM, LRESULT, WPARAM};
+    use windows::Win32::Foundation::{
+        CloseHandle, ERROR_ACCESS_DENIED, ERROR_FILE_NOT_FOUND, HANDLE, HWND, LPARAM, LRESULT,
+        WPARAM,
+    };
     use windows::Win32::Globalization::{
         GetLocaleInfoEx, LCIDToLocaleName, LOCALE_SLOCALIZEDDISPLAYNAME,
+    };
+    use windows::Win32::Security::{
+        GetSidSubAuthority, GetSidSubAuthorityCount, GetTokenInformation, TokenIntegrityLevel,
+        TOKEN_MANDATORY_LABEL, TOKEN_QUERY,
     };
     use windows::Win32::System::Registry::{
         RegCloseKey, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER,
         HKEY_LOCAL_MACHINE, KEY_READ, RRF_RT_REG_BINARY, RRF_RT_REG_SZ,
+    };
+    use windows::Win32::System::Threading::{
+        GetCurrentProcess, OpenProcess, OpenProcessToken, PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows::Win32::UI::Accessibility::{SetWinEventHook, HWINEVENTHOOK};
     use windows::Win32::UI::Input::KeyboardAndMouse::{
@@ -210,8 +259,64 @@ mod imp {
         unsafe { GetAsyncKeyState(VK_LBUTTON.0 as i32) < 0 }
     }
 
-    /// Bring `hwnd` to the foreground; false when Windows refused (the
-    /// window is elevated, or another process holds the foreground lock).
+    /// The integrity level's RID in `process`'s token, or None when it can't
+    /// be read. The level is the last sub-authority of the label's SID.
+    pub(crate) fn process_integrity(process: HANDLE) -> Option<u32> {
+        let mut token = HANDLE::default();
+        unsafe { OpenProcessToken(process, TOKEN_QUERY, &mut token) }.ok()?;
+        // u64s for the alignment TOKEN_MANDATORY_LABEL needs; a label and its
+        // SID take about 30 bytes
+        let mut buf = [0u64; 16];
+        let mut needed = 0u32;
+        let read = unsafe {
+            GetTokenInformation(
+                token,
+                TokenIntegrityLevel,
+                Some(buf.as_mut_ptr() as *mut _),
+                std::mem::size_of_val(&buf) as u32,
+                &mut needed,
+            )
+        };
+        let level = read.ok().and_then(|()| unsafe {
+            let sid = (*(buf.as_ptr() as *const TOKEN_MANDATORY_LABEL)).Label.Sid;
+            let count = *GetSidSubAuthorityCount(sid);
+            (count > 0).then(|| *GetSidSubAuthority(sid, u32::from(count) - 1))
+        });
+        let _ = unsafe { CloseHandle(token) };
+        level
+    }
+
+    /// The level of the process behind `hwnd`. Asks only for the limited
+    /// query right, which is the least there is, and reads nothing else.
+    fn target_level(hwnd: isize) -> TargetLevel {
+        let mut pid = 0u32;
+        let window = HWND(hwnd as *mut core::ffi::c_void);
+        unsafe { GetWindowThreadProcessId(window, Some(&mut pid)) };
+        if pid == 0 {
+            return TargetLevel::Gone;
+        }
+        match unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) } {
+            Ok(process) => {
+                let level = process_integrity(process);
+                let _ = unsafe { CloseHandle(process) };
+                level.map_or(TargetLevel::Denied, TargetLevel::Read)
+            }
+            Err(e) if e.code() == ERROR_ACCESS_DENIED.to_hresult() => TargetLevel::Denied,
+            Err(_) => TargetLevel::Gone,
+        }
+    }
+
+    /// Whether `hwnd` will take our keystrokes. Our own level unread leaves
+    /// nothing to compare, so the paste goes ahead as it always did.
+    pub(crate) fn input_block(hwnd: isize) -> InputBlock {
+        match process_integrity(unsafe { GetCurrentProcess() }) {
+            Some(own) if hwnd != 0 => judge_input(target_level(hwnd), own),
+            _ => InputBlock::Open,
+        }
+    }
+
+    /// Bring `hwnd` to the foreground; false when Windows refused (another
+    /// process holds the foreground lock).
     pub(crate) fn focus_window(hwnd: isize) -> bool {
         if hwnd == 0 {
             return false;
@@ -241,7 +346,7 @@ mod imp {
     /// Send Ctrl+V; false when SendInput inserted fewer events than asked
     /// (the input queue is blocked, or another thread holds it). UIPI drops
     /// input aimed at an elevated window without saying so, so a paste into
-    /// one still comes back true.
+    /// one would come back true: `input_block` is asked first.
     pub(crate) fn send_ctrl_v() -> bool {
         // Release modifiers the user may still be holding from the hotkey,
         // then send a clean Ctrl+V.
@@ -635,6 +740,9 @@ mod imp {
     pub(crate) fn startup_entry_off(_name: &str) -> bool {
         false
     }
+    pub(crate) fn input_block(_hwnd: isize) -> super::InputBlock {
+        super::InputBlock::Open
+    }
     pub(crate) struct SessionEnd {
         pub(crate) ask: Box<dyn Fn() -> bool>,
         pub(crate) done: Box<dyn Fn() -> bool>,
@@ -659,14 +767,51 @@ mod imp {
 #[cfg(windows)]
 pub(crate) use imp::open_url;
 pub(crate) use imp::{
-    claim_app_id, focus_window, foreground_window, last_foreign_window, left_button_down,
-    note_foreign, on_session_end, send_ctrl_v, send_enter, show_toast, startup_entry_off,
-    track_foreground, SessionEnd,
+    claim_app_id, focus_window, foreground_window, input_block, last_foreign_window,
+    left_button_down, note_foreign, on_session_end, send_ctrl_v, send_enter, show_toast,
+    startup_entry_off, track_foreground, SessionEnd,
 };
 
 #[cfg(test)]
 mod tests {
-    use super::{is_printable, is_shell_class, startup_value_off, virtual_key};
+    use super::{
+        is_printable, is_shell_class, judge_input, startup_value_off, virtual_key, InputBlock,
+        TargetLevel,
+    };
+
+    const MEDIUM: u32 = 0x2000;
+    const HIGH: u32 = 0x3000;
+
+    #[test]
+    fn a_window_above_our_level_refuses_input_and_one_at_it_or_below_takes_it() {
+        assert_eq!(
+            judge_input(TargetLevel::Read(HIGH), MEDIUM),
+            InputBlock::Elevated
+        );
+        assert_eq!(
+            judge_input(TargetLevel::Read(MEDIUM), MEDIUM),
+            InputBlock::Open
+        );
+        // An app container runs low
+        assert_eq!(
+            judge_input(TargetLevel::Read(0x1000), MEDIUM),
+            InputBlock::Open
+        );
+    }
+
+    #[test]
+    fn a_promptline_run_as_administrator_still_pastes_into_administrator_windows() {
+        assert_eq!(judge_input(TargetLevel::Read(HIGH), HIGH), InputBlock::Open);
+    }
+
+    #[test]
+    fn a_denied_read_counts_as_blocked_and_a_window_that_went_away_does_not() {
+        assert_eq!(
+            judge_input(TargetLevel::Denied, MEDIUM),
+            InputBlock::Unreadable
+        );
+        assert_eq!(judge_input(TargetLevel::Gone, MEDIUM), InputBlock::Open);
+    }
 
     #[test]
     fn an_odd_first_byte_is_a_startup_entry_turned_off() {
@@ -756,7 +901,21 @@ mod windows_tests {
         LoadKeyboardLayoutW, UnloadKeyboardLayout, KLF_NOTELLSHELL,
     };
 
-    use super::imp::{altgr_text_on, keyboard_layouts, layout_name};
+    use windows::Win32::System::Threading::GetCurrentProcess;
+
+    use super::imp::{altgr_text_on, keyboard_layouts, layout_name, process_integrity};
+    use super::{input_block, InputBlock};
+
+    #[test]
+    fn this_process_reads_its_own_integrity_level() {
+        let level = process_integrity(unsafe { GetCurrentProcess() });
+        assert!(level.is_some_and(|l| (0x1000..=0x4000).contains(&l)));
+    }
+
+    #[test]
+    fn no_window_is_nothing_to_block() {
+        assert_eq!(input_block(0), InputBlock::Open);
+    }
 
     #[test]
     fn the_czech_layout_types_at_with_ctrl_alt_v() {
