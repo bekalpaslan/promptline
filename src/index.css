@@ -382,6 +382,111 @@
     --module-border: var(--border);
 }
 
+
+/* Lagoon: a theme (Settings → Appearance → Theme; BEHAVIOR.md → Theming).
+   Values come from design/lagoon.tokens.json through the same script. */
+:root[data-theme="lagoon"] {
+    /* @tokens lagoon light: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #f6fbfa;
+    --sidebar: #e9f4f2;
+    --segment-track: #e9f4f2;
+    --secondary: #e1efec;
+    --muted: #e1efec;
+    --card: #ffffff;
+    --popover: #ffffff;
+    --segment-active: #ffffff;
+    --band: #d8e9e6;
+    --hover: #e3f0ed;
+    --accent: #fde0d8;
+    --foreground: #0f2a2e;
+    --card-foreground: #0f2a2e;
+    --popover-foreground: #0f2a2e;
+    --secondary-foreground: #0f2a2e;
+    --accent-foreground: #0f2a2e;
+    --muted-foreground: #456468;
+    --border: #dbe9e6;
+    --input: #bcd3cf;
+    --link: #c0432a;
+    --ring: #d04f36;
+    --focus: #d04f36;
+    --primary: #b83c24;
+    --primary-foreground: #ffffff;
+    --destructive: #b3263a;
+    --warn: #8f5c00;
+    --heading: #456468;
+    --heading-strong: #0f2a2e;
+    --success: #0f7a58;
+    --code-ground: #f6fbfa;
+    --param-builtin: #0b6a84;
+    --param-builtin-bg: #dff2f7;
+    --param-field: #7f5a05;
+    --param-field-bg: #f8efd6;
+    --param-config: #9a2a8c;
+    --param-config-bg: #f9e6f5;
+    --panel-head: #ffffff;
+    --panel-body: #e1efec;
+    --panel-edge: #dbe9e6;
+    --shadow-shell: 0 8px 24px rgba(15, 42, 46, 0.16);
+    --shadow-pop: 0 4px 12px rgba(15, 42, 46, 0.10);
+    --shadow-segment: 0 1px 2px rgba(15, 42, 46, 0.10);
+    --shadow-card: 0 1px 2px rgba(15, 42, 46, 0.06), 0 4px 12px rgba(15, 42, 46, 0.07);
+    --chip-tint: 12%;
+    --chip-edge: 30%;
+    --radius: 10px;
+    --search-radius: 10px;
+    /* @tokens end */
+}
+
+:root[data-theme="lagoon"].dark {
+    /* @tokens lagoon dark: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #0e2126;
+    --sidebar: #0a1a1e;
+    --segment-track: #0a1a1e;
+    --secondary: #18323a;
+    --muted: #18323a;
+    --card: #132a30;
+    --popover: #132a30;
+    --segment-active: #1f3d46;
+    --band: #1a363e;
+    --hover: #142b32;
+    --accent: #1b4650;
+    --foreground: #e2f1f0;
+    --card-foreground: #e2f1f0;
+    --popover-foreground: #e2f1f0;
+    --secondary-foreground: #e2f1f0;
+    --accent-foreground: #e2f1f0;
+    --muted-foreground: #9dbcbc;
+    --border: #1c3840;
+    --input: #2c4e58;
+    --link: #ff9580;
+    --ring: #ff9580;
+    --focus: #ff9580;
+    --primary: #ff8a73;
+    --primary-foreground: #0e2126;
+    --destructive: #ff7d8a;
+    --warn: #f5c04b;
+    --heading: #9dbcbc;
+    --heading-strong: #e2f1f0;
+    --success: #6fe0b0;
+    --code-ground: #0a191d;
+    --param-builtin: #6fd3e6;
+    --param-builtin-bg: #123440;
+    --param-field: #f2c95c;
+    --param-field-bg: #33301a;
+    --param-config: #e6a0e0;
+    --param-config-bg: #36243c;
+    --panel-head: #132a30;
+    --panel-body: #18323a;
+    --panel-edge: #1c3840;
+    --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.6);
+    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.35);
+    --chip-tint: 14%;
+    --chip-edge: 30%;
+    /* @tokens end */
+}
+
 /* Indigo's one structural difference the tokens can't carry: the sidebar's
    New is the filled accent button (the file's "+ New chat"), where Instrument
    keeps it a dashed outline and the accent as text only. */
