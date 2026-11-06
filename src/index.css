@@ -382,6 +382,111 @@
     --module-border: var(--border);
 }
 
+
+/* Phosphor: a theme (Settings → Appearance → Theme; BEHAVIOR.md → Theming).
+   Values come from design/phosphor.tokens.json through the same script. */
+:root[data-theme="phosphor"] {
+    /* @tokens phosphor light: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #fdf8ec;
+    --sidebar: #f6eeda;
+    --segment-track: #f6eeda;
+    --secondary: #f0e6cd;
+    --muted: #f0e6cd;
+    --card: #fffcf3;
+    --popover: #fffcf3;
+    --segment-active: #fffcf3;
+    --band: #ebdfc2;
+    --hover: #f1e8d2;
+    --accent: #f8e2ae;
+    --foreground: #2b1d08;
+    --card-foreground: #2b1d08;
+    --popover-foreground: #2b1d08;
+    --secondary-foreground: #2b1d08;
+    --accent-foreground: #2b1d08;
+    --muted-foreground: #6b4e1e;
+    --border: #eadfc6;
+    --input: #d3c39c;
+    --link: #945c00;
+    --ring: #a86a00;
+    --focus: #a86a00;
+    --primary: #8a5400;
+    --primary-foreground: #ffffff;
+    --destructive: #b03a1a;
+    --warn: #96500a;
+    --heading: #6b4e1e;
+    --heading-strong: #2b1d08;
+    --success: #4f7a12;
+    --code-ground: #fdf8ec;
+    --param-builtin: #0e6c6c;
+    --param-builtin-bg: #e0f3f0;
+    --param-field: #7f5a05;
+    --param-field-bg: #f8eccb;
+    --param-config: #9a2a6c;
+    --param-config-bg: #f9e6ef;
+    --panel-head: #fffcf3;
+    --panel-body: #f0e6cd;
+    --panel-edge: #eadfc6;
+    --shadow-shell: 0 8px 24px rgba(43, 29, 8, 0.16);
+    --shadow-pop: 0 4px 12px rgba(43, 29, 8, 0.10);
+    --shadow-segment: 0 1px 2px rgba(43, 29, 8, 0.10);
+    --shadow-card: 0 1px 2px rgba(43, 29, 8, 0.06), 0 4px 12px rgba(43, 29, 8, 0.07);
+    --chip-tint: 12%;
+    --chip-edge: 45%;
+    --radius: 2px;
+    --search-radius: 2px;
+    /* @tokens end */
+}
+
+:root[data-theme="phosphor"].dark {
+    /* @tokens phosphor dark: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #0f0b05;
+    --sidebar: #0a0703;
+    --segment-track: #0a0703;
+    --secondary: #231a08;
+    --muted: #231a08;
+    --card: #17110a;
+    --popover: #17110a;
+    --segment-active: #2e220c;
+    --band: #271d0a;
+    --hover: #1c1508;
+    --accent: #3a2a0a;
+    --foreground: #ffcf87;
+    --card-foreground: #ffcf87;
+    --popover-foreground: #ffcf87;
+    --secondary-foreground: #ffcf87;
+    --accent-foreground: #ffcf87;
+    --muted-foreground: #d9a35c;
+    --border: #2e2210;
+    --input: #4a3717;
+    --link: #ffb000;
+    --ring: #ffb000;
+    --focus: #ffb000;
+    --primary: #ffb000;
+    --primary-foreground: #0f0b05;
+    --destructive: #ff7a5c;
+    --warn: #ffd84d;
+    --heading: #d9a35c;
+    --heading-strong: #ffcf87;
+    --success: #b8e06a;
+    --code-ground: #070502;
+    --param-builtin: #7fd6c8;
+    --param-builtin-bg: #12302c;
+    --param-field: #ffd84d;
+    --param-field-bg: #352a08;
+    --param-config: #f0a0c8;
+    --param-config-bg: #3a1c2c;
+    --panel-head: #17110a;
+    --panel-body: #231a08;
+    --panel-edge: #2e2210;
+    --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.6);
+    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.35);
+    --chip-tint: 12%;
+    --chip-edge: 45%;
+    /* @tokens end */
+}
+
 /* Indigo's one structural difference the tokens can't carry: the sidebar's
    New is the filled accent button (the file's "+ New chat"), where Instrument
    keeps it a dashed outline and the accent as text only. */
