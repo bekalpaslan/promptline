@@ -382,6 +382,111 @@
     --module-border: var(--border);
 }
 
+
+/* Plum: a theme (Settings → Appearance → Theme; BEHAVIOR.md → Theming).
+   Values come from design/plum.tokens.json through the same script. */
+:root[data-theme="plum"] {
+    /* @tokens plum light: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #fdf9fb;
+    --sidebar: #f7eff4;
+    --segment-track: #f7eff4;
+    --secondary: #f2e7ee;
+    --muted: #f2e7ee;
+    --card: #ffffff;
+    --popover: #ffffff;
+    --segment-active: #ffffff;
+    --band: #ecdde6;
+    --hover: #f2e8ee;
+    --accent: #f8dce8;
+    --foreground: #241526;
+    --card-foreground: #241526;
+    --popover-foreground: #241526;
+    --secondary-foreground: #241526;
+    --accent-foreground: #241526;
+    --muted-foreground: #62506a;
+    --border: #eee1e9;
+    --input: #d6c4d1;
+    --link: #b02a66;
+    --ring: #c03a76;
+    --focus: #c03a76;
+    --primary: #a8265f;
+    --primary-foreground: #ffffff;
+    --destructive: #b8301f;
+    --warn: #96560a;
+    --heading: #62506a;
+    --heading-strong: #241526;
+    --success: #1f7a55;
+    --code-ground: #fdf9fb;
+    --param-builtin: #0e6c84;
+    --param-builtin-bg: #e0f2f7;
+    --param-field: #7f5a05;
+    --param-field-bg: #f8efd6;
+    --param-config: #6a3fc0;
+    --param-config-bg: #efe8fb;
+    --panel-head: #ffffff;
+    --panel-body: #f2e7ee;
+    --panel-edge: #eee1e9;
+    --shadow-shell: 0 8px 24px rgba(36, 21, 38, 0.16);
+    --shadow-pop: 0 4px 12px rgba(36, 21, 38, 0.10);
+    --shadow-segment: 0 1px 2px rgba(36, 21, 38, 0.10);
+    --shadow-card: 0 1px 2px rgba(36, 21, 38, 0.06), 0 4px 12px rgba(36, 21, 38, 0.07);
+    --chip-tint: 14%;
+    --chip-edge: 20%;
+    --radius: 12px;
+    --search-radius: 12px;
+    /* @tokens end */
+}
+
+:root[data-theme="plum"].dark {
+    /* @tokens plum dark: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #18111c;
+    --sidebar: #130d17;
+    --segment-track: #130d17;
+    --secondary: #281d2e;
+    --muted: #281d2e;
+    --card: #201726;
+    --popover: #201726;
+    --segment-active: #32253b;
+    --band: #2b2032;
+    --hover: #21172a;
+    --accent: #3c2141;
+    --foreground: #efe6f0;
+    --card-foreground: #efe6f0;
+    --popover-foreground: #efe6f0;
+    --secondary-foreground: #efe6f0;
+    --accent-foreground: #efe6f0;
+    --muted-foreground: #b7a6bb;
+    --border: #2e2235;
+    --input: #443450;
+    --link: #f28ab2;
+    --ring: #f28ab2;
+    --focus: #f28ab2;
+    --primary: #f28ab2;
+    --primary-foreground: #18111c;
+    --destructive: #ff8a6e;
+    --warn: #f0b45a;
+    --heading: #b7a6bb;
+    --heading-strong: #efe6f0;
+    --success: #7fd6ae;
+    --code-ground: #100a13;
+    --param-builtin: #7cc8e0;
+    --param-builtin-bg: #172a38;
+    --param-field: #ecc662;
+    --param-field-bg: #352b15;
+    --param-config: #c3a0ff;
+    --param-config-bg: #2e2247;
+    --panel-head: #201726;
+    --panel-body: #281d2e;
+    --panel-edge: #2e2235;
+    --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.6);
+    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.35);
+    --chip-tint: 18%;
+    --chip-edge: 20%;
+    /* @tokens end */
+}
+
 /* Indigo's one structural difference the tokens can't carry: the sidebar's
    New is the filled accent button (the file's "+ New chat"), where Instrument
    keeps it a dashed outline and the accent as text only. */

@@ -1904,7 +1904,7 @@ for it are in *The paste pipeline*, step 1.
 
 **Two axes: a theme and a mode.** The theme is a palette with a light and
 a dark side; the mode picks the side. Settings → Appearance has Theme
-(Instrument, the default, Indigo or Clay) as a select and Mode (System / Light
+(Instrument, the default, Indigo, Clay or Plum) as a select and Mode (System / Light
 / Dark) as a segmented control, next to density, font and scale, where the
 other appearance choices already were; the sidebar used to carry a Light /
 Dark toggle in its footer, permanent real estate for a choice made once.
@@ -1931,8 +1931,8 @@ the crumbs up there and the gear out of the pane's way.
 which is what makes native UI the webview paints itself — scrollbars, `<select>`
 popups, form controls — follow the theme. Tokens alone leave those light.
 `data-theme` on `<html>` picks the palette the same way: `design/tokens.json`
-is Instrument, `design/indigo.tokens.json` is Indigo and
-`design/clay.tokens.json` is Clay, the same format
+is Instrument, `design/indigo.tokens.json` is Indigo,
+`design/clay.tokens.json` is Clay and `design/plum.tokens.json` is Plum, the same format
 and the same contrast floors, rendered by `npm run tokens` into regions
 under `:root[data-theme="<id>"]` and `:root[data-theme="<id>"].dark`
 (the attribute outranks `.dark` alone, so each theme keeps both modes).
@@ -1943,7 +1943,13 @@ off-white text, a grey selection rather than a tinted one, clay as the one
 accent and the primary button's fill, 8 px controls; its light side is
 derived on ivory, since the reference was dark only. Clay keeps the
 clipboard chip blue, the reference's one other colour, so the three
-placeholder kinds stay apart from the accent. Three things differ between the
+placeholder kinds stay apart from the accent.
+Plum (2026-11, picked by vote on its pull request) is an aubergine
+ground with rose as the one accent and the primary button's fill, the
+softest corners of the set (12 px controls); the light side is the same
+hues on blush white. Its config chip is violet rather than the orchid the
+other themes keep, which would sit too close to the rose.
+Three things differ between the
 themes beyond colours, each a token so the components stay one definition:
 the search boxes' radius (`radius-search`, a pill in Indigo), how much of
 a tag's hue a resting chip's ground and edge carry (`chip-tint` and
