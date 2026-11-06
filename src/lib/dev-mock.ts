@@ -36,6 +36,9 @@
 // can't be read: get_snippets throws, and get_config still answers with the
 // hotkey it kept, ctrl+shift+v. Only `mode === "empty"` empties the
 // library; `mode === "showcase"` seeds the demo one.
+//
+// `?mock=first` is a first launch: the popup has never been seen, so the
+// manager shows its first-run banner over the seeded library.
 
 import type { Library, PackMeta, Snippet } from "@/lib/core"
 import { C } from "@/lib/core"
@@ -175,7 +178,7 @@ export function installMock(mode: string | null) {
       if (mode === "library-error") throw "the library file couldn't be read"
       return snapshot()
     },
-    get_config: () => ({ ...config, packs, packsArranged, popupSeen: true }),
+    get_config: () => ({ ...config, packs, packsArranged, popupSeen: mode !== "first" }),
     take_notices: () => [],
     get_clipboard_text: () => mock.clipboard,
     set_clipboard_text: (a) => void (mock.clipboard = String(a.text)),

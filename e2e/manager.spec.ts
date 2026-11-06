@@ -1128,3 +1128,25 @@ test("a pack takes a colour from its menu: the backend is asked by intent, the h
   await expect(tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" })).toBeVisible()
   await expect(tree(page).locator("[data-swatch]")).toHaveCount(0)
 })
+
+test("the first-run banner names the hotkey until the popup is first seen, then fades", async ({ page }) => {
+  await open(page, "manager", "first")
+  const hint = page.getByText("in any app to open your prompts")
+  await expect(hint).toContainText("CtrlAltV")
+  await emit(page, "first-popup")
+  await expect(hint).toBeHidden()
+  const done = page.getByText("That's it")
+  await expect(done).toBeVisible()
+  await expect(done).toBeHidden({ timeout: 8000 })
+})
+
+test("the first-run banner's × closes it", async ({ page }) => {
+  await open(page, "manager", "first")
+  await page.getByRole("button", { name: "Dismiss" }).click()
+  await expect(page.getByText("in any app to open your prompts")).toBeHidden()
+})
+
+test("a library whose popup has been seen shows no first-run banner", async ({ page }) => {
+  await expect(tree(page)).toBeVisible()
+  await expect(page.getByText("in any app to open your prompts")).toBeHidden()
+})
