@@ -14,7 +14,7 @@ Two webview windows and a tray icon, over one Rust core.
 | Surface | Entry | Role |
 |---|---|---|
 | **Popup** | `popup.html` → `src/popup/` | The daily surface. Summoned by hotkey at the cursor, gone in a keystroke. |
-| **Manager** | `index.html` → `src/manager/` | Editing, organising, settings. Opened by left-clicking the tray. |
+| **Manager** | `index.html` → `src/manager/` | Editing, organising, settings. Opened by left-clicking the tray; built when first opened and let go five minutes after it is closed (*Launching and quitting*). |
 | **Tray** | `lib.rs` | Left-click opens the manager; the menu opens it, quits, and offers *Update to X.Y.Z* when a newer release is waiting. Reuses `default_window_icon()`, so it needs no asset of its own. |
 
 Both windows are one Vite build sharing `src/index.css`, `src/lib/`, and
@@ -1498,10 +1498,12 @@ autosave would have buried the only copy of the user's prompts. An I/O error
 written, because the file may be perfectly good.
 
 `Notice`s are the channel for anything the user must see that can happen
-before the manager's webview is listening: they are stored in `AppState`, the
-manager drains them with `take_notices` on startup and receives later ones
-through the `notice` event, and shows each as a toast that stays until
-dismissed.
+before the manager's webview is listening, or while there is no manager at
+all: they are stored in `AppState`, the manager drains them with
+`take_notices` when it loads and receives later ones through the `notice`
+event, and shows each as a toast that stays until dismissed. When the
+manager's webview is destroyed the queue is cleared, so the next one built
+takes only what came while there was none, not every notice since launch.
 
 Disk is the single source of truth; both windows re-read rather than caching
 across each other. When one window writes, Rust emits an event so the other
@@ -1510,13 +1512,13 @@ re-fetches:
 | Event | Meaning |
 |---|---|
 | `snippets-changed` | Another window wrote the library — re-fetch before saving over it; payload is the new revision |
-| `edit-prompt` | Popup asked the manager to open a prompt |
+| `edit-prompt` | Popup asked the manager to open a prompt; a manager built for it reads `__PROMPTLINE_OPENING__` instead |
 | `popup-shown` / `first-popup` | Popup opened; the second only ever fires once |
 | `paste-failed` | The target won't take input, or the paste thread could not focus it or send Ctrl+V; the popup is re-shown and shows the payload's `message` |
 | `notice` | Rust hit something the user must see (quarantined file, refused hotkey); shown until dismissed |
 | `quit-requested` | Quit or a Windows shutdown asks the manager to flush its autosave; it answers `quit_now` |
 | `update-available` | A check found a newer version; payload `{ version, notes }` |
-| `update-offer` | The toast or the tray's *Update to X.Y.Z* was clicked; the manager opens the offer |
+| `update-offer` | The toast or the tray's *Update to X.Y.Z* was clicked; the manager opens the offer (a manager built for it, from `__PROMPTLINE_OPENING__`) |
 
 Every delete in the manager goes through one `deleteWithUndo`, and both the
 delete and the Undo read the *live* library, never the array captured by the
@@ -1607,10 +1609,36 @@ menu, the installer's finish page) opens the running instance's manager,
 the same as a tray click.
 
 **Autostart stays in the tray.** The autostart entry passes `--hidden`, and
-`setup` hides the main window before it paints when it sees that argument.
-The window is declared visible in `tauri.conf.json` so a normal launch shows
-the manager straight away; a login launch of a tray app that opened a
-1000×800 window over the desktop was the opposite of what autostart is for.
+`setup` builds no manager when it sees that argument; any other launch
+opens it. A login launch of a tray app that opened a 1000×800 window over
+the desktop was the opposite of what autostart is for.
+
+**The manager exists only while it is wanted.** `tauri.conf.json` declares
+it with `"create": false`, and `open_manager` builds it from that entry the
+first time anything opens it: the tray, a second launch, the popup's Edit,
+the update toast or tray item. Its WebView2 renderer is about 40 MB
+(measured 2026-10-29 on 0.2.25 with the manager never opened: two
+renderers, 36 and 42 MB private), and since fresh installs start with
+Windows every sign-in carried one for a window most users never open. The
+build runs on a thread of its own, because building a webview from a
+synchronous command or an event handler deadlocks on Windows (Tauri's docs,
+and the WebView2 issue they cite), and a click while one is under way is
+dropped rather than building a second window. A manager that exists is
+shown and told why through `edit-prompt` or `update-offer`; one built for
+the occasion isn't listening yet, so Rust sets
+`window.__PROMPTLINE_OPENING__` (`{ edit: id }` or `{ offer: true }`)
+before its scripts run (`opening_script`), and the manager starts on that
+prompt, or opens the offer once `get_update_state` names the version
+(`src/manager/opening.ts`). Closing it still hides it, so a manager
+reopened within five minutes is the one that was left, selection, scroll
+and Undo toast included. After five minutes hidden and not reopened
+(`manager_opened` counts opens, so a close, reopen and close starts the
+clock again) `release_manager_later` destroys it, and the next open is a
+fresh load, like a restart. Nothing needs flushing first: the editor's
+autosave runs 600 ms after the last keystroke, and every other write is on
+disk when its control answers. The first-run banner reads `popupSeen` again
+on that load, so a banner closed with × is back until the popup has been
+used, as after a restart.
 
 **A fresh install starts with Windows.** A copy that isn't running neither
 pastes nor checks for updates, and nothing brings it back after a restart,
@@ -1650,8 +1678,10 @@ sign-out send every top-level window `WM_QUERYENDSESSION`, then
 `WM_ENDSESSION`, and the process can be killed once that is answered. Tao
 turns `WM_ENDSESSION` into `RunEvent::Exit`, by which point the webview can
 send nothing, so the query is where the flush happens:
-`platform::on_session_end` subclasses the manager's window, and on the
-query emits the same `quit-requested`, then holds its reply while it keeps
+`platform::on_session_end` subclasses the popup's window (the query reaches
+every top-level window, hidden ones too, and the popup lives as long as the
+process while the manager may not exist), and on the query emits the same
+`quit-requested` when there is a manager to ask, then holds its reply while it keeps
 dispatching the thread's messages (the webview's invokes arrive through
 them) until the manager's `quit_now` lands or 2 s pass. While
 `session_ending` is set, `quit_now` only records that the flush is done;
@@ -1661,13 +1691,16 @@ app that holds up a shutdown gets Windows' "this app is preventing
 shutdown" screen after 5 s. Measured against the debug build by sending the
 query to the process's windows 5 ms after an edit: every reply was back and
 the edit on disk within about 75 ms, well inside the 600 ms debounce.
+That was with the hook on the manager's window; the move to the popup's
+(2026-11-07) is not yet measured.
 Tao ends its loop on `WM_ENDSESSION` and panics on the next message it
 handles ("cannot move state from Destroyed") if the process is still
 alive; at a real shutdown Windows has killed it by then, and a test that
 sends `WM_ENDSESSION` by hand sees the panic, 0.2.14 included.
 
-**Closing a window hides it, whichever window it is.** The main window going
-to the tray is the visible half of that; the popup needs it just as much,
+**Closing a window hides it, whichever window it is.** The manager going
+to the tray is the visible half of that (its webview follows five minutes
+later, above); the popup needs it just as much,
 because it is created once at startup and never rebuilt — Alt+F4 on it used to
 destroy the window, and `show_popup` then had nothing to show, leaving the
 hotkey dead until a restart. The popup's size is persisted on the way out, the

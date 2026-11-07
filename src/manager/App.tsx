@@ -17,6 +17,7 @@ import { Overview } from "./Overview"
 import { Settings } from "./Settings"
 import { GenerateDialog } from "./GenerateDialog"
 import { UpdateOffer } from "./UpdateOffer"
+import { opening } from "./opening"
 import { getUpdateState, setUpdateCheck, UPDATE_AVAILABLE, UPDATE_OFFER, type UpdateInfo, type UpdateState } from "@/lib/update"
 
 /** Something Rust needs the user to see; see `notify` in store.rs */
@@ -47,13 +48,15 @@ export function App() {
   const [packMeta, setPackMeta] = useState<PackMeta[]>([])
   // A–Z until the user drags a pack; then packMeta is in their order
   const [packsArranged, setPacksArranged] = useState(false)
-  const [activeId, setActiveId] = useState<string | null>(null)
-  const [selection, setSelectionState] = useState<Set<string>>(new Set())
-  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(null)
+  // A manager built for the popup's Edit starts on that prompt (`opening`)
+  const [activeId, setActiveId] = useState<string | null>(opening.edit ?? null)
+  const [selection, setSelectionState] = useState<Set<string>>(() => new Set(opening.edit ? [opening.edit] : []))
+  const [selectionAnchor, setSelectionAnchor] = useState<string | null>(opening.edit ?? null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [genOpen, setGenOpen] = useState(false)
   const [update, setUpdate] = useState<UpdateState | null>(null)
-  const [offerOpen, setOfferOpen] = useState(false)
+  // Opens once get_update_state has said what is on offer
+  const [offerOpen, setOfferOpen] = useState(!!opening.offer)
   // null until get_config answers: showing a default here would be wrong for
   // every install that registered something else (see the Init effect)
   const [hotkey, setHotkeyState] = useState<string | null>(null)

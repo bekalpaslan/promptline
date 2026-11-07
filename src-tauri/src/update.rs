@@ -270,10 +270,11 @@ fn show_toast(app: &AppHandle, version: &str) {
 /// hands it the pending offer. Opening happens only on a click — nothing
 /// steals focus (D-05).
 pub(crate) fn open_offer(app: &AppHandle) {
-    crate::show_main(app);
-    if let Some(info) = pending_info(app) {
-        let _ = app.emit("update-offer", info);
-    }
+    let opening = match pending_info(app) {
+        Some(info) => crate::Opening::Offer(info),
+        None => crate::Opening::Plain,
+    };
+    crate::open_manager(app, opening);
 }
 
 #[cfg(test)]

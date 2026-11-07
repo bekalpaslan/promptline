@@ -418,7 +418,7 @@ pub(crate) fn show_popup(app: &AppHandle) {
     // in a race), there is nothing to paste into: Ctrl+V would land in the
     // editor's textarea and autosave would keep it. Record "no target" and
     // paste_snippet falls back to copy-only.
-    let ours: Vec<isize> = ["popup", "main"]
+    let ours: Vec<isize> = ["popup", crate::MANAGER]
         .iter()
         .filter_map(|label| app.get_webview_window(label))
         .filter_map(|w| w.hwnd().ok())
