@@ -620,7 +620,7 @@ as much as a word, and "1 prompt matches".
 **The hint bar's breakpoints follow the UI scale.** Which hints the bar
 shows is decided by container queries on the bar, in rem, so at 125% the
 default window shows three hints on one line and a window widened to
-520 px shows all five (the Keep open pin's gutter takes 42 px of the bar;
+520 px shows all five (the Keep open pin's gutter takes 38 px of the bar;
 500 px did before it moved there, 2026-10-31). As viewport pixels they
 kept showing five at 125%,
 where the type is a quarter wider, and the bar wrapped at every width
@@ -1092,14 +1092,15 @@ replies to an agent. While it is on (`AppState.keep_open`):
   cursor for 260 ms on a press (Windows runs the move itself, so the
   release never reaches the page and a timer lets go). The bar is the
   sidebar's foot
-  (`components/foot.tsx`: 32 px, a rule above, the strips' 12 px inset,
+  (`components/foot.tsx`: 32 px, a rule above, the strips' 8 px inset,
   edge to edge on the window, the micro size in the muted ink), since the
   two say the same kind of thing, what the marks and keys on the screen
   mean; the hints are the popup's own, in mono and 6 px apart. The shell's
   insets are the
-  sidebar's too: 12 px at the sides and the top and 8 px between strips
+  sidebar's too: 8 px at the sides and the top and 8 px between strips
   (the user wanted the two windows' margins the same, 2026-10-10; it was
-  8 px all round with the bar inside). The
+  8 px all round with the bar inside, and both windows' sides and top
+  were 12 px from then until the user's call of 2026-11-08). The
   frame (the shell's padding and the gaps between strips) drags too, but it
   was too thin to find. The popup stays where it is dragged until
   Keep open ends, and a later summon opens at the cursor again.
@@ -1111,9 +1112,9 @@ replies to an agent. While it is on (`AppState.keep_open`):
   selected row's) while on. A click toggles it like Ctrl+K and leaves the
   keyboard in the search box (the press is prevented, so the button never
   takes focus; Tab skips it); the bar's drag skips a press on it. It has a
-  gutter of its own, 42 px of the bar's right padding (the inset, the
-  button, a hint gap), so no hint runs under it; the hints' breakpoints
-  allow for the room it takes (the bar is the window less 56 px, not 18),
+  gutter of its own, 38 px of the bar's right padding (the 8 px inset,
+  the button, a hint gap), so no hint runs under it; the hints' breakpoints
+  allow for the room it takes (the bar is the window less 48 px, not 18),
   which is why the resting bar's fifth hint waits for 416 px since
   2026-10-31. It replaced a toggle at the right of the search box and an
   open hand that marked the bar while kept open (the user's call,
