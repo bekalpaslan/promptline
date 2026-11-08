@@ -481,10 +481,11 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    events (`ctrl_v_inputs`) are virtual keys with `wScan` 0. mintty (Git
    Bash, wsltty) takes a Ctrl+V whose scan code is 0 as a paste, where a
    typed one reaches the program as ^V (wsltty#139), so the paste lands in
-   Git Bash only because of that zero (checked by hand 2026-11-08); a Windows
-   test holds it. PuTTY, KiTTY and Emacs paste on Shift+Insert and very
-   likely miss; that waits on a check with PuTTY installed, and there is no
-   paste key per window class until someone asks.
+   Git Bash only because of that zero (checked by hand 2026-11-08, at the
+   prompt and inside `claude`); a Windows test holds it. PuTTY, KiTTY and
+   Emacs paste on Shift+Insert and very likely miss; that waits on a check
+   with PuTTY installed, and there is no paste key per window class until
+   someone asks.
 
 The sleeps are load-bearing. Focus changes are asynchronous on Windows; sending
 the keystroke immediately delivers it to whatever had focus a moment ago.
