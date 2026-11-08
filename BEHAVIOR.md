@@ -1691,8 +1691,11 @@ app that holds up a shutdown gets Windows' "this app is preventing
 shutdown" screen after 5 s. Measured against the debug build by sending the
 query to the process's windows 5 ms after an edit: every reply was back and
 the edit on disk within about 75 ms, well inside the 600 ms debounce.
-That was with the hook on the manager's window; the move to the popup's
-(2026-11-07) is not yet measured.
+That was with the hook on the manager's window. With it on the popup's
+(2026-11-08, debug build, the query sent 3 s into continuous typing and
+the process killed straight after), every keystroke but the last was on
+disk; with no manager built, the reply came back at once and nothing
+waited.
 Tao ends its loop on `WM_ENDSESSION` and panics on the next message it
 handles ("cannot move state from Destroyed") if the process is still
 alive; at a real shutdown Windows has killed it by then, and a test that

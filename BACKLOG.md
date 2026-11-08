@@ -340,11 +340,16 @@ domain renewal, with P2's Raycast fix alongside.
   launch builds none (BEHAVIOR.md, "The manager exists only while it is
   wanted"). Edit and the update offer reach a freshly built manager through
   `window.__PROMPTLINE_OPENING__`. Five minutes rather than on close, so a
-  quick close and reopen keeps the selection and the Undo toast. **Left:**
-  measure it on Windows (the login renderer count, the first-open delay a
-  cold WebView2 adds to the tray click, a shutdown flush now that the
-  session-end hook sits on the popup's window), and refresh the
-  architecture map, since the manager window's lifetime changed.
+  quick close and reopen keeps the selection and the Undo toast. Measured
+  2026-11-08 on a Windows debug build: a `--hidden` launch carries one
+  WebView2 renderer (two before), the manager adds the second, and it is
+  gone again after five minutes closed; a reopen at 30 s and at 4 min kept
+  the selected prompt; Edit built a manager on the right prompt; a second
+  launch opened the running copy's; a shutdown query mid-typing saved
+  everything but the last keystroke, and with no manager it returned at
+  once. **Left:** time the first open's cold WebView2 start on the
+  tray click, and refresh the architecture map, since the manager
+  window's lifetime changed.
 
 ## Popup
 
