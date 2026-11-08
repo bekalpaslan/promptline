@@ -18,7 +18,7 @@ assignees: ""
 
 **Promptline version**
 
-<!-- Settings → Apps → Installed apps lists it next to Promptline; or the installer's file name, e.g. Promptline_0.2.9_x64-setup.exe -->
+<!-- Promptline's Settings → About shows it, on the Version row and again beside Report a bug; or the installer's file name, e.g. Promptline_0.2.9_x64-setup.exe -->
 
 **Windows build**
 

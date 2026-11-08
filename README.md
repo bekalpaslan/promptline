@@ -293,7 +293,8 @@ built-in or a field name the rest of your library already uses.
   — export the whole library to the clipboard or a file, import from the
   clipboard or a file, or **Open folder** to see the data folder (library,
   packs and the log file) in Explorer; and **About**, with the version
-  you're running
+  you're running, the update check, and **Report a bug**, which opens a
+  new issue on GitHub in your browser
 
 ## Data
 

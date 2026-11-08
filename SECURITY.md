@@ -38,11 +38,13 @@ machine:
   newer release exists; the request carries nothing about the user (no
   version, no ID, no usage). An update installs only after the user accepts
   it, and only if its signature verifies against the public key built into
-  the app and names the version on offer. **Settings → About** turns the check off. The app opens one
-  link, the "Buy me a coffee" button in Settings, in your browser. The
-  command behind it (`open_url`) takes an address from the page but
-  opens it only when it is on a short list in the code (that one address
-  today), so a compromised page cannot use it to open anything else.
+  the app and names the version on offer. **Settings → About** turns the check off. The app opens two
+  links, both buttons in **Settings → About**, in your browser: "Buy me a
+  coffee" (buymeacoffee.com) and "Report a bug" (GitHub's new-issue form
+  for this repository, with the bug template). The command behind them
+  (`open_url`) takes an address from the page but opens it only when it
+  is on a short list in the code (those two addresses today, matched
+  exactly), so a compromised page cannot use it to open anything else.
 
 The webviews run under a Content Security Policy that allows only the app's
 own scripts and the Tauri IPC (`BEHAVIOR.md`, "Content Security Policy"),

@@ -1785,6 +1785,17 @@ of this — the buttons, the checkbox, and its help paragraph naming
 `get_update_state` to answer; an old Rust without the command leaves
 `update` null and the card shows none of it.
 
+**About also carries the two links the app opens.** *Buy me a coffee*
+ends the Version row. A *Bugs* row ends the card, below the update rows
+and their paragraph so those stay together: *Report a bug* opens GitHub's
+new-issue form with the bug template (`open_url`, see *What the webview
+may point Rust at*), and beside it "The form asks for your version:
+X.Y.Z" names the version the user runs, because the template asks for
+it. Neither waits for `get_update_state`. The issue tracker got its link on 2026-11-08:
+4e6d0fb's rule that the app links nothing until Discussions shows life
+was read as covering Discussions, not bug reports, which the backlog's
+demand gates count and which installed users had no way to reach.
+
 **The toast is a real Windows notification, not the webview.** Shown under
 the app's AUMID (`update::APP_ID`, the same string as `tauri.conf.json`'s
 `identifier`), claimed at startup with
@@ -2134,8 +2145,10 @@ junctions can't escape); every path the frontend can know comes from
 there. `open_data_dir` (Settings → "Open folder") takes no path at all:
 it opens the data folder itself, the one place the library, the packs and
 the log file all are. `open_url` opens only the addresses listed in
-`OPENABLE_URLS` (today the one behind Settings' "Buy me a coffee"; the
-scheme's case doesn't matter, the rest must match exactly) and refuses
+`OPENABLE_URLS` (today the two behind Settings → About's "Buy me a
+coffee" and "Report a bug", the second GitHub's new-issue form with
+`?template=bug_report.md`; the scheme's case doesn't matter, the rest must
+match exactly, so another repository, template or query is refused) and refuses
 anything else, then hands the listed string to `ShellExecuteW` as one
 string, where the earlier `explorer <url>` let explorer parse the string
 as its own command line. None of this matters

@@ -501,9 +501,13 @@ fn open_in_explorer(args: &[&str]) -> Result<(), String> {
 }
 
 /// The links the app opens, which is every link `open_url` will open: the
-/// "Buy me a coffee" button in Settings. A new button adds its address
-/// here; the webview cannot name one of its own.
-const OPENABLE_URLS: &[&str] = &["https://buymeacoffee.com/hurryupbob"];
+/// "Buy me a coffee" and "Report a bug" buttons in Settings → About (the
+/// second is GitHub's new-issue form with the bug template). A new button
+/// adds its address here; the webview cannot name one of its own.
+const OPENABLE_URLS: &[&str] = &[
+    "https://buymeacoffee.com/hurryupbob",
+    "https://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md",
+];
 
 /// The listed address `url` stands for, or None. The scheme is compared
 /// without regard to case (a URL's scheme is case-insensitive), the rest
@@ -744,6 +748,43 @@ mod tests {
             assert_eq!(openable_url(refused), None, "{refused}");
         }
         assert!(open_url("https://example.com".into()).is_err());
+    }
+
+    #[test]
+    fn wr04_open_url_admits_the_bug_form_and_no_lookalike() {
+        let bug = "https://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md";
+        assert_eq!(openable_url(bug), Some(bug));
+        assert_eq!(
+            openable_url(
+                "HTTPS://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md"
+            ),
+            Some(bug)
+        );
+        // Only the scheme's case is forgiven: another repository or owner,
+        // another template, an extra or a missing query, a trailing path or
+        // fragment, plain http, or a host hidden behind userinfo is refused
+        for refused in [
+            "https://github.com/bekalpaslan/other/issues/new?template=bug_report.md",
+            "https://github.com/someone-else/promptline/issues/new?template=bug_report.md",
+            "https://github.com/bekalpaslan/promptline/issues/new?template=feature_request.md",
+            "https://github.com/bekalpaslan/promptline/issues/new",
+            "https://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md&title=x",
+            "https://github.com/bekalpaslan/promptline/issues/new?title=x&template=bug_report.md",
+            "https://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md/extra",
+            "https://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md#x",
+            "https://github.com/bekalpaslan/promptline/issues/new/?template=bug_report.md",
+            "https://github.com/bekalpaslan/promptline/issues",
+            "https://github.com/BEKALPASLAN/promptline/issues/new?template=bug_report.md",
+            "https://GITHUB.COM/bekalpaslan/promptline/issues/new?template=bug_report.md",
+            "http://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md",
+            "https://github.com@evil.example/bekalpaslan/promptline/issues/new?template=bug_report.md",
+            "https://github.com.evil.example/bekalpaslan/promptline/issues/new?template=bug_report.md",
+            "https://evil.example/github.com/bekalpaslan/promptline/issues/new?template=bug_report.md",
+            " https://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md",
+            "https://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md ",
+        ] {
+            assert_eq!(openable_url(refused), None, "{refused}");
+        }
     }
 
     #[test]
