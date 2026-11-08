@@ -12,14 +12,15 @@ the strategy behind it is in the local `docs/MARKETING.md`.
    renew before then (CLAUDE.md → Releasing has the custody).
 2. ~~**Signing copy**~~ done 2026-11-05 on `feat/certum-signing`, written
    as "from 0.2.28", so it merges just before that release.
-3. **The first signed release**, 0.2.28. The TLS patch and the AltGr
-   notice this line used to wait for shipped in 0.2.26.
+3. ~~**The first signed release**~~ 0.2.28, shipped 2026-11-05. The TLS
+   patch and the AltGr notice this line used to wait for shipped in 0.2.26.
 4. **The Windows-only round**: r/ClaudeAI, r/ChatGPTCoding, the Claude Code
    Discord, each with the GIF and honest about "Windows for now". Show HN
    waits for the port.
 5. **Later, undated: the macOS port** on its own branch (it takes the Tauri
    2.12 / wry 0.57 / tao 0.37 jump and the `@tauri-apps` 2.12 packages
-   together; `paste.rs:321` is the first thing that does not compile), then
+   together; the ungated `hwnd()` calls in `paste.rs`'s `on_hotkey` and
+   `show_popup` are the first things that do not compile), then
    Show HN and the launch-week table.
 
 ## Fresh-eyes review, 2026-11-02
@@ -88,10 +89,10 @@ domain renewal, with P2's Raycast fix alongside.
   `feat/autostart-first-run`, option A: the first launch of a fresh setup
   exe install turns the entry on, once, unless Windows' Startup page has it
   off, and the first-run banner says so with a **Don't** button. BEHAVIOR,
-  "Launching and quitting", has the rules. **Left for its release:** a notes
-  bullet saying new installs make the update check from sign-in on, and a
-  note in the snapshot table where the kept series breaks. **Left:** Manager
-  window residency moves up, since every sign-in now carries both renderers.
+  "Launching and quitting", has the rules. Shipped in 0.2.30, whose notes
+  say new installs make the update check from sign-in on; Manager window
+  residency, which this moved up, shipped with it. **Left:** a note in the
+  snapshot table where the kept series breaks.
 - ~~**Generate and live pack files**~~ (P5) done 2026-11-05: nothing
   writes a live pack's file. Every agent run gets a scratch file under
   `packs/generated/`, a copy for an existing pack, and the review opens only
@@ -105,9 +106,9 @@ domain renewal, with P2's Raycast fix alongside.
   2026-11-06 on `fix/elevated-paste`, after the maintainer saw an
   administrator Windows Terminal take nothing with nothing said:
   `platform::input_block` compares integrity levels before the Ctrl+V, and
-  the popup comes back with the recovery. **Left for its release:** a notes
-  bullet, since the app now queries the target process's integrity level
-  on each paste.
+  the popup comes back with the recovery. Shipped in 0.2.30, with the notes
+  bullet saying the app now looks up the target window's privilege level
+  before each paste.
 - ~~**Pin the zero scan code**~~ (P7) done 2026-11-08 on
   `fix/ctrl-v-scan-code`: Ctrl+Alt+V lands in Git Bash at the prompt and
   inside `claude` (checked by hand on a dev build). The events moved into
@@ -327,7 +328,7 @@ domain renewal, with P2's Raycast fix alongside.
 - ~~**Real-library screenshot**~~ — **done 2026-09-25** differently: every
   screen is staged against a demo library (`npm run shots`), in both
   themes, for the site's tour and the README.
-- ~~**Manager window residency**~~ — **done 2026-11-07**: the manager is
+- ~~**Manager window residency**~~ — **shipped 0.2.30**: the manager is
   built from its `tauri.conf.json` entry (`"create": false`) the first time
   anything opens it, and destroyed after five minutes closed; a login
   launch builds none (BEHAVIOR.md, "The manager exists only while it is
@@ -340,9 +341,8 @@ domain renewal, with P2's Raycast fix alongside.
   the selected prompt; Edit built a manager on the right prompt; a second
   launch opened the running copy's; a shutdown query mid-typing saved
   everything but the last keystroke, and with no manager it returned at
-  once. **Left:** time the first open's cold WebView2 start on the
-  tray click, and refresh the architecture map, since the manager
-  window's lifetime changed.
+  once. The architecture map was refreshed for it in 0.2.30. **Left:**
+  time the first open's cold WebView2 start on the tray click.
 
 ## Popup
 
@@ -396,8 +396,9 @@ domain renewal, with P2's Raycast fix alongside.
 - **macOS port** — reimplement the `platform` module (CGEventPost +
   Accessibility permission). Everything else is meant to be portable, but
   the non-Windows build has not compiled since f7e3813 (2026-09-22):
-  `src-tauri/src/paste.rs:321` calls `w.hwnd().ok()` ungated, and Tauri's
-  `hwnd` is `#[cfg(windows)]`; gate it with the rest when the port starts.
+  `show_popup` in `src-tauri/src/paste.rs` calls `w.hwnd().ok()` ungated,
+  and `on_hotkey` calls `w.hwnd()` too since 2026-10-31, while Tauri's
+  `hwnd` is `#[cfg(windows)]`; gate them with the rest when the port starts.
   Since 2026-10-29 the port is no longer the launch gate: a Windows-only
   round goes out once Certum signs a release, and Show HN is held for the
   port, which has no date.
