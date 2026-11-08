@@ -177,8 +177,9 @@ fn paste_window(keep_open: bool, summoned_over: isize, last_foreign: isize) -> i
 /// Copy `text` to the clipboard (expanding `{clipboard}` from its current
 /// contents, and keeping it out of Win+V history and the cloud clipboard
 /// when those contents were marked so; see `marks_to_write`); if `paste`
-/// is set and there is a window to paste into, refocus it and send Ctrl+V. The prompt stays on the clipboard afterwards (see the
-/// note in the body and BEHAVIOR.md). Bumps the snippet's use count. Returns
+/// is set and there is a window to paste into, refocus it and send Ctrl+V.
+/// The prompt stays on the clipboard afterwards (see the note in the body
+/// and BEHAVIOR.md). Bumps the snippet's use count. Returns
 /// `"pasted"` when the paste thread was spawned and `"copied"` when it fell
 /// back to copy-only (asked for, or no target), so the popup can say so.
 /// `auto_enter`: press Enter after the Ctrl+V landed (a prompt set to Auto
