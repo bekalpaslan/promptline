@@ -14,8 +14,9 @@ import type { Notice } from "@/popup/Shell"
 // widened: a sixth hint (fold) wrapped the bar the same way.
 // Those widths are the window's at 100% UI scale. The breakpoints are
 // container queries on the bar, in rem (the window's width less the
-// shell's 18 px of padding and border and the pin's 42 px gutter, 56 px
-// in all; 18 through 0.2.26, before the pin moved to the bar), so they
+// shell's 2 px of border, the bar's 8 px inset and the pin's 38 px
+// gutter, 48 px in all; 56 with the 12 px inset until 2026-11-08, 18
+// through 0.2.26, before the pin moved to the bar), so they
 // grow with the UI scale: as viewport pixels they kept showing five hints
 // at 125%, where the type is a quarter wider, and the bar wrapped at
 // every width.
@@ -24,7 +25,7 @@ import type { Notice } from "@/popup/Shell"
 // A `wider` one waits for 540 px: beside the warning's long label, actions
 // and preview fit on the line only there (at 480 px they wrapped the bar).
 // `tiny`: gives way only in the narrowest bar there is, the 320 px minimum
-// at a 125% UI scale (about 13 rem beside the pin's gutter; 16.5 rem at
+// at a 125% UI scale (about 13.5 rem beside the pin's gutter; 17 rem at
 // 100%, which keeps it), where a Warn hint and one more hint wrapped the
 // bar to two lines and took a row from the window
 // `widest`: waits for 580 px, where a resting bar has room for a seventh
@@ -32,7 +33,7 @@ import type { Notice } from "@/popup/Shell"
 // a 528 px line)
 function Hint({ k, tiny, minor, mid, wide, wider, widest, warn, children }: { k: string; tiny?: boolean; minor?: boolean; mid?: boolean; wide?: boolean; wider?: boolean; widest?: boolean; warn?: boolean; children: React.ReactNode }) {
   return (
-    <span className={cn("flex shrink-0 items-center gap-1", tiny && "hidden @min-[16.25rem]:flex", minor && "hidden @min-[21.375rem]:flex", mid && "hidden @min-[22.5rem]:flex", wide && "hidden @min-[26.375rem]:flex", wider && "hidden @min-[30.125rem]:flex", widest && "hidden @min-[33rem]:flex")}>
+    <span className={cn("flex shrink-0 items-center gap-1", tiny && "hidden @min-[16.75rem]:flex", minor && "hidden @min-[21.875rem]:flex", mid && "hidden @min-[23rem]:flex", wide && "hidden @min-[26.875rem]:flex", wider && "hidden @min-[30.625rem]:flex", widest && "hidden @min-[33.5rem]:flex")}>
       <Keys combo={k} />
       <span className={cn(warn && "text-(--warn)")}>{children}</span>
     </span>

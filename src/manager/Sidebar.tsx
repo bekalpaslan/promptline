@@ -847,7 +847,7 @@ export function Sidebar() {
       {/* No heading: the window is Promptline and the list is visibly prompts;
           the landmark keeps its name through aria-label. What is shown (the
           filter) apart from how it is shown (Display) */}
-      <div className="flex gap-1.5 px-3 pt-3 pb-2">
+      <div className="flex gap-1.5 px-2 pt-2 pb-2">
         <label className={cn(searchBoxClass(), "min-w-0 flex-1")}>
           <RiSearchLine className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
           {scope && (
@@ -934,7 +934,7 @@ export function Sidebar() {
       </div>
 
       {q && (
-        <div className="px-4 pb-2 text-xs text-muted-foreground" aria-live="polite">
+        <div className="px-3 pb-2 text-xs text-muted-foreground" aria-live="polite">
           {visible.length === 0 && !(scope && hits.length) ? (
             "No matches"
           ) : scope ? (
@@ -963,7 +963,7 @@ export function Sidebar() {
           a pack or group — so nothing lands in a default place. It sits
           above the scrolling list, not in it, so the list's scrollbar
           gutter never narrows it against the filter row. */}
-      <div className="px-3 pb-2">
+      <div className="px-2 pb-2">
         <button
           type="button"
           aria-haspopup="menu"
@@ -977,7 +977,7 @@ export function Sidebar() {
           New
         </button>
       </div>
-      <div ref={listRef} className="flex-1 overflow-y-auto px-3 pt-1 pb-3">
+      <div ref={listRef} className="flex-1 overflow-y-auto px-2 pt-1 pb-3">
         {/* pt-1 (taken from the row above) is room for a drag's insertion mark
             above the first row, which the scroll box would otherwise clip */}
         {/* An empty library: the pane says what to do; the void under New

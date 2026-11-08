@@ -966,7 +966,7 @@ test("the hint bar keeps the strips' insets: the Keep open pin at its right mirr
     return side === "left" ? box.x : W - (box.x + box.width)
   }
   // The hints start on the strips' edge: the bar is the sidebar's foot
-  // (components/foot.tsx), edge to edge with the strips' 12 px inset, so
+  // (components/foot.tsx), edge to edge with the strips' 8 px inset, so
   // its first item lands where the search box starts, as the sidebar's
   // legend does under its filter; the pin's right edge mirrors it, as
   // the sidebar's Settings gear does, a 24 px button with a 16 px icon
@@ -1343,7 +1343,7 @@ test("at 125% UI scale the hint bar drops hints instead of wrapping", async ({ p
   const [a, b] = await Promise.all([hint("paste").boundingBox(), hint("close").boundingBox()])
   expect(Math.abs(a!.y - b!.y)).toBeLessThan(2)
   // A window widened to match shows all five again (the pin's gutter
-  // takes 42 px of it; 500 px did before the pin moved to the bar)
+  // takes 38 px of it; 500 px did before the pin moved to the bar)
   await page.setViewportSize({ width: 520, height: 600 })
   await expect(hint("actions")).toBeVisible()
   await expect(hint("preview")).toBeVisible()

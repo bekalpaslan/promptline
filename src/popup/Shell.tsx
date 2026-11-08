@@ -69,12 +69,12 @@ export function Shell({
     // The shell is the sidebar's pane colour (`sidebar`), not the Paper:
     // the list is the sidebar's tree, and it sits on the same ground in
     // both windows (2026-10-10; the darker of the two was the better).
-    // Its insets are the sidebar's too: 12 px at the sides and the top,
+    // Its insets are the sidebar's too: 8 px at the sides and the top,
     // 8 px between strips (the sidebar's search row, New and tree), and
-    // the hint bar at the foot edge to edge, as the sidebar's foot is (it
-    // was 8 px all round, with the bar inside; the user wanted the two
-    // windows' margins the same, 2026-10-10).
-    <div data-tauri-drag-region className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-sidebar px-3 pt-3 text-foreground shadow-(--shadow-shell)">
+    // the hint bar at the foot edge to edge, as the sidebar's foot is (the
+    // user wanted the two windows' margins the same, 2026-10-10; both were
+    // 12 px at the sides and top until the user's call of 2026-11-08).
+    <div data-tauri-drag-region className="flex h-dvh flex-col gap-2 overflow-hidden rounded-2xl border border-input bg-sidebar px-2 pt-2 text-foreground shadow-(--shadow-shell)">
       <div className="sr-only" role="status" aria-live="polite">{announce}</div>
       {/* The one landmark: the window's content, whichever mode it is in.
           `contents`, so the shell's column layout is unchanged */}
@@ -140,12 +140,12 @@ export function Shell({
         className={cn(
           // The sidebar's foot (components/foot.tsx), with the hints in mono
           // and 6 px apart; it breaks out of the shell's side padding to
-          // run edge to edge like the sidebar's. The 42 px of right padding
+          // run edge to edge like the sidebar's. The 38 px of right padding
           // are the pin's gutter (the inset, the 24 px button, a hint gap),
           // so a hint never runs under it; the bar's hints have that much
           // less room than the window, and the tiers below allow for it
           footClass,
-          "group/bar relative @container -mx-3 gap-x-1.5 pr-[42px] font-mono",
+          "group/bar relative @container -mx-2 gap-x-1.5 pr-[38px] font-mono",
           gripping ? "cursor-grabbing" : "cursor-grab"
         )}
         onPointerDown={(e) => {
@@ -156,7 +156,7 @@ export function Shell({
         {/* Keep open, as a pin at the bar's right: the same thumbtack a
             pinned prompt wears, outlined while off and filled while on,
             and the sidebar's Settings gear in every other way (a 24 px
-            button with a 16 px icon on the foot's 12 px inset, pressed in
+            button with a 16 px icon on the bar's 8 px inset, pressed in
             the secondary fill, not the accent, which is the selected
             row's): the two feet end in the same control. It replaced a
             toggle beside the search box and the open hand that marked the
@@ -171,7 +171,7 @@ export function Shell({
           aria-label="Keep open (Ctrl K)"
           title={keepOpen ? "Kept open: pastes go to the last window you used. Drag this bar to move it; Ctrl+K or Esc ends it" : "Keep open: stays up beside your work and pastes into the last window you used (Ctrl+K)"}
           className={cn(
-            "focus-ring absolute inset-y-0 right-3 my-auto flex size-6 cursor-pointer items-center justify-center rounded-md hover:bg-hover hover:text-foreground",
+            "focus-ring absolute inset-y-0 right-2 my-auto flex size-6 cursor-pointer items-center justify-center rounded-md hover:bg-hover hover:text-foreground",
             keepOpen ? "bg-secondary text-foreground" : "text-muted-foreground"
           )}
           // The press stays off the button (a click would focus it), so
