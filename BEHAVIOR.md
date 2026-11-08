@@ -2149,10 +2149,11 @@ marks what is selected and nothing else.
 ## Windows-specific code
 
 Confined to `platform.rs`: `foreground_window`, `focus_window`,
-`send_ctrl_v`, `send_enter`, `left_button_down`, `open_url`, the foreground
-hook Keep open follows (`track_foreground`, `last_foreign_window`), the
-session-end subclass (`on_session_end`), and the AUMID and toast
-(`claim_app_id`, `show_toast`). Everything else is portable.
+`input_block`, `send_ctrl_v`, `send_enter`, `left_button_down`, `open_url`,
+the foreground hook Keep open follows (`track_foreground`,
+`last_foreign_window`), the clipboard's privacy marks (`clipboard_marks`,
+`clipboard_sequence`), the session-end subclass (`on_session_end`), and the
+AUMID and toast (`claim_app_id`, `show_toast`). Everything else is portable.
 A macOS port reimplements that file (CGEventPost, plus the Accessibility
 permission) and nothing else.
 
