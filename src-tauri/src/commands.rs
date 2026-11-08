@@ -22,7 +22,7 @@ use crate::store::{
     save_config, since_epoch, write_atomic, write_snippets, Config, Library, Notice, Snippet,
     SnippetEdit, SnippetPatch, StoreError,
 };
-use crate::{platform, show_main, AppState};
+use crate::{open_manager, platform, AppState, Opening, MANAGER};
 
 /// Hand the manager everything collected so far; it shows each as a
 /// persistent error toast.
@@ -109,13 +109,13 @@ pub(crate) fn get_snippets(app: AppHandle, state: State<AppState>) -> Result<Lib
 // itself) writes, tell the manager so it re-reads before saving over it.
 // The payload is the new revision.
 pub(crate) fn notify_manager_snippets_changed(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
+    if let Some(w) = app.get_webview_window(MANAGER) {
         let _ = w.emit("snippets-changed", current_revision(app));
     }
 }
 
 fn notify_other_window(app: &AppHandle, window: &tauri::WebviewWindow) {
-    if window.label() != "main" {
+    if window.label() != MANAGER {
         notify_manager_snippets_changed(app);
     }
 }
@@ -600,8 +600,7 @@ pub(crate) fn edit_in_manager(app: AppHandle, id: String) {
     if let Some(w) = app.get_webview_window("popup") {
         let _ = w.hide();
     }
-    show_main(&app);
-    let _ = app.emit("edit-prompt", id);
+    open_manager(&app, Opening::Edit(id));
 }
 
 #[tauri::command]

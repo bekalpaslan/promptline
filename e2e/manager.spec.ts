@@ -714,6 +714,35 @@ test("a hotkey-layout notice stays until closed, and the closed one is not shown
   await expect(toasts.filter({ hasText: "Ctrl+Alt+Q is how you type @" })).toBeVisible()
 })
 
+// ---- Opened by Rust ---------------------------------------------------------------------
+// A manager Rust builds for a reason reads it from `__PROMPTLINE_OPENING__`
+// (lib.rs `opening_script`), since it isn't listening for events yet
+
+const openedFor = async (page: P, value: unknown) => {
+  await page.addInitScript((value) => void ((window as unknown as { __PROMPTLINE_OPENING__: unknown }).__PROMPTLINE_OPENING__ = value), value)
+  await open(page, "manager")
+}
+
+test("a manager built for the popup's Edit opens on that prompt", async ({ page }) => {
+  const target = (await library(page))[2]
+  await openedFor(page, { edit: target.id })
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveValue(target.title)
+})
+
+test("a manager built for the update offer opens it once Rust says what is on offer", async ({ page }) => {
+  await openedFor(page, { offer: true })
+  await expect.poll(async () => (await calls(page, "get_update_state")).length).toBeGreaterThan(0)
+  await emit(page, "update-available", V)
+  await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toBeVisible()
+})
+
+test("a manager opened plainly opens no prompt and no offer", async ({ page }) => {
+  await openedFor(page, {})
+  await emit(page, "update-available", V)
+  await expect(page.getByRole("textbox", { name: "Title" })).toHaveCount(0)
+  await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toHaveCount(0)
+})
+
 // ---- Updates --------------------------------------------------------------------------
 
 test("an update offer from the tray or toast shows the version, the notes and two buttons", async ({ page }) => {

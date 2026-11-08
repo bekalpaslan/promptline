@@ -334,16 +334,22 @@ domain renewal, with P2's Raycast fix alongside.
 - ~~**Real-library screenshot**~~ — **done 2026-09-25** differently: every
   screen is staged against a demo library (`npm run shots`), in both
   themes, for the site's tour and the README.
-- **Manager window residency** (noted 2026-10-29; worth more since fresh
-  installs start with Windows, 2026-11-06). Both windows are
-  declared in `tauri.conf.json`, so the hidden 1000×800 manager has a
-  WebView2 renderer alive from login for a user who only ever presses the
-  hotkey. Measured 2026-10-29 on the installed 0.2.25 with the manager
-  never opened: two WebView2 renderer processes, one per window, 36 and
-  42 MB private (82 and 90 MB working set), so the idle manager costs
-  about 40 MB. Worth doing: build the manager lazily from the tray click
-  (and the other places that open it) and destroy it on close, keeping
-  the `edit-prompt` and `library` event paths working when it isn't there.
+- ~~**Manager window residency**~~ — **done 2026-11-07**: the manager is
+  built from its `tauri.conf.json` entry (`"create": false`) the first time
+  anything opens it, and destroyed after five minutes closed; a login
+  launch builds none (BEHAVIOR.md, "The manager exists only while it is
+  wanted"). Edit and the update offer reach a freshly built manager through
+  `window.__PROMPTLINE_OPENING__`. Five minutes rather than on close, so a
+  quick close and reopen keeps the selection and the Undo toast. Measured
+  2026-11-08 on a Windows debug build: a `--hidden` launch carries one
+  WebView2 renderer (two before), the manager adds the second, and it is
+  gone again after five minutes closed; a reopen at 30 s and at 4 min kept
+  the selected prompt; Edit built a manager on the right prompt; a second
+  launch opened the running copy's; a shutdown query mid-typing saved
+  everything but the last keystroke, and with no manager it returned at
+  once. **Left:** time the first open's cold WebView2 start on the
+  tray click, and refresh the architecture map, since the manager
+  window's lifetime changed.
 
 ## Popup
 

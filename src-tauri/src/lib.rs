@@ -5,13 +5,13 @@
 //! `platform` (Win32) and `migrations` (older installs).
 
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
 use tauri::menu::{Menu, MenuItem};
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
-use tauri::{AppHandle, Emitter, LogicalSize, Manager, WindowEvent};
+use tauri::{AppHandle, Emitter, LogicalSize, Manager, WebviewWindowBuilder, WindowEvent};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, ShortcutState};
 
 mod commands;
@@ -69,13 +69,138 @@ pub(crate) struct AppState {
     // over. Cleared by every `hide_popup`, so Esc both closes and ends it,
     // and never saved: a restart starts without it.
     pub(crate) keep_open: AtomicBool,
+    // Bumped by every `open_manager`, so a release scheduled when the
+    // manager closed can tell it was opened again in the meantime
+    pub(crate) manager_opened: AtomicU64,
+    // Set while a thread is building the manager, so a second click in the
+    // fraction of a second that takes doesn't build a second one
+    pub(crate) manager_building: AtomicBool,
+}
+
+/// The manager's label. `tauri.conf.json` declares the window with
+/// `"create": false`: it is built from that entry the first time it is
+/// opened (`open_manager`), and let go a while after it is closed
+/// (`release_manager_later`), so a user who only ever presses the hotkey
+/// never carries its webview.
+pub(crate) const MANAGER: &str = "main";
+
+/// How long a closed manager stays hidden, and so reopens as it was left,
+/// before its webview is destroyed. Its renderer is about 40 MB (measured
+/// on 0.2.25); five minutes covers closing it to try a prompt and coming
+/// back.
+const MANAGER_RELEASE: Duration = Duration::from_secs(5 * 60);
+
+/// Why the manager is being opened. A window that is already there hears
+/// the same thing as an event; one built for the occasion reads it from
+/// `window.__PROMPTLINE_OPENING__`, set before its scripts run, since it
+/// is not yet listening for events.
+pub(crate) enum Opening {
+    Plain,
+    /// Open this prompt in the editor (the popup's Edit)
+    Edit(String),
+    /// Open the update offer (the toast or the tray item)
+    Offer(update::UpdateInfo),
+}
+
+/// What a manager built for `opening` finds in `window.__PROMPTLINE_OPENING__`.
+fn opening_script(opening: &Opening) -> String {
+    let value = match opening {
+        Opening::Plain => serde_json::json!({}),
+        Opening::Edit(id) => serde_json::json!({ "edit": id }),
+        Opening::Offer(_) => serde_json::json!({ "offer": true }),
+    };
+    format!("window.__PROMPTLINE_OPENING__ = {value};")
+}
+
+/// Show the manager, building it first when it isn't there.
+pub(crate) fn open_manager(app: &AppHandle, opening: Opening) {
+    let state = app.state::<AppState>();
+    state.manager_opened.fetch_add(1, Ordering::SeqCst);
+    if let Some(w) = app.get_webview_window(MANAGER) {
+        let _ = w.show();
+        let _ = w.unminimize();
+        let _ = w.set_focus();
+        match opening {
+            Opening::Plain => {}
+            Opening::Edit(id) => {
+                let _ = w.emit("edit-prompt", id);
+            }
+            Opening::Offer(info) => {
+                let _ = w.emit("update-offer", info);
+            }
+        }
+        return;
+    }
+    if state.manager_building.swap(true, Ordering::SeqCst) {
+        return;
+    }
+    // Off this thread: building a webview from a synchronous command or an
+    // event handler (the tray's, the single-instance callback) deadlocks on
+    // Windows, Tauri's docs and the WebView2 issue they cite
+    let app = app.clone();
+    std::thread::spawn(move || {
+        if let Err(e) = build_manager(&app, &opening) {
+            log::warn!("couldn't open the manager: {e}");
+        }
+        app.state::<AppState>()
+            .manager_building
+            .store(false, Ordering::SeqCst);
+    });
+}
+
+fn build_manager(app: &AppHandle, opening: &Opening) -> Result<(), String> {
+    let config = app
+        .config()
+        .app
+        .windows
+        .iter()
+        .find(|w| w.label == MANAGER)
+        .ok_or("tauri.conf.json declares no manager window")?;
+    let w = WebviewWindowBuilder::from_config(app, config)
+        .map_err(|e| e.to_string())?
+        .initialization_script(opening_script(opening))
+        .build()
+        .map_err(|e| e.to_string())?;
+    let _ = w.set_focus();
+    Ok(())
+}
+
+/// Closing the manager hides it; if it is still hidden and wasn't opened
+/// again `MANAGER_RELEASE` later, its webview goes. By then the editor's
+/// 600 ms autosave has long run, and every other write (a delete, a move,
+/// a setting) is on disk when its control answers, so there is nothing to
+/// flush first.
+fn release_manager_later(app: &AppHandle) {
+    let opened = app
+        .state::<AppState>()
+        .manager_opened
+        .load(Ordering::SeqCst);
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(MANAGER_RELEASE);
+        if app
+            .state::<AppState>()
+            .manager_opened
+            .load(Ordering::SeqCst)
+            != opened
+        {
+            return;
+        }
+        if let Some(w) = app.get_webview_window(MANAGER) {
+            if !w.is_visible().unwrap_or(true) {
+                if let Err(e) = w.destroy() {
+                    log::warn!("couldn't let the closed manager go: {e}");
+                }
+            }
+        }
+    });
 }
 
 /// Ask the manager to run a pending autosave, the editor's 600 ms debounce;
 /// it answers `quit-requested` with `quit_now`. False when there is no
 /// manager to ask.
 fn ask_to_flush(app: &AppHandle) -> bool {
-    app.get_webview_window("main")
+    app.get_webview_window(MANAGER)
         .map(|w| w.emit("quit-requested", ()).is_ok())
         .unwrap_or(false)
 }
@@ -100,11 +225,7 @@ fn request_quit(app: &AppHandle) {
 }
 
 pub(crate) fn show_main(app: &AppHandle) {
-    if let Some(w) = app.get_webview_window("main") {
-        let _ = w.show();
-        let _ = w.unminimize();
-        let _ = w.set_focus();
-    }
+    open_manager(app, Opening::Plain);
 }
 
 /// The argument the autostart entry passes so a login launch stays in the
@@ -273,13 +394,10 @@ pub fn run() {
             }
 
             // Launched at login (the autostart entry passes --hidden): stay in
-            // the tray. The window is declared visible so a normal launch
-            // shows it without a flash of nothing; hiding it here is early
-            // enough that it never paints.
-            if std::env::args().any(|a| a == HIDDEN_ARG) {
-                if let Some(w) = handle.get_webview_window("main") {
-                    let _ = w.hide();
-                }
+            // the tray, and build no manager until it is asked for. Any other
+            // launch opens it, declared visible so it shows as it paints.
+            if !std::env::args().any(|a| a == HIDDEN_ARG) {
+                show_main(handle);
             }
 
             let data_moved = migrate_data_dir(handle);
@@ -377,8 +495,11 @@ pub fn run() {
             update::start(handle);
 
             // Shutdown, restart and sign-out get the same flush as Quit, and
-            // Windows does the exiting (see `platform::on_session_end`)
-            if let Some(w) = handle.get_webview_window("main") {
+            // Windows does the exiting (see `platform::on_session_end`). The
+            // query reaches every top-level window, hidden ones included, so
+            // the popup, which lives as long as the process, takes it for the
+            // manager, which may not exist
+            if let Some(w) = handle.get_webview_window("popup") {
                 let (ask, done) = (handle.clone(), handle.clone());
                 platform::on_session_end(
                     &w,
@@ -420,10 +541,11 @@ pub fn run() {
                     let _ = window.hide();
                 }
             }
-            // Closing a window hides it. The main window lives in the tray; the
-            // popup must survive Alt+F4 too — it is created once at startup, so
-            // destroying it leaves `show_popup` with no window to show and the
-            // hotkey dead until the app is restarted.
+            // Closing a window hides it. The manager goes to the tray, and
+            // its webview a while later if it stays there; the popup must
+            // survive Alt+F4 — it is created once at startup, so destroying
+            // it leaves `show_popup` with no window to show and the hotkey
+            // dead until the app is restarted.
             WindowEvent::CloseRequested { api, .. } => {
                 api.prevent_close();
                 if window.label() == "popup" {
@@ -433,6 +555,21 @@ pub fn run() {
                     persist_popup_size(app);
                 }
                 let _ = window.hide();
+                if window.label() == MANAGER {
+                    release_manager_later(window.app_handle());
+                }
+            }
+            // The notices a manager took or was sent are its own: the next
+            // one built takes only what came while there was none, rather
+            // than every notice since launch again
+            WindowEvent::Destroyed if window.label() == MANAGER => {
+                window
+                    .app_handle()
+                    .state::<AppState>()
+                    .notices
+                    .lock()
+                    .unwrap()
+                    .clear();
             }
             _ => {}
         })
@@ -464,5 +601,32 @@ pub(crate) mod testing {
         s.pinned = true;
         s.config_values.insert("cfg".into(), "v".into());
         s
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{opening_script, Opening};
+    use crate::update::UpdateInfo;
+
+    #[test]
+    fn a_manager_built_for_an_edit_or_the_offer_is_told_so_before_its_scripts_run() {
+        assert_eq!(
+            opening_script(&Opening::Plain),
+            "window.__PROMPTLINE_OPENING__ = {};"
+        );
+        // The id is JSON, so a quote in it can't end the string early
+        assert_eq!(
+            opening_script(&Opening::Edit("a\"b</script>".into())),
+            r#"window.__PROMPTLINE_OPENING__ = {"edit":"a\"b</script>"};"#
+        );
+        let info = UpdateInfo {
+            version: "0.2.30".into(),
+            notes: String::new(),
+        };
+        assert_eq!(
+            opening_script(&Opening::Offer(info)),
+            r#"window.__PROMPTLINE_OPENING__ = {"offer":true};"#
+        );
     }
 }
