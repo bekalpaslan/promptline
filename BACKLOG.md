@@ -57,12 +57,12 @@ domain renewal, with P2's Raycast fix alongside.
     library lives, the same words in the README and on the site, and a
     test holds the two together. Checked against Raycast's Windows
     changelog and manual, not in the app itself.
-  - **Decision:** the macOS line says "in progress" or "on the way" in
-    the README, the site, both posts, the repo description and dev.to,
-    while the record calls the port undated. Pick: mention macOS only
-    under Known limitations, as "planned, no date". That overturns Phase
-    6 D-11 and Phase 10 D-02, and `tests/posts.test.js` enforces "in
-    progress".
+  - ~~**The macOS line**~~ decided and done 2026-11-08: macOS is named
+    only under the README's Known limitations, as "planned, with no date
+    yet"; both posts say "Windows 10/11" and nothing about macOS, which
+    `tests/posts.test.js` now holds, and the repo description drops it.
+    That overturns Phase 6 D-11 and Phase 10 D-02. **Left:** the dev.to
+    copies of both posts, edited by hand.
   - **Also:** record the namesakes D1 doesn't list (dyne.org's
     Promptline, `@jxtools/promptline`, promptline.vim). Homebrew's
     notability bar (75 stars, or 225 for your own submission) means a
