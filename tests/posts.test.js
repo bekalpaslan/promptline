@@ -110,11 +110,13 @@ test('post pages keep the subpage header', () => {
   }
 });
 
-test('each post says Windows 10/11 today and macOS in progress, and nothing about signing (D-02)', () => {
+// D-02 said "macOS is in progress"; since 2026-11-08 the port is planned
+// with no date, and only the README's Known limitations says so.
+test('each post says Windows 10/11, nothing about macOS and nothing about signing (D-02)', () => {
   for (const slug of postSlugs()) {
     const text = visibleText(main(postHtml(slug)));
     assert.ok(text.includes('Windows 10/11'), `${slug}: no "Windows 10/11"`);
-    assert.ok(text.includes('macOS') && text.includes('in progress'), `${slug}: no "macOS … in progress"`);
+    assert.ok(!text.includes('macOS'), `${slug}: mentions macOS`);
     assert.doesNotMatch(text, /\b(un)?sign(ed|ing)\b|SmartScreen|code.signing/i, `${slug}: mentions signing`);
   }
 });
