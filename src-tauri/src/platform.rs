@@ -343,14 +343,17 @@ mod imp {
         }
     }
 
-    /// Send Ctrl+V; false when SendInput inserted fewer events than asked
-    /// (the input queue is blocked, or another thread holds it). UIPI drops
-    /// input aimed at an elevated window without saying so, so a paste into
-    /// one would come back true: `input_block` is asked first.
-    pub(crate) fn send_ctrl_v() -> bool {
-        // Release modifiers the user may still be holding from the hotkey,
-        // then send a clean Ctrl+V.
-        let inputs = [
+    /// The events of one paste: release the modifiers the user may still be
+    /// holding from the hotkey, then a clean Ctrl+V.
+    ///
+    /// Every event carries virtual-key codes only, with a scan code of 0, and
+    /// that is load-bearing: mintty (Git Bash, wsltty) takes a Ctrl+V whose
+    /// scan code is 0 as a paste, where a typed Ctrl+V goes to the program
+    /// as ^V (wsltty#139). Filling in real scan codes would make the paste
+    /// look typed and break Git Bash; `the_paste_sends_virtual_keys_with_no_scan_code`
+    /// holds it.
+    pub(crate) fn ctrl_v_inputs() -> [INPUT; 7] {
+        [
             key(VK_SHIFT, true),
             key(VK_MENU, true),
             key(VK_CONTROL, true),
@@ -358,7 +361,15 @@ mod imp {
             key(VK_V, false),
             key(VK_V, true),
             key(VK_CONTROL, true),
-        ];
+        ]
+    }
+
+    /// Send Ctrl+V; false when SendInput inserted fewer events than asked
+    /// (the input queue is blocked, or another thread holds it). UIPI drops
+    /// input aimed at an elevated window without saying so, so a paste into
+    /// one would come back true: `input_block` is asked first.
+    pub(crate) fn send_ctrl_v() -> bool {
+        let inputs = ctrl_v_inputs();
         let sent = unsafe { SendInput(&inputs, std::mem::size_of::<INPUT>() as i32) };
         sent as usize == inputs.len()
     }
@@ -904,6 +915,38 @@ mod windows_tests {
     use windows::Win32::System::Threading::GetCurrentProcess;
 
     use super::imp::{altgr_text_on, keyboard_layouts, layout_name, process_integrity};
+
+    #[test]
+    fn the_paste_sends_virtual_keys_with_no_scan_code() {
+        use windows::Win32::UI::Input::KeyboardAndMouse::{
+            INPUT_KEYBOARD, KEYEVENTF_KEYUP, KEYEVENTF_SCANCODE, VK_CONTROL, VK_MENU, VK_SHIFT,
+            VK_V,
+        };
+        let inputs = super::imp::ctrl_v_inputs();
+        let mut seen = Vec::new();
+        for input in &inputs {
+            assert_eq!(input.r#type, INPUT_KEYBOARD);
+            // SAFETY: every event is built as a keyboard input, asserted above
+            let ki = unsafe { input.Anonymous.ki };
+            // mintty pastes a Ctrl+V only when its scan code is 0 (Git Bash)
+            assert_eq!(ki.wScan, 0);
+            assert!(!ki.dwFlags.contains(KEYEVENTF_SCANCODE));
+            seen.push((ki.wVk, ki.dwFlags.contains(KEYEVENTF_KEYUP)));
+        }
+        assert_eq!(
+            seen,
+            [
+                (VK_SHIFT, true),
+                (VK_MENU, true),
+                (VK_CONTROL, true),
+                (VK_CONTROL, false),
+                (VK_V, false),
+                (VK_V, true),
+                (VK_CONTROL, true),
+            ]
+        );
+    }
+
     use super::{input_block, InputBlock};
 
     #[test]
