@@ -123,21 +123,18 @@ domain renewal, with P2's Raycast fix alongside.
     asks. Shift+Insert gets dropped by Claude Code under the kitty
     protocol in VS Code (claude-code#93782).
   - **Size:** hours.
-- **Report a bug from About** (P8).
-  - **Now:** the app links to nothing but the coffee page
-    (`OPENABLE_URLS`). No issue has ever been opened, and the backlog's
-    demand gates read issues and Discussions that installed users can't
-    find.
-  - **Decision:** does 4e6d0fb's "the app gets no link until Discussions
-    shows life" cover the issue tracker? Pick: no.
-  - **The change, if so:**
-    - a "Report a bug" button in Settings → About, opening
-      `issues/new?template=bug_report.md`;
-    - the `wr04` test extended to admit it and refuse lookalikes;
-    - an e2e case asserting through `__mock.calls`;
-    - SECURITY.md's "one link" updated;
-    - `bug_report.md` pointing at About for the version.
-  - **Size:** hours.
+- ~~**Report a bug from About**~~ (P8) done 2026-11-08 on
+  `feat/report-a-bug`, after the maintainer decided 4e6d0fb's rule doesn't
+  cover the issue tracker: a Bugs row at the foot of Settings → About with
+  a **Report a bug** button opening `issues/new?template=bug_report.md`
+  through `open_url`, and a hint naming the running version, which the
+  template asks for. `OPENABLE_URLS` gained the address with the
+  comparison unchanged; a second `wr04` test admits it and refuses
+  lookalikes (other owner, repository or template, extra or reordered
+  query, fragment, trailing path, http, userinfo and suffix hosts). An e2e
+  case asserts the exact `open_url` call; SECURITY.md names both links and
+  `bug_report.md` points at About for the version. Filing still needs a
+  GitHub account.
 - **Hotkey collisions: Office and Visual Studio** (P9).
   - **Now:** Ctrl+Alt+V is Paste Special in Excel and PowerPoint, and it
     starts debugger chords in Visual Studio. The README and the Settings
@@ -180,17 +177,18 @@ domain renewal, with P2's Raycast fix alongside.
     should it link promptline.cc instead of the release page that
     `post-x.mjs` links today?
   - **Size:** hours.
-- **Clipboard history and cloud sync.** This is the orchestrator's note;
-  no second agent has checked it.
-  - **Now:** each paste writes the composed prompt with a plain
-    `set_text` (`paste.rs`). So it lands in Win+V history and, if sync is
-    on, in the cloud clipboard.
-  - **The risk (inferred, not run):** a secret copied from a password
-    manager carries an exclusion mark. Pasted through `{clipboard}`, it
-    loses that mark.
-  - **The fix exists:** arboard 3.7 has `exclude_from_history()` and
-    `exclude_from_cloud()`.
-  - **Before acting:** it needs a deep dive and a check.
+- ~~**Clipboard history and cloud sync**~~ done 2026-11-08 on
+  `fix/private-clipboard`: a prompt that takes in clipboard text a password
+  manager marked private (`CanIncludeInClipboardHistory` or
+  `CanUploadToCloudClipboard` at 0, or
+  `ExcludeClipboardContentFromMonitorProcessing`) is written with history
+  and cloud excluded, plus monitoring when the source had it; ordinary
+  prompts stay plain and in Win+V history. The manager's Copy follows the
+  same rule (`marks_carried_into`). Confirmed that a plain rewrite loses
+  the marks; Win+V itself is unobserved, since clipboard history is off on
+  the dev machine. **Left:** either mark counts as both (mirroring each is
+  a one-line change in `marks_to_write`), and the manager's Copy checks
+  the clipboard at the write, milliseconds after the webview read it.
 - **Not deepened in that review.** Each is one line in the report:
   - Search Console and Bing Webmaster verification (a DNS TXT record, no
     script);
