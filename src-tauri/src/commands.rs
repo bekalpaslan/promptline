@@ -637,10 +637,15 @@ pub(crate) fn get_clipboard_text() -> String {
         .unwrap_or_default()
 }
 
+/// The manager's clipboard writes. Its Copy expands `{clipboard}` in the
+/// webview, so a private clipboard can arrive here inside the text; it is
+/// written with the same marks then (`marks_carried_into`), and plainly
+/// otherwise.
 #[tauri::command]
 pub(crate) fn set_clipboard_text(text: String) -> Result<(), String> {
     let mut c = arboard::Clipboard::new().map_err(|e| e.to_string())?;
-    c.set_text(text).map_err(|e| e.to_string())
+    let marks = crate::paste::marks_carried_into(&text);
+    crate::paste::set_text_marked(&mut c, text, marks).map_err(|e| e.to_string())
 }
 
 /// The manager's answer to `quit-requested`: its pending autosave is on

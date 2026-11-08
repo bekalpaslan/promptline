@@ -435,6 +435,30 @@ The one flow everything else exists to serve. Hotkey to pasted text:
    error would reach nobody, and a library a sync client or scanner is
    holding for a moment must not turn into a paste that never happens with
    the prompt sitting on the clipboard.
+
+   **A private clipboard stays private in the prompt** (since 2026-11-08).
+   A password manager copies a secret with registered formats beside the
+   text: `CanIncludeInClipboardHistory` and `CanUploadToCloudClipboard`
+   holding 0, and sometimes `ExcludeClipboardContentFromMonitorProcessing`,
+   so Win+V history and the cloud clipboard skip it. The prompt is new
+   clipboard content, and it used to be written plainly, so a secret pasted
+   through `{clipboard}` landed in the history and, with sync on, in the
+   cloud (confirmed on 2026-11-08: the marks are on the secret and gone
+   from the plain rewrite). Now, when the prompt uses `{clipboard}`,
+   `paste_snippet` reads the marks beside the text it expands
+   (`platform::clipboard_marks`, with Windows' clipboard change count taken
+   before and after, so both describe the same copy; a change in between
+   counts as marked), and if any is there it writes the prompt with history
+   and cloud excluded, plus the monitoring mark when the source had it, in
+   the same open of the clipboard as the text (`marks_to_write`,
+   `set_text_marked`). It mirrors the source rather than excluding every
+   prompt: an ordinary prompt stays in Win+V history to reuse, and a prompt
+   without the token is written plainly whatever the clipboard holds. The
+   manager's Copy expands `{clipboard}` in the webview, so
+   `set_clipboard_text` can't see the token; it marks what it writes when
+   the clipboard it replaces is marked and the new text contains that
+   clipboard's text (`marks_carried_into`). An unmarked clipboard, nearly
+   every one, costs three format lookups and never opens it.
 5. A detached thread waits 80 ms, asks whether the remembered window will
    take input (`platform::input_block`, below), calls `SetForegroundWindow`
    on it, waits another 80 ms, and sends Ctrl+V via `SendInput`. Both

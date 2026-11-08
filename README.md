@@ -177,7 +177,10 @@ its user agent (`tauri-plugin-updater/2.12.0`). If you accept an update,
 the installer downloads from GitHub Releases and is installed only if its
 signature matches the key built into the app. Turn the check off under
 **Settings → About**; *Check for updates* there still works by hand.
-Nothing else leaves your machine except what you paste. If something goes
+Nothing else leaves your machine except what you paste. A prompt that takes
+in something your password manager copied as private is marked private the
+same way, so Windows keeps it out of clipboard history and cloud sync too.
+If something goes
 wrong it writes `promptline.log` under the data folder; attach it to a bug
 report.
 

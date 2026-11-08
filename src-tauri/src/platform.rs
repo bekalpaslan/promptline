@@ -3,7 +3,8 @@
 //! the mouse button for the resize-drag check, handing a URL to the shell,
 //! what the hotkey would have typed on the user's keyboard layouts, whether
 //! Windows' Startup page has turned an entry off, whether a window will
-//! accept our keystrokes, and hearing that Windows is ending the session.
+//! accept our keystrokes, whether the clipboard's content is marked private,
+//! and hearing that Windows is ending the session.
 //! Everything else in the crate is
 //! portable; a macOS port reimplements this file (CGEventPost, plus the
 //! Accessibility permission) and nothing else.
@@ -116,6 +117,37 @@ fn judge_input(target: TargetLevel, own: u32) -> InputBlock {
 #[cfg(any(windows, test))]
 fn startup_value_off(value: &[u8]) -> bool {
     value.first().is_some_and(|b| b % 2 == 1)
+}
+
+/// The privacy marks on what the clipboard holds. A password manager copies
+/// a secret with registered formats beside the text that keep it out of
+/// Win+V history and the cloud clipboard; a program that reads the text
+/// and writes it back plainly drops them. All false when there are none,
+/// and always on other platforms.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct ClipboardMarks {
+    /// `ExcludeClipboardContentFromMonitorProcessing` is present: no
+    /// clipboard monitor (history, cloud, a clipboard manager) should take it
+    pub(crate) monitoring: bool,
+    /// `CanIncludeInClipboardHistory` holds 0
+    pub(crate) history: bool,
+    /// `CanUploadToCloudClipboard` holds 0
+    pub(crate) cloud: bool,
+}
+
+impl ClipboardMarks {
+    pub(crate) fn any(self) -> bool {
+        self.monitoring || self.history || self.cloud
+    }
+}
+
+/// What one of the two `Can…` formats says, once it is present: a DWORD of
+/// 0 excludes, 1 asks to be included. One we could not read counts as 0,
+/// since the copier put the format there to say something and the cost of
+/// guessing wrong is a secret in the history.
+#[cfg(any(windows, test))]
+fn can_format_excludes(value: Option<u32>) -> bool {
+    !matches!(value, Some(v) if v != 0)
 }
 
 #[cfg(windows)]
@@ -708,6 +740,82 @@ mod imp {
             }
         }
     }
+
+    /// The privacy marks on what the clipboard holds now (see
+    /// `ClipboardMarks`). Asking whether a format is there needs no lock on
+    /// the clipboard, so a clipboard without the two `Can…` formats, which
+    /// is nearly every one, costs three lookups and never opens it.
+    pub(crate) fn clipboard_marks() -> super::ClipboardMarks {
+        use windows::Win32::System::DataExchange::{
+            IsClipboardFormatAvailable, RegisterClipboardFormatW,
+        };
+        // Registering a name Windows already knows returns its id
+        let present = |name: PCWSTR| {
+            let format = unsafe { RegisterClipboardFormatW(name) };
+            (format != 0 && unsafe { IsClipboardFormatAvailable(format) }.is_ok()).then_some(format)
+        };
+        let monitoring = present(w!("ExcludeClipboardContentFromMonitorProcessing")).is_some();
+        let history = present(w!("CanIncludeInClipboardHistory"));
+        let cloud = present(w!("CanUploadToCloudClipboard"));
+        let (history, cloud) = if history.is_none() && cloud.is_none() {
+            (false, false)
+        } else {
+            // Unopenable (another program holding it) reads as unreadable
+            let values =
+                with_clipboard_open(|| (history.map(clipboard_dword), cloud.map(clipboard_dword)))
+                    .unwrap_or((history.map(|_| None), cloud.map(|_| None)));
+            (
+                values.0.is_some_and(super::can_format_excludes),
+                values.1.is_some_and(super::can_format_excludes),
+            )
+        };
+        super::ClipboardMarks {
+            monitoring,
+            history,
+            cloud,
+        }
+    }
+
+    /// Windows' count of clipboard changes. The same number before and after
+    /// two reads means they read the same content.
+    pub(crate) fn clipboard_sequence() -> u32 {
+        unsafe { windows::Win32::System::DataExchange::GetClipboardSequenceNumber() }
+    }
+
+    /// `read` with the clipboard opened for this thread, or None when another
+    /// program held it through a few tries (as arboard tries).
+    fn with_clipboard_open<T>(read: impl FnOnce() -> T) -> Option<T> {
+        use windows::Win32::System::DataExchange::{CloseClipboard, OpenClipboard};
+        for _ in 0..5 {
+            if unsafe { OpenClipboard(HWND::default()) }.is_ok() {
+                let out = read();
+                let _ = unsafe { CloseClipboard() };
+                return Some(out);
+            }
+            std::thread::sleep(Duration::from_millis(2));
+        }
+        None
+    }
+
+    /// The DWORD a registered format holds; the clipboard must be open.
+    fn clipboard_dword(format: u32) -> Option<u32> {
+        use windows::Win32::Foundation::HGLOBAL;
+        use windows::Win32::System::DataExchange::GetClipboardData;
+        use windows::Win32::System::Memory::{GlobalLock, GlobalSize, GlobalUnlock};
+        let mem = HGLOBAL(unsafe { GetClipboardData(format) }.ok()?.0);
+        if unsafe { GlobalSize(mem) } < 4 {
+            return None;
+        }
+        let ptr = unsafe { GlobalLock(mem) } as *const u8;
+        if ptr.is_null() {
+            return None;
+        }
+        let mut bytes = [0u8; 4];
+        unsafe { std::ptr::copy_nonoverlapping(ptr, bytes.as_mut_ptr(), 4) };
+        // Errs on the last unlock with no error to report; nothing to do
+        let _ = unsafe { GlobalUnlock(mem) };
+        Some(u32::from_ne_bytes(bytes))
+    }
 }
 
 #[cfg(not(windows))]
@@ -762,6 +870,13 @@ mod imp {
     ) -> Result<(), String> {
         Err("no toast on this platform".into())
     }
+
+    pub(crate) fn clipboard_marks() -> super::ClipboardMarks {
+        super::ClipboardMarks::default()
+    }
+    pub(crate) fn clipboard_sequence() -> u32 {
+        0
+    }
 }
 
 #[cfg(windows)]
@@ -771,6 +886,7 @@ pub(crate) use imp::{
     left_button_down, note_foreign, on_session_end, send_ctrl_v, send_enter, show_toast,
     startup_entry_off, track_foreground, SessionEnd,
 };
+pub(crate) use imp::{clipboard_marks, clipboard_sequence};
 
 #[cfg(test)]
 mod tests {
@@ -781,6 +897,13 @@ mod tests {
 
     const MEDIUM: u32 = 0x2000;
     const HIGH: u32 = 0x3000;
+
+    #[test]
+    fn a_can_format_excludes_at_zero_and_when_unreadable_and_includes_at_one() {
+        assert!(super::can_format_excludes(Some(0)));
+        assert!(super::can_format_excludes(None));
+        assert!(!super::can_format_excludes(Some(1)));
+    }
 
     #[test]
     fn a_window_above_our_level_refuses_input_and_one_at_it_or_below_takes_it() {

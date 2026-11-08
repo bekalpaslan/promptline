@@ -11,7 +11,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
 
 use crate::commands::notify_manager_snippets_changed;
-use crate::platform::InputBlock;
+use crate::platform::{ClipboardMarks, InputBlock};
 use crate::store::{load_config_from_disk, load_snippets_from_disk, save_config, write_snippets};
 use crate::{platform, AppState};
 
@@ -175,8 +175,9 @@ fn paste_window(keep_open: bool, summoned_over: isize, last_foreign: isize) -> i
 }
 
 /// Copy `text` to the clipboard (expanding `{clipboard}` from its current
-/// contents); if `paste` is set and there is a window to paste into, refocus
-/// it and send Ctrl+V. The prompt stays on the clipboard afterwards (see the
+/// contents, and keeping it out of Win+V history and the cloud clipboard
+/// when those contents were marked so; see `marks_to_write`); if `paste`
+/// is set and there is a window to paste into, refocus it and send Ctrl+V. The prompt stays on the clipboard afterwards (see the
 /// note in the body and BEHAVIOR.md). Bumps the snippet's use count. Returns
 /// `"pasted"` when the paste thread was spawned and `"copied"` when it fell
 /// back to copy-only (asked for, or no target), so the popup can say so.
@@ -200,9 +201,16 @@ pub(crate) fn paste_snippet(
         platform::last_foreign_window(),
     );
     let mode = paste_mode(paste, prev_window);
-    let prev_clipboard = arboard::Clipboard::new()
-        .ok()
-        .and_then(|mut c| c.get_text().ok());
+    // The marks are read only when the clipboard goes into the prompt: a
+    // prompt without the token carries none of it and is written plainly
+    let uses_clipboard = text.contains("{clipboard}");
+    let (prev_clipboard, marks) = read_clipboard(uses_clipboard);
+    let inserted = if uses_clipboard {
+        prev_clipboard.as_deref()
+    } else {
+        None
+    };
+    let marks = marks_to_write(inserted, marks);
     let text = expand_clipboard(&text, prev_clipboard.as_deref());
 
     // The clipboard is written *before* the popup is hidden: if the write
@@ -210,8 +218,7 @@ pub(crate) fn paste_snippet(
     // to a window that is still on screen and can show it.
     let mut clipboard =
         arboard::Clipboard::new().map_err(|e| format!("Couldn't open the clipboard: {e}"))?;
-    clipboard
-        .set_text(text)
+    set_text_marked(&mut clipboard, text, marks)
         .map_err(|e| format!("Couldn't write to the clipboard: {e}"))?;
     drop(clipboard);
 
@@ -303,6 +310,106 @@ pub(crate) fn paste_snippet(
 /// token comes back as it was.
 fn expand_clipboard(text: &str, clip: Option<&str>) -> String {
     text.replace("{clipboard}", clip.unwrap_or(""))
+}
+
+/// The clipboard's text, and with `with_marks` its privacy marks, read so
+/// that both describe the same content: Windows' change count is taken
+/// before the text and after the marks, and a change in between counts as
+/// private (`settled_marks`). Without `with_marks` the marks are none and
+/// nothing beyond the text is asked.
+fn read_clipboard(with_marks: bool) -> (Option<String>, ClipboardMarks) {
+    let read_text = || {
+        arboard::Clipboard::new()
+            .ok()
+            .and_then(|mut c| c.get_text().ok())
+    };
+    if !with_marks {
+        return (read_text(), ClipboardMarks::default());
+    }
+    let before = platform::clipboard_sequence();
+    let text = read_text();
+    let marks = platform::clipboard_marks();
+    let settled = platform::clipboard_sequence() == before;
+    (text, settled_marks(marks, settled))
+}
+
+/// The marks as read, or, when the clipboard changed while the text and the
+/// marks were being read, history and cloud excluded: the text may be a
+/// secret whose marks we never saw, and the cost of guessing wrong is that
+/// secret in Win+V history. Erring the other way only keeps one prompt out.
+fn settled_marks(marks: ClipboardMarks, settled: bool) -> ClipboardMarks {
+    if settled {
+        marks
+    } else {
+        ClipboardMarks {
+            history: true,
+            cloud: true,
+            ..marks
+        }
+    }
+}
+
+/// The marks the written prompt carries: none unless clipboard text went
+/// into it (`inserted`, empty counting as none) and that text was marked;
+/// then history and cloud both, whichever of them the source named, since
+/// any mark says the copier meant it private, and the monitoring mark too
+/// when the source had it. An ordinary prompt stays plain, so it is in
+/// Win+V history to reuse like anything else copied.
+fn marks_to_write(inserted: Option<&str>, marks: ClipboardMarks) -> ClipboardMarks {
+    match inserted {
+        Some(clip) if !clip.is_empty() && marks.any() => ClipboardMarks {
+            monitoring: marks.monitoring,
+            history: true,
+            cloud: true,
+        },
+        _ => ClipboardMarks::default(),
+    }
+}
+
+/// For text composed elsewhere: the manager's Copy expands `{clipboard}` in
+/// the webview and sends the result, so Rust can't see the token. It sees
+/// the clipboard about to be replaced, and when that is marked and the new
+/// text contains it, the new text is marked the same way. Unmarked, which
+/// is nearly always, it costs three format lookups and no text read.
+pub(crate) fn marks_carried_into(text: &str) -> ClipboardMarks {
+    if !platform::clipboard_marks().any() {
+        return ClipboardMarks::default();
+    }
+    let (clip, marks) = read_clipboard(true);
+    marks_to_write(clip.as_deref().filter(|c| text.contains(c)), marks)
+}
+
+/// `set_text` with the marks set beside the text, in the same open of the
+/// clipboard, so a history or cloud listener never sees the text without
+/// them. No marks is a plain `set_text`.
+pub(crate) fn set_text_marked(
+    clipboard: &mut arboard::Clipboard,
+    text: String,
+    marks: ClipboardMarks,
+) -> Result<(), arboard::Error> {
+    let set = clipboard.set();
+    #[cfg(windows)]
+    let set = {
+        use arboard::SetExtWindows;
+        let set = if marks.monitoring {
+            set.exclude_from_monitoring()
+        } else {
+            set
+        };
+        let set = if marks.history {
+            set.exclude_from_history()
+        } else {
+            set
+        };
+        if marks.cloud {
+            set.exclude_from_cloud()
+        } else {
+            set
+        }
+    };
+    #[cfg(not(windows))]
+    let _ = marks;
+    set.text(text)
 }
 
 /// What the popup shows when the paste thread could not deliver. The
@@ -515,6 +622,122 @@ mod tests {
             expand_clipboard("see {clipboard}", Some("{clipboard} inside")),
             "see {clipboard} inside"
         );
+    }
+
+    const NONE: ClipboardMarks = ClipboardMarks {
+        monitoring: false,
+        history: false,
+        cloud: false,
+    };
+    const PRIVATE: ClipboardMarks = ClipboardMarks {
+        monitoring: false,
+        history: true,
+        cloud: true,
+    };
+
+    #[test]
+    fn a_prompt_wrapping_a_private_clipboard_is_kept_out_of_history_and_cloud() {
+        assert_eq!(marks_to_write(Some("hunter2"), PRIVATE), PRIVATE);
+        // Either mark alone makes the prompt private in both
+        let history_only = ClipboardMarks {
+            cloud: false,
+            ..PRIVATE
+        };
+        let cloud_only = ClipboardMarks {
+            history: false,
+            ..PRIVATE
+        };
+        assert_eq!(marks_to_write(Some("hunter2"), history_only), PRIVATE);
+        assert_eq!(marks_to_write(Some("hunter2"), cloud_only), PRIVATE);
+        // The monitoring mark carries over, and brings the other two
+        let monitoring = ClipboardMarks {
+            monitoring: true,
+            ..NONE
+        };
+        assert_eq!(
+            marks_to_write(Some("hunter2"), monitoring),
+            ClipboardMarks {
+                monitoring: true,
+                ..PRIVATE
+            }
+        );
+    }
+
+    #[test]
+    fn a_prompt_without_private_clipboard_text_in_it_is_written_plainly() {
+        // An ordinary clipboard: the prompt stays in Win+V history to reuse
+        assert_eq!(marks_to_write(Some("error: E0308"), NONE), NONE);
+        // No token, an empty or an unreadable clipboard: nothing went in
+        assert_eq!(marks_to_write(None, PRIVATE), NONE);
+        assert_eq!(marks_to_write(Some(""), PRIVATE), NONE);
+    }
+
+    #[test]
+    fn a_clipboard_that_changed_during_the_read_counts_as_private() {
+        assert_eq!(settled_marks(NONE, true), NONE);
+        assert_eq!(settled_marks(PRIVATE, true), PRIVATE);
+        assert_eq!(settled_marks(NONE, false), PRIVATE);
+        let monitoring = ClipboardMarks {
+            monitoring: true,
+            ..NONE
+        };
+        assert_eq!(
+            settled_marks(monitoring, false),
+            ClipboardMarks {
+                monitoring: true,
+                ..PRIVATE
+            }
+        );
+    }
+
+    /// Against the real clipboard, which it overwrites: puts back the text
+    /// that was there, with its marks, and loses anything that wasn't text.
+    /// One test, so no other test races it for the clipboard.
+    #[cfg(windows)]
+    #[test]
+    fn marks_written_beside_text_are_read_back_and_carried_into_the_prompt() {
+        use arboard::SetExtWindows;
+        let (saved, saved_marks) = read_clipboard(true);
+        let mut clipboard = arboard::Clipboard::new().expect("open the clipboard");
+
+        // A password manager's copy
+        clipboard
+            .set()
+            .exclude_from_history()
+            .exclude_from_cloud()
+            .text("promptline-test-secret")
+            .expect("write the marked text");
+        let read = read_clipboard(true);
+        let inserted_secret = read.0.clone();
+
+        // The paste's write of a prompt that wrapped it
+        let marks = marks_to_write(read.0.as_deref(), read.1);
+        set_text_marked(
+            &mut clipboard,
+            "explain promptline-test-secret".into(),
+            marks,
+        )
+        .expect("write the prompt");
+        let prompt_marks = platform::clipboard_marks();
+        // The manager's Copy of a prompt wrapping what is there now (the
+        // marked prompt), composed in the webview
+        let carried = marks_carried_into("see explain promptline-test-secret here");
+        let unrelated = marks_carried_into("a pack's path");
+
+        // A plain write carries nothing
+        clipboard.set_text("promptline-test-plain").expect("write");
+        let plain_marks = platform::clipboard_marks();
+
+        if let Some(text) = saved {
+            let _ = set_text_marked(&mut clipboard, text, saved_marks);
+        }
+
+        assert_eq!(inserted_secret.as_deref(), Some("promptline-test-secret"));
+        assert_eq!(read.1, PRIVATE);
+        assert_eq!(prompt_marks, PRIVATE);
+        assert_eq!(carried, PRIVATE);
+        assert_eq!(unrelated, NONE);
+        assert_eq!(plain_marks, NONE);
     }
 
     #[test]

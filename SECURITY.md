@@ -17,7 +17,11 @@ machine:
 - **The clipboard.** It reads the clipboard to expand `{clipboard}` and to
   show previews, and writes the chosen prompt to it before pasting. The
   prompt stays on the clipboard afterwards on purpose (see `BEHAVIOR.md`,
-  "The paste pipeline").
+  "The paste pipeline"). When the clipboard text that went into the prompt
+  was marked to stay out of Windows' clipboard history and cloud clipboard
+  (as password managers mark a copied secret), the prompt is written with
+  the same exclusions; to see the marks it checks which registered formats
+  the clipboard holds and reads the value of two of them.
 - **Keystrokes into the previous window.** After you pick a prompt it
   refocuses the window you came from and sends one Ctrl+V with `SendInput`,
   first releasing any Shift, Alt or Ctrl still held from the hotkey, and
