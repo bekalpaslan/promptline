@@ -7,7 +7,7 @@
     "quality_profile": "showcase",
     "repository": {
       "url": "https://github.com/bekalpaslan/promptline",
-      "revision": "fe4f7dc9af667b9d4c9b458bb7a72e5b73785261"
+      "revision": "f868f36a8ce5b7ea6f959d8bd540ece1d673f66f"
     },
     "viewBox": [
       1300,
@@ -138,13 +138,13 @@
       "sources": [
         {
           "path": "src/manager/App.tsx",
-          "line": 44,
+          "line": 45,
           "label": "Manager App"
         },
         {
-          "path": "src/manager/App.tsx",
-          "line": 521,
-          "label": "snippets-changed"
+          "path": "src-tauri/src/lib.rs",
+          "line": 116,
+          "label": "open_manager"
         },
         {
           "path": "src/manager/UpdateOffer.tsx",
@@ -169,8 +169,8 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 215,
-          "end_line": 218,
+          "line": 339,
+          "end_line": 342,
           "label": "shortcut handler"
         }
       ]
@@ -191,13 +191,13 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 337,
-          "end_line": 358,
+          "line": 464,
+          "end_line": 485,
           "label": "TrayIconBuilder"
         },
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 153,
+          "line": 277,
           "label": "Update to X.Y.Z item"
         }
       ]
@@ -218,20 +218,20 @@
       "sources": [
         {
           "path": "src-tauri/src/lib.rs",
-          "line": 185,
-          "end_line": 432,
+          "line": 309,
+          "end_line": 578,
           "label": "run()"
         },
         {
           "path": "src-tauri/src/paste.rs",
-          "line": 378,
-          "end_line": 453,
+          "line": 403,
+          "end_line": 478,
           "label": "show_popup"
         },
         {
           "path": "src-tauri/src/paste.rs",
-          "line": 185,
-          "end_line": 286,
+          "line": 186,
+          "end_line": 297,
           "label": "paste_snippet"
         }
       ]
@@ -252,8 +252,8 @@
       "sources": [
         {
           "path": "src-tauri/src/paste.rs",
-          "line": 185,
-          "end_line": 286,
+          "line": 186,
+          "end_line": 297,
           "label": "paste_snippet"
         }
       ]
@@ -274,7 +274,7 @@
       "sources": [
         {
           "path": "src-tauri/src/platform.rs",
-          "line": 234,
+          "line": 350,
           "label": "send_ctrl_v"
         }
       ]
@@ -354,8 +354,8 @@
       "sources": [
         {
           "path": "src-tauri/tauri.conf.json",
-          "line": 80,
-          "end_line": 82,
+          "line": 81,
+          "end_line": 83,
           "label": "endpoint"
         },
         {
@@ -505,7 +505,7 @@
       "title": "Paste path",
       "items": [
         "Foreground window recorded before the popup shows",
-        "Clipboard written first; 80 ms waits around refocus",
+        "Clipboard written first; an elevated target is refused",
         "Prompt stays on the clipboard after Ctrl+V"
       ]
     },
@@ -513,7 +513,7 @@
       "dot": "emerald",
       "title": "Two windows",
       "items": [
-        "Popup for daily use, manager for editing",
+        "Popup for daily use; manager built when first opened",
         "They share files and Tauri events, nothing else",
         "One process: a second launch opens the first's manager"
       ]
