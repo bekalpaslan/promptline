@@ -657,6 +657,40 @@ test("Tab opens the row's actions; delete asks twice and U undoes", async ({ pag
   await expect(page.getByRole("option", { name: "Loose prompt", exact: true })).toBeVisible()
 })
 
+test("a right-click on a row opens that row's actions and selects it, so Edit in manager edits the row pointed at", async ({ page }) => {
+  const third = rows(page).nth(2)
+  const id = (await third.getAttribute("id"))!.replace(/^row-/, "")
+  await expect(rows(page).first()).toHaveAttribute("aria-selected", "true")
+  await third.click({ button: "right" })
+  const menu = page.getByRole("menu", { name: /^Actions for / })
+  await expect(menu).toBeVisible()
+  // The panel, the selection and the hint bar name one prompt
+  await expect(third).toHaveAttribute("aria-selected", "true")
+  await expect(rows(page).first()).toHaveAttribute("aria-selected", "false")
+  await expect(menu.getByRole("menuitem", { name: /^Paste/ })).toBeFocused()
+  await menu.getByRole("menuitem", { name: /^Edit in manager/ }).click()
+  await expect.poll(() => calls(page, "edit_in_manager")).toHaveLength(1)
+  expect((await calls(page, "edit_in_manager"))[0].args).toMatchObject({ id })
+})
+
+test("a right-click on a row never pastes and keeps the WebView's own menu shut", async ({ page }) => {
+  const third = rows(page).nth(2)
+  await third.click({ button: "right" })
+  await expect(page.getByRole("menu", { name: /^Actions for / })).toBeVisible()
+  // A second right-click on another row moves the panel there, still without pasting
+  await rows(page).nth(1).click({ button: "right" })
+  await expect(rows(page).nth(1)).toHaveAttribute("aria-selected", "true")
+  const prevented = await third.evaluate((el) => {
+    const e = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 })
+    el.dispatchEvent(e)
+    return e.defaultPrevented
+  })
+  expect(prevented).toBe(true)
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("menu")).toBeHidden()
+  expect(await calls(page, "paste_snippet")).toHaveLength(0)
+})
+
 test("Enter at \"Really delete?\" deletes and never pastes; Esc or moving away withdraws the question", async ({ page }) => {
   await search(page).fill("Loose prompt")
   await page.keyboard.press("Tab")

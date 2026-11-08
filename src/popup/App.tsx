@@ -1185,6 +1185,23 @@ export function App() {
     if (hoverTimer.current) clearTimeout(hoverTimer.current)
     hideTimer.current = setTimeout(() => setPreviewIdx(null), 150)
   }, [])
+  // A right-click opens the action panel for the row under the pointer,
+  // and moves the keyboard selection there first, as a click does but
+  // without pasting, so the panel, the hint bar and the selected row name
+  // one prompt. Tab alone opens it for the selected row, and a mouse user
+  // who pressed it over another row got that row's actions (2026-11-08).
+  // A hover still never moves the selection.
+  const onItemMenu = useCallback((i: number) => {
+    const entry = visibleRef.current[i]
+    if (!entry || pickedRef.current) return
+    hidePreview()
+    setHeadSel(null)
+    setSel(i)
+    setDeleteArmed(false)
+    setPanelNote(null)
+    setPanelFor(entry.s)
+    setPanelSel(0)
+  }, [hidePreview])
   // Measure the card once it is in the DOM, before paint, so the clamp below
   // uses its real height; a new card starts from the max-height fallback
   useLayoutEffect(() => {
@@ -1575,6 +1592,7 @@ export function App() {
       onPick={pick}
       onMove={onItemMouseMove}
       onLeave={onItemMouseLeave}
+      onMenu={onItemMenu}
       onTag={onTagClick}
       activeTags={activeTags}
       previewed={previewIdx === i}

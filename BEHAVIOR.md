@@ -755,7 +755,15 @@ in a window too short for the form.
 
 **The pointer never moves the selection.** Hover is the grey on the row
 and, after a pause, the preview card; the keyboard selection moves on keys
-or a click, and a click pastes the row it lands on. A hover card is the
+or a click, and a click pastes the row it lands on. A right-click opens the
+action panel for the row it lands on, and moves the selection there first,
+as a click does but without pasting, so the panel, the hint bar and the
+selected row name one prompt; the WebView's own menu never opens on a row.
+Tab opens the panel for the selected row, and only that: with the pointer
+resting on another row, Tab gave the actions of the first one, and "Edit in
+manager" opened a prompt the user had not pointed at (2026-11-08). Tab with
+a hover card up still means the selected row, not the card's, since the
+hint bar's `Tab actions` speaks for the selected row. A hover card is the
 pointer's: the hint bar keeps speaking for the selected row, and PgUp,
 PgDn and ← act only on a card opened with →. Any open card used to switch
 the bar to `↵ paste · ← back`, so with the pointer resting on one row (the
@@ -955,8 +963,8 @@ ate a row), and the pack and group headers name it in their tooltip at
 every width. The `{N}` badge on a row is named "Asks for
 N values before pasting" for a screen reader, which read its braces out.
 
-**The action panel's items take focus.** Tab opens it with focus on the
-highlighted item and the arrow keys move it, so a screen reader hears the
+**The action panel's items take focus.** Tab (or a right-click on a row)
+opens it with focus on the highlighted item and the arrow keys move it, so a screen reader hears the
 item change; Escape, or running an action, hands focus back to the search
 box. The items used to be marked with `aria-current` while focus stayed in
 the search box, which announced nothing as the highlight moved. The
