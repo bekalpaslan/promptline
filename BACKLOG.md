@@ -108,21 +108,16 @@ domain renewal, with P2's Raycast fix alongside.
   the popup comes back with the recovery. **Left for its release:** a notes
   bullet, since the app now queries the target process's integrity level
   on each paste.
-- **Pin the zero scan code; PuTTY and Emacs** (P7).
-  - **Now:** the injected Ctrl+V carries `wScan: 0` (`key()` in
-    `platform.rs`), and mintty pastes exactly that key (wsltty#139). So
-    Git Bash works by an unrecorded accident, which filling in the scan
-    code would break.
-  - **First step:** Ctrl+Alt+V into Git Bash, once plain and once inside
-    `claude`. If the text lands, move the events into `ctrl_v_inputs()`,
-    add a Windows test that they carry no scan code, add a comment, and
-    add one BEHAVIOR sentence.
-  - **PuTTY, KiTTY and Emacs** paste on Shift+Insert. Add a Known
-    limitations bullet once a manual check confirms PuTTY misses.
-  - **Decision:** a paste key per window class? Pick: not until a user
-    asks. Shift+Insert gets dropped by Claude Code under the kitty
-    protocol in VS Code (claude-code#93782).
-  - **Size:** hours.
+- ~~**Pin the zero scan code**~~ (P7) done 2026-11-08 on
+  `fix/ctrl-v-scan-code`: Ctrl+Alt+V lands in Git Bash at the prompt and
+  inside `claude` (checked by hand on a dev build). The events moved into
+  `ctrl_v_inputs()` with a comment saying why the zero matters, a Windows
+  test holds the sequence and `wScan` 0, and BEHAVIOR's paste step says so.
+  **Left:** PuTTY, KiTTY and Emacs paste on Shift+Insert; the Known
+  limitations bullet waits on a check with PuTTY installed (it isn't on the
+  dev machine). A paste key per window class stays unbuilt until a user
+  asks; Shift+Insert gets dropped by Claude Code under the kitty protocol
+  in VS Code (claude-code#93782).
 - ~~**Report a bug from About**~~ (P8) done 2026-11-08 on
   `feat/report-a-bug`, after the maintainer decided 4e6d0fb's rule doesn't
   cover the issue tracker: a Bugs row at the foot of Settings → About with
