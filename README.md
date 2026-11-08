@@ -145,8 +145,8 @@ the other side imports it from **Settings → Backup and import** (see
 
 ## Known limitations
 
-- **Windows only, for now.** A macOS version is on the way; it needs the
-  Windows-specific parts rewritten (see [Stack](#stack)).
+- **Windows only, for now.** A macOS port is planned, with no date yet; it
+  needs the Windows-specific parts rewritten (see [Stack](#stack)).
 - **SmartScreen can still warn** about a new release, signed or not (above).
 - **Elevated windows don't accept the paste.** Windows blocks keystrokes
   from a normal process into a window running as administrator (an elevated
