@@ -803,6 +803,16 @@ test("after Later the About card still offers the update", async ({ page }) => {
   await expect(page.getByRole("heading", { name: "Promptline 9.9.9 is available" })).toBeVisible()
 })
 
+test("Report a bug in About opens GitHub's bug form and names the version to give it", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  // The template asks for the version; the hint beside the button names it
+  await expect(page.getByText(/^The form asks for your version: \d+\.\d+\.\d+$/)).toBeVisible()
+  await page.getByRole("button", { name: "Report a bug" }).click()
+  await expect.poll(() => calls(page, "open_url")).toHaveLength(1)
+  const [call] = await calls(page, "open_url")
+  expect(call.args).toEqual({ url: "https://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md" })
+})
+
 // ---- Hardening (edge cases a real library throws at the manager) ----
 
 test("a held row floats and drops into the pack or group under the pointer", async ({ page }) => {

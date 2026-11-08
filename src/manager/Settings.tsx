@@ -16,6 +16,15 @@ import { say, sayErr } from "./status"
 import { exportToClipboard, exportToFile, libraryJson, librarySummary } from "./export"
 import { checkForUpdates } from "@/lib/update"
 
+// The About card's two links; Rust opens only the addresses on its own list
+// (`OPENABLE_URLS` in commands.rs), so a new one goes there too
+const COFFEE_URL = "https://buymeacoffee.com/hurryupbob"
+const BUG_REPORT_URL = "https://github.com/bekalpaslan/promptline/issues/new?template=bug_report.md"
+
+const openLink = (url: string) => {
+  void invoke("open_url", { url }).catch((e) => sayErr(`Couldn't open the link: ${String(e)}`))
+}
+
 export function Settings() {
   const m = useManager()
   const [importRaw, setImportRaw] = useState<string | null>(null)
@@ -262,16 +271,7 @@ export function Settings() {
               offline. A secondary button: the pane's one primary is Generate,
               and a donation link in the same orange read as a second call to
               action. */}
-          <Button
-            size="compact"
-            variant="secondary"
-            className="ml-auto"
-            onClick={() => {
-              void invoke("open_url", { url: "https://buymeacoffee.com/hurryupbob" }).catch((e) =>
-                sayErr(`Couldn't open the link: ${String(e)}`)
-              )
-            }}
-          >
+          <Button size="compact" variant="secondary" className="ml-auto" onClick={() => openLink(COFFEE_URL)}>
             <span aria-hidden>☕</span>
             Buy me a coffee
           </Button>
@@ -294,6 +294,22 @@ export function Settings() {
             here; Check for updates still works.
           </p>
         )}
+        {/* Last, below the update rows and their paragraph, which belong
+            together. GitHub's form with the bug template, which asks for the
+            version: the hint names it, so nobody has to go looking */}
+        <div className="mt-3">
+          <Row label="Bugs">
+            <Button
+              size="compact"
+              variant="secondary"
+              title="Opens a new issue on GitHub in your browser"
+              onClick={() => openLink(BUG_REPORT_URL)}
+            >
+              Report a bug
+            </Button>
+            <span className="text-xs text-muted-foreground">The form asks for your version: {__APP_VERSION__}</span>
+          </Row>
+        </div>
       </Card>
       {menus.element}
       {files.element}
