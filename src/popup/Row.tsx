@@ -53,6 +53,7 @@ export const Row = memo(function Row({
   onPick,
   onMove,
   onLeave,
+  onMenu,
   onTag,
   activeTags,
   previewed,
@@ -74,6 +75,8 @@ export const Row = memo(function Row({
   onPick: (s: Snippet, paste: boolean) => void
   onMove: (i: number, e: React.MouseEvent) => void
   onLeave: () => void
+  /** A right-click: the action panel for this row */
+  onMenu: (i: number) => void
   onTag: (tag: string) => void
   /** Lower-cased #terms in the query; a matching pill renders filled */
   activeTags: readonly string[]
@@ -147,6 +150,13 @@ export const Row = memo(function Row({
         const pill = (e.target as HTMLElement).closest<HTMLElement>("[data-tag]")
         if (pill?.dataset.tag) onTag(pill.dataset.tag)
         else onPick(s, !e.ctrlKey)
+      }}
+      // A right-click opens this row's actions, never the WebView's own
+      // menu: Tab opens them for the selected row, which is seldom the
+      // one under a pointer
+      onContextMenu={(e) => {
+        e.preventDefault()
+        onMenu(index)
       }}
       onMouseMove={(e) => onMove(index, e)}
       onMouseLeave={onLeave}
