@@ -130,7 +130,8 @@ export interface ManagerApi {
    * pack/group, and that pack (and group) is unfolded in the sidebar so the
    * draft is in view wherever it was asked for.
    */
-  newPrompt: (into?: { pack: string; group?: string }) => Promise<void>
+  /** Resolves false when the write failed (already toasted) */
+  newPrompt: (into?: { pack: string; group?: string }) => Promise<boolean>
   /**
    * The sidebar's folds: pack names and groupKeys that are closed. Owned
    * here so a rename from any surface carries them (`renamePack` does; the
@@ -154,8 +155,9 @@ export interface ManagerApi {
   renamingGroup: Renaming | null
   setRenamingGroup: (next: Renaming | null) => void
   /** Create a pack with its file (add_pack); `quiet` skips the "created" toast (the caller announces it later) */
-  addPack: (name: string, opts?: { quiet?: boolean }) => Promise<void>
-  savePrefs: (next: Partial<Prefs>) => Promise<void>
+  /** Both resolve false when the write failed (already toasted) */
+  addPack: (name: string, opts?: { quiet?: boolean }) => Promise<boolean>
+  savePrefs: (next: Partial<Prefs>) => Promise<boolean>
   setHotkey: (hotkey: string) => void
   openGenerate: () => void
   settingsOpen: boolean

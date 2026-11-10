@@ -95,7 +95,7 @@ export function Settings() {
             id="setting-palette"
             value={m.prefs.palette}
             onChange={(e) => {
-              void m.savePrefs({ palette: e.target.value }).then(() => say("Theme updated"))
+              void m.savePrefs({ palette: e.target.value }).then((ok) => void (ok && say("Theme updated")))
             }}
           >
             {PALETTES.map((p) => (
@@ -139,7 +139,7 @@ export function Settings() {
             id="setting-density"
             value={m.prefs.density}
             onChange={(e) => {
-              void m.savePrefs({ density: e.target.value }).then(() => say("Density updated — applies next popup"))
+              void m.savePrefs({ density: e.target.value }).then((ok) => void (ok && say("Density updated — applies next popup")))
             }}
           >
             <option value="comfortable">Comfortable — title + preview line</option>
@@ -153,7 +153,7 @@ export function Settings() {
             value={m.prefs.font}
             style={{ fontFamily: fontStack(m.prefs.font) }}
             onChange={(e) => {
-              void m.savePrefs({ font: e.target.value }).then(() => say("Font updated"))
+              void m.savePrefs({ font: e.target.value }).then((ok) => void (ok && say("Font updated")))
             }}
           >
             {FONTS.map((f) => (
@@ -169,7 +169,7 @@ export function Settings() {
             id="setting-scale"
             value={m.prefs.scale}
             onChange={(e) => {
-              void m.savePrefs({ scale: e.target.value }).then(() => say("UI scale updated"))
+              void m.savePrefs({ scale: e.target.value }).then((ok) => void (ok && say("UI scale updated")))
             }}
           >
             <option value="90">90%</option>

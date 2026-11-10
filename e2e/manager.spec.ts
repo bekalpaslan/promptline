@@ -932,6 +932,38 @@ test("the Enter that ends an IME composition doesn't commit a rename", async ({ 
   expect((await calls(page, "rename_pack"))[0].args).toMatchObject({ from: "Mock Groups", to: "Mock Gruppen" })
 })
 
+test("the Enter that ends an IME composition doesn't commit the overview's rename either", async ({ page }) => {
+  // New → Pack opens the name in the overview's heading field
+  await page.getByRole("complementary", { name: "Prompts" }).getByRole("button", { name: "New" }).click()
+  await page.getByRole("menuitem", { name: "Pack", exact: true }).click()
+  const field = page.getByRole("textbox", { name: "Rename New pack" })
+  await expect(field).toBeFocused()
+  await field.fill("新しい")
+  await field.dispatchEvent("keydown", { key: "Enter", isComposing: true })
+  await expect(field).toBeVisible()
+  expect(await calls(page, "rename_pack")).toHaveLength(0)
+  await field.press("Enter")
+  await expect.poll(() => calls(page, "rename_pack")).toHaveLength(1)
+})
+
+test("a pack that couldn't be created opens nothing to name", async ({ page }) => {
+  await failCommand(page, "add_pack")
+  await page.getByRole("complementary", { name: "Prompts" }).getByRole("button", { name: "New" }).click()
+  await page.getByRole("menuitem", { name: "Pack", exact: true }).click()
+  await expect(page.getByText(/add_pack refused/)).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Rename New pack" })).toHaveCount(0)
+  await expect(page.getByText("That pack is gone")).toHaveCount(0)
+})
+
+test("a preference that couldn't be saved isn't announced as updated", async ({ page }) => {
+  await page.getByRole("button", { name: "Settings", exact: true }).click()
+  await failCommand(page, "save_prefs")
+  await page.getByRole("combobox", { name: "Popup density" }).selectOption("compact")
+  await expect(page.getByText(/Couldn't save the preferences/)).toBeVisible()
+  // Read once, not polled: a toast that was shown and then timed out must not pass
+  expect(await page.getByText(/Density updated/).count()).toBe(0)
+})
+
 test("a library that won't load is said so in the pane, not shown as empty", async ({ page }) => {
   await open(page, "manager", "library-error")
   await expect(page.getByText("The library didn't load")).toBeVisible()

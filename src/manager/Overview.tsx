@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { invoke } from "@tauri-apps/api/core"
 import { RiAddLine, RiArrowLeftSLine, RiCheckLine, RiFileCopyLine, RiFolderLine, RiLock2Fill } from "@remixicon/react"
 import { C, type Snippet } from "@/lib/core"
+import { commitKey } from "@/components/field"
 import { cn } from "@/lib/utils"
 import { PinMark } from "@/components/tree"
 import { Count, InputsBadge, PromptTokens, TagList } from "@/components/prompt-bits"
@@ -83,7 +84,7 @@ function Heading({
           onKeyDown={(e) => {
             e.stopPropagation()
             if (e.key === "Escape") onRenameCancel()
-            if (e.key === "Enter") onRename(e.currentTarget.value.trim())
+            if (commitKey(e)) onRename(e.currentTarget.value.trim())
           }}
           // Enter commits, leaving the field cancels: a misclick must not rename
           onBlur={onRenameCancel}
