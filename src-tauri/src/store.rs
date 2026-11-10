@@ -166,6 +166,13 @@ enum Loaded<T> {
     },
 }
 
+/// `text` without a leading UTF-8 byte order mark. Some editors write one
+/// on save and serde_json refuses it, so a hand-edited data file would be
+/// quarantined as corrupt although every byte after the mark is good.
+pub(crate) fn without_bom(text: &str) -> &str {
+    text.strip_prefix('\u{feff}').unwrap_or(text)
+}
+
 /// Read and parse a JSON data file. An I/O failure other than "not found"
 /// (a lock, a permission problem) is an `Err`: the file may be perfectly good,
 /// so the caller must not write anything over it.
@@ -175,7 +182,7 @@ fn load_json_file<T: DeserializeOwned>(path: &Path) -> Result<Loaded<T>, String>
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Loaded::Missing),
         Err(e) => return Err(format!("{}: {e}", path.display())),
     };
-    match serde_json::from_str::<T>(&text) {
+    match serde_json::from_str::<T>(without_bom(&text)) {
         Ok(v) => Ok(Loaded::Present(v)),
         Err(e) => {
             let moved_to = quarantine(path)?;
@@ -773,6 +780,22 @@ mod tests {
             Loaded::Present(v) => assert_eq!(v[0].id, "a"),
             other => panic!("expected Present, got {other:?}"),
         }
+    }
+
+    #[test]
+    fn a_file_saved_with_a_byte_order_mark_loads_and_is_not_quarantined() {
+        let dir = temp_dir("bom");
+        let path = dir.join("snippets.json");
+        fs::write(
+            &path,
+            "\u{feff}[{\"id\": \"a\", \"title\": \"t\", \"text\": \"b\"}]",
+        )
+        .unwrap();
+        match load_json_file::<Vec<Snippet>>(&path).unwrap() {
+            Loaded::Present(v) => assert_eq!(v[0].id, "a"),
+            other => panic!("expected Present, got {other:?}"),
+        }
+        assert!(path.exists(), "the file stays where it was");
     }
 
     #[test]
