@@ -428,6 +428,25 @@ test('parsePacks: prompts carry an optional group, trimmed; missing means ungrou
   assert.equal(packs[0].prompts[1].group, '');
 });
 
+test('a config param named like an Object.prototype member is unset until the prompt sets it', () => {
+  // A plain lookup answered these from the prototype: the paste carried
+  // "function Object() { [native code] }" and no form asked for a value
+  const text = 'x {{constructor}} y {{__proto__}} z';
+  assert.equal(core.expandConfig(text, {}), text);
+  assert.equal(core.expandConfig(text, undefined), text);
+  assert.deepEqual(core.requiredInputs({ text, configValues: {} }), ['constructor', '__proto__']);
+  assert.equal(core.expandConfig('{{constructor}}', { constructor: 'set' }), 'set');
+  assert.equal(core.configValue({}, 'constructor'), '');
+  assert.equal(core.configValue(null, 'a'), '');
+  assert.equal(core.configValue({ a: 'v' }, 'a'), 'v');
+});
+
+test('a tag named like an Object.prototype member gets a palette colour, not the member', () => {
+  for (const name of ['constructor', '__proto__']) {
+    assert.ok(Object.values(core.TAG_COLORS).includes(core.tagColor(name)), name);
+  }
+});
+
 // ---- tag colors -----------------------------------------------------------------
 
 test('known tags get fixed colors; unknown tags get a stable hashed color', () => {

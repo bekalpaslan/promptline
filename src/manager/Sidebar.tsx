@@ -254,16 +254,24 @@ export function Sidebar() {
   // follows would otherwise reveal the array's own order, with every row
   // but the moved one reshuffled.
   const commitReorder = async (dragId: string, targetId: string, after: boolean) => {
-    const before = C.displayOrder(m.snippets, orderBy, grouped, packNames(), DEFAULT_PACK)
-    // Stepping past another group's rows moves the prompt into that group
-    const all = C.placePrompt(before, dragId, targetId, after, grouped)
-    if (!all) return
-    const from = before.findIndex((s) => s.id === dragId)
-    const item = before[from]
-    const regrouped = all.find((s) => s.id === dragId)!.group !== item.group
-    await m.persist(all)
+    // An updater: the menu's Move up/down outlives its render, and the
+    // array of the render that opened the menu would carry a paste's use
+    // count or an autosaved edit made since back to disk
+    const done: { move?: { item: Snippet; from: number; target: Snippet; regrouped: boolean } } = {}
+    await m.persist((cur) => {
+      const before = C.displayOrder(cur, orderBy, grouped, packNames(), DEFAULT_PACK)
+      // Stepping past another group's rows moves the prompt into that group
+      const all = C.placePrompt(before, dragId, targetId, after, grouped)
+      if (!all) return cur
+      const from = before.findIndex((s) => s.id === dragId)
+      const item = before[from]
+      const regrouped = all.find((s) => s.id === dragId)!.group !== item.group
+      done.move = { item, from, target: all.find((s) => s.id === targetId)!, regrouped }
+      return all
+    })
+    if (!done.move) return
+    const { item, from, target, regrouped } = done.move
     if (regrouped) {
-      const target = all.find((s) => s.id === targetId)!
       // A drop among another group's rows changes the label as a side
       // effect; say so, and make it reversible. The Undo puts the prompt
       // back at its old index with its old label in the *current* library,
