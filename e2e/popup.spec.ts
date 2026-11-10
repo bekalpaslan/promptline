@@ -3,7 +3,7 @@
 // Rust does with the pick (`paste_snippet` gets `{clipboard}` unexpanded)
 // is out of reach here and covered by the Rust tests.
 import { expect, test } from "@playwright/test"
-import { calls, emit, library, open, setClipboard, setPasteResult } from "./mock"
+import { calls, emit, failCommand, library, open, setClipboard, setPasteResult } from "./mock"
 
 const search = (page: Parameters<typeof open>[0]) => page.getByRole("combobox", { name: "Search prompts" })
 const rows = (page: Parameters<typeof open>[0]) => page.getByRole("option")
@@ -766,6 +766,39 @@ test("Ctrl+N drafts a prompt titled from the clipboard's first line", async ({ p
   await expect(title).toBeFocused()
   // The mock clipboard starts as a TypeError message: 40 characters, cut at a word
   await expect(title).toHaveValue("TypeError: cannot read properties of")
+})
+
+test("Enter twice in the new-prompt form saves one prompt, not two", async ({ page }) => {
+  const before = (await library(page)).length
+  await page.keyboard.press("Control+n")
+  const title = page.getByRole("textbox", { name: "Title" })
+  await expect(title).toBeFocused()
+  // Both land before the first save returns: the view is still up
+  await title.evaluate((el) => {
+    for (let i = 0; i < 2; i++) el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }))
+  })
+  await expect(title).toBeHidden()
+  await expect.poll(() => calls(page, "add_snippet")).toHaveLength(2)
+  expect(await library(page)).toHaveLength(before + 1)
+})
+
+test("an Undo whose write fails can be tried again", async ({ page }) => {
+  await search(page).fill("Loose prompt")
+  await page.keyboard.press("Tab")
+  const menu = page.getByRole("menu", { name: "Actions for Loose prompt" })
+  await menu.getByRole("menuitem", { name: /^Delete/ }).click()
+  await menu.getByRole("menuitem", { name: /^Really delete\?/ }).click()
+  await expect(rows(page)).toHaveCount(0)
+
+  await failCommand(page, "add_snippet")
+  await page.keyboard.press("Control+z")
+  await expect(strip(page)).toContainText("Couldn't restore")
+  expect((await library(page)).some((s) => s.title === "Loose prompt")).toBe(false)
+
+  // The prompt exists nowhere else, so the second Ctrl+Z must still hold it
+  await page.evaluate(() => void (window as unknown as { __mock: { fail: Set<string> } }).__mock.fail.delete("add_snippet"))
+  await page.keyboard.press("Control+z")
+  await expect(page.getByRole("option", { name: "Loose prompt", exact: true })).toBeVisible()
 })
 
 test("an empty library shows no rows and still hides on Escape", async ({ page }) => {

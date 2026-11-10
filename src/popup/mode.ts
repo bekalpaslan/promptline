@@ -4,7 +4,10 @@ import type { Snippet } from "@/lib/core"
 // downgraded to ask (BEHAVIOR.md); the form says so under each, since one
 // asked for every day is one the user never learned could be set once
 export type FormState = { snippet: Snippet; base: string; fields: string[]; configFields: Set<string>; paste: boolean }
-export type CreateState = { title: string; pack: string; group: string; prefilled: string }
+// `id` is the new prompt's, minted when the view opens: a second Enter
+// before the first save returns then replaces the same prompt (Rust
+// merges by id) instead of saving the clipboard twice
+export type CreateState = { id: string; title: string; pack: string; group: string; prefilled: string }
 
 // Which view the window is in. The action panel floats over whatever is
 // under it and comes first; then the two views that replace the list (the
