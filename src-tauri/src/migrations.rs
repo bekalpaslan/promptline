@@ -166,6 +166,20 @@ fn recorded_hotkey(dir: &Path) -> Option<String> {
 /// the new one before anything else reads it; a failure is a notice, and
 /// the library stays where it was. Returns false for that failure, so the
 /// hotkey decision can treat the install as an existing one.
+/// After a failed move: whether the library itself is among what stayed
+/// behind. A snippets.json written into the new folder now would be the
+/// one the next launch's move finds there and skips.
+pub(crate) fn library_left_behind(app: &AppHandle) -> bool {
+    let new_dir = data_dir(app);
+    new_dir
+        .parent()
+        .is_some_and(|parent| left_behind(&parent.join("com.promptline.app"), &new_dir))
+}
+
+fn left_behind(old_dir: &Path, new_dir: &Path) -> bool {
+    old_dir.join("snippets.json").exists() && !new_dir.join("snippets.json").exists()
+}
+
 pub(crate) fn migrate_data_dir(app: &AppHandle) -> bool {
     let new_dir = data_dir(app);
     let Some(parent) = new_dir.parent() else {
@@ -520,6 +534,21 @@ mod tests {
         assert!(settle_in(&dir));
         assert_eq!(recorded_hotkey(&dir).as_deref(), Some("ctrl+shift+v"));
         let _ = fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn a_library_still_in_the_old_folder_is_left_behind_until_it_has_moved() {
+        let old = temp_dir("left-behind-old");
+        let new = temp_dir("left-behind-new");
+        // Nothing to strand: no old library
+        assert!(!left_behind(&old, &new));
+        fs::write(old.join("snippets.json"), "[]").unwrap();
+        assert!(left_behind(&old, &new));
+        // The move got as far as the library before it failed: it is here
+        fs::write(new.join("snippets.json"), "[]").unwrap();
+        assert!(!left_behind(&old, &new));
+        let _ = fs::remove_dir_all(&old);
+        let _ = fs::remove_dir_all(&new);
     }
 
     #[test]

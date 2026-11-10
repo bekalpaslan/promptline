@@ -10,6 +10,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 use tauri_plugin_autostart::ManagerExt as AutostartManagerExt;
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut};
 
+use crate::migrations::session_hotkey;
 use crate::packs::{
     arrange_packs_in, back_pack_in, export_file_name, new_pack_file, pack_copy_json,
     packs_after_sync, relativize_pack_path, remove_pack_in, rename_pack_file, rename_pack_in,
@@ -17,10 +18,10 @@ use crate::packs::{
     validate_pack_name, with_resolved_pack_paths, PackMeta,
 };
 use crate::store::{
-    check_revision, current_revision, data_dir, first_free, library, load_config_from_disk,
-    load_snippets_from_disk, merge_add, merge_delete, merge_patch, merge_update, notify, packs_dir,
-    save_config, since_epoch, write_atomic, write_snippets, Config, Library, Notice, Snippet,
-    SnippetEdit, SnippetPatch, StoreError,
+    check_revision, config_frozen, current_revision, data_dir, first_free, library,
+    load_config_from_disk, load_snippets_from_disk, merge_add, merge_delete, merge_patch,
+    merge_update, notify, packs_dir, save_config, since_epoch, write_atomic, write_snippets,
+    Config, Library, Notice, Snippet, SnippetEdit, SnippetPatch, StoreError, CONFIG_FROZEN,
 };
 use crate::{open_manager, platform, AppState, Opening, MANAGER};
 
@@ -149,10 +150,13 @@ pub(crate) fn save_snippets(
 #[tauri::command]
 pub(crate) fn get_config(app: AppHandle, state: State<AppState>) -> Result<Config, String> {
     let _guard = state.store.lock().unwrap();
-    Ok(with_resolved_pack_paths(
-        load_config_from_disk(&app)?,
-        &packs_dir(&app),
-    ))
+    let mut config = load_config_from_disk(&app)?;
+    // On a launch whose pin failed the file has no hotkey and the serde
+    // default would be shown; say the one that is actually bound
+    if config_frozen(&app) {
+        config.hotkey = session_hotkey(&app);
+    }
+    Ok(with_resolved_pack_paths(config, &packs_dir(&app)))
 }
 
 /// Parse a hotkey, refusing one without a modifier: the parser accepts a
@@ -230,6 +234,11 @@ pub(crate) fn set_hotkey(
 ) -> Result<(), String> {
     let shortcut = parse_hotkey(&hotkey)?;
     let _guard = state.store.lock().unwrap();
+    // Before anything is registered: a refused save after the swap would
+    // leave the new combination bound and the old one released
+    if config_frozen(&app) {
+        return Err(CONFIG_FROZEN.into());
+    }
     let mut config = load_config_from_disk(&app)?;
     let old = resolve_hotkey(&config.hotkey);
     let gs = app.global_shortcut();

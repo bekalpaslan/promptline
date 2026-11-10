@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager};
 
 use crate::store::{
-    first_free, load_config_from_disk, load_snippets_from_disk, notify, packs_dir, save_config,
-    without_bom, write_atomic, Config, Snippet,
+    config_frozen, first_free, load_config_from_disk, load_snippets_from_disk, notify, packs_dir,
+    save_config, without_bom, write_atomic, Config, Snippet,
 };
 use crate::AppState;
 
@@ -234,6 +234,11 @@ pub(crate) fn ensure_packs_backed(app: &AppHandle) {
 /// the config when it changed; a write passes what it just wrote rather
 /// than parsing both files again.
 fn back_packs(app: &AppHandle, config: &mut Config, snippets: &[Snippet]) {
+    // A launch that leaves config.json alone can't record a new file's
+    // path, and a file made now would be made again on every sync
+    if config_frozen(app) {
+        return;
+    }
     let dir = packs_dir(app);
     let mut changed = false;
     for name in packs_in_play(config, snippets) {

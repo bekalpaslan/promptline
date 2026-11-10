@@ -5,6 +5,7 @@
 use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::Ordering;
 use std::time::Duration;
 
 use serde::de::DeserializeOwned;
@@ -485,6 +486,12 @@ fn snippets_from_loaded(loaded: Loaded<Vec<Snippet>>) -> (Vec<Snippet>, Option<N
 }
 
 pub(crate) fn write_snippets(app: &AppHandle, snippets: &[Snippet]) -> Result<(), String> {
+    if app
+        .try_state::<AppState>()
+        .is_some_and(|s| s.library_frozen.load(Ordering::Relaxed))
+    {
+        return Err(LIBRARY_FROZEN.into());
+    }
     let json = serde_json::to_string_pretty(snippets).map_err(|e| e.to_string())?;
     write_atomic(&snippets_path(app), json.as_bytes()).map_err(|e| e.to_string())?;
     if let Some(state) = app.try_state::<AppState>() {
@@ -583,7 +590,9 @@ pub(crate) fn load_config_from_disk(app: &AppHandle) -> Result<Config, String> {
             // A config from before 0.2.9 stores absolute pack paths; bring
             // them to the relative form once, so the next move of the
             // profile needs no rewrite at all
-            if normalize_pack_paths(&mut c, &packs_dir(app)) {
+            // (not on a launch that leaves the file alone: the normalised
+            // form is used in memory and saved by a later launch)
+            if normalize_pack_paths(&mut c, &packs_dir(app)) && !config_frozen(app) {
                 save_config(app, &c)?;
             }
             Ok(c)
@@ -599,7 +608,9 @@ pub(crate) fn load_config_from_disk(app: &AppHandle) -> Result<Config, String> {
                 ),
             );
             let config = Config::default();
-            save_config(app, &config)?;
+            if !config_frozen(app) {
+                save_config(app, &config)?;
+            }
             Ok(config)
         }
     }
@@ -616,7 +627,24 @@ pub(crate) fn check_revision(base: Option<u64>, current: u64) -> Result<(), Stor
     }
 }
 
+/// What a refused save says. Both reach the user as the reason in the
+/// toast of whatever they tried.
+pub(crate) const CONFIG_FROZEN: &str = "settings can't be saved this launch, because config.json couldn't be prepared at startup. Restart Promptline to try again.";
+const LIBRARY_FROZEN: &str = "the library is still in the old data folder, so nothing is saved this launch. Restart Promptline to try the move again, or copy the old folder's contents over by hand.";
+
+/// Whether this launch must leave config.json alone (`AppState::config_frozen`).
+/// Callers that save as a side effect (the popup's size, the pack registry)
+/// ask first and skip quietly; a save the user asked for goes to
+/// `save_config` and gets the refusal.
+pub(crate) fn config_frozen(app: &AppHandle) -> bool {
+    app.try_state::<AppState>()
+        .is_some_and(|s| s.config_frozen.load(Ordering::Relaxed))
+}
+
 pub(crate) fn save_config(app: &AppHandle, config: &Config) -> Result<(), String> {
+    if config_frozen(app) {
+        return Err(CONFIG_FROZEN.into());
+    }
     let json = serde_json::to_string_pretty(config).map_err(|e| e.to_string())?;
     write_atomic(&config_path(app), json.as_bytes()).map_err(|e| e.to_string())
 }
