@@ -1287,6 +1287,25 @@ test('curateImport adds the ticked rows, renames a single-pack import, and skips
   assert.equal(core.curateImport(rows, isLocked, '  ').prompts[0].pack, 'A');
 });
 
+test('an import named like an existing pack in another case lands in that pack, lock and all', () => {
+  assert.equal(core.packNamed(['Work', 'Home'], 'work'), 'Work');
+  assert.equal(core.packNamed(['Work'], 'Play'), 'Play');
+  assert.equal(core.packNamed(undefined, 'Play'), 'Play');
+  const rows = [
+    { packName: 'work', title: 'a', text: 'x', tags: [], group: '', dupe: false, include: true },
+    { packName: 'LOCKED', title: 'b', text: 'x', tags: [], group: '', dupe: false, include: true },
+  ];
+  const isLocked = (p) => p === 'Locked';
+  // The file's own names, a multi-pack import
+  assert.deepEqual(core.curateImport(rows, isLocked, undefined, ['Work', 'Locked']), {
+    prompts: [{ title: 'a', text: 'x', tags: [], pack: 'Work', group: '' }],
+    skippedLocked: 1,
+  });
+  // The typed name of a single-pack import
+  assert.deepEqual(core.curateImport(rows, isLocked, ' WORK ', ['Work']).prompts.map((p) => p.pack), ['Work', 'Work']);
+  assert.deepEqual(core.curateImport(rows, isLocked, 'locked', ['Locked']), { prompts: [], skippedLocked: 2 });
+});
+
 // ---- the hotkey recorder ---------------------------------------------------------------
 
 test('hotkeyFromEvent emits modifiers in a fixed order, then the key, or null', () => {
