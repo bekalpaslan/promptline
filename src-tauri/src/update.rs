@@ -88,6 +88,15 @@ pub(crate) struct UpdateSlot {
     pending: Mutex<Option<tauri_plugin_updater::Update>>,
 }
 
+/// Return what `install` took when the install failed. A check that ran
+/// meanwhile may have stored a newer find; that one stays.
+fn put_back<T>(slot: &Mutex<Option<T>>, value: T) {
+    let mut pending = slot.lock().unwrap();
+    if pending.is_none() {
+        *pending = Some(value);
+    }
+}
+
 pub(crate) fn pending_info(app: &AppHandle) -> Option<UpdateInfo> {
     let slot = app.try_state::<UpdateSlot>()?;
     let pending = slot.pending.lock().unwrap();
@@ -166,10 +175,15 @@ pub(crate) async fn install(app: &AppHandle) -> Result<(), String> {
         .try_state::<UpdateSlot>()
         .and_then(|slot| slot.pending.lock().unwrap().take())
         .ok_or_else(|| "No update is waiting".to_string())?;
-    update
-        .download_and_install(|_, _| {}, || {})
-        .await
-        .map_err(|e| e.to_string())?;
+    if let Err(e) = update.download_and_install(|_, _| {}, || {}).await {
+        // The dialog offers Install again and About still names the
+        // version: both need the update back in the slot, or the second
+        // click answers "No update is waiting" until the next check
+        if let Some(slot) = app.try_state::<UpdateSlot>() {
+            put_back(&slot.pending, update);
+        }
+        return Err(e.to_string());
+    }
     // On Windows the plugin exits the process before this returns; the
     // installer's passive mode relaunches Promptline itself (D-08). This
     // covers the platforms where it doesn't.
@@ -280,6 +294,17 @@ pub(crate) fn open_offer(app: &AppHandle) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_failed_install_puts_the_update_back_unless_a_newer_one_arrived() {
+        let slot = Mutex::new(None);
+        put_back(&slot, "0.2.31");
+        assert_eq!(*slot.lock().unwrap(), Some("0.2.31"));
+        // A check during the download found a newer one: it stays
+        let slot = Mutex::new(Some("0.2.32"));
+        put_back(&slot, "0.2.31");
+        assert_eq!(*slot.lock().unwrap(), Some("0.2.32"));
+    }
 
     #[test]
     fn a_version_notifies_once_and_a_newer_one_notifies_again() {
