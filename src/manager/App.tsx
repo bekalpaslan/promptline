@@ -340,12 +340,13 @@ export function App() {
       await refreshPacks()
     } catch (e) {
       sayErr(`Couldn't create the prompt: ${String(e)}`)
-      return
+      return false
     }
     setSelectionState(new Set([s.id]))
     setSelectionAnchor(s.id)
     setActiveId(s.id)
     setView({ kind: "prompt" })
+    return true
   }, [isLocked, packMeta, snippets, applyLibrary, refreshPacks, unfold])
 
   const foldAll = useCallback(
@@ -361,7 +362,7 @@ export function App() {
 
   const addPack = useCallback(
     async (name: string, opts?: { quiet?: boolean }) => {
-      if (!name) return
+      if (!name) return false
       // New packs are file-backed: they own a .json under the profile that
       // the app keeps current — grab the file to back up or share the pack.
       // Rust refuses a name that reads as an existing pack's (case variants
@@ -373,9 +374,10 @@ export function App() {
         await applyPacks(invoke<PackMeta[]>("add_pack", { name }))
       } catch (e) {
         sayErr(String(e))
-        return
+        return false
       }
       if (!opts?.quiet) say(`Pack "${name}" created`)
+      return true
     },
     [applyPacks]
   )
@@ -400,7 +402,9 @@ export function App() {
         })
       } catch (e) {
         sayErr(`Couldn't save the preferences: ${String(e)}`)
+        return false
       }
+      return true
     },
     [prefs]
   )
@@ -452,8 +456,16 @@ export function App() {
         // GC abandoned "+ New" drafts (default title, no text, never used)
         const snips = lib.snippets.filter((s) => !C.isEmptyDraft(s))
         if (snips.length !== lib.snippets.length) {
-          lib.revision = await invoke<number>("save_snippets", { snippets: snips, baseRevision: lib.revision })
-          lib.snippets = snips
+          // Its own try: a sweep that is refused (the popup wrote first, a
+          // full disk) is not a library that failed to load. The drafts
+          // stay for the next launch's sweep.
+          try {
+            lib.revision = await invoke<number>("save_snippets", { snippets: snips, baseRevision: lib.revision })
+            lib.snippets = snips
+          } catch (e) {
+            if (cancelled) return
+            console.warn("the draft sweep didn't save", e)
+          }
         }
         applyLibrary(lib)
         setLibraryState("ready")

@@ -78,14 +78,17 @@ export function ImportCuration({
 
   const confirm = async () => {
     if (busy) return
-    if (singlePack && m.isLocked(packName.trim())) {
-      sayErr(`Pack "${packName.trim()}" is locked — pick another name`)
+    // "work" typed beside a pack "Work" means that pack, lock and all
+    const names = m.packNames()
+    const target = C.packNamed(names, packName.trim())
+    if (singlePack && m.isLocked(target)) {
+      sayErr(`Pack "${target}" is locked — pick another name`)
       return
     }
     setBusy(true)
     // A single-pack import lands in the name typed above; a prompt bound
     // for a locked pack is skipped and counted (C.curateImport)
-    const { prompts, skippedLocked } = C.curateImport(rows, m.isLocked, singlePack ? packName : undefined)
+    const { prompts, skippedLocked } = C.curateImport(rows, m.isLocked, singlePack ? packName : undefined, names)
     const added = prompts.length
     const fresh: Snippet[] = prompts.map((p) => ({
       id: crypto.randomUUID(),

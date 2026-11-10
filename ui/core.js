@@ -825,6 +825,15 @@
     }
   }
 
+  // The pack a typed or imported name means: the existing pack it matches
+  // case-insensitively, as that pack spells it, else the name itself. A
+  // case variant is never a second pack (Rust's add_pack and rename_pack
+  // refuse one; an import must not make one by another road).
+  function packNamed(names, name) {
+    const lower = (name || '').toLowerCase();
+    return (names || []).find(n => n.toLowerCase() === lower) || name;
+  }
+
   // The groups a pack holds, each once, A–Z: what the New and Move-to menus
   // list under a pack. A packless prompt belongs to `defaultPack`.
   function groupsIn(snippets, pack, defaultPack) {
@@ -929,14 +938,16 @@
   // What the import adds: the included rows as prompts (without ids or
   // personal state, which the caller supplies), each in its pack — or in
   // `targetName` when the user renamed a single-pack import — skipping and
-  // counting the ones bound for a locked pack.
-  function curateImport(rows, isLocked, targetName) {
+  // counting the ones bound for a locked pack. A name that is an existing
+  // pack's in another case lands in that pack (`packNames`, packNamed), so
+  // its lock counts too.
+  function curateImport(rows, isLocked, targetName, packNames) {
     const target = (targetName || '').trim();
     const prompts = [];
     let skippedLocked = 0;
     for (const r of rows) {
       if (!r.include) continue;
-      const pack = target || r.packName;
+      const pack = packNamed(packNames, target || r.packName);
       if (isLocked(pack)) { skippedLocked++; continue; }
       prompts.push({ title: r.title, text: r.text, tags: r.tags, pack, group: r.group });
     }
@@ -1305,6 +1316,7 @@
     placePrompt,
     treeRows,
     freeName,
+    packNamed,
     groupsIn,
     tagsByCount,
     importRows,

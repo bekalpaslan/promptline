@@ -1318,7 +1318,9 @@ a list from a stale render retired and re-created pack files, and a pack
 that was empty in the library saw its real content move to `packs/deleted/`
 with a fresh empty file in its place. `add_pack` refuses a name that reads
 as an existing pack's (case variants share a file name on Windows), the
-same check `rename_pack` makes; a file that can't be created is a notice
+same check `rename_pack` makes, and an import whose name is a pack's in
+another case lands in that pack, lock and all (`C.packNamed`); a file that
+can't be created is a notice
 and the pack exists anyway, since a pack is just a name, and the next sync
 tries the file again. Locking a pack that exists only as a name on prompts
 gives it metadata, as renaming does. The Undo of a pack delete restores
@@ -1536,7 +1538,9 @@ stay files in `packs/` for Settings → Backup and import → Import…). Unpars
 renamed to `<name>.corrupt-<timestamp>`, a `Notice` is raised, and the
 library starts *empty* — starting with the starters instead would look like
 a reset rather than a loss, and the first
-autosave would have buried the only copy of the user's prompts. An I/O error
+autosave would have buried the only copy of the user's prompts. A leading
+byte order mark is not unparseable: an editor that saves one would
+otherwise get a good library quarantined (`without_bom`). An I/O error
 (a lock, a permission problem) is an error the command returns; nothing is
 written, because the file may be perfectly good.
 

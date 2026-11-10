@@ -389,6 +389,7 @@ pub(crate) fn rename_pack(
 ) -> Result<Library, String> {
     let _guard = state.store.lock().unwrap();
     let mut config = load_config_from_disk(&app)?;
+    let before = config.clone();
     let mut snippets = load_snippets_from_disk(&app)?;
     rename_pack_in(&mut config, &mut snippets, &from, &to)?;
     // The file follows the name when the app named it (see the function);
@@ -401,7 +402,17 @@ pub(crate) fn rename_pack(
         }
         return Err(e);
     }
-    write_snippets(&app, &snippets)?;
+    // The second half failing must not leave the first: a registry under
+    // the new name while every prompt still says the old one reads as two
+    // packs, and the retry is refused because the new name is taken
+    if let Err(e) = write_snippets(&app, &snippets) {
+        if let Err(undo) = save_config(&app, &before) {
+            log::warn!("rename_pack: couldn't put the registry back: {undo}");
+        } else if let Some((src, dst)) = moved {
+            let _ = fs::rename(dst, src);
+        }
+        return Err(e);
+    }
     sync_pack_files(&app, &snippets);
     notify_other_window(&app, &window);
     Ok(Library {

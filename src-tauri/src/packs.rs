@@ -12,7 +12,7 @@ use tauri::{AppHandle, Manager};
 
 use crate::store::{
     first_free, load_config_from_disk, load_snippets_from_disk, notify, packs_dir, save_config,
-    write_atomic, Config, Snippet,
+    without_bom, write_atomic, Config, Snippet,
 };
 use crate::AppState;
 
@@ -190,7 +190,7 @@ fn pack_file_slot(dir: &Path, name: &str, claimed: &[String]) -> (PathBuf, bool)
 /// The pack name a file declares, or None if it isn't a readable pack document.
 fn pack_file_name(path: &Path) -> Option<String> {
     let text = fs::read_to_string(path).ok()?;
-    let doc: serde_json::Value = serde_json::from_str(&text).ok()?;
+    let doc: serde_json::Value = serde_json::from_str(without_bom(&text)).ok()?;
     doc.get("name")?.as_str().map(|s| s.to_owned())
 }
 
@@ -373,7 +373,7 @@ fn pack_file_holds_only_drafts(path: &Path) -> bool {
     let Ok(text) = fs::read_to_string(path) else {
         return false;
     };
-    let Ok(doc) = serde_json::from_str::<serde_json::Value>(&text) else {
+    let Ok(doc) = serde_json::from_str::<serde_json::Value>(without_bom(&text)) else {
         return false;
     };
     let Some(prompts) = doc.get("prompts").and_then(|p| p.as_array()) else {

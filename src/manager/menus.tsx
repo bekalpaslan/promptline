@@ -541,7 +541,8 @@ export function useLibraryMenus(opts: {
   // then "New pack 2", … (C.freeName, case-insensitive like every name)
   const newPack = async () => {
     const name = C.freeName("New pack", m.packNames())
-    await m.addPack(name, { quiet: true })
+    // Nothing to open or name when the pack wasn't created
+    if (!(await m.addPack(name, { quiet: true }))) return
     m.openOverview({ pack: name })
     m.setRenaming({ name, surface: "overview", fresh: true })
   }
@@ -549,7 +550,7 @@ export function useLibraryMenus(opts: {
   // group is what is selected and named, the draft waits inside it
   const newGroup = async (pack: string) => {
     const group = C.freeName("New group", groupsIn(pack))
-    await m.newPrompt({ pack, group })
+    if (!(await m.newPrompt({ pack, group }))) return
     m.openOverview({ pack, group })
     m.setRenamingGroup({ name: groupKey(pack, group), surface: "overview" })
   }

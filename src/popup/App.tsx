@@ -489,13 +489,13 @@ export function App() {
     // Prefer the pack that last received a prompt (one rule with the manager)
     const pack = defaultPackFor(packMeta, snippets)
     createEscArmed.current = false
-    setCreate({ title, pack, group: "", prefilled: title })
+    setCreate({ id: crypto.randomUUID(), title, pack, group: "", prefilled: title })
   }, [clip, packMeta, snippets, hidePreview, closePanel])
 
   const saveCreate = useCallback(async () => {
     if (!create || !clip) return
     const snip: Snippet = {
-      id: crypto.randomUUID(),
+      id: create.id,
       title: create.title.trim() || "(untitled)",
       text: clip,
       tags: [],
@@ -637,6 +637,9 @@ export function App() {
       setSnippets(lib.snippets)
       setNotice({ text: `Restored "${last.snippet.title}"`, kind: "success" })
     } catch (e) {
+      // Still undoable: the prompt exists nowhere else, so Ctrl+Z must be
+      // able to try again (unless another delete has taken the slot since)
+      lastDeleted.current ??= last
       fail("restore", e)
     }
   }, [fail])

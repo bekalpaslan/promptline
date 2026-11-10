@@ -241,6 +241,7 @@ interface PromptlineCore {
   treeRows: (tree: PackNode<Pick<Snippet, "id">>[], folds: Folds, searching: boolean) => TreeRow[]
   /** `base`, then `base 2`, `base 3`, … : the first not in `taken`, case-insensitively */
   freeName: (base: string, taken: string[]) => string
+  packNamed: (names: string[] | undefined, name: string) => string
   /** The groups in a pack, each once, A–Z */
   groupsIn: (snippets: Pick<Snippet, "pack" | "group">[], pack: string, defaultPack: string) => string[]
   /** Every tag in the library, most used first */
@@ -248,7 +249,7 @@ interface PromptlineCore {
   /** An import's review rows: a prompt the library already has (same title and text) is a dupe, unticked; one with hidden characters starts unticked too */
   importRows: (packs: ParsedPack[], library: Pick<Snippet, "title" | "text">[]) => ImportRow[]
   /** The ticked rows as prompts to add, renamed into `targetName` when given, minus those bound for a locked pack */
-  curateImport: (rows: ImportRow[], isLocked: (pack: string) => boolean, targetName?: string) => { prompts: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">[]; skippedLocked: number }
+  curateImport: (rows: ImportRow[], isLocked: (pack: string) => boolean, targetName?: string, packNames?: string[]) => { prompts: Pick<Snippet, "title" | "text" | "tags" | "pack" | "group">[]; skippedLocked: number }
   /** Tag characters, bidi controls, control characters and invisibles in `text`, by kind; [] when there are none */
   hiddenChars: (text: string | null | undefined) => HiddenFound[]
   /** "14 tag characters and 2 direction controls" */
