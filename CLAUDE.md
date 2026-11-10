@@ -56,7 +56,7 @@ backlog, not from another audit, unless asked.
   shelved on a `theme/<id>` branch; Promptline ships one theme a month
   since 0.2.18), `release` (the *Releasing* section below with the
   maintainer's standing decisions, the shelf check for the month's
-  theme, and the scripts: version bump, map remap),
+  theme, and the scripts: version bump, map remap, updater-signature check),
   `doc-audit` (every checkable claim in the docs checked against the
   code and the doc fixed, one commit per doc, on a `chore/doc-audit-…`
   branch) and `fresh-eyes` (an open-ended improvement review where the
@@ -77,7 +77,7 @@ backlog, not from another audit, unless asked.
 - `site/` — the website at https://promptline.cc (the home page, `posts/`
   and `code-signing/`), published to
   GitHub Pages by `.github/workflows/pages.yml` on every push to `master`
-  that touches it (the workflow runs `node scripts/site-assets.mjs`, which
+  that touches it or the images it copies (the workflow runs `node scripts/site-assets.mjs --reuse-webp`, which
   copies `docs/og.png`, the two icons from `src-tauri/icons/`,
   `docs/screenshots/*.png` and the clip's video and
   posters from `docs/clip/` in and makes the lossless WebP the page serves,
@@ -227,7 +227,7 @@ Housekeeping:
 - Remove finished worktrees (`git worktree remove`): each holds its own
   `node_modules` and Rust `target/`, and the harness leaves a lock on the
   ones it created. `eslint.config.mjs` ignores `.claude/`, so a stale
-  worktree no longer fails `npm run lint` (it did until 86cdafc,
+  worktree no longer fails `npm run lint` (it did until ac36903,
   2026-10-03); `npx eslint src` is still the quick check of the app alone.
 - History was rewritten once, on 2026-10-29: every superseded version of
   `docs/screenshots/*`, `docs/clip/*` and `docs/og.png` was replaced by
@@ -278,7 +278,7 @@ Open `http://localhost:5175/?mock` (manager) or `/popup.html?mock` (popup);
 `packs/*.json` plus a small grouped pack, and exposes `window.__mock`:
 `calls` (every invoke with its args), `clipboard` (settable), `emit(event,
 payload)` for backend events such as `edit-prompt`, `library`, and
-`pasteResult`, `update` and `fail` (a set of command names that reject).
+`pasteResult`, `update`, `files` (what Generate made), `autostart` and `fail` (a set of command names that reject).
 `?mock=library-error` is an upgraded install whose library can't be read;
 `?mock=first` is a first launch, with the first-run banner up, and
 `?mock=first-off` the same with Start with Windows off.
@@ -345,8 +345,8 @@ it work:
   orchestrator pastes them in.
 - **Finish the tree.** After merging, `git worktree remove --force` every
   agent worktree (unlock first if the harness left a lock), delete the
-  branches, then run the seven checks from the main checkout. Lint walks
-  worktrees, so it can't pass before they're gone.
+  branches, then run the seven checks from the main checkout. Lint ignores `.claude/`, where the harness puts them, but still walks
+  worktrees made anywhere else, so it can't pass before those are gone.
 - **Sequential when files collide.** A wave that touches `lib.rs` and one
   that splits it cannot run together; the split ran last, alone.
 
@@ -544,7 +544,8 @@ Settings → About.
   (context-menu actions, Undo toasts, anything after an `await`) passes
   `persist` an updater, never the render's array; deletes go through
   `deleteWithUndo`. Rust writes are intent-level commands (`add_pack`,
-  `set_pack_locked`, `update_snippet`…), never a full list sent back.
+  `set_pack_locked`, `update_snippet`…); only bulk operations send the
+  list, through `save_snippets` and its revision check.
 - Names the user wrote (packs, groups, prompt titles) are shown as typed;
   uppercase is for the app's own section labels (`name-label` vs
   `section-label`).
