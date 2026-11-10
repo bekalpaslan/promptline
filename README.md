@@ -86,7 +86,7 @@ over from an older version. Turn it off under **Settings → About**.
 
 ### Build from source
 
-Requires Rust and Node 24. `npm run build` produces the same two installers
+Requires Rust and Node 24. `npm run build:unsigned` produces the same two installers
 under `src-tauri/target/release/bundle/` (`nsis/` and `msi/`). See
 [Development](#development).
 
@@ -205,7 +205,7 @@ built-in or a field name the rest of your library already uses.
   the hotkey again) closes
 - **Ctrl+1..5** pastes the top results instantly — pins (max 5) always sit on
   top, so they become stable muscle-memory slots
-- **Tab** opens an action panel: paste / copy / pin / edit in manager / delete
+- **Tab** (or a right-click on a row) opens an action panel: paste / copy / pin / edit in manager / delete
 - **→** shows the full-prompt preview card (also on mouse hover), with the
   prompt's whole title above its text; **PgUp** / **PgDn** scroll it and
   **←** closes it
@@ -327,7 +327,7 @@ Requires Rust and Node 24 (`.nvmrc`).
 npm install
 npm run dev        # run in dev mode (starts Vite + Tauri; UI hot-reloads)
 npm run build:unsigned  # produce the installers (src-tauri/target/release/bundle)
-npm run build      # the same, signed for the updater (needs the release key)
+npm run build      # the same, signed (needs the release key and the code-signing certificate)
 npm run ui:build   # typecheck + build the frontend only
 npm test           # JS core tests (node --test)
 npm run tokens     # render design/tokens.json into src/index.css (tokens:check verifies)
@@ -362,7 +362,7 @@ Tauri 2 (Rust) + React 19 + Vite + Tailwind v4 + [shadcn/ui](https://ui.shadcn.c
 Icon). Windows-specific parts (focus restore via `SetForegroundWindow`, paste
 via `SendInput`) are isolated in `src-tauri/src/platform.rs`; a macOS port
 needs that file reimplemented (CGEventPost + Accessibility permission), plus
-the Explorer call in `commands.rs`.
+the Explorer call in `commands.rs` and the two `hwnd()` calls in `paste.rs`.
 
 ## Support
 
