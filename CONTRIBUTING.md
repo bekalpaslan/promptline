@@ -11,8 +11,8 @@ request run the seven checks — `npx tsc -b --noEmit`, `npm run lint`,
 `npm test`, `npm run test:e2e` (`npx playwright install chromium` once),
 `npm run test:rust`, `cargo fmt --manifest-path src-tauri/Cargo.toml --check`
 and `cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings`
-— and keep them green; CI runs the same set plus the frontend build and
-clippy without default features on every push and pull request. Pure logic goes
+— and keep them green; CI runs the same set plus the frontend build
+on every push and pull request. Pure logic goes
 in `ui/core.js` with a `node --test` case, not in a component. The
 repository's index uses LF line endings while Windows working copies are
 mixed, so run `unix2dos` on the files you touch, and only those, before
