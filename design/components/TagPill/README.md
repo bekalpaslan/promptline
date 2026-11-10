@@ -1,4 +1,4 @@
-A #tag as a 16px chip: the tag's hue as text on a faint tint of itself (in Instrument 12% in light, 16% in dark, no edge; Indigo rests at 10% with a 35% edge), `radius-1`, 11px text at normal weight. In the editor it is the 20px size, 12px text.
+A #tag as a 16px chip: the tag's hue as text on a faint tint of itself (in Instrument 12% in light, 16% in dark, no edge; Indigo rests at 10% with a 35% edge, Clay at 10% with a 25% edge), `radius-1`, 11px text at normal weight. In the editor it is the 20px size, 12px text.
 
 The eight hues come from the app's core module (`tagColor`), keyed by tag name, tuned for dark surfaces and darkened 40% as text in the light theme. Tags are labels first: a resting chip is only tinted. When the tag is a filter term in the query it renders `active`, with a deeper 26% tint and a solid edge — the edge is the state, so in Instrument a resting chip never has one.
 

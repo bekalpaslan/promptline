@@ -1,4 +1,4 @@
-A keyboard key as the popup draws it: 16px tall, `mono` at 11px, a `line` edge, `radius-1`, `ink-3` text on `surface-0`.
+A keyboard key as the popup draws it: 16px tall, `mono` at 11px, a `line` edge, `radius-1`, `ink-2` text on `surface-0`.
 
 Every key the UI names is a `Kbd`, never plain text like "Ctrl+Enter": hint bars, Ctrl+digit slots on rows, and the digits in the Tab action panel. Keys sit in a hint as key then label, with a 4px gap, and hints wrap between themselves rather than splitting a key from its label.
 
