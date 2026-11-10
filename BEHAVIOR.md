@@ -1991,7 +1991,19 @@ registers the hotkey `config.json` still records, else Ctrl+Shift+V
 holds after a failed folder move (`migrate_data_dir` returns false): the
 new folder is empty and would look fresh, but the library and its hotkey
 are still in the old one, and a `config.json` written now would stop the
-next launch's move from carrying the old one over.
+next launch's move from carrying the old one over. Skipping startup's own
+save is not enough, since the first settings change or the popup's size
+would write the file a moment later, so the launch is marked
+(`AppState::config_frozen`) and `save_config` refuses for the rest of it:
+a settings change answers "settings can't be saved this launch… Restart
+Promptline to try again" in its toast, `set_hotkey` refuses before it
+registers anything, the saves nobody asked for (the popup's size, the
+first summon, pack backing) are skipped quietly, and `get_config` reports
+the hotkey that is bound, not the default the file lacks. After a failed
+move with `snippets.json` still in the old folder the library is marked
+too (`library_frozen`): `write_snippets` refuses, because a library
+written here is the file the next launch's move would find and skip,
+stranding the real one. A paste still pastes; its use count is not kept.
 
 The manager holds the hotkey as unknown until `get_config` answers, and
 loads the config apart from the library, so a library that fails to load

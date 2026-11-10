@@ -24,8 +24,8 @@ mod update;
 
 use commands::{resolve_hotkey, warn_hotkey_layout};
 use migrations::{
-    enable_autostart_once, is_fresh_install, migrate_data_dir, migrate_v1_data, session_hotkey,
-    settle_default_hotkey,
+    enable_autostart_once, is_fresh_install, library_left_behind, migrate_data_dir,
+    migrate_v1_data, session_hotkey, settle_default_hotkey,
 };
 use packs::ensure_packs_backed;
 use paste::{is_resize_drag, note_hotkey_released, on_hotkey, persist_popup_size};
@@ -58,6 +58,18 @@ pub(crate) struct AppState {
     // once at startup: `show_popup` used to parse config.json on every
     // hotkey press to find out.
     pub(crate) popup_seen: AtomicBool,
+    // Set at startup when config.json must be left alone for this launch:
+    // the old default hotkey couldn't be pinned into it, or the folder
+    // move failed and the real one is still in the old folder. Every
+    // `save_config` is refused while it is set (`store::config_frozen`),
+    // not only startup's own: a later save would write the new default
+    // hotkey over the install's, or create the file that stops the next
+    // launch's move from carrying the old one over.
+    pub(crate) config_frozen: AtomicBool,
+    // Set at startup when the folder move failed and snippets.json is
+    // still in the old folder: a library written here would be the file
+    // the next launch's move skips, stranding the real one.
+    pub(crate) library_frozen: AtomicBool,
     // Set while Windows is ending the session: the manager's `quit_now`
     // then only reports its flush done (`flushed`) and Windows does the
     // exiting. Tray Quit clears it, so a late answer can't strand a Quit.
@@ -416,8 +428,15 @@ pub fn run() {
             } else {
                 // An existing install whose old hotkey couldn't be pinned:
                 // its first save would write the new default over it, so
-                // this launch saves nothing here. Next launch tries again.
-                log::warn!("startup left config.json and pack backing for the next launch");
+                // this launch saves nothing here, at startup or after it.
+                // Next launch tries again.
+                log::warn!("config.json is left alone this launch; settings can't be saved until a restart");
+                let state = handle.state::<AppState>();
+                state.config_frozen.store(true, Ordering::Relaxed);
+                if !data_moved && library_left_behind(handle) {
+                    log::warn!("the library is still in the old folder; nothing is saved here this launch");
+                    state.library_frozen.store(true, Ordering::Relaxed);
+                }
             }
             if first_launch {
                 enable_autostart_once(handle);

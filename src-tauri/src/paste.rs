@@ -12,7 +12,9 @@ use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, State};
 
 use crate::commands::notify_manager_snippets_changed;
 use crate::platform::{ClipboardMarks, InputBlock};
-use crate::store::{load_config_from_disk, load_snippets_from_disk, save_config, write_snippets};
+use crate::store::{
+    config_frozen, load_config_from_disk, load_snippets_from_disk, save_config, write_snippets,
+};
 use crate::{platform, AppState};
 
 // Starting a border-resize drag steals focus from the webview, which would
@@ -47,6 +49,11 @@ pub(crate) fn persist_popup_size(app: &AppHandle) {
         return;
     };
     let logical = size.to_logical::<f64>(scale);
+    // Every hide comes through here; a launch that can't save says so once
+    // at startup, not once per hide
+    if config_frozen(app) {
+        return;
+    }
     let Ok(mut config) = load_config_from_disk(app) else {
         return;
     };
@@ -542,7 +549,9 @@ pub(crate) fn show_popup(app: &AppHandle) {
     // is not parsed on every hotkey press to find out
     if !state.popup_seen.swap(true, Ordering::Relaxed) {
         let _guard = state.store.lock().unwrap();
-        if let Ok(mut config) = load_config_from_disk(app) {
+        if config_frozen(app) {
+            // Recorded on a launch that can save
+        } else if let Ok(mut config) = load_config_from_disk(app) {
             config.popup_seen = true;
             if let Err(e) = save_config(app, &config) {
                 log::warn!("couldn't record the first popup: {e}");
