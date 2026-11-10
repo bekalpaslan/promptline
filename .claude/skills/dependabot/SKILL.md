@@ -95,8 +95,8 @@ comment when it decides the outcome.
 - **Nothing paid, nothing phoning home.** A dependency that adds a
   network call, telemetry, a paid tier or a license other than MIT,
   Apache-2.0, BSD, ISC, Zlib or MPL-2.0 is refused and the maintainer
-  told; `THIRD-PARTY-NOTICES.md` is regenerated when a notice-bearing
-  crate or package changes (the release skill lists the command).
+  told; `THIRD-PARTY-NOTICES.md` gets its entry by hand when a notice-bearing
+  crate or package changes (the release skill asks for it before the bump).
 - **Every outcome leaves a reason where the next reader looks:** the
   PR comment on a close, the dismissal comment on an alert, the commit
   body on a fix. Nothing is closed or dismissed silently.
@@ -119,8 +119,7 @@ conclusion, what moved and whether any move is a major or a Tauri
 half-step) and the open alerts (number, severity, ecosystem, package,
 range, first patched version, and `reachable: yes/no` from `cargo tree`
 against the Windows target or the npm tree). It changes nothing and
-needs `gh` logged in and a built `src-tauri/target/` (cargo tree only
-reads the lock).
+needs `gh` logged in and no build (cargo tree only reads the lock).
 
 Then, in this order: alerts that are reachable and fixable in range
 (they are the only urgent thing), the grouped PRs, the unreachable
