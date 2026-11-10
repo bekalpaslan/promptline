@@ -183,7 +183,7 @@ export function ParamsPanel({
                 </Chip>
               </span>
               <input
-                value={configValues[name] || ""}
+                value={C.configValue(configValues, name)}
                 spellCheck={false}
                 placeholder="(unset — will ask as a fill-in field)"
                 aria-label={`Value for {{${name}}}`}

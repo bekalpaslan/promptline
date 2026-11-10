@@ -108,11 +108,19 @@
     return names;
   }
 
+  // A config param's saved value, '' when unset. An own property only: a
+  // param may be named `constructor` or `__proto__`, and a plain lookup
+  // would answer those from Object.prototype (a function, an object) for
+  // a prompt that never set them.
+  function configValue(configValues, name) {
+    const v = configValues && Object.prototype.hasOwnProperty.call(configValues, name) ? configValues[name] : '';
+    return typeof v === 'string' ? v : '';
+  }
+
   // Expand config params from saved values; UNSET params survive as {{name}}
   // so callers can downgrade them to fill-in fields instead of pasting holes.
   function expandConfig(text, configValues) {
-    const values = configValues || {};
-    return text.replace(/\{\{([a-z_][a-z0-9_]*)\}\}/g, (match, name) => (values[name] ? values[name] : match));
+    return text.replace(/\{\{([a-z_][a-z0-9_]*)\}\}/g, (match, name) => configValue(configValues, name) || match);
   }
 
   // Unset config params become runtime fields for this paste.
@@ -450,7 +458,8 @@
 
   function tagColor(name) {
     const key = (name || '').toLowerCase();
-    if (TAG_COLORS[key]) return TAG_COLORS[key];
+    // Own keys only: a tag named `constructor` is not one of the eight
+    if (Object.prototype.hasOwnProperty.call(TAG_COLORS, key)) return TAG_COLORS[key];
     const palette = Object.values(TAG_COLORS);
     let h = 0;
     for (const c of key) h = (h * 31 + c.charCodeAt(0)) >>> 0;
@@ -1252,6 +1261,7 @@
     dropNumberedCopies,
     removeParamToken,
     configNames,
+    configValue,
     expandConfig,
     downgradeUnsetConfig,
     requiredInputs,

@@ -417,7 +417,7 @@ export function PromptTokens({
         if (part.type === "bad") {
           label = `${part.name} — not a field`
         } else if (part.type === "config") {
-          const v = (configValues?.[part.name] || "").replace(/\s+/g, " ")
+          const v = C.configValue(configValues, part.name).replace(/\s+/g, " ")
           label = v ? (v.length > 40 ? v.slice(0, 40) + "…" : v) : `${part.name} — config (unset)`
         } else if (part.type === "builtin") {
           label = part.name

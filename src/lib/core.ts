@@ -168,6 +168,7 @@ interface PromptlineCore {
   configNames: (text: string) => string[]
   expandConfig: (text: string, values?: Record<string, string>) => string
   downgradeUnsetConfig: (text: string) => string
+  configValue: (configValues: Record<string, string> | null | undefined, name: string) => string
   requiredInputs: (snippet: Pick<Snippet, "text" | "configValues">) => string[]
   /** Substitute runtime {field} values literally (safe for `$` patterns) */
   fillFields: (text: string, values?: Record<string, string>) => string
