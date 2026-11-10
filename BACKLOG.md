@@ -74,8 +74,7 @@ domain renewal, with P2's Raycast fix alongside.
   - **Now:** signing doesn't skip SmartScreen on day one; the warning
     shows the publisher's name until reputation builds. What signing
     buys at once is Smart App Control, which blocks the unsigned
-    installer with no "Run anyway" and which nothing in the repo
-    mentions.
+    installer with no "Run anyway".
   - ~~**The dates, the fallback and the rewrite list**~~ closed 2026-11-05:
     the certificate came 13 days after the order, so neither a chase nor
     a fallback was needed, and the copy names the publisher, the
@@ -93,7 +92,7 @@ domain renewal, with P2's Raycast fix alongside.
   say new installs make the update check from sign-in on; Manager window
   residency, which this moved up, shipped with it. **Left:** a note in the
   snapshot table where the kept series breaks.
-- ~~**Generate and live pack files**~~ (P5) done 2026-11-05: nothing
+- ~~**Generate and live pack files**~~ (P5) done 2026-11-05, shipped 0.2.29: nothing
   writes a live pack's file. Every agent run gets a scratch file under
   `packs/generated/`, a copy for an existing pack, and the review opens only
   when the file differs from its first read (`agentFileReady`). The notice on
@@ -205,7 +204,7 @@ domain renewal, with P2's Raycast fix alongside.
   diagnostic parse errors distinguishing empty / not-JSON / malformed-likely-
   terminal-corruption / wrong-shape).
 - ~~**Export pack/library to file**~~ — **shipped 0.2.15** (`export_pack_file`;
-  a pack's menu and Settings → Your library).
+  a pack's menu and Settings → Backup and import).
 - **Community packs as repo files** (shelved 2026-09-28, before any
   work). The first step toward the library below, without the in-app
   fetch: contributed packs in `packs/community/` with `author` and
@@ -237,7 +236,7 @@ domain renewal, with P2's Raycast fix alongside.
   plus `description` and `author`, which `parsePacks` already ignores),
   contributed by PR, published CC0 to `promptline.cc/library/` by
   `pages.yml` with an `index.json`. In the app, a dialog like Generate's
-  (New → Browse library, and a button under Settings → Your library) lists
+  (New → Browse library, and a button under Settings → Packs) lists
   the packs; Add runs the import checklist. Rust fetches the index and one
   pack only when the dialog opens, only from `https://promptline.cc/library/`
   (slug `[a-z0-9-]+`, timeout, size cap), so the CSP stays IPC-only. A pack
@@ -283,13 +282,13 @@ domain renewal, with P2's Raycast fix alongside.
   move: the popup's key handler still derives its own mode (it asks
   about the clipboard panel before the form, `popupMode` the other way
   round; they differ in one render); `formEmpty` and `emptyCount` count
-  the same thing; four inline `r.left, r.bottom + 4` could call
+  the same thing; five inline `r.left, r.bottom + 4` could call
   `atButton`; `marked()` in the sidebar and `HighlightedTitle` both mark
   hits; `paramName` restates `isValidParam`'s rule.
 
 ## Search
 
-- ~~**Word-wise fuzzy matching**~~ — **shipped 2026-10-31**: each word of
+- ~~**Word-wise fuzzy matching**~~ — **shipped 0.2.27**: each word of
   a query matches on its own in a title or tag list, in any order, scored
   by its worst word (+500 out of the typed order); single words and whole
   phrases rank as before (BEHAVIOR.md, the search passage). The old
@@ -302,7 +301,7 @@ domain renewal, with P2's Raycast fix alongside.
 
 - ~~**Popup groups in the manager's order**~~ — **shipped 0.2.15**
   (`C.groupOrder`).
-- ~~**Pack colour, as a setting**~~ — **shipped 2026-10-31**: six named
+- ~~**Pack colour, as a setting**~~ — **shipped 0.2.27**: six named
   theme-token colours from the pack menu's Colour submenu, an 8 px dot at
   the right of the header in both trees, `color` on `PackMeta` in
   `config.json` (absent while unset, never exported). Colour-free by
@@ -313,7 +312,7 @@ domain renewal, with P2's Raycast fix alongside.
   (`platform::on_session_end`, BEHAVIOR.md "Launching and quitting").
 - ~~**"Saving… / Saved" caption in the editor**~~ — **shipped 0.2.9**
   (release audit M9).
-- ~~**Type-checked lint**~~ — **shipped 2026-10-31**: `recommendedTypeChecked`
+- ~~**Type-checked lint**~~ — **shipped 0.2.27**: `recommendedTypeChecked`
   on `src/**` (it had grown to 40 findings in five rule classes), cleared
   in four commits with no behaviour change and no inline disable;
   `only-throw-error` is off for `dev-mock.ts` alone, which rejects with
@@ -346,7 +345,7 @@ domain renewal, with P2's Raycast fix alongside.
 
 ## Popup
 
-- ~~**Hotkey toggles the popup closed**~~ — **shipped 2026-10-31**: a
+- ~~**Hotkey toggles the popup closed**~~ — **shipped 0.2.27**: a
   second tap while the popup is in front hides it through the Esc path
   (Keep open ends); a held key only re-focuses, since the hotkey plugin
   registers with no-repeat and reports the key's release
@@ -366,7 +365,7 @@ domain renewal, with P2's Raycast fix alongside.
   carrying a url is $0.20 per request (2026-09), so a thread is a few
   times that; check the pricing page before building it.
 
-- **Code signing** — unsigned installers trip Windows SmartScreen.
+- ~~**Code signing**~~ — **shipped 0.2.28**: unsigned installers tripped Windows SmartScreen.
   Decided 2026-10-23: a Certum Open Source Code Signing certificate in
   the cloud (SimplySign), issued to the maintainer, signing the local
   release build through `bundle.windows.certificateThumbprint`; CI and
@@ -387,7 +386,7 @@ domain renewal, with P2's Raycast fix alongside.
   the toast is the retention instrument (a copy that updates is a copy
   still in use), and visual-only releases have not recurred as a burst
   since 2026-10-03, when three toasts in a day went to every copy.
-- ~~**Stable-named installer**~~ — **shipped 2026-09-24**: each release
+- ~~**Stable-named installer**~~ — **shipped 0.2.12**: each release
   carries a `Promptline-setup.exe` copy, and the website links to it
   instead of asking the GitHub API from the visitor's browser.
 - ~~**security@promptline.cc**~~ — **shipped 0.2.17**: GoDaddy forwards
@@ -395,7 +394,7 @@ domain renewal, with P2's Raycast fix alongside.
   address.
 - **macOS port** — reimplement the `platform` module (CGEventPost +
   Accessibility permission). Everything else is meant to be portable, but
-  the non-Windows build has not compiled since f7e3813 (2026-09-22):
+  the non-Windows build has not compiled since 2026-09-22:
   `show_popup` in `src-tauri/src/paste.rs` calls `w.hwnd().ok()` ungated,
   and `on_hotkey` calls `w.hwnd()` too since 2026-10-31, while Tauri's
   `hwnd` is `#[cfg(windows)]`; gate them with the rest when the port starts.

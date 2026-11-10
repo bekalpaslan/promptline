@@ -1238,8 +1238,8 @@ appear among the pack's rows (`packTree`). So Move up/down on a group
 swaps the group past its neighbour with `C.moveGroup`, which lays the
 pack's prompts back into the slots they held (ungrouped run first, then
 the groups in their new order; every other pack and every row inside a
-group stays put), and saves it, switching the list to Custom as a prompt
-drag does, or Most used would put the old order straight back. The popup
+group stays put), and saves it, switching the list to Custom as a prompt's
+Move up/down does, or Most used would put the old order straight back. The popup
 follows it: it ranks prompts by use, so it can't take the order from its
 rows, and instead places each group where it first appears in the library
 array (`C.groupOrder`), which is the manager's Custom order, the order a
@@ -1521,7 +1521,7 @@ webview never calls it, so it has no capability.
 **Every write goes through `write_atomic`**: the bytes land in a sibling
 `.tmp` file that is flushed to disk (`sync_all`) and then renamed over the
 target, so a crash or power loss mid-write leaves the previous file whole
-instead of a truncated one. The rename is retried five times over about
+instead of a truncated one. The rename is tried five times over about
 300 ms when Windows answers "access denied" or a sharing violation: a sync
 client, an indexer or a scanner holds a just-changed file for tens of
 milliseconds, and an autosave that hit that window used to show "Couldn't
@@ -1532,7 +1532,7 @@ save" and throw the keystrokes away. A write that still fails removes its
 distinguishes three cases. Missing means a first run and yields the Starter
 pack: `packs/starter.json` compiled in with `include_str!`, so the seed and
 the repo file can't drift (only Starter is seeded; Everyday and Session Flow
-stay files in `packs/` for Settings → Import). Unparseable means the file is
+stay files in `packs/` for Settings → Backup and import → Import…). Unparseable means the file is
 renamed to `<name>.corrupt-<timestamp>`, a `Notice` is raised, and the
 library starts *empty* — starting with the starters instead would look like
 a reset rather than a loss, and the first
@@ -2153,10 +2153,14 @@ Confined to `platform.rs`: `foreground_window`, `focus_window`,
 `input_block`, `send_ctrl_v`, `send_enter`, `left_button_down`, `open_url`,
 the foreground hook Keep open follows (`track_foreground`,
 `last_foreign_window`), the clipboard's privacy marks (`clipboard_marks`,
-`clipboard_sequence`), the session-end subclass (`on_session_end`), and the
-AUMID and toast (`claim_app_id`, `show_toast`). Everything else is portable.
+`clipboard_sequence`), the session-end subclass (`on_session_end`), the
+AltGr layout probe (`altgr_char_for`), the Startup-page read
+(`startup_entry_off`), and the AUMID and toast (`claim_app_id`,
+`show_toast`). Everything else is meant to be portable; what isn't yet
+is the Explorer call in `commands.rs` and two ungated `hwnd()` calls in
+`paste.rs`.
 A macOS port reimplements that file (CGEventPost, plus the Accessibility
-permission) and nothing else.
+permission) and those three calls.
 
 The rest of the crate is split by concern, each file with its own tests:
 `store.rs` (the data files: atomic writes, typed loads and quarantine, the
@@ -2216,10 +2220,10 @@ command the UI calls but the mock ignores hides a whole flow from the
 browser walk, and one Rust never registered fails at runtime.
 `tests/interface.test.js` checks that `ui/core.js`'s exports equal
 `PromptlineCore` in `src/lib/core.ts`; `tests/tokens.test.js` covers the
-token pipeline; the rest pin the README, the site and the release and clip
-scripts.
+token pipeline; the rest pin the README, the site, the release, clip and snapshot
+scripts and the Generate dialog's instruction.
 
-`npm run test:rust` is around 75 tests, each beside the module it covers
+`npm run test:rust` is around 100 tests, each beside the module it covers
 (`store.rs`, `packs.rs`, `commands.rs`, `paste.rs`, `migrations.rs`,
 `update.rs`, `platform.rs`, with
 the scratch folder and sample snippet they share in `lib.rs`), covering the

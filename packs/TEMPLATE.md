@@ -79,5 +79,5 @@ has two paths:
   documentation, housekeeping).
   Give a topic to narrow the pack to one area instead.
 
-Duplicate title+text pairs are skipped on import, so re-importing an updated
-pack only adds what's new.
+Duplicate title+text pairs start unticked in the import checklist, so
+re-importing an updated pack only adds what's new.
