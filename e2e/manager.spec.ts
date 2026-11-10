@@ -464,6 +464,32 @@ test("a group moves within its pack from its menu", async ({ page }) => {
   expect((await calls(page, "save_snippets")).length).toBe(saves + 1)
 })
 
+test("Move up from a menu opened before the library changed keeps that change", async ({ page }) => {
+  // The menu's items are built when it opens and it stays open across a
+  // reload; Move up used to save the array of the render that opened it
+  await promptRow(page, "Just the command").click({ button: "right" })
+  await expect(page.getByRole("menuitem", { name: "Move up" })).toBeVisible()
+
+  // The popup pastes, or another window saves an edit: the library on
+  // disk moves on and the manager reloads it
+  const loads = (await calls(page, "get_snippets")).length
+  const edited = await page.evaluate(() => {
+    const lib = (window as unknown as { __mock: { library: { snippets: { id: string; text: string }[]; revision: number } } }).__mock.library
+    const last = lib.snippets[lib.snippets.length - 1]
+    last.text = "edited elsewhere"
+    lib.revision++
+    return last.id
+  })
+  await emit(page, "snippets-changed", 0)
+  await expect.poll(async () => (await calls(page, "get_snippets")).length).toBeGreaterThan(loads)
+
+  const saves = (await calls(page, "save_snippets")).length
+  await page.getByRole("menuitem", { name: "Move up" }).click()
+  await expect.poll(async () => (await calls(page, "save_snippets")).length).toBe(saves + 1)
+  const saved = (await calls(page, "save_snippets")).at(-1)!.args!.snippets as { id: string; text: string }[]
+  expect(saved.find((s) => s.id === edited)?.text).toBe("edited elsewhere")
+})
+
 test("a pack title opens its overview, a group heading opens the group, Escape goes up", async ({ page }) => {
   await tree(page).getByRole("treeitem", { name: "Mock Groups, 4 prompts" }).click()
   const overview = page.getByRole("region", { name: "Mock Groups" })
