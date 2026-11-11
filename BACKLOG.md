@@ -8,16 +8,34 @@ The sequence from here to the first public step, set on 2026-10-29 (the
 fresh-eyes review's decisions). Each line moves down or out as it lands;
 the strategy behind it is in the local `docs/MARKETING.md`.
 
+Decided 2026-11-11: the gesture (copy a thing, press the hotkey, and what
+you meant to say about it lands with the thing inside) is the rule for
+what gets built and which fields are approached. A feature ranks high
+when it lands the gesture in more windows, makes it fail less, or gets a
+library under it sooner; a field qualifies when its people make that
+gesture many times a day, on Windows, into a window that takes a paste.
+
 1. ~~**The Certum certificate**~~ issued 2026-11-05, valid to 2027-11-05:
    renew before then (CLAUDE.md → Releasing has the custody).
 2. ~~**Signing copy**~~ done 2026-11-05 on `feat/certum-signing`, written
    as "from 0.2.28", so it merges just before that release.
 3. ~~**The first signed release**~~ 0.2.28, shipped 2026-11-05. The TLS
    patch and the AltGr notice this line used to wait for shipped in 0.2.26.
-4. **The Windows-only round**: r/ClaudeAI, r/ChatGPTCoding, the Claude Code
+4. **Repo-linked pack file** (promoted 2026-11-11 from Import / export
+   below, where the design and its hazards are). A pack linked to a file
+   in the user's repository, `<repo>\.promptline\<pack>.json`, so a
+   team's prompts are committed beside `CLAUDE.md` and everyone who clones
+   the repo sees them. **Why now:** nothing a user does with Promptline is
+   visible to anyone else, and this is the one item that changes that, so
+   it overturns "reputation before features" (2026-09-28) for this item
+   alone. **Decision:** before or after the round. Pick: before, since
+   each community hears the round once and the people it brings should be
+   able to pass the tool on; the round then waits for the release that
+   carries this.
+5. **The Windows-only round**: r/ClaudeAI, r/ChatGPTCoding, the Claude Code
    Discord, each with the GIF and honest about "Windows for now". Show HN
    waits for the port.
-5. **Later, undated: the macOS port** on its own branch (it takes the Tauri
+6. **Later, undated: the macOS port** on its own branch (it takes the Tauri
    2.12 / wry 0.57 / tao 0.37 jump and the `@tauri-apps` 2.12 packages
    together; the ungated `hwnd()` calls in `paste.rs`'s `on_hotkey` and
    `show_popup` are the first things that do not compile), then
@@ -70,7 +88,7 @@ domain renewal, with P2's Raycast fix alongside.
     personal tap for now.
   - **Size:** hours.
 - **The signing gate: dates, and what signing buys** (P3). This feeds
-  items 1, 2 and 4 under Next.
+  items 1, 2 and 5 under Next.
   - **Now:** signing doesn't skip SmartScreen on day one; the warning
     shows the publisher's name until reputation builds. What signing
     buys at once is Smart App Control, which blocks the unsigned
@@ -216,7 +234,8 @@ domain renewal, with P2's Raycast fix alongside.
   people ask to share packs. Prompt injection through a pack's text (an
   honest-looking instruction, not only hidden characters) needs its own
   design pass when it comes back.
-- **Linked pack file** (recorded 2026-10-29; the local half of shape C in
+- **Linked pack file** (recorded 2026-10-29; promoted 2026-11-11 to
+  item 4 under Next; the local half of shape C in
   `docs/MARKETING.md`'s shelved community-packs plan). A pack linked to a
   file the user chose on disk, say `<repo>\.promptline\<pack>.json`,
   through a Rust-side `rfd` picker; the path stored on `PackMeta.path`
@@ -229,8 +248,19 @@ domain renewal, with P2's Raycast fix alongside.
   half-written edit; a self-write guard and a debounce are needed), and
   `retire_pack_file` must never move a file out of a user's repo into
   `packs/deleted/`. The guard would also cover edits to a pack's file in
-  `packs/`, which today the next save overwrites. **Why deferred:** 0 issues and one 0-comment
-  Discussion on 2026-10-29; reputation before features (2026-09-28).
+  `packs/`, which today the next save overwrites. **Added with the
+  promotion:** the file already carries title, tags and text only
+  (`sync_pack_files`), so committing one shares no uses, pins, config
+  values or Auto enter. A teammate links the same file through the same
+  picker, since the app can't know where a repo is. Git rewrites the
+  file on its own (a pull, a branch switch, a rebase in steps, a merge
+  that leaves conflict markers), so a change is a quiet mark on the pack
+  that opens the checklist when clicked, not a dialog that opens by
+  itself, and a file that stops being JSON says so without touching the
+  library. A repo that moved or was deleted leaves the pack in the
+  library with its file marked missing. **Why it was deferred:** 0
+  issues and one 0-comment Discussion on 2026-10-29; reputation before
+  features (2026-09-28).
 - **Community pack library** (parked 2026-09-24 over safety and legal
   concerns). Packs as `library/<slug>.json` in the repo (the pack format
   plus `description` and `author`, which `parsePacks` already ignores),
