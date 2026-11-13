@@ -1175,10 +1175,10 @@
   }
 
   // The palette (Settings calls it Theme; the light/dark choice above is
-  // Mode). "indigo" and "clay" are the alternatives; anything else, including
+  // Mode). "indigo", "clay" and "lagoon" are the alternatives; anything else, including
   // a config written before the field existed, is the default, "instrument".
   function resolvePalette(pref) {
-    return ['indigo', 'clay'].includes(pref) ? pref : 'instrument';
+    return ['indigo', 'clay', 'lagoon'].includes(pref) ? pref : 'instrument';
   }
 
   function normalizeTag(raw) {
