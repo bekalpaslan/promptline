@@ -382,6 +382,111 @@
     --module-border: var(--border);
 }
 
+
+/* Moss: a theme (Settings → Appearance → Theme; BEHAVIOR.md → Theming).
+   Values come from design/moss.tokens.json through the same script. */
+:root[data-theme="moss"] {
+    /* @tokens moss light: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #fbfcf7;
+    --sidebar: #f1f4ea;
+    --segment-track: #f1f4ea;
+    --secondary: #eaeee1;
+    --muted: #eaeee1;
+    --card: #ffffff;
+    --popover: #ffffff;
+    --segment-active: #ffffff;
+    --band: #e2e8d6;
+    --hover: #e9eee0;
+    --accent: #dcebc9;
+    --foreground: #1b2418;
+    --card-foreground: #1b2418;
+    --popover-foreground: #1b2418;
+    --secondary-foreground: #1b2418;
+    --accent-foreground: #1b2418;
+    --muted-foreground: #4f5d49;
+    --border: #e1e6d6;
+    --input: #c5cdb6;
+    --link: #3f7a1e;
+    --ring: #4a8a25;
+    --focus: #4a8a25;
+    --primary: #35691a;
+    --primary-foreground: #ffffff;
+    --destructive: #b3321f;
+    --warn: #96560a;
+    --heading: #4f5d49;
+    --heading-strong: #1b2418;
+    --success: #1f7a4a;
+    --code-ground: #fbfcf7;
+    --param-builtin: #0e6c7c;
+    --param-builtin-bg: #e0f2f5;
+    --param-field: #7f5a05;
+    --param-field-bg: #f7efd6;
+    --param-config: #9a2a8c;
+    --param-config-bg: #f9e6f5;
+    --panel-head: #ffffff;
+    --panel-body: #eaeee1;
+    --panel-edge: #e1e6d6;
+    --shadow-shell: 0 8px 24px rgba(27, 36, 24, 0.16);
+    --shadow-pop: 0 4px 12px rgba(27, 36, 24, 0.10);
+    --shadow-segment: 0 1px 2px rgba(27, 36, 24, 0.10);
+    --shadow-card: 0 1px 2px rgba(27, 36, 24, 0.06), 0 4px 12px rgba(27, 36, 24, 0.07);
+    --chip-tint: 12%;
+    --chip-edge: 0%;
+    --radius: 6px;
+    --search-radius: 6px;
+    /* @tokens end */
+}
+
+:root[data-theme="moss"].dark {
+    /* @tokens moss dark: generated from design/tokens.json by `npm run tokens`; edit the JSON, not these lines */
+    --background: #121712;
+    --sidebar: #0e120e;
+    --segment-track: #0e120e;
+    --secondary: #1f271f;
+    --muted: #1f271f;
+    --card: #182018;
+    --popover: #182018;
+    --segment-active: #263026;
+    --band: #212a21;
+    --hover: #192119;
+    --accent: #233724;
+    --foreground: #e4eadf;
+    --card-foreground: #e4eadf;
+    --popover-foreground: #e4eadf;
+    --secondary-foreground: #e4eadf;
+    --accent-foreground: #e4eadf;
+    --muted-foreground: #a3b09f;
+    --border: #252e25;
+    --input: #364236;
+    --link: #9bd46a;
+    --ring: #9bd46a;
+    --focus: #9bd46a;
+    --primary: #9bd46a;
+    --primary-foreground: #121712;
+    --destructive: #ff8a75;
+    --warn: #e8b04e;
+    --heading: #a3b09f;
+    --heading-strong: #e4eadf;
+    --success: #7fd6a0;
+    --code-ground: #0c100c;
+    --param-builtin: #7cc8d8;
+    --param-builtin-bg: #15292e;
+    --param-field: #e6c55a;
+    --param-field-bg: #33290f;
+    --param-config: #ea8fdc;
+    --param-config-bg: #3b1e37;
+    --panel-head: #182018;
+    --panel-body: #1f271f;
+    --panel-edge: #252e25;
+    --shadow-shell: 0 8px 24px rgba(0, 0, 0, 0.6);
+    --shadow-pop: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-segment: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.35), 0 4px 12px rgba(0, 0, 0, 0.35);
+    --chip-tint: 14%;
+    --chip-edge: 0%;
+    /* @tokens end */
+}
+
 /* Indigo's one structural difference the tokens can't carry: the sidebar's
    New is the filled accent button (the file's "+ New chat"), where Instrument
    keeps it a dashed outline and the accent as text only. */
