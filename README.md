@@ -288,7 +288,7 @@ built-in or a field name the rest of your library already uses.
 - **Settings** (⚙, at the sidebar's foot): record a hotkey by pressing it,
   then **Apply** it; autostart (a login launch stays in the tray; the
   manager opens from the tray icon); theme (Instrument, the default,
-  Indigo or Clay, each with a light and a dark side); mode (System / Light / Dark,
+  Indigo, Clay or Phosphor, each with a light and a dark side); mode (System / Light / Dark,
   System follows Windows); popup density; UI font (system / Outfit / Inter /
   serif / mono); UI scale (90–125%); **Packs** — each pack and its file,
   with rows to copy its path, show it in Explorer, import from it, export
