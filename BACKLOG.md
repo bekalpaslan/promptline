@@ -34,7 +34,9 @@ gesture many times a day, on Windows, into a window that takes a paste.
    carries this.
 5. **The Windows-only round**: r/ClaudeAI, r/ChatGPTCoding, the Claude Code
    Discord, each with the GIF and honest about "Windows for now". Show HN
-   waits for the port.
+   waits for the port. Begun 2026-11-13 with r/ChatGPTCoding, ahead of
+   item 4; r/ClaudeAI and the Discord still wait for the release that
+   carries the linked pack file.
 6. **Later, undated: the macOS port** on its own branch (it takes the Tauri
    2.12 / wry 0.57 / tao 0.37 jump and the `@tauri-apps` 2.12 packages
    together; the ungated `hwnd()` calls in `paste.rs`'s `on_hotkey` and
