@@ -2090,7 +2090,7 @@ accent and the primary button's fill, 8 px controls; its light side is
 derived on ivory, since the reference was dark only. Clay keeps the
 clipboard chip blue, the reference's one other colour, so the three
 placeholder kinds stay apart from the accent.
-Graphite (2026-11, picked by vote on its pull request) has no hue of its
+Graphite (2026-11, chosen from five candidates put to a vote) has no hue of its
 own: greys, with pure white or black as the accent. Colour is left only
 where it means something (danger, warning, success, the placeholder kinds, a
 tag's hue), and with `chip-tint` at 0% tags are outlines with no fill.
