@@ -291,8 +291,12 @@ live feed, so it waits for that.
   the release itself and point `--notes` at that:
   `gh release view vX.Y.Z --json body --jq .body > notes-X.Y.Z.md`.
 - **The architecture map** needs a refresh when windows, commands, events
-  or storage changed since its `meta.repository.revision` (a config
-  field counts): `git diff --stat $(node -p
+  or storage changed since its `meta.repository.revision`, which means a
+  box or edge would change: a window, command, event, file, folder or
+  config field added or removed. A new guard or a fix inside an existing
+  write doesn't count (0.2.31's frozen-config save didn't), nor do moved
+  line numbers alone, since the SRC links read the pinned revision.
+  `git diff --stat $(node -p
   "require('./docs/architecture/promptline.architecture.json').meta.repository.revision")..HEAD
   -- src-tauri/src src` shows what moved, and a test-only diff needs
   none. `node .claude/skills/release/scripts/remap-map.cjs
@@ -305,37 +309,48 @@ live feed, so it waits for that.
   for letter: `C:/users/…` for `C:/Users/…` fails as `root-not-top-level`.
   The verdict on the viewports is `containment.status` in
   `promptline.architecture.visual-check.json`, beside the HTML.
-- **The snapshot row.** `node scripts/snapshot.mjs` (with `--donations
-  <n>` when the maintainer gives the number) prints one row of the
-  MARKETING doc's Snapshot table. Put it in the report under a heading
-  "Snapshot row for the MARKETING doc"; the maintainer pastes it into the
-  local doc, and no number lands in the repo. The row's download cell is
-  split by asset: the stable `Promptline-setup.exe` (the site's button,
-  so it reads as site downloads), the versioned exe, the msi and, from
-  0.2.28, kept, with the latest release's age in days. Kept is the two
-  `-update` copies only the feed links, so it is the retention reading;
-  `--releases` prints it against the site downloads of every release
-  before it. The versioned count includes about seven per-release
-  machinery fetches (komac's hash, Scoop's checkver, winget validation on
-  each push, the maintainer's own copy), and the updater no longer adds
-  to it from 0.2.28, so what stays above the floor is first installs
-  through Scoop and winget. Re-estimate the floor from the first report
-  after a release stayed latest five days or more: komac and a
-  digest-reading checkver changed what it holds, and 0.2.28 stayed 0.1
-  days. When the release before this one stayed under five days, say in
-  the report that its kept can't be read. 0.2.28's kept reads 2 high
-  (the lesson below).
+- **The snapshot row.** `node scripts/snapshot.mjs` prints one row of the
+  MARKETING doc's Snapshot table; no number lands in the repo.
+  - **Paste it yourself.** The last cell is donations, `?` until the
+    maintainer gives the number, so ask for it in the report. On the
+    answer, rerun with `--donations <n>` and add the row under the last
+    row of the Snapshot table in `docs/MARKETING.md` (local only, in
+    `.git/info/exclude`, so nothing commits); the maintainer asked for
+    that on 0.2.31. Until then the row sits in the report under
+    "Snapshot row for the MARKETING doc".
+  - **The download cell** is split by asset: the stable
+    `Promptline-setup.exe` (the site's button, so site downloads), the
+    versioned exe, the msi and, from 0.2.28, kept, with the latest
+    release's age in days. Kept is the two `-update` copies only the
+    feed links, so it is the retention reading; `--releases` prints it
+    against the site downloads of every release before it. When the
+    release before this one stayed latest under five days, say in the
+    report that its kept can't be read.
+  - **Versioned is not people.** It holds the per-release machinery
+    (komac's hash, Scoop's checkver, winget validation on each push, the
+    maintainer's own copy) and every Scoop and winget install and
+    upgrade, which fetch the versioned exe too. 0.2.31 had 22 within
+    five hours, before any post, so no fixed floor separates first
+    installs out; don't call any part of it first installs. In the
+    report, put the previous release's final row from `--releases`
+    beside this one, so the maintainer reads the whole run.
 - **Report**, in this order: release URL; a table of the five assets
   with sizes; a table of every workflow run the pushes and the tag
   triggered with its outcome; downstream state (Scoop commit, winget PR
-  number and what happened to it, map republished); the snapshot row
-  under its heading; the X command for the user; anything left in flight
-  or skipped and why.
+  number and what happened to it, map republished or why not); the
+  snapshot row under its heading with the donations question; the X
+  command for the user; anything left in flight or skipped and why.
 - Delete the merged `theme/<id>` branch (local and origin), the session's
   merged work branch, and the release worktree, if any.
 
 ## What past releases taught
 
+- 0.2.31: the report left donations as `?` and the row for the
+  maintainer to paste; they gave the number and said "you paste it",
+  hence the snapshot bullets. The floor re-estimate it then asked for sat
+  mid-paragraph and went unread, and 22 versioned fetches in five hours
+  showed the "about seven" floor didn't hold. The map test read "storage
+  changed" broadly enough that a new save guard looked like one.
 - 0.2.29: the handover named a worktree and the build still ran in the
   checkout, where only `.gitignore`, `CLAUDE.md` and a skill were dirty, so
   the binary matched the commit and the worktree had been wasted. Hence
