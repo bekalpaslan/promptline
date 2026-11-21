@@ -602,7 +602,9 @@ works whatever is typed. The button shows the keys that work right now:
 summon, and none while the form, the create view or the action panel has
 the keyboard (a click still undoes). The strip used to name both keys in a
 sentence with nothing to click, and went on naming U after a query had
-taken it.
+taken it. A restore whose write fails keeps the offer, so Ctrl+Z can try
+again, unless another delete has taken its place; it used to be cleared
+before the write, and a failed restore left the prompt nowhere.
 
 **A result says why it is one.** A title match is underlined in the title.
 A row the search found by its body shows, on its second line, the body
@@ -1805,7 +1807,10 @@ first (`pendingFlush`, the same one `quit-requested` uses) — the updater
 plugin ends the process once the install starts, so anything still only
 debounced would otherwise be lost — then calls `install_update`; both
 buttons read disabled and "Installing…" until it either restarts the app
-or fails, when it says why and re-enables them. **Later** calls
+or fails, when it says why and re-enables them. A failed download or
+signature check puts the update back in the state (unless a check meanwhile
+found a newer one), so Install works again and About keeps its button; the
+retry used to answer "No update is waiting". **Later** calls
 `dismiss_update(version)` (silencing just that version, D-07) and closes,
 same as Escape or a click on the overlay. `App.tsx` opens the dialog only
 when the state holds a found version, whatever event arrives.
@@ -2105,7 +2110,8 @@ New button: Instrument keeps it a dashed outline, because the accent is
 text only there, Indigo fills it, because the file leads with a filled
 primary, and Clay draws it as a plain row with the hover grey under the
 pointer, as the reference draws its own New; a `data-theme` rule per
-theme in `index.css` does that, not a token. A
+theme in `index.css` does that, not a token. Graphite has no rule and
+keeps Instrument's dashed outline. A
 theme never chooses the font: Inter ships beside Outfit under Font, and
 picking Indigo leaves the font where it was.
 
